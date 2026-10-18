@@ -277,6 +277,9 @@ def run_once() -> int:
         except json.JSONDecodeError:
             print("Ignoring invalid JSON request:", item["name"])
             continue
+        if not isinstance(request, dict):
+            print("Ignoring request whose JSON root is not an object:", item["name"])
+            continue
         req_id = request.get("id")
         if not valid_request_id(req_id) or req_id in seen:
             continue
