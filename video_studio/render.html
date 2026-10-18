@@ -8,6 +8,12 @@
  const canvas=document.getElementById("frame"),ctx=canvas.getContext("2d",{alpha:false});
  const p={bg:"#0b0b0f",fg:"#f4f2ec",accent:"#c8ff3d",muted:"#a7a7b3",grid:"#24242c"};
  function wrap(text,maxWidth,font){ctx.font=font;const lines=[];let line="";for(const word of String(text||"").split(/\s+/)){const c=line?line+" "+word:word;if(ctx.measureText(c).width>maxWidth&&line){lines.push(line);line=word}else line=c}if(line)lines.push(line);return lines}
+ function getCaptionPage(text,maxWidth,font,progress){
+  const all=wrap(text,maxWidth,font),perPage=2,pages=Math.max(1,Math.ceil(all.length/perPage));
+  const index=Math.min(pages-1,Math.floor(Math.max(0,Math.min(.999999,progress))*pages));
+  return {allLines:all,totalPages:pages,pageIndex:index,lines:all.slice(index*perPage,index*perPage+perPage)};
+ }
+ window.captionPageForTest=function(text,maxWidth,font,progress){return getCaptionPage(text,maxWidth,font,progress);};
  window.measureWrappedLines=function(text,maxWidth,font){return wrap(text,maxWidth,font).length;};
  function drawSceneGraphic(scene,progress,frame){
   const w=canvas.width,h=canvas.height,portrait=h>w,left=w*.078,contentW=w*.844;
@@ -109,7 +115,7 @@
   const subFont="400 "+Math.max(20,w*.023)+"px Arial",sub=wrap(scene.subhead||"",textW,subFont);
   ctx.font=subFont;ctx.fillStyle=p.muted;sub.slice(0,3).forEach((line,i)=>ctx.fillText(line,left,subY+i*Math.max(27,w*.032)));
   drawSceneGraphic(scene,progress,globalFrame);ctx.fillStyle="#30303a";ctx.fillRect(left,barY,barW,3);ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);
-   const caption=String(scene.caption||scene.narration||"").trim(),captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px Arial",captionLines=caption?wrap(caption,contentW-32,captionFont).slice(0,2):[],captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
+   const caption=String(scene.caption||scene.narration||"").trim(),captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px Arial",captionInfo=getCaptionPage(caption,contentW-32,captionFont,progress),captionLines=captionInfo.lines,captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
    if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.94;ctx.fillStyle="#111119";ctx.fillRect(left,boxY,contentW,boxHeight);ctx.globalAlpha=1;ctx.strokeStyle="#454552";ctx.lineWidth=1;ctx.strokeRect(left,boxY,contentW,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;captionLines.forEach((line,i)=>ctx.fillText(line,left+16,boxY+10+captionSize+i*captionLineHeight));}
    if(String(scene.visual_type||"hero")==="hero"||scene.show_orbit===true){
     ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;
