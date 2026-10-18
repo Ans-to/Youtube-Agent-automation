@@ -7,7 +7,8 @@
 (() => {
  const canvas=document.getElementById("frame"),ctx=canvas.getContext("2d",{alpha:false});
  const p={bg:"#0b0b0f",fg:"#f4f2ec",accent:"#c8ff3d",muted:"#a7a7b3",grid:"#24242c"};
- function wrap(text,maxWidth,font){ctx.font=font;const lines=[];let line="";for(const word of String(text||"").split(/\\s+/)){const c=line?line+" "+word:word;if(ctx.measureText(c).width>maxWidth&&line){lines.push(line);line=word}else line=c}if(line)lines.push(line);return lines}
+ function wrap(text,maxWidth,font){ctx.font=font;const lines=[];let line="";for(const word of String(text||"").split(/\s+/)){const c=line?line+" "+word:word;if(ctx.measureText(c).width>maxWidth&&line){lines.push(line);line=word}else line=c}if(line)lines.push(line);return lines}
+ window.measureWrappedLines=function(text,maxWidth,font){return wrap(text,maxWidth,font).length;};
  function drawSceneGraphic(scene,progress,frame){
   const w=canvas.width,h=canvas.height,portrait=h>w,left=w*.078,contentW=w*.844;
   const type=String(scene.visual_type||"hero").toLowerCase();
