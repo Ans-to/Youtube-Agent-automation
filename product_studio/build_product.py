@@ -55,6 +55,14 @@ def local_html(idea, title, cfg):
         raise ValueError("Local model did not return a complete HTML document.")
     return text
 
+def scan_risks(source):
+    lower=source.lower()
+    risks=[]
+    patterns=[(r"<script\s+[^>]*src=","external script tag"),(r"<link\s+[^>]*href=[\"']https?://","remote stylesheet/resource"),(r"\bfetch\s*\(","network fetch call"),(r"\bxmlhttprequest\b","XMLHttpRequest"),(r"\beval\s*\(","eval call"),(r"new\s+function\s*\(","Function constructor"),(r"https?://","external URL reference")]
+    for pattern,label in patterns:
+        if re.search(pattern,lower):risks.append(label)
+    return risks
+
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument("--idea",required=True);p.add_argument("--title",default="Offline Utility Prototype");p.add_argument("--out",default="workspace/products");a=p.parse_args()
     idea=a.idea.strip();title=a.title.strip()
@@ -65,10 +73,7 @@ def main():
     except (FileNotFoundError,json.JSONDecodeError):cfg={}
     generated=local_html(idea,title,cfg)
     source=generated or fallback_html(title,idea)
-    lower=source.lower()
-    risks=[]
-    for pattern,label in [(r"<script\s+[^>]*src=","external script tag"),(r"<link\s+[^>]*href=[\"']https?://","remote stylesheet/resource"),(r"\bfetch\s*\(","network fetch call"),(r"\bxmlhttprequest\b","XMLHttpRequest"),(r"\beval\s*\(","eval call"),(r"new\s+function\s*\(","Function constructor"),(r"https?://","external URL reference")]:
-        if re.search(pattern,lower):risks.append(label)
+    risks=scan_risks(source)
     out=(ROOT/a.out/slugify(title)).resolve();out.mkdir(parents=True,exist_ok=True)
     (out/"index.html").write_text(source,encoding="utf-8")
     (out/"README.md").write_text("# "+title+"\n\n## Product idea\n"+idea+"\n\n## Status\nPrototype generated locally. Review functionality, accessibility, security, and licensing before selling.\n\n## Validation notes\n"+("- Potential external/network patterns found: "+", ".join(risks) if risks else "Basic static scan found no configured external-network patterns; this is not a security audit.")+"\n",encoding="utf-8")
