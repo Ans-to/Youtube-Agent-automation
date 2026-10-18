@@ -53,6 +53,57 @@ class PracticeLoopTests(unittest.TestCase):
             self.assertTrue(saved["human_reviewed"])
             self.assertIn("Improve diagram hierarchy", saved["improvement_notes"])
 
+    def test_model_output_requires_human_review_before_feedback_is_reused(self):
+        practice.WORKSPACE.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
+            root = Path(directory)
+            with patch.object(practice.dispatch, "run_role", return_value="# Test draft\nA model-generated mock artifact."):
+                attempt_dir, report = practice.create_attempt(
+                    "AGENT-51",
+                    task="Create a motion art-direction brief.",
+                    config={"model": {"enabled": True}},
+                    run_root=root / "runs",
+                )
+            self.assertEqual(report["status"], "pending_human_assessment")
+            self.assertEqual(report["mode"], "local_model")
+            scores = {
+                item["gate"]: {"score": 2, "evidence": "Observed requirement met in draft"}
+                for item in report["quality_gates"]
+            }
+            saved = practice.record_human_assessment(
+                attempt_dir / "assessment.json",
+                scores,
+                "Keep this reviewed lesson.",
+                root / "feedback",
+            )
+            self.assertEqual(saved["status"], "human_reviewed_pass")
+            self.assertTrue(saved["model_output_reviewed"])
+            with patch.object(dispatch, "FEEDBACK_DIR", root / "feedback"):
+                lessons = dispatch.load_human_lessons("AGENT-51")
+            self.assertEqual(len(lessons), 1)
+            self.assertEqual(lessons[0]["improvement_notes"], "Keep this reviewed lesson.")
+
+    def test_template_review_feedback_is_not_reused_as_model_learning(self):
+        practice.WORKSPACE.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
+            root = Path(directory)
+            attempt_dir, report = practice.create_attempt(
+                "AGENT-52",
+                task="Create a compositing practice checklist.",
+                config={"model": {"enabled": False}},
+                run_root=root / "runs",
+            )
+            scores = {
+                item["gate"]: {"score": 2, "evidence": "Observed checklist matches the rubric"}
+                for item in report["quality_gates"]
+            }
+            saved = practice.record_human_assessment(
+                attempt_dir / "assessment.json", scores, "Template feedback only.", root / "feedback"
+            )
+            self.assertEqual(saved["status"], "template_reviewed_only")
+            with patch.object(dispatch, "FEEDBACK_DIR", root / "feedback"):
+                self.assertEqual(dispatch.load_human_lessons("AGENT-52"), [])
+
     def test_feedback_loader_uses_only_human_reviewed_lessons(self):
         with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
             feedback = Path(directory) / "AGENT-51.jsonl"
