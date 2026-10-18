@@ -83,5 +83,5 @@ def main():
     with zipfile.ZipFile(archive,"w",zipfile.ZIP_DEFLATED) as z:
         for path in out.iterdir():
             if path.is_file():z.write(path,arcname=out.name+"/"+path.name)
-    print("Product draft:",out);print("ZIP package:",archive);print("Review required:",bool(risks) or True)
+    print("Product draft:",out);print("ZIP package:",archive);print("Human review required before selling.")
 if __name__=="__main__":main()
