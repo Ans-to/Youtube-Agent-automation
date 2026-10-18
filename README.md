@@ -145,7 +145,7 @@ GitHub Actions runs these checks on pushes and pull requests to `main`.
 
 ## Video studio (new starter module)
 
-The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, and waveform compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
+The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, waveform, kinetic-typography, and animated bar-chart compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
 
 Create a script/storyboard draft from a topic with `python video_studio/production.py --topic "Your topic"`. This uses a configured loopback local model if enabled; otherwise it writes a clearly marked 20-second template demo. Optional --research collects public search-result leads without an API key, but does not independently verify claims. The script never uploads or publishes automatically. Add --render after installing Node.js, Puppeteer, and FFmpeg to produce an MP4.
 
