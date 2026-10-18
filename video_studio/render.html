@@ -12,6 +12,7 @@
  function drawSceneGraphic(scene,progress,frame){
   const w=canvas.width,h=canvas.height,portrait=h>w,left=w*.078,contentW=w*.844;
   const type=String(scene.visual_type||"hero").toLowerCase();
+  const gx=portrait?left:w*.665,gy=portrait?(type==="bar-chart"?h*.63:h*.68):h*.36,gw=portrait?contentW:w*.255,gh=portrait?(type==="bar-chart"?h*.14:h*.08):h*.315;
   const gx=portrait?left:w*.665,gy=portrait?h*.68:h*.36,gw=portrait?contentW:w*.255,gh=portrait?h*.08:h*.315;
   const accent=p.accent,fg=p.fg,muted=p.muted,panel="#15151d",line="#454552";
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
@@ -64,6 +65,16 @@
     ctx.font="italic "+Math.max(13,Math.min(19,gw*.05))+"px Arial";ctx.fillStyle=fg;
     quoteLines.forEach((line,i)=>ctx.fillText(line,gx+14,gy+gh*.57+i*Math.max(16,gh*.09)));
     if(scene.quote_source)label(scene.quote_source,gx+gw*.53,gy+gh*.91,Math.max(10,Math.min(13,gw*.036)),muted,"400");
+  }else if(type==="bar-chart"){
+    rounded(gx,gy,gw,gh,14,panel,line);
+    const values=Array.isArray(scene.chart_values)?scene.chart_values.slice(0,6):[4,7,5,9],labels=Array.isArray(scene.chart_labels)?scene.chart_labels.slice(0,6):["A","B","C","D"],maxValue=Math.max(1,...values.map(v=>Number(v)||0));
+    const plotLeft=gx+gw*.08,plotRight=gx+gw*.94,baseY=gy+gh*.78,plotHeight=gh*.52,slot=(plotRight-plotLeft)/Math.max(1,values.length),bw=slot*.52;
+    ctx.strokeStyle=line;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(plotLeft,baseY);ctx.lineTo(plotRight,baseY);ctx.stroke();
+    values.forEach((value,i)=>{const numeric=Math.max(0,Number(value)||0),targetHeight=plotHeight*numeric/maxValue,bh=targetHeight*progress,x=plotLeft+i*slot+(slot-bw)/2,y=baseY-bh;ctx.fillStyle=i===values.indexOf(maxValue)?accent:"#8c78c8";ctx.globalAlpha=.55+.45*progress;ctx.fillRect(x,y,bw,bh);ctx.globalAlpha=1;label(String(value),x+bw/2,Math.max(gy+18,y-7),Math.max(9,Math.min(13,gw*.032)),fg,"600");label(labels[i]||"",x+bw/2,baseY+Math.max(13,gh*.07),Math.max(9,Math.min(13,gw*.032)),muted,"400")});
+  }else if(type==="kinetic-type"){
+    rounded(gx,gy,gw,gh,14,panel,line);
+    const words=String(scene.headline||"MAKE IT MOVE").split(/\s+/).slice(0,4),gap=gw*.035,cell=(gw-gap*(words.length+1))/Math.max(1,words.length);
+    words.forEach((word,i)=>{const t=clamp((progress*words.length-i)*1.5,0,1),x=gx+gap+i*(cell+gap),hh=gh*.60*t,y=gy+gh*.70-hh;ctx.globalAlpha=.35+.65*t;rounded(x,y,cell,hh,7,i%2===0?accent:"#48415f",line);label(word,x+cell*.5,Math.max(gy+18,y+hh*.62),Math.max(9,Math.min(14,cell*.14)),i%2===0? "#0b0b0f":fg,"700");ctx.globalAlpha=1});
   }else if(type==="waveform"){
     rounded(gx,gy,gw,gh,14,panel,line);
     const count=portrait?32:24,barGap=gw/(count*1.7),barWidth=Math.max(2,barGap*.68),mid=gy+gh*.52;
@@ -89,7 +100,12 @@
   ctx.font="700 "+Math.max(15,w*.013)+"px Arial";ctx.fillStyle=p.muted;ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
   const headFont="700 "+fontSize+"px Arial",lines=wrap(scene.headline||"Every frame is code.",textW,headFont);
   ctx.font=headFont;ctx.fillStyle=p.fg;const lineHeight=fontSize*1.18;
-  lines.slice(0,3).forEach((line,i)=>{ctx.globalAlpha=Math.min(1,Math.max(0,progress*5-i*.25));ctx.fillText(line,left,headlineY+i*lineHeight)});
+   if(String(scene.visual_type||"hero").toLowerCase()==="kinetic-type"){
+    let wordIndex=0;lines.slice(0,3).forEach((line,lineIndex)=>{let x=left;for(const word of line.split(/\s+/)){const delay=wordIndex*2,entry=Math.max(0,Math.min(1,(localFrame-delay)/6)),y=headlineY+lineIndex*lineHeight+(1-entry)*Math.min(18,fontSize*.16);ctx.globalAlpha=entry;ctx.fillText(word,x,y);x+=ctx.measureText(word+" ").width;wordIndex++}});ctx.globalAlpha=1;
+   }else{
+    lines.slice(0,3).forEach((line,i)=>{ctx.globalAlpha=Math.min(1,Math.max(0,progress*5-i*.25));ctx.fillText(line,left,headlineY+i*lineHeight)});
+    ctx.globalAlpha=1;
+   }
   ctx.globalAlpha=1;
   const subFont="400 "+Math.max(20,w*.023)+"px Arial",sub=wrap(scene.subhead||"",textW,subFont);
   ctx.font=subFont;ctx.fillStyle=p.muted;sub.slice(0,3).forEach((line,i)=>ctx.fillText(line,left,subY+i*Math.max(27,w*.032)));
