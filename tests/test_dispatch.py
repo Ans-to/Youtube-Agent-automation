@@ -13,6 +13,14 @@ class AgentDispatcherTests(unittest.TestCase):
         self.assertIsNotNone(role)
         self.assertEqual(role["name"], "Script Architect")
 
+    def test_motion_roles_receive_implemented_visual_system_reference(self):
+        for agent_id in ("AGENT-51", "AGENT-52"):
+            with self.subTest(agent_id=agent_id):
+                role = dispatch.find_role(agent_id)
+                output = dispatch.run_role(role, "Design a practice output", "", {"model": {"enabled": False}})
+                self.assertIn("IMPLEMENTED MOTION DESIGN SYSTEM", output)
+                self.assertIn("transition_in", output)
+
     def test_finds_skillbook_for_each_new_motion_role(self):
         for agent_id in ("AGENT-51", "AGENT-52"):
             with self.subTest(agent_id=agent_id):
