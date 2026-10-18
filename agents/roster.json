@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "notice": "These are configured specialist role definitions for one local orchestrator, not 50 concurrently running autonomous models.",
+  "notice": "52 configured role profiles: 51 specialist roles plus AGENT-50, a human approval gate. The specialists share one configured model; profiles and playbooks guide each run but do not fine-tune model weights.",
   "agents": [
     {
       "id": "AGENT-01",
@@ -351,6 +351,20 @@
       "department": "Governance",
       "mission": "Hold publication, external communication, payments, and deletion for explicit approval.",
       "approval_required": true
+    },
+    {
+      "id": "AGENT-51",
+      "name": "Motion Graphics Creative Director",
+      "department": "Motion Graphics",
+      "mission": "Lead premium visual art direction for scripts and storyboards: design a coherent visual thesis, shot rhythm, typography hierarchy, color system, transitions, and distinct story-serving scenes that feel like a coordinated professional editorial team rather than a slideshow.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-52",
+      "name": "Motion Systems & Compositing Specialist",
+      "department": "Motion Systems",
+      "mission": "Design implementable kinetic typography, procedural diagrams, parallax, shape animation, masks and reveals, layered compositing, sound-beat timing, and reusable Canvas2D motion systems; optimize smoothness, readability, deterministic rendering, and CPU/storage limits.",
+      "approval_required": false
     }
   ]
 }
