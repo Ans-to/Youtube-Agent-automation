@@ -35,7 +35,7 @@ From the repository root, run:
 
 With no enabled local model, this creates a clearly marked 20-second template, not a researched script. Rendering that demo requires the explicit `--render-template` flag. If a compatible OpenAI-style local inference server is enabled in config.json, the builder creates a structured outline and then generates each scene in a separate local-model request to support 15-minute long-form scripts. It checks scene count and minimum narration length before packaging. The model output is still a draft and does not independently verify factual claims.
 
-The renderer displays scene-level captions from each scene narration; they are not word-level time-synchronized subtitles. Narration defaults to Urdu with English technical terms when a local model is enabled. Use --format shorts for a 1080×1920 vertical storyboard or --format long for 1920×1080 landscape. To render the generated storyboard, add --render. Review script.md, storyboard.json, and video.mp4 manually.
+Scene narration captions are paginated into readable two-line cards over the scene duration. They are scene-level captions, not word-level forced alignment to speech. Narration defaults to Urdu with English technical terms when a local model is enabled. Use --format shorts for a 1080×1920 vertical storyboard or --format long for 1920×1080 landscape. To render the generated storyboard, add --render. Review script.md, storyboard.json, and video.mp4 manually.
 
 
 
@@ -67,7 +67,7 @@ Public uploads require the additional --confirm-public flag. The uploader verifi
 ## Customize
 Copy storyboard.example.json and change title, canvas size, fps, scenes, durations, headline, subhead, and narration. Width must be 320–3840, height 180–2160, fps 1–60, and each scene duration must be positive and no more than 600 seconds.
 
-The renderer writes frames under `video_studio/frames/` and a render manifest beside the renderer. PNG frames are deleted after a successful MP4 render to conserve storage; pass `--keep-frames` to retain them. It sizes the Canvas2D drawing buffer to the requested storyboard dimensions, including 1080×1920 Shorts. Rendering is capped at 1000 seconds and 30000 frames to limit storage use. `ffprobe` is required and validates H.264, duration, exact dimensions, frame rate, and requested audio presence.
+The renderer writes frames under `video_studio/frames/` and a render manifest beside the renderer. It validates field-specific array sizes to prevent silent truncation (4 diagram nodes, 4 timeline events, 3 comparison bullets per side, 6 code lines, and 2–6 chart values/labels). PNG frames are deleted after a successful MP4 render to conserve storage; pass `--keep-frames` to retain them. It sizes the Canvas2D drawing buffer to the requested storyboard dimensions, including 1080×1920 Shorts. Rendering is capped at 1000 seconds and 30000 frames to limit storage use. `ffprobe` is required and validates H.264, duration, exact dimensions, frame rate, and requested audio presence.
 
 ## Current limits
 This is a starter renderer, not a professional editor or anime rig system. It currently draws typography, a grid, progress bars, and geometric accents. Advanced character rigs, scene transitions, source-grounded web research, automatically timed captions, and a full long-form research pipeline are not implemented. Uploading is optional and approval-gated; the code cannot promise monetization or income.
