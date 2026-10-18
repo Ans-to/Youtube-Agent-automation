@@ -152,3 +152,6 @@ Create a script/storyboard draft from a topic with `python video_studio/producti
 ## Specialist roster
 
 `agents/roster.json` defines 50 specialist role profiles across research, writing, design, audio, rendering, QA, product development, and governance. These are role definitions for future orchestration, not 50 independent concurrently running AI models. A local language model is needed for generative tasks, and factual research still requires verified sources.
+
+
+The video module also includes a separate optional YouTube uploader. It requires Google OAuth setup, a local approval record tied to the MP4 hash, and explicit upload confirmation; it defaults to private visibility and never publishes automatically without those checks. See video_studio/README.md.
