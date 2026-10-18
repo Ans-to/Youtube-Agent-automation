@@ -224,7 +224,7 @@ def run_practice_batch(roles, task, context, config, output_root, attempt_fn=Non
             error_dir = root / str(role.get("id", "unknown")) / "errors"
             error_dir.mkdir(parents=True, exist_ok=True)
             error_path = error_dir / (datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f") + ".json")
-            error_path.write_text(json.dumps(failed_record, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+            error_path.write_text(json.dumps(failed_record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             failed_record["error_file"] = str(error_path)
             failed.append(failed_record)
             print(role.get("id", "unknown"), role.get("name", "unknown"),
@@ -273,6 +273,7 @@ def main():
                 print("Practice batch summary: " + str(len(completed)) + " completed; " + str(len(failed)) + " failed.")
                 if failed:
                     print("Failed-role error reports are stored inside the training output root.")
+                    raise SystemExit(str(len(failed)) + " specialist practice attempt(s) failed; review their practice-failed JSON records.")
             else:
                 try:
                     out_dir, report = create_attempt(roles[0]["id"], args.task, context, cfg, root)
