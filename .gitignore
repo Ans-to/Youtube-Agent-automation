@@ -1,18 +1,25 @@
+# Python cache
 __pycache__/
 *.py[cod]
+
+# Local backups and patch artifacts
 *.backup*
 *.before-*
 *.broken-patch
+
+# Secrets and local environment
 .env
 .env.*
 !.env.example
 *token*
 *secret*
 *credential*
-logs/
-outputs/
-workspace/
 
-# Local runtime configuration and task queue
+# Local runtime data
+/logs/
+/outputs/
+/workspace/
+
+# Personal runtime configuration and task queue
 /config.json
 /tasks.json
