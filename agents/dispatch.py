@@ -38,10 +38,18 @@ def find_skill(agent_id):
     profiles=load_json(SKILLBOOK,{}).get("profiles",[])
     return next((profile for profile in profiles if profile.get("agent_id")==agent_id),None)
 
+def ensure_executable_role(role):
+    if not isinstance(role, dict):
+        raise ValueError("Invalid specialist role.")
+    if role.get("id") == "AGENT-50":
+        raise ValueError("AGENT-50 is a human approval boundary and cannot be run as an automatic model role.")
+    return role
+
 def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
 
 def run_role(role,task,context,cfg):
+    role=ensure_executable_role(role)
     model=cfg.get("model",{})
     skill=find_skill(role["id"]) or {
       "expertise":role.get("mission",""),
@@ -93,7 +101,10 @@ def main():
     if not task or len(task)>6000:raise SystemExit("Task must be 1–6000 characters.")
     role=find_role(a.agent.upper())
     if not role:raise SystemExit("Unknown agent ID. Use an ID from agents/roster.json.")
-    if role.get("id") == "AGENT-50":raise SystemExit("AGENT-50 is a human approval boundary and cannot be run as an automatic model role.")
+    try:
+        role=ensure_executable_role(role)
+    except ValueError as exc:
+        raise SystemExit(str(exc))
     context=""
     if a.context_file:
         source=Path(a.context_file).expanduser().resolve()
