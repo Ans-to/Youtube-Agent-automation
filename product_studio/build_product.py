@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build a local-first single-file digital-product prototype for human review."""
-import argparse, html, json, re, shutil, urllib.request, zipfile
+import argparse, html, json, re, shutil, urllib.request, urllib.error, urllib.parse, ipaddress, zipfile
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
