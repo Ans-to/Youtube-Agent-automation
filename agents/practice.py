@@ -126,16 +126,25 @@ def record_human_assessment(report_path, scores, improvement_notes="", feedback_
     gates = report.get("quality_gates")
     if not isinstance(gates, list) or not gates:
         raise ValueError("Assessment has no quality gates.")
-    normalized = {}
+    normalized, evidence_by_gate = {}, {}
     for index, item in enumerate(gates):
         name = item.get("gate")
         if not isinstance(name, str) or not name:
             raise ValueError("Quality gate " + str(index) + " has no name.")
-        value = scores.get(name)
-        if isinstance(value, bool) or value not in {0, 1, 2}:
+        entry = scores.get(name)
+        if isinstance(entry, dict):
+            value = entry.get("score")
+            evidence = str(entry.get("evidence", "")).strip()[:1000]
+        else:
+            value, evidence = entry, ""
+        if isinstance(value, bool) or not isinstance(value, int) or value not in {0, 1, 2}:
             raise ValueError("Each quality gate must have a human score: 0 (fail), 1 (partial), or 2 (pass).")
+        if len(evidence) < 4:
+            raise ValueError("Each human score needs concrete evidence or an observed reason (at least 4 characters): " + name)
         normalized[name] = value
+        evidence_by_gate[name] = evidence
         item["score"] = value
+        item["evidence"] = evidence
     notes = str(improvement_notes or "").strip()[:3000]
     total = sum(normalized.values())
     maximum = 2 * len(normalized)
@@ -145,6 +154,7 @@ def record_human_assessment(report_path, scores, improvement_notes="", feedback_
         "human_reviewed": True,
         "human_reviewed_at": utc_stamp(),
         "human_scores": normalized,
+        "human_evidence": evidence_by_gate,
         "score_total": total,
         "score_maximum": maximum,
         "score_percent": round(100 * total / maximum, 1) if maximum else 0,
@@ -163,19 +173,15 @@ def record_human_assessment(report_path, scores, improvement_notes="", feedback_
         out_dir.mkdir(parents=True, exist_ok=True)
         feedback_file = out_dir / (report["agent_id"] + ".jsonl")
         record = {
-            "human_reviewed": True,
-            "agent_id": report["agent_id"],
-            "assessed_at": report["human_reviewed_at"],
-            "scores": normalized,
-            "improvement_notes": notes,
-            "assessment_path": str(path),
+            "human_reviewed": True, "agent_id": report["agent_id"],
+            "assessed_at": report["human_reviewed_at"], "scores": normalized,
+            "improvement_notes": notes, "assessment_path": str(path),
             "score_percent": report["score_percent"],
         }
         with task_queue_lock(feedback_file):
             with feedback_file.open("a", encoding="utf-8") as stream:
                 stream.write(json.dumps(record, ensure_ascii=False) + "\n")
     return report
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -240,9 +246,14 @@ def main():
                 while True:
                     raw = input("\n" + item["gate"] + "\nScore (0/1/2): ").strip()
                     if raw in {"0", "1", "2"}:
-                        scores[item["gate"]] = int(raw)
+                        score_value = int(raw)
                         break
                     print("Enter 0, 1, or 2.")
+                evidence = input("Concrete evidence or observed reason (required): ").strip()
+                while len(evidence) < 4:
+                    print("Please provide a concrete observation, not only a general opinion.")
+                    evidence = input("Evidence/reason: ").strip()
+                scores[item["gate"]] = {"score": score_value, "evidence": evidence}
             notes = input("\nLesson to carry into future runs (optional): ").strip()
             result = record_human_assessment(path, scores, notes)
         except (ValueError, OSError, json.JSONDecodeError, KeyError) as exc:
