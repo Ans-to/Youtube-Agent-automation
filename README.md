@@ -141,3 +141,14 @@ GitHub Actions runs these checks on pushes and pull requests to `main`.
 - `config.json`, `tasks.json`, logs, outputs, and workspace data are local-only and ignored by Git.
 - The bridge publishes only sanitized status metadata; repository collaborators can see those reports.
 - This project is a constrained local task runner, not an unrestricted agent swarm or fully automated YouTube publishing system.
+
+
+## Video studio (new starter module)
+
+The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The first version generates typography and geometric motion graphics; it is not yet a complete professional editor or anime rig system.
+
+Create a script/storyboard draft from a topic with `python video_studio/production.py --topic "Your topic"`. This uses a configured loopback local model if enabled; otherwise it writes a clearly marked template. It does not perform web research or publish content. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4.
+
+## Specialist roster
+
+`agents/roster.json` defines 50 specialist role profiles across research, writing, design, audio, rendering, QA, product development, and governance. These are role definitions for future orchestration, not 50 independent concurrently running AI models. A local language model is needed for generative tasks, and factual research still requires verified sources.
