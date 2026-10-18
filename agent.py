@@ -202,7 +202,7 @@ def process(task, cfg):
 def cycle():
     cfg = load(CONFIG, {})
     tasks = load(TASKS, [])
-    pending = [t for t in tasks if t.get("status", "pending") == "pending"]
+    pending = [t for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"}]
     count = 0
     for task in pending[:int(cfg.get("runner", {}).get("max_tasks_per_cycle", 3))]:
         task["status"] = "running"
