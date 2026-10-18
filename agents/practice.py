@@ -198,6 +198,40 @@ def executable_roles():
             if role.get("id") != "AGENT-50" and not role.get("approval_required")]
 
 
+def run_practice_batch(roles, task, context, config, output_root, attempt_fn=None):
+    attempt_fn = attempt_fn or create_attempt
+    root = Path(output_root).expanduser().resolve()
+    if root == WORKSPACE or WORKSPACE not in root.parents:
+        raise ValueError("Training output root must remain inside workspace.")
+    completed, failed = [], []
+    for role in roles:
+        try:
+            out_dir, report = attempt_fn(role["id"], task, context, config, root)
+            completed.append({"agent_id": role["id"], "role": role["name"],
+                              "output_dir": str(out_dir), "status": report.get("status", "unknown")})
+            print(role["id"], role["name"], "->", out_dir, "[" + str(report.get("status", "unknown")) + "]")
+        except Exception as exc:
+            failed_record = {
+                "created_at": utc_stamp(),
+                "agent_id": role.get("id", "unknown"),
+                "role": role.get("name", "unknown"),
+                "status": "practice_failed",
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:500],
+                "model_weight_training_performed": False,
+                "human_review_required": True,
+            }
+            error_dir = root / str(role.get("id", "unknown")) / "errors"
+            error_dir.mkdir(parents=True, exist_ok=True)
+            error_path = error_dir / (datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f") + ".json")
+            error_path.write_text(json.dumps(failed_record, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+            failed_record["error_file"] = str(error_path)
+            failed.append(failed_record)
+            print(role.get("id", "unknown"), role.get("name", "unknown"),
+                  "-> PRACTICE FAILED:", type(exc).__name__, str(exc)[:200])
+    return completed, failed
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -234,12 +268,17 @@ def main():
             root = root.resolve() if root.is_absolute() else (ROOT / root).resolve()
             if root == WORKSPACE or WORKSPACE not in root.parents:
                 raise ValueError("Training output root must remain inside workspace.")
-            for role in roles:
-                out_dir, report = create_attempt(
-                    role["id"], args.task, context, cfg,
-                    root,
-                )
-                print(role["id"], role["name"], "->", out_dir, "[" + report["status"] + "]")
+            if args.all:
+                completed, failed = run_practice_batch(roles, args.task, context, cfg, root)
+                print("Practice batch summary: " + str(len(completed)) + " completed; " + str(len(failed)) + " failed.")
+                if failed:
+                    print("Failed-role error reports are stored inside the training output root.")
+            else:
+                try:
+                    out_dir, report = create_attempt(roles[0]["id"], args.task, context, cfg, root)
+                    print(roles[0]["id"], roles[0]["name"], "->", out_dir, "[" + report["status"] + "]")
+                except Exception as exc:
+                    raise SystemExit("Practice failed (" + type(exc).__name__ + "): " + str(exc)[:500])
             print("Human scoring is required. Use: python agents/practice.py assess --report <assessment.json>")
             if not cfg.get("model", {}).get("enabled"):
                 print("The local model is disabled: outputs are template-only and do not train or assess capability.")
