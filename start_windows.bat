@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableDelayedExpansion
 cd /d "%~dp0"
 title Offline Agent HQ
 
@@ -15,7 +15,7 @@ if not exist "config.json" (
 )
 
 where py >nul 2>nul
-if %errorlevel%==0 (
+if !errorlevel!==0 (
   py -3 -c "import sys; assert sys.version_info >= (3,10), 'Python 3.10+ required'" >nul 2>nul
   if %errorlevel%==0 (
     py -3 dashboard.py
