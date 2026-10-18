@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: "20"
       - name: Compile Python modules
-        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py video_studio/studio.py video_studio/production.py video_studio/validate_render.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py video_studio/studio.py video_studio/production.py video_studio/validate_render.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
       - name: Validate storyboard JSON
