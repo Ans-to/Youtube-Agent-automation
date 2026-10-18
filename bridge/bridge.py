@@ -91,7 +91,7 @@ def public_result(response: dict) -> dict:
         "id": response.get("id"),
         "action": action,
         "completed_at": response.get("completed_at"),
-        "result": {"ok": bool(result.get("ok", True))},
+        "result": {"ok": bool(result.get("ok", result.get("project_exists", True)))},
     }
     if action == "self_test":
         public["result"]["syntax_checked"] = [
@@ -101,8 +101,8 @@ def public_result(response: dict) -> dict:
     elif action == "run_task":
         public["result"]["task_id"] = result.get("task_id")
         public["result"]["returncode"] = result.get("returncode")
-        public["result"]["status"] = (
-            "completed" if result.get("ok") else "failed_or_refused"
+        public["result"]["status"] = result.get(
+            "status", "completed" if result.get("ok") else "failed_or_refused"
         )
     elif action == "status":
         public["result"]["status"] = "status_check_completed"
@@ -113,9 +113,9 @@ def publish_result(response: dict, token: str) -> tuple[bool, str]:
     """Publish only sanitized metadata. A result path is write-once to avoid overwrites."""
     req_id = response["id"]
     path = f"bridge/results/{req_id}.json"
-    if get_file(path, token) is not None:
-        return False, "A result file with this ID already exists; refusing to overwrite it."
     try:
+        if get_file(path, token) is not None:
+            return False, "A result file with this ID already exists; refusing to overwrite it."
         api_put_json(
             path,
             public_result(response),
@@ -219,9 +219,22 @@ def run_one_queued_task(task_id: str) -> dict:
         )
     except subprocess.TimeoutExpired:
         return {"ok": False, "reason": "Task runner timed out; inspect local logs before retrying"}
+    final_status = "unknown"
+    try:
+        updated_tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
+        updated = [
+            t for t in updated_tasks
+            if isinstance(t, dict) and str(t.get("id", "")) == task_id
+        ]
+        if len(updated) == 1:
+            final_status = str(updated[0].get("status", "unknown"))
+    except (json.JSONDecodeError, OSError):
+        pass
+    success_status = final_status in {"completed", "needs_human_action"}
     return {
-        "ok": proc.returncode == 0,
+        "ok": proc.returncode == 0 and success_status,
         "task_id": task_id,
+        "status": final_status,
         "returncode": proc.returncode,
         "stdout_tail": (proc.stdout or "")[-1500:],
         "stderr_tail": (proc.stderr or "")[-1500:],
