@@ -1,4 +1,8 @@
 import unittest
+import json
+import tempfile
+from pathlib import Path
+from unittest.mock import patch
 
 import agent
 
@@ -23,6 +27,35 @@ class AgentTests(unittest.TestCase):
         self.assertIn("NOT performed or verified", prompt)
 
 
+
+    def test_cycle_processes_only_requested_task_id(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tasks_path = root / "tasks.json"
+            tasks_path.write_text(json.dumps([
+                {"id": "TASK-1", "title": "First", "kind": "plan", "input": "Make a short plan", "status": "pending"},
+                {"id": "TASK-2", "title": "Second", "kind": "plan", "input": "Make another plan", "status": "pending"},
+            ]), encoding="utf-8")
+            with patch.object(agent, "TASKS", tasks_path), patch.object(agent, "CONFIG", root / "config.json"), \
+                 patch.object(agent, "OUTPUTS", root / "outputs"), patch.object(agent, "LOGS", root / "logs"):
+                self.assertEqual(agent.cycle("TASK-2"), 1)
+            tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
+            statuses = {task["id"]: task["status"] for task in tasks}
+            self.assertEqual(statuses, {"TASK-1": "pending", "TASK-2": "completed"})
+
+    def test_cycle_processes_multiple_tasks_when_no_id_is_selected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tasks_path = root / "tasks.json"
+            tasks_path.write_text(json.dumps([
+                {"id": "TASK-1", "title": "First", "kind": "plan", "input": "Make a short plan", "status": "pending"},
+                {"id": "TASK-2", "title": "Second", "kind": "plan", "input": "Make another plan", "status": "queued"},
+            ]), encoding="utf-8")
+            with patch.object(agent, "TASKS", tasks_path), patch.object(agent, "CONFIG", root / "config.json"), \
+                 patch.object(agent, "OUTPUTS", root / "outputs"), patch.object(agent, "LOGS", root / "logs"):
+                self.assertEqual(agent.cycle(), 2)
+            tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
+            self.assertTrue(all(task["status"] == "completed" for task in tasks))
 
     def test_local_model_rejects_non_loopback_and_userinfo_urls(self):
         for url in ("http://example.com:8080/v1/chat/completions",
