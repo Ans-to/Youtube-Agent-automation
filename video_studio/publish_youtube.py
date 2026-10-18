@@ -3,11 +3,39 @@
 import argparse,hashlib,json
 from datetime import datetime,timezone
 from pathlib import Path
+
 def sha256(path):
  h=hashlib.sha256()
  with path.open("rb") as stream:
   for block in iter(lambda:stream.read(1024*1024),b""):h.update(block)
  return h.hexdigest()
+
+def validate_approval(approval, video, requested):
+ if not isinstance(approval,dict) or approval.get("approved") is not True:
+  raise ValueError("Approval record is not approved.")
+ if Path(approval.get("video_file","")).resolve()!=video.resolve():
+  raise ValueError("Approval record references a different video.")
+ if approval.get("video_sha256")!=sha256(video):
+  raise ValueError("Video changed after approval; review and approve it again.")
+ if Path(approval.get("package_dir","")).resolve()!=video.resolve().parent:
+  raise ValueError("Approval record package directory must be the video's parent directory.")
+ approved=approval.get("approved_metadata")
+ if not isinstance(approved,dict):
+  raise ValueError("Approval is missing metadata review; recreate approval with release_gate.py.")
+ if requested!=approved:
+  raise ValueError("Upload metadata differs from the approved record; review and approve the exact metadata again.")
+ title=requested.get("title","")
+ description=requested.get("description","")
+ tags=requested.get("tags",[])
+ if not isinstance(title,str) or not title or len(title)>100:
+  raise ValueError("Title must contain 1–100 characters.")
+ if not isinstance(description,str) or len(description)>5000:
+  raise ValueError("Description must be at most 5000 characters.")
+ if not isinstance(tags,list) or len(tags)>500 or not all(isinstance(tag,str) and len(tag)<=100 for tag in tags):
+  raise ValueError("Tags must be a list of at most 500 strings, each up to 100 characters.")
+ if requested.get("privacy") not in {"private","unlisted","public"} or requested.get("made_for_kids") not in {"yes","no"}:
+  raise ValueError("Approved visibility or made-for-kids setting is invalid.")
+ return approved
 def main():
  p=argparse.ArgumentParser(description=__doc__)
  p.add_argument("--video",required=True);p.add_argument("--approval",required=True)
@@ -21,14 +49,11 @@ def main():
  video=Path(a.video).resolve();approval_path=Path(a.approval).resolve()
  if not video.is_file() or not approval_path.is_file():raise SystemExit("Video or approval record is missing.")
  approval=json.loads(approval_path.read_text(encoding="utf-8"))
- if approval.get("approved") is not True:raise SystemExit("Approval record is not approved.")
- if Path(approval.get("video_file","")).resolve()!=video:raise SystemExit("Approval record references a different video.")
- if approval.get("video_sha256")!=sha256(video):raise SystemExit("Video changed after approval; review and approve it again.")
- approved=approval.get("approved_metadata")
- if not isinstance(approved,dict):raise SystemExit("Approval is missing metadata review; create a new approval with release_gate.py.")
  requested={"title":a.title.strip(),"description":a.description.strip(),"tags":[x.strip() for x in a.tags.split(",") if x.strip()],"privacy":a.privacy,"made_for_kids":a.made_for_kids}
- if requested!=approved:raise SystemExit("Upload metadata differs from the approved record. Re-review and approve the exact title, description, tags, visibility, and made-for-kids setting.")
- if not requested["title"] or len(requested["title"])>100 or len(requested["description"])>5000 or len(requested["tags"])>500 or any(len(tag)>100 for tag in requested["tags"]):raise SystemExit("Upload metadata exceeds YouTube limits.")
+ try:
+  approved=validate_approval(approval,video,requested)
+ except ValueError as exc:
+  raise SystemExit(str(exc))
 
  try:
   from google.auth.transport.requests import Request
@@ -45,7 +70,7 @@ def main():
   credentials=InstalledAppFlow.from_client_secrets_file(str(client),scopes).run_local_server(port=0)
   token.write_text(credentials.to_json(),encoding="utf-8")
  youtube=build("youtube","v3",credentials=credentials)
- body={"snippet":{"title":approved["title"],"description":approved["description"],"tags":approved["tags"],"categoryId":"28"},"status":{"privacyStatus":a.privacy,"selfDeclaredMadeForKids":a.made_for_kids=="yes"}}
+ body={"snippet":{"title":approved["title"],"description":approved["description"],"tags":approved["tags"],"categoryId":"28"},"status":{"privacyStatus":approved["privacy"],"selfDeclaredMadeForKids":approved["made_for_kids"]=="yes"}}
  media=MediaFileUpload(str(video),chunksize=8*1024*1024,resumable=True,mimetype="video/mp4")
  request=youtube.videos().insert(part="snippet,status",body=body,media_body=media);response=None
  while response is None:
