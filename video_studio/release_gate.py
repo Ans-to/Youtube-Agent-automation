@@ -18,5 +18,9 @@ def main():
  if input("Type exactly '"+expected+"' to approve: ").strip()!=expected:raise SystemExit("Approval cancelled.")
  record={"approved":True,"approved_at":datetime.now(timezone.utc).isoformat(),"package_dir":str(root),"video_file":str(video),"video_sha256":sha256(video),"script_reviewed":True,"storyboard_reviewed":True,"publishing_performed":False}
  (root/"release-approval.json").write_text(json.dumps(record,indent=2)+"\n",encoding="utf-8")
+ status_path=root/"package-status.json"
+ if status_path.is_file():
+  status=json.loads(status_path.read_text(encoding="utf-8"));status.update({"status":"approved_for_upload","human_review_required":False,"publishing_performed":False,"approved_at":record["approved_at"]})
+  status_path.write_text(json.dumps(status,indent=2)+"\n",encoding="utf-8")
  print("Approval record written:",root/"release-approval.json")
 if __name__=="__main__":main()
