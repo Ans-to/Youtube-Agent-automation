@@ -200,8 +200,9 @@ def main():
     target_seconds = target_minutes * 60
     default_scenes = max(4, math.ceil(target_minutes * 3))
     scene_count = args.scenes if args.scenes is not None else default_scenes
-    if scene_count < 1 or scene_count > 100 or scene_count > 30000:
-        raise SystemExit("Scene count must be between 1 and 100.")
+    minimum_scenes = max(1, math.ceil(target_minutes * 125 / 100))
+    if scene_count < minimum_scenes or scene_count > 100:
+        raise SystemExit("Scene count must be between " + str(minimum_scenes) + " and 100 for the requested target duration.")
     if target_seconds > 1000 or round(target_seconds * 30) > 30000:
         raise SystemExit("Target duration exceeds the renderer's supported limits.")
     cfg = load_config()
