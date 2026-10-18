@@ -10,10 +10,14 @@ async function main(){
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
  const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform"]);
+ const transitionTypes=new Set(["none","fade","wipe-left","wipe-right"]);
  for(const [index,scene] of s.scenes.entries()){
   if(!scene||typeof scene!=="object"||Array.isArray(scene))throw new Error("Scene "+index+" must be a JSON object.");
   const kind=String(scene.visual_type||"hero").toLowerCase();
   if(!visualTypes.has(kind))throw new Error("Unsupported visual_type in scene "+index+": "+kind);
+  const transition=String(scene.transition_in||"none").toLowerCase();
+  if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
+  if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
   for(const key of ["headline","eyebrow","subhead","narration"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
  }
  const MAX_FRAMES=30000,MAX_SECONDS=1000;
