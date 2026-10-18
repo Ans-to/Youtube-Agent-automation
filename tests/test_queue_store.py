@@ -24,6 +24,13 @@ class QueueStoreTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 load_tasks(path)
 
+    def test_rejects_duplicate_task_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tasks.json"
+            path.write_text(json.dumps([{"id": "TASK-1"}, {"id": "TASK-1"}]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "unique"):
+                load_tasks(path)
+
     def test_rejects_non_object_task_rows(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "tasks.json"
