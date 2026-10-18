@@ -24,6 +24,9 @@ class SkillbookTests(unittest.TestCase):
                 self.assertGreaterEqual(len(profile["failure_modes"]), 2)
                 self.assertTrue(profile["deliverable_contract"])
                 self.assertTrue(profile["practice_drill"])
+                self.assertTrue(all(isinstance(step, str) for step in profile["workflow"]))
+                self.assertTrue(all(isinstance(gate, str) for gate in profile["quality_gates"]))
+                self.assertTrue(all(isinstance(mode, str) for mode in profile["failure_modes"]))
 
     def test_motion_roles_have_distinct_advanced_focus(self):
         director = dispatch.find_skill("AGENT-51")
