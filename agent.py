@@ -11,6 +11,26 @@ WORKSPACE = BASE / "workspace"
 OUTPUTS = BASE / "outputs"
 LOGS = BASE / "logs"
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "Redirects are disabled for local model requests", headers, fp)
+
+def post_local_model(url, body, timeout):
+    parts = urllib.parse.urlsplit(url)
+    try:
+        address = ipaddress.ip_address(parts.hostname or "")
+        port = parts.port
+    except ValueError as exc:
+        raise ValueError("Use a literal loopback IP endpoint such as http://127.0.0.1:8080/v1/chat/completions.") from exc
+    if parts.scheme != "http" or not address.is_loopback or port is None or not 1 <= port <= 65535 or parts.username or parts.password or parts.query or parts.fragment:
+        raise ValueError("Only a plain HTTP endpoint on a literal loopback IP and explicit port is allowed.")
+    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers={"Content-Type":"application/json","Accept":"application/json"}, method="POST")
+    with urllib.request.build_opener(_NoRedirect()).open(req, timeout=max(1,min(int(timeout),300))) as response:
+        data = json.loads(response.read(20*1024*1024+1).decode("utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("Local model response must be a JSON object.")
+    return data
+
 def stamp():
     return datetime.now().astimezone().isoformat(timespec="seconds")
 
