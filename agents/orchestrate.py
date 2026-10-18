@@ -38,8 +38,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
     roles_by_id = {role.get("id"): role for role in roles}
     selected = agent_ids or DEFAULT_PIPELINE
-    if not selected or len(selected) > 12 or len(set(selected)) != len(selected):
-        raise ValueError("Choose 1–12 unique specialist IDs.")
+    if not selected or len(selected) > 49 or len(set(selected)) != len(selected):
+        raise ValueError("Choose 1–49 unique specialist IDs; AGENT-50 is reserved for human approval.")
     if any(agent_id not in roles_by_id for agent_id in selected):
         raise ValueError("Unknown specialist ID in pipeline.")
     if "AGENT-50" in selected:
