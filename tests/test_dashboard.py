@@ -21,7 +21,7 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertTrue(claimed_after_release)
 
     def test_dashboard_exposes_video_product_and_specialist_forms(self):
-        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"'):
+        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"'):
             with self.subTest(action=action):
                 self.assertIn(action, dashboard.HTML_PAGE)
 
