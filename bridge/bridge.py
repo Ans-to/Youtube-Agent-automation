@@ -152,7 +152,17 @@ def project_status() -> dict:
 def run_self_test() -> dict:
     if not PROJECT.is_dir():
         return {"ok": False, "reason": "Project directory not found"}
-    files = [PROJECT / "agent.py", PROJECT / "dashboard.py", PROJECT / "bridge" / "bridge.py",\n             PROJECT / "video_studio" / "studio.py", PROJECT / "video_studio" / "production.py",\n             PROJECT / "video_studio" / "validate_render.py", PROJECT / "video_studio" / "release_gate.py",\n             PROJECT / "video_studio" / "publish_youtube.py", PROJECT / "product_studio" / "build_product.py"]
+    files = [
+        PROJECT / "agent.py",
+        PROJECT / "dashboard.py",
+        PROJECT / "bridge" / "bridge.py",
+        PROJECT / "video_studio" / "studio.py",
+        PROJECT / "video_studio" / "production.py",
+        PROJECT / "video_studio" / "validate_render.py",
+        PROJECT / "video_studio" / "release_gate.py",
+        PROJECT / "video_studio" / "publish_youtube.py",
+        PROJECT / "product_studio" / "build_product.py",
+    ]
     present = [str(p.name) for p in files if p.is_file()]
     if not present:
         return {"ok": False, "reason": "No expected Python source files found"}
