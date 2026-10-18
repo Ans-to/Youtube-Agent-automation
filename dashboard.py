@@ -153,8 +153,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send("Invalid pipeline request. Provide a goal and 1–49 unique specialist IDs.", status=400)
             if any(not re.fullmatch(r"AGENT-[0-9]{2}", item) for item in ids) or "AGENT-50" in ids:
                 return self.send("Invalid specialist ID. AGENT-50 is reserved for a real human approval and cannot run automatically.", status=400)
-            if context_file and (len(context_file) > 500 or Path(context_file).suffix.lower() not in {".txt", ".md", ".json"}):
-                return self.send("Context path must point to a .txt, .md, or .json file.", status=400)
+            if context_file:
+                if len(context_file) > 500 or Path(context_file).suffix.lower() not in {".txt", ".md", ".json"}:
+                    return self.send("Context path must point to a .txt, .md, or .json file.", status=400)
+                workspace = (BASE / "workspace").resolve()
+                supplied = Path(context_file).expanduser()
+                resolved_context = (BASE / supplied).resolve() if not supplied.is_absolute() else supplied.resolve()
+                if resolved_context == workspace or workspace not in resolved_context.parents or not resolved_context.is_file():
+                    return self.send("Context file must be an existing .txt, .md, or .json file inside the local workspace.", status=400)
+                context_file = str(resolved_context)
             with PIPELINE_LOCK:
                 if PIPELINE_RUNNING:
                     return self.send("A specialist pipeline is already running.", status=409)
