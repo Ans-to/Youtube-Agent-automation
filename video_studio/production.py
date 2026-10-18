@@ -15,7 +15,7 @@ from agent import post_local_model
 from research import research as collect_research, render_markdown as render_research_markdown
 
 
-VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform"}
+VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
 TRANSITION_TYPES = {"none", "fade", "wipe-left", "wipe-right"}
 
 
@@ -131,7 +131,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "Visual metadata rules: diagram -> visual_nodes array; timeline -> timeline_events array; stat -> stat_value and stat_label; "
         "comparison -> comparison_left_title, comparison_right_title, comparison_left and comparison_right arrays; "
         "code -> code_lines array; quote -> quote and quote_source only when supplied evidence supports the quote; "
-        "waveform needs no extra data; hero may use graphic_label. Add unresolved_notes as an array of strings.\n"
+        "bar-chart -> chart_values (2–6 source-supported non-negative numbers) and same-length chart_labels; never invent values. kinetic-type -> a short, readable headline designed for a staggered word reveal. waveform needs no extra data; hero may use graphic_label. Add unresolved_notes as an array of strings.\n"
         "Previous scene for continuity (unverified draft): " + json.dumps(previous_scene, ensure_ascii=False)
         + "\nSUPPLIED SOURCE NOTES (not independently verified):\n"
         + (source_notes[:5000] if source_notes else "(No source notes supplied. Flag important claims for fact-checking.)")
@@ -154,11 +154,21 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
             raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
     else:
         scene["transition_frames"] = 12
-    for key in ("visual_nodes", "timeline_events", "comparison_left", "comparison_right", "code_lines", "unresolved_notes"):
+    for key in ("visual_nodes", "timeline_events", "comparison_left", "comparison_right", "code_lines", "chart_labels", "unresolved_notes"):
         if key in scene and (not isinstance(scene[key], list) or not all(isinstance(v, str) for v in scene[key])):
             raise ValueError("Scene " + str(index) + " field " + key + " must be an array of strings.")
         if key in scene:
             scene[key] = [item[:120] for item in scene[key][:8]]
+    if "chart_values" in scene:
+        values = scene["chart_values"]
+        if not isinstance(values, list) or not 2 <= len(values) <= 6 or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0 for v in values):
+            raise ValueError("Scene " + str(index) + " chart_values must contain 2–6 finite non-negative numbers.")
+    if visual_type == "bar-chart":
+        values, labels = scene.get("chart_values"), scene.get("chart_labels")
+        if not isinstance(values, list) or not 2 <= len(values) <= 6 or not isinstance(labels, list) or len(labels) != len(values):
+            raise ValueError("bar-chart requires 2–6 chart_values and one chart_label per value.")
+    if "caption" in scene and (not isinstance(scene["caption"], str) or len(scene["caption"]) > 12000):
+        raise ValueError("Scene " + str(index) + " caption must be text up to 12000 characters.")
     return scene
 
 
