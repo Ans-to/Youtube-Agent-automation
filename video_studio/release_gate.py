@@ -27,8 +27,14 @@ def main():
 
     print("Package:", root)
     video_hash = sha256(video)
+    script_path = root / "script.md"
+    storyboard_path = root / "storyboard.json"
+    script_hash = sha256(script_path)
+    storyboard_hash = sha256(storyboard_path)
     print("Video SHA-256:", video_hash)
-    print("Approval covers both the video hash and all upload metadata.")
+    print("Script SHA-256:", script_hash)
+    print("Storyboard SHA-256:", storyboard_hash)
+    print("Approval is tied to the exact video, script, storyboard, and upload metadata.")
     title = input("Exact YouTube title (max 100 characters): ").strip()
     description = input("Exact YouTube description (max 5000 characters): ").strip()
     tags = [tag.strip() for tag in input("Comma-separated tags (optional): ").split(",") if tag.strip()]
@@ -51,8 +57,8 @@ def main():
         "package_dir": str(root),
         "video_file": str(video),
         "video_sha256": video_hash,
-        "script_sha256": sha256(root / "script.md"),
-        "storyboard_sha256": sha256(root / "storyboard.json"),
+        "script_sha256": script_hash,
+        "storyboard_sha256": storyboard_hash,
         "approved_metadata": metadata,
         "script_reviewed": True,
         "storyboard_reviewed": True,
