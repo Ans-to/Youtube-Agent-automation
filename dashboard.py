@@ -24,6 +24,24 @@ PRODUCT_RUNNING = False
 PRODUCT_LAST_OUTPUT = ""
 VIDEO_LOCK = threading.Lock()
 PRODUCT_LOCK = threading.Lock()
+ACTIVE_WORKFLOW = ""
+ACTIVE_WORKFLOW_LOCK = threading.Lock()
+
+
+def try_claim_workflow(name):
+    global ACTIVE_WORKFLOW
+    with ACTIVE_WORKFLOW_LOCK:
+        if ACTIVE_WORKFLOW:
+            return False, ACTIVE_WORKFLOW
+        ACTIVE_WORKFLOW = name
+        return True, ""
+
+
+def release_workflow(name):
+    global ACTIVE_WORKFLOW
+    with ACTIVE_WORKFLOW_LOCK:
+        if ACTIVE_WORKFLOW == name:
+            ACTIVE_WORKFLOW = ""
 
 def load(path, default):
     try: return json.loads(path.read_text(encoding="utf-8"))
@@ -42,7 +60,7 @@ def task_state():
     cfg = load(CONFIG, {})
     model = cfg.get("model", {})
     return {"tasks": tasks[-100:], "counts": counts, "model_enabled": bool(model.get("enabled")),
-            "model_name": model.get("model", "local-model"), "running": RUNNING, "pipeline_running": PIPELINE_RUNNING, "pipeline_output": PIPELINE_LAST_OUTPUT,
+            "model_name": model.get("model", "local-model"), "running": RUNNING, "active_workflow": ACTIVE_WORKFLOW, "pipeline_running": PIPELINE_RUNNING, "pipeline_output": PIPELINE_LAST_OUTPUT,
             "video_running": VIDEO_RUNNING, "video_output": VIDEO_LAST_OUTPUT,
             "product_running": PRODUCT_RUNNING, "product_output": PRODUCT_LAST_OUTPUT,
             "pipeline": ["Coordinator", "Planner", "Worker", "Reviewer"],
@@ -171,8 +189,12 @@ class Handler(BaseHTTPRequestHandler):
                 if resolved_context == workspace or workspace not in resolved_context.parents or not resolved_context.is_file():
                     return self.send("Context file must be an existing .txt, .md, or .json file inside the local workspace.", status=400)
                 context_file = str(resolved_context)
+            claimed, active = try_claim_workflow("specialist pipeline")
+            if not claimed:
+                return self.send("Another workflow is already running: "+esc(active)+".", status=409)
             with PIPELINE_LOCK:
                 if PIPELINE_RUNNING:
+                    release_workflow("specialist pipeline")
                     return self.send("A specialist pipeline is already running.", status=409)
                 PIPELINE_RUNNING = True
             run_id = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
@@ -196,10 +218,15 @@ class Handler(BaseHTTPRequestHandler):
                             log_file.write(f"Pipeline error: {type(exc).__name__}\n")
                 finally:
                     PIPELINE_RUNNING = False
+                    release_workflow("specialist pipeline")
             threading.Thread(target=run_pipeline, daemon=True).start()
             return self._redirect("/")
         if path == "/run":
+            claimed, active = try_claim_workflow("task runner")
+            if not claimed:
+                return self.send("Another workflow is already running: "+esc(active)+".", status=409)
             if RUNNING:
+                release_workflow("task runner")
                 return self.send("A task cycle is already running. Wait for it to finish before starting another.", status=409)
             RUNNING = True
 
@@ -217,6 +244,7 @@ class Handler(BaseHTTPRequestHandler):
                         f.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] RUN ERROR: {type(exc).__name__}\n")
                 finally:
                     RUNNING = False
+                    release_workflow("task runner")
 
             threading.Thread(target=runner, daemon=True).start()
             return self._redirect("/")
