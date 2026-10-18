@@ -32,8 +32,6 @@ def local_generate(topic, cfg):
     if not model.get("enabled"):
         return None
     url = model.get("base_url", "")
-    if not (url.startswith("http://127.0.0.1:") or url.startswith("http://localhost:") or url.startswith("http://[::1]:")):
-        raise ValueError("Only a loopback local model endpoint is allowed.")
     prompt = ("Create a responsible faceless YouTube video package for this topic: " + topic + "\n"
         "Return only valid JSON with keys title, description, script, scenes. scenes must be an array of 4 to 8 objects with duration_seconds (number), eyebrow, headline, subhead, narration. "
         "Use concise factual language; do not invent research, citations, or claim you browsed the web. Mark claims that need sourcing in the script. "
@@ -42,9 +40,7 @@ def local_generate(topic, cfg):
         "messages": [{"role": "system", "content": "You are a careful video production assistant operating offline. Never claim to browse or verify external facts."},
                      {"role": "user", "content": prompt}],
         "temperature": 0.3, "max_tokens": int(model.get("max_output_tokens", 1800))}
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=int(model.get("timeout_seconds", 120))) as response:
-        data = json.loads(response.read().decode("utf-8"))
+    data = post_local_model(url, body, model.get("timeout_seconds", 120))
     text = data["choices"][0]["message"]["content"].strip()
     fence = chr(96) * 3
     if text.startswith(fence):
