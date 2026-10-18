@@ -206,7 +206,7 @@ def process(task, cfg):
         task.update(
             status=status,
             completed_at="",
-            output_file=str(path.relative_to(BASE)),
+            output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error=message,
         )
         log(f"NEEDS HUMAN ACTION {task.get('id')} -> {path.name}")
