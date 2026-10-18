@@ -45,7 +45,7 @@ class PracticeLoopTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "concrete evidence"):
                 practice.record_human_assessment(report_path, bad_scores, "Improve diagram hierarchy", root / "feedback")
             result = practice.record_human_assessment(report_path, scores, "Improve diagram hierarchy", root / "feedback")
-            self.assertEqual(result["status"], "human_reviewed_pass")
+            self.assertEqual(result["status"], "template_reviewed_only")
             self.assertEqual(result["score_percent"], 100.0)
             feedback = root / "feedback" / "AGENT-52.jsonl"
             self.assertTrue(feedback.is_file())
@@ -108,8 +108,8 @@ class PracticeLoopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
             feedback = Path(directory) / "AGENT-51.jsonl"
             feedback.write_text(
-                json.dumps({"human_reviewed": False, "model_output_reviewed": True, "improvement_notes": "unreviewed; ignore"}) + "\\n" +
-                json.dumps({"human_reviewed": True, "model_output_reviewed": False, "improvement_notes": "template feedback; ignore"}) + "\\n" +
+                json.dumps({"human_reviewed": False, "model_output_reviewed": True, "improvement_notes": "unreviewed; ignore"}) + "\n" +
+                json.dumps({"human_reviewed": True, "model_output_reviewed": False, "improvement_notes": "template feedback; ignore"}) + "\n" +
                 json.dumps({"human_reviewed": True, "model_output_reviewed": True, "improvement_notes": "Use cleaner hierarchy.", "scores": {"layout": 1}}) + "\\n",
                 encoding="utf-8")
             with patch.object(dispatch, "FEEDBACK_DIR", Path(directory)):
