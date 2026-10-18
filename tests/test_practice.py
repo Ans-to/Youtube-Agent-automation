@@ -66,6 +66,14 @@ class PracticeLoopTests(unittest.TestCase):
             self.assertEqual(lessons[0]["improvement_notes"], "Use cleaner hierarchy.")
             self.assertIn("layout", lessons[0]["gates_to_improve"])
 
+    def test_batch_practice_lists_all_specialists_but_no_approval_roles(self):
+        roles = practice.executable_roles()
+        self.assertEqual(len(roles), 51)
+        self.assertTrue(all(not role.get("approval_required") for role in roles))
+        self.assertNotIn("AGENT-50", {role["id"] for role in roles})
+        self.assertIn("AGENT-51", {role["id"] for role in roles})
+        self.assertIn("AGENT-52", {role["id"] for role in roles})
+
     def test_human_approval_profile_cannot_be_practiced_automatically(self):
         with self.assertRaisesRegex(ValueError, "human approval boundary"):
             practice.create_attempt("AGENT-50", task="Approve a release", config={"model": {"enabled": False}})
