@@ -1,0 +1,14 @@
+{
+  "title": "Invalid transition must fail fast",
+  "width": 320,
+  "height": 180,
+  "fps": 2,
+  "scenes": [
+    {
+      "duration_seconds": 1,
+      "headline": "Bad transition",
+      "visual_type": "hero",
+      "transition_in": "star-wipe"
+    }
+  ]
+}
