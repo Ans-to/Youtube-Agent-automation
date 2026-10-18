@@ -29,8 +29,7 @@ def main():
   text=" ".join(str(scene.get("narration","")) for scene in data["scenes"]).strip()
   if not text:raise SystemExit("No narration text exists in the storyboard.")
   narration=BASE/"narration.wav"
-  with narration.open("wb") as audio_file:
-   subprocess.run([piper,"--model",model,"--output_file",str(narration)],input=(text+"\\n").encode("utf-8"),cwd=str(BASE),check=True)
+  subprocess.run([piper,"--model",model,"--output_file",str(narration)],input=(text+"\n").encode("utf-8"),cwd=str(BASE),check=True)
   run([ffmpeg,"-y","-hide_banner","-loglevel","warning","-i",str(silent),"-i",str(narration),"-map","0:v:0","-map","1:a:0","-af","apad","-c:v","copy","-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",str(output)])
   silent.unlink(missing_ok=True)
  else:
