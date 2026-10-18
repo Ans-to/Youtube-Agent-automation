@@ -1,9 +1,25 @@
 """Cross-process locking and atomic writes for the local task queue."""
+import errno
 import json
 import os
 import time
 from contextlib import contextmanager
 from pathlib import Path
+
+
+def process_is_alive(pid):
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError as exc:
+        # Treat unknown OS errors conservatively; deleting a live owner's lock is unsafe.
+        return exc.errno != errno.ESRCH
 
 
 @contextmanager
@@ -19,8 +35,16 @@ def task_queue_lock(path, timeout=30):
         except FileExistsError:
             try:
                 if time.time() - lock.stat().st_mtime > 600:
-                    lock.unlink()
-                    continue
+                    try:
+                        owner_pid = int(lock.read_text(encoding="ascii").strip())
+                    except (OSError, ValueError):
+                        owner_pid = 0
+                    if not process_is_alive(owner_pid):
+                        try:
+                            lock.unlink()
+                        except FileNotFoundError:
+                            pass
+                        continue
             except FileNotFoundError:
                 continue
             if time.monotonic() >= deadline:
