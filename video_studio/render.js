@@ -4,7 +4,9 @@ const fs=require("fs"),path=require("path"),puppeteer=require("puppeteer");
 async function main(){
  const storyboardPath=path.resolve(process.argv[2]||"storyboard.example.json");
  if(!fs.existsSync(storyboardPath))throw new Error("Storyboard not found: "+storyboardPath);
- const s=JSON.parse(fs.readFileSync(storyboardPath,"utf8")),w=Number(s.width||1920),h=Number(s.height||1080),fps=Number(s.fps||30);
+ const s=JSON.parse(fs.readFileSync(storyboardPath,"utf8"));
+ if(!s||typeof s!=="object"||Array.isArray(s))throw new Error("Storyboard root must be a JSON object.");
+ const w=s.width===undefined?1920:Number(s.width),h=s.height===undefined?1080:Number(s.height),fps=s.fps===undefined?30:Number(s.fps);
  if(!Number.isInteger(w)||w<320||w>3840)throw new Error("width must be 320..3840");
  if(!Number.isInteger(h)||h<180||h>2160)throw new Error("height must be 180..2160");
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
@@ -18,7 +20,7 @@ async function main(){
   const transition=String(scene.transition_in||"none").toLowerCase();
   if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
   if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
-  for(const key of ["headline","eyebrow","subhead","narration"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
+  for(const key of ["headline","eyebrow","subhead","narration","caption"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
   for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
   for(const key of ["visual_nodes","timeline_events","comparison_left","comparison_right","code_lines","chart_labels"])if(scene[key]!==undefined&&(!Array.isArray(scene[key])||scene[key].length>8||!scene[key].every(v=>typeof v==="string"&&v.length<=120)))throw new Error("Scene "+index+" field "+key+" must be an array of at most 8 short strings.");
   if(scene.chart_values!==undefined&&(!Array.isArray(scene.chart_values)||scene.chart_values.length<2||scene.chart_values.length>6||!scene.chart_values.every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=0)))throw new Error("Scene "+index+" chart_values must contain 2–6 finite non-negative numbers.");
