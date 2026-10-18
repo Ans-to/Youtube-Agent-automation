@@ -13,7 +13,7 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
 - **GitHub bridge:** polls approved JSON requests from `bridge/requests/`; supported actions are `status`, `self_test`, and guarded `run_task`.
 - **Sanitized result reporting:** attempts to write minimal result metadata to `bridge/results/<request-id>.json`. Task prompts, generated output, raw logs, local paths, and configuration values are not included in the GitHub report.
 - **Safety checks:** no remote shell, arbitrary Python, package installation, arbitrary URL fetch, publishing, messaging, payments, or deletion actions.
-- **Automated checks:** Python syntax compilation and unit tests run through GitHub Actions on Python 3.11 and 3.12.
+- **Automated checks:** Python syntax compilation, unit tests, and landscape/vertical MP4 smoke tests run through GitHub Actions on Python 3.11 and 3.12.
 
 ## Important limitations
 
@@ -62,7 +62,7 @@ The default configuration keeps `model.enabled` set to `false`. To use a model, 
 
 `http://127.0.0.1:8080/v1/chat/completions`
 
-Only loopback endpoints are accepted. Start with a small quantized model and test memory and latency on your specific phone. A timeout means the task may fail; it does not imply the model generated a result.
+Only plain HTTP endpoints using a literal loopback IP and explicit port are accepted (for example `http://127.0.0.1:8080/v1/chat/completions`). Redirects are blocked. Hostnames, embedded credentials, non-loopback IPs, HTTPS endpoints, and URLs with query strings/fragments are rejected. Start with a small quantized model and test memory and latency on your specific phone. A timeout means the task may fail; it does not imply the model generated a result.
 
 ## GitHub bridge setup
 
@@ -129,7 +129,7 @@ Put non-sensitive `.txt`, `.md`, or `.json` reference files in `workspace/`. Ins
 
 Run locally:
 ```sh
-python -m py_compile agent.py dashboard.py bridge/bridge.py
+python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py video_studio/studio.py video_studio/production.py video_studio/validate_render.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
 python -m unittest discover -s tests -v
 ```
 
@@ -149,9 +149,9 @@ The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2
 
 Create a script/storyboard draft from a topic with `python video_studio/production.py --topic "Your topic"`. This uses a configured loopback local model if enabled; otherwise it writes a clearly marked template. It does not perform web research or publish content. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4.
 
-## Specialist roster
+## Specialist roster and orchestration
 
-`agents/roster.json` defines 50 specialist role profiles across research, writing, design, audio, rendering, QA, product development, and governance. These are role definitions for future orchestration, not 50 independent concurrently running AI models. A local language model is needed for generative tasks, and factual research still requires verified sources.
+`agents/roster.json` defines 50 specialist role profiles. `agents/orchestrate.py` now runs a selected pipeline of up to 12 roles sequentially, passing prior-stage outputs as explicitly unverified context and writing a manifest under `workspace/orchestration/`. The dashboard includes a specialist-pipeline form. These are role prompts sharing one local model, not 50 independent concurrently running models. `AGENT-50` cannot be automatically orchestrated because it represents a real human approval step. No web research or external actions are performed by the pipeline.
 
 
 The video module also includes a separate optional YouTube uploader. It requires Google OAuth setup, a local approval record tied to the MP4 hash, and explicit upload confirmation; it defaults to private visibility and never publishes automatically without those checks. See video_studio/README.md.
@@ -160,5 +160,15 @@ The video module also includes a separate optional YouTube uploader. It requires
 
 The `product_studio/` folder can generate a local-first single-file HTML utility prototype and ZIP package. It uses the configured loopback model only when enabled; otherwise it creates a starter template. The static scan is only a warning aid, not a security audit, and product deployment/sales remain manual. See `product_studio/README.md`.
 
+
+
+
+Run the default specialist pipeline from the repository root:
+
+```sh
+python agents/orchestrate.py --task "Prepare a fact-checkable technology video script and storyboard" --context-file workspace/source-notes.md
+```
+
+The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it produces drafts but still does not independently verify facts or browse the web. Review `pipeline-status.json` and all stage outputs before using them.
 
 Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. All 50 role profiles share the same configured local model endpoint; they are not 50 separate model processes.
