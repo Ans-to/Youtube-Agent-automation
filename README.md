@@ -159,3 +159,6 @@ The video module also includes a separate optional YouTube uploader. It requires
 ## Digital product prototype builder
 
 The `product_studio/` folder can generate a local-first single-file HTML utility prototype and ZIP package. It uses the configured loopback model only when enabled; otherwise it creates a starter template. The static scan is only a warning aid, not a security audit, and product deployment/sales remain manual. See `product_studio/README.md`.
+
+
+Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. All 50 role profiles share the same configured local model endpoint; they are not 50 separate model processes.
