@@ -1,0 +1,18 @@
+__pycache__/
+*.py[cod]
+*.backup*
+*.before-*
+*.broken-patch
+.env
+.env.*
+!.env.example
+*token*
+*secret*
+*credential*
+logs/
+outputs/
+workspace/
+
+# Local runtime configuration and task queue
+/config.json
+/tasks.json
