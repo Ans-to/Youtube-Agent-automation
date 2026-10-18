@@ -4,7 +4,7 @@
 
 The project does not fine-tune model weights. Instead, every role has a structured playbook in `skillbooks.json` and `dispatch.py` injects the applicable playbook into the configured local model prompt. Each playbook defines domain expertise, a workflow, quality gates, failure modes, a deliverable contract, and a practice drill. The specialist is instructed to report a concise status against those gates; the report itself is not proof that a gate passed.
 
-This makes behavior more consistent and testable, but capability still depends on the local model, task quality, available evidence, context length, and human review. It is not honest to describe any model as guaranteed to be a master solely because a prompt says so.
+This makes behavior more consistent and testable, but capability still depends on the local model, task quality, available evidence, context length, and human review. It is not honest to describe any model as guaranteed to be a master solely because a prompt says so. Reviews of template-only runs are marked as template reviews and never count as evidence of model capability or get injected as model-improvement lessons.
 
 ## Structure
 
