@@ -19,6 +19,14 @@ def validate_approval(approval, video, requested):
   raise ValueError("Video changed after approval; review and approve it again.")
  if Path(approval.get("package_dir","")).resolve()!=video.resolve().parent:
   raise ValueError("Approval record package directory must be the video's parent directory.")
+ script_path=video.parent/"script.md"
+ storyboard_path=video.parent/"storyboard.json"
+ if not script_path.is_file() or not storyboard_path.is_file():
+  raise ValueError("Reviewed script.md and storyboard.json must remain beside the approved video.")
+ if approval.get("script_sha256")!=sha256(script_path):
+  raise ValueError("Script changed after approval; review and approve the package again.")
+ if approval.get("storyboard_sha256")!=sha256(storyboard_path):
+  raise ValueError("Storyboard changed after approval; review and approve the package again.")
  approved=approval.get("approved_metadata")
  if not isinstance(approved,dict):
   raise ValueError("Approval is missing metadata review; recreate approval with release_gate.py.")
