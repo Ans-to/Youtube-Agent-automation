@@ -1,0 +1,15 @@
+{
+  "title": "CI Shorts Render Smoke Test",
+  "width": 320,
+  "height": 568,
+  "fps": 2,
+  "scenes": [
+    {
+      "duration_seconds": 1,
+      "eyebrow": "CI SHORTS TEST",
+      "headline": "Vertical render works",
+      "subhead": "1080 by 1920 profile layout",
+      "narration": "Vertical render works."
+    }
+  ]
+}
