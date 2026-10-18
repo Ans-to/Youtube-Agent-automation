@@ -193,6 +193,11 @@ def record_human_assessment(report_path, scores, improvement_notes="", feedback_
                 stream.write(json.dumps(record, ensure_ascii=False) + "\n")
     return report
 
+def executable_roles():
+    return [role for role in dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
+            if role.get("id") != "AGENT-50" and not role.get("approval_required")]
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -218,7 +223,7 @@ def main():
             context = read_context(args.context_file)
             cfg = load_config()
             if args.all:
-                roles = [r for r in dispatch.load_json(dispatch.ROSTER, {}).get("agents", []) if r.get("id") != "AGENT-50"]
+                roles = executable_roles()
                 roles = roles[:args.limit] if args.limit else roles
                 if not roles:
                     raise ValueError("No executable specialist roles were found.")
