@@ -81,27 +81,35 @@
  window.setCanvasSize=function(width,height){if(!Number.isInteger(width)||!Number.isInteger(height)||width<320||height<180||width>3840||height>2160)throw new Error("Invalid canvas dimensions");canvas.width=width;canvas.height=height;};
   window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
-  const left=w*.078,contentW=w*.844,grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
+   const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?contentW:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
   ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
   for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
   ctx.fillStyle=p.accent;ctx.fillRect(left,eyebrowY-55,Math.max(30,w*.028),6);
   ctx.font="700 "+Math.max(15,w*.013)+"px Arial";ctx.fillStyle=p.muted;ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
-  const headFont="700 "+fontSize+"px Arial",lines=wrap(scene.headline||"Every frame is code.",contentW,headFont);
+  const headFont="700 "+fontSize+"px Arial",lines=wrap(scene.headline||"Every frame is code.",textW,headFont);
   ctx.font=headFont;ctx.fillStyle=p.fg;const lineHeight=fontSize*1.18;
   lines.slice(0,3).forEach((line,i)=>{ctx.globalAlpha=Math.min(1,Math.max(0,progress*5-i*.25));ctx.fillText(line,left,headlineY+i*lineHeight)});
   ctx.globalAlpha=1;
-  const subFont="400 "+Math.max(20,w*.023)+"px Arial",sub=wrap(scene.subhead||"",contentW,subFont);
+  const subFont="400 "+Math.max(20,w*.023)+"px Arial",sub=wrap(scene.subhead||"",textW,subFont);
   ctx.font=subFont;ctx.fillStyle=p.muted;sub.slice(0,3).forEach((line,i)=>ctx.fillText(line,left,subY+i*Math.max(27,w*.032)));
   drawSceneGraphic(scene,progress,globalFrame);ctx.fillStyle="#30303a";ctx.fillRect(left,barY,barW,3);ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);
    const caption=String(scene.caption||scene.narration||"").trim(),captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px Arial",captionLines=caption?wrap(caption,contentW-32,captionFont).slice(0,2):[],captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
    if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.94;ctx.fillStyle="#111119";ctx.fillRect(left,boxY,contentW,boxHeight);ctx.globalAlpha=1;ctx.strokeStyle="#454552";ctx.lineWidth=1;ctx.strokeRect(left,boxY,contentW,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;captionLines.forEach((line,i)=>ctx.fillText(line,left+16,boxY+10+captionSize+i*captionLineHeight));}
-  ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;
-  const cx=w*.84,cy=portrait?h*.22:h*.26,r=Math.min(w,h)*(portrait ? 0.055 : 0.075);
-  ctx.beginPath();ctx.arc(cx,cy,r+pulse*8,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,r*1.42+pulse*8,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+   if(String(scene.visual_type||"hero")==="hero"||scene.show_orbit===true){
+    ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;
+    const cx=w*.84,cy=portrait?h*.22:h*.26,r=Math.min(w,h)*(portrait ? 0.055 : 0.075);
+    ctx.beginPath();ctx.arc(cx,cy,r+pulse*8,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,r*1.42+pulse*8,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+   }
   ctx.font="600 "+Math.max(13,w*.0105)+"px monospace";ctx.fillStyle=p.muted;ctx.fillText("FRAME "+String(globalFrame).padStart(6,"0"),left,footerY);
   ctx.textAlign="right";ctx.fillText("LOCAL RENDER / "+String(Math.round(progress*100)).padStart(3," ")+"%",w-left,footerY);ctx.textAlign="left";
   ctx.fillStyle=p.fg;ctx.font="600 "+Math.max(12,w*.0094)+"px monospace";ctx.fillText("OFFLINE AGENT HQ",left,Math.min(h-24,footerY+Math.max(30,w*.035)));
+   const trans=String(scene.transition_in||"none").toLowerCase(),transFrames=Math.max(1,Math.min(60,Number(scene.transition_frames)||12));
+   if(trans!=="none"&&localFrame<transFrames){
+    const t=Math.max(0,Math.min(1,localFrame/Math.max(1,transFrames-1))),ease=1-Math.pow(1-t,3);
+    if(trans==="fade"){ctx.globalAlpha=1-ease;ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.globalAlpha=1;}
+    else if(trans==="wipe-left"||trans==="wipe-right"){const covered=w*(1-ease);ctx.fillStyle=p.bg;ctx.fillRect(trans==="wipe-left"?w-covered:0,0,covered,h);}
+   }
  };
 })();
 </script></body></html>
