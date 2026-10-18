@@ -37,6 +37,10 @@ jobs:
         run: node --check video_studio/render.js
       - name: Validate storyboard JSON
         run: python -m json.tool video_studio/storyboard.example.json
+      - name: Validate specialist roster and skillbooks JSON
+        run: |
+          python -m json.tool agents/roster.json > /dev/null
+          python -m json.tool agents/skillbooks.json > /dev/null
       - name: Build offline product prototype in template mode
         run: python product_studio/build_product.py --title "CI Utility" --idea "A local utility smoke test"
       - name: Generate video script and storyboard in template mode
