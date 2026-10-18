@@ -9,6 +9,13 @@ async function main(){
  if(!Number.isInteger(h)||h<180||h>2160)throw new Error("height must be 180..2160");
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
+ const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform"]);
+ for(const [index,scene] of s.scenes.entries()){
+  if(!scene||typeof scene!=="object"||Array.isArray(scene))throw new Error("Scene "+index+" must be a JSON object.");
+  const kind=String(scene.visual_type||"hero").toLowerCase();
+  if(!visualTypes.has(kind))throw new Error("Unsupported visual_type in scene "+index+": "+kind);
+  for(const key of ["headline","eyebrow","subhead","narration"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
+ }
  const MAX_FRAMES=30000,MAX_SECONDS=1000;
  const totalSeconds=s.scenes.reduce((sum,scene)=>{const sec=Number(scene&&scene.duration_seconds);if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("Each scene duration must be >0 and <=600 seconds");return sum+sec;},0);
  if(totalSeconds>MAX_SECONDS)throw new Error("Storyboard exceeds the 1000-second render limit.");
