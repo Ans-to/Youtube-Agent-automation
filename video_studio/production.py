@@ -20,7 +20,7 @@ def local_generate(topic, cfg):
     prompt = ("Create a responsible faceless YouTube video package for this topic: " + topic + "\n"
         "Return only valid JSON with keys title, description, script, scenes. scenes must be an array of 4 to 8 objects with duration_seconds (number), eyebrow, headline, subhead, narration. "
         "Use concise factual language; do not invent research, citations, or claim you browsed the web. Mark claims that need sourcing in the script. "
-        "Use clear English unless the topic explicitly asks for Urdu. Make visual beats practical for deterministic typography and geometric Canvas2D graphics.")
+        "Narration should be in Urdu with English technical terms by default, unless the topic explicitly asks for another language. Make visual beats practical for deterministic typography and geometric Canvas2D graphics.")
     body = {"model": model.get("model", "local-model"),
         "messages": [{"role": "system", "content": "You are a careful video production assistant operating offline. Never claim to browse or verify external facts."},
                      {"role": "user", "content": prompt}],
@@ -40,15 +40,15 @@ def local_generate(topic, cfg):
 def fallback(topic):
     scenes = [
       {"duration_seconds":5,"eyebrow":"THE QUESTION","headline":topic[:80],"subhead":"A topic package created with the offline template.","narration":topic},
-      {"duration_seconds":5,"eyebrow":"THE CONTEXT","headline":"What we know","subhead":"Add trusted source notes before presenting factual claims.","narration":"Start with the known context and verify factual claims against reliable sources."},
-      {"duration_seconds":5,"eyebrow":"THE EXPLANATION","headline":"How it works","subhead":"Use one concept per scene, with a simple visual metaphor.","narration":"Explain the core idea step by step, using one concept per scene."},
-      {"duration_seconds":5,"eyebrow":"THE TAKEAWAY","headline":"What to remember","subhead":"Review, fact-check, and edit before publication.","narration":"Summarize the practical takeaway. This is a template, not researched or fact-checked content."}]
+      {"duration_seconds":5,"eyebrow":"THE CONTEXT","headline":"What we know","subhead":"Add trusted source notes before presenting factual claims.","narration":"Known context se shuru karein aur factual claims ko reliable sources se verify karein."},
+      {"duration_seconds":5,"eyebrow":"THE EXPLANATION","headline":"How it works","subhead":"Use one concept per scene, with a simple visual metaphor.","narration":"Core idea ko step by step explain karein, har scene mein ek concept rakhein."},
+      {"duration_seconds":5,"eyebrow":"THE TAKEAWAY","headline":"What to remember","subhead":"Review, fact-check, and edit before publication.","narration":"Practical takeaway summarize karein. Yeh sirf template hai, researched ya fact-checked content nahi."}]
     return {"title":topic[:90],"description":"Offline template package. Research and verify factual claims before publication.",
       "script":"# "+topic+"\n\nTemplate only: no local model was enabled and no web research was performed. Add trustworthy sources and verify claims before publishing.\n","scenes":scenes}
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--topic",required=True);parser.add_argument("--out",default="workspace/generated");parser.add_argument("--render",action="store_true")
+    parser.add_argument("--topic",required=True);parser.add_argument("--out",default="workspace/generated");parser.add_argument("--format",choices=["long","shorts"],default="long");parser.add_argument("--render",action="store_true")
     args=parser.parse_args();topic=args.topic.strip()
     if not topic or len(topic)>500:raise SystemExit("Topic must be 1–500 characters.")
     data=local_generate(topic,load_config()) or fallback(topic);scenes=data.get("scenes")
@@ -58,9 +58,9 @@ def main():
             raise SystemExit("Invalid scene at index "+str(index))
     output_dir=(BASE.parent/args.out).resolve();output_dir.mkdir(parents=True,exist_ok=True)
     (output_dir/"script.md").write_text("# "+str(data.get("title",topic))+"\n\n"+str(data.get("description",""))+"\n\n"+str(data.get("script",""))+"\n",encoding="utf-8")
-    storyboard={"title":str(data.get("title",topic)),"width":1920,"height":1080,"fps":30,"scenes":scenes}
+    storyboard={"title":str(data.get("title",topic)),"width":1080 if args.format=="shorts" else 1920,"height":1920 if args.format=="shorts" else 1080,"fps":30,"scenes":scenes}
     (output_dir/"storyboard.json").write_text(json.dumps(storyboard,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
-    (output_dir/"package-status.json").write_text(json.dumps({"status":"draft","topic":topic,"research_performed":False,"human_review_required":True,"published":False},indent=2)+"\n",encoding="utf-8")
+    (output_dir/"package-status.json").write_text(json.dumps({"status":"draft","format":args.format,"topic":topic,"research_performed":False,"human_review_required":True,"published":False},indent=2)+"\n",encoding="utf-8")
     print("Draft package:",output_dir);print("Research performed: no. Verify facts and add source notes before publishing.")
     if args.render:
         subprocess.run([sys.executable,str(BASE/"studio.py"),"--storyboard",str(output_dir/"storyboard.json"),"--output",str(output_dir/"video.mp4")],check=True)
