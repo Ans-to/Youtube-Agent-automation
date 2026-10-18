@@ -17,6 +17,7 @@ RUN_LOCK = threading.Lock()
 RUNNING = False
 PIPELINE_LOCK = threading.Lock()
 PIPELINE_RUNNING = False
+PIPELINE_LAST_OUTPUT = ""
 
 def load(path, default):
     try: return json.loads(path.read_text(encoding="utf-8"))
@@ -35,7 +36,7 @@ def task_state():
     cfg = load(CONFIG, {})
     model = cfg.get("model", {})
     return {"tasks": tasks[-100:], "counts": counts, "model_enabled": bool(model.get("enabled")),
-            "model_name": model.get("model", "local-model"), "running": RUNNING, "pipeline_running": PIPELINE_RUNNING,
+            "model_name": model.get("model", "local-model"), "running": RUNNING, "pipeline_running": PIPELINE_RUNNING, "pipeline_output": PIPELINE_LAST_OUTPUT,
             "pipeline": ["Coordinator", "Planner", "Worker", "Reviewer"],
             "updated": datetime.now().astimezone().isoformat(timespec="seconds"), "agent_roster": load(AGENTS, {}).get("agents", [])}
 
@@ -65,14 +66,14 @@ form label{display:block;color:#ddcbd0;font-size:11px;margin:10px 0 5px;letter-s
 <div class="core"><svg viewBox="0 0 100 100" fill="none" stroke="#ffe0a0" stroke-width="2"><path d="M50 13c-13-9-28 1-26 15-14 5-13 23-3 29-5 15 5 26 18 24l11 7 11-7c13 2 23-9 18-24 10-6 11-24-3-29 2-14-13-24-26-15Z"/><path d="M50 14v72M24 30l19 10-8 15 14 10M76 30 57 40l8 15-14 10M22 57l20 4M78 57l-20 4M39 80l11-16 11 16"/></svg></div><div class="core-label">CENTRAL COORDINATOR</div><div class="hint">LOCAL-FIRST · HUMAN-CONTROLLED · NO CLOUD API</div></section>
 <section class="panel"><div class="panel-head"><h2>Task intake</h2><span class="tag">New operation</span></div><form method="post" action="/add"><label for="title">TASK TITLE</label><input id="title" name="title" maxlength="160" required placeholder="e.g. Build a faceless video plan"><label for="kind">WORKFLOW</label><select id="kind" name="kind"><option value="plan">Plan / strategy</option><option value="draft">Draft content</option><option value="summarize_workspace">Summarize local workspace</option><option value="review_output">Review local workspace</option></select><label for="input">INSTRUCTIONS</label><textarea id="input" name="input" maxlength="6000" required placeholder="Describe the result, constraints, and format you need..."></textarea><button type="submit">＋ QUEUE TASK</button></form><div class="actions"><form method="post" action="/run"><button type="submit">▶ RUN PENDING</button></form><form method="post" action="/refresh"><button class="secondary" type="submit">↻ REFRESH STATE</button></form></div><p class="error" id="runInfo"></p></section>
 </div><div>
-<section class="panel"><div class="panel-head"><h2>Specialist pipeline</h2><span class="tag">Sequential run</span></div><p style="color:var(--muted);font-size:11px">Runs selected specialist profiles one after another using the configured local model. Template mode creates checklists only. Human review is still required.</p><form method="post" action="/run-pipeline"><label for="pipelineTask">PIPELINE GOAL</label><textarea id="pipelineTask" name="task" maxlength="6000" required placeholder="e.g. Create a fact-checkable Urdu tech video script and scene plan"></textarea><label for="pipelineAgents">SPECIALIST IDS (comma-separated, 1–12)</label><input id="pipelineAgents" name="agents" maxlength="120" value="AGENT-02,AGENT-03,AGENT-09,AGENT-20,AGENT-26,AGENT-32,AGENT-37,AGENT-49" required><label for="pipelineContext">OPTIONAL LOCAL SOURCE FILE PATH</label><input id="pipelineContext" name="context_file" maxlength="500" placeholder="workspace/source-notes.md"><button type="submit">RUN SPECIALIST PIPELINE</button></form></section><section class="panel"><div class="panel-head"><h2>Specialist roster</h2><span class="tag" id="rosterCount">50 role profiles</span></div><p style="color:var(--muted);font-size:11px;margin:0 0 10px">Configured specialist roles for the local workflow. They are profiles, not 50 separate running models.</p><details><summary style="cursor:pointer;color:var(--orange);padding:8px 0">View all specialist profiles</summary><div id="agentRoster" class="agent-list"></div></details></section><section class="panel"><div class="panel-head"><h2>System activity</h2><span class="tag" id="updated">live refresh</span></div><div id="activity"><div class="empty">Loading task activity…</div></div></section>
+<section class="panel"><div class="panel-head"><h2>Specialist pipeline</h2><span class="tag">Sequential run</span></div><p style="color:var(--muted);font-size:11px">Runs selected specialist profiles one after another using the configured local model. Template mode creates checklists only. Human review is still required.</p><form method="post" action="/run-pipeline"><label for="pipelineTask">PIPELINE GOAL</label><textarea id="pipelineTask" name="task" maxlength="6000" required placeholder="e.g. Create a fact-checkable Urdu tech video script and scene plan"></textarea><label for="pipelineAgents">SPECIALIST IDS (comma-separated, 1–12)</label><input id="pipelineAgents" name="agents" maxlength="120" value="AGENT-02,AGENT-03,AGENT-09,AGENT-20,AGENT-26,AGENT-32,AGENT-37,AGENT-49" required><label for="pipelineContext">OPTIONAL LOCAL SOURCE FILE PATH</label><input id="pipelineContext" name="context_file" maxlength="500" placeholder="workspace/source-notes.md"><button type="submit">RUN SPECIALIST PIPELINE</button></form><p id="pipelineInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">Latest pipeline output path will appear here.</p></section><section class="panel"><div class="panel-head"><h2>Specialist roster</h2><span class="tag" id="rosterCount">50 role profiles</span></div><p style="color:var(--muted);font-size:11px;margin:0 0 10px">Configured specialist roles for the local workflow. They are profiles, not 50 separate running models.</p><details><summary style="cursor:pointer;color:var(--orange);padding:8px 0">View all specialist profiles</summary><div id="agentRoster" class="agent-list"></div></details></section><section class="panel"><div class="panel-head"><h2>System activity</h2><span class="tag" id="updated">live refresh</span></div><div id="activity"><div class="empty">Loading task activity…</div></div></section>
 <section class="panel"><div class="panel-head"><h2>Generated outputs</h2><span class="tag">Local files</span></div><div id="outputs"><div class="empty">Outputs appear here after a task completes.</div></div></section>
 </div></div><div class="foot">OFFLINE AGENT HQ · Dashboard bound to loopback only · Keep Termux sessions open for processing</div></main><div class="toast" id="toast"></div>
 <script>
 const $=id=>document.getElementById(id);let lastState='';
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2600)}
-async function refresh(){try{const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();$('total').textContent=d.tasks.length;$('pending').textContent=d.counts.pending+d.counts.running;$('completed').textContent=d.counts.completed;$('failed').textContent=d.counts.failed;$('needsHuman').textContent=d.counts.needs_human_action||0;$('modelTag').textContent=d.model_enabled?'MODEL CONFIGURED':'TEMPLATE MODE';$('modelTag').style.color=d.model_enabled?'var(--green)':'var(--gold)';$('liveText').textContent=d.pipeline_running?'SPECIALIST PIPELINE':(d.running?'PROCESSING TASK':'LOCAL SYSTEM');$('updated').textContent=new Date(d.updated).toLocaleTimeString();
+async function refresh(){try{const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();$('total').textContent=d.tasks.length;$('pending').textContent=d.counts.pending+d.counts.running;$('completed').textContent=d.counts.completed;$('failed').textContent=d.counts.failed;$('needsHuman').textContent=d.counts.needs_human_action||0;$('modelTag').textContent=d.model_enabled?'MODEL CONFIGURED':'TEMPLATE MODE';$('modelTag').style.color=d.model_enabled?'var(--green)':'var(--gold)';$('liveText').textContent=d.pipeline_running?'SPECIALIST PIPELINE':(d.running?'PROCESSING TASK':'LOCAL SYSTEM');if($('pipelineInfo'))$('pipelineInfo').textContent=d.pipeline_output?'Latest output: '+d.pipeline_output:'No specialist pipeline has run in this session.';$('updated').textContent=new Date(d.updated).toLocaleTimeString();
 const roles=Array.isArray(d.agent_roster)?d.agent_roster:[];$('rosterCount').textContent=roles.length+' role profiles';$('agentRoster').innerHTML=roles.map(a=>'<div class="agent"><div class="agent-icon">◈</div><div><strong>'+esc(a.id)+' / '+esc(a.name)+'</strong><small>'+esc(a.department)+' — '+esc(a.mission)+'</small></div><span class="state">'+(a.approval_required?'Approval':'Profile')+'</span></div>').join('')||'<div class="empty">Roster file not found.</div>';const recent=[...d.tasks].reverse().slice(0,8);$('activity').innerHTML=recent.length?recent.map(t=>`<article class="task"><div class="task-top"><div><h3>${esc(t.title||'Untitled')}</h3><div class="eyebrow">${esc(t.id)} · ${esc(t.kind)}</div></div><span class="status ${esc(t.status||'pending')}">${esc(t.status||'pending')}</span></div>${t.error?`<p class="error">${esc(t.error)}</p>`:''}<div class="task-links">${t.output_file?`<a href="/output?id=${encodeURIComponent(t.id)}">Open generated output ↗</a>`:''}<a href="/task?id=${encodeURIComponent(t.id)}">Task details</a></div></article>`).join(''):'<div class="empty">No tasks queued yet. Create your first operation.</div>';
 const done=[...d.tasks].reverse().filter(t=>t.output_file).slice(0,6);$('outputs').innerHTML=done.length?done.map(t=>`<div class="task"><div class="task-top"><div><h3>${esc(t.title||t.id)}</h3><div class="eyebrow">${esc(t.output_file)}</div></div><a class="tag" href="/output?id=${encodeURIComponent(t.id)}">OPEN</a></div></div>`).join(''):'<div class="empty">No output files recorded yet.</div>';
 }catch(e){$('liveText').textContent='DASHBOARD API ERROR';$('activity').innerHTML='<div class="empty">Could not refresh state: '+esc(e.message)+'</div>'}}
@@ -143,7 +144,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send("Could not safely update task queue: "+esc(type(exc).__name__), status=503)
             return self._redirect("/")
         if path == "/run-pipeline":
-            global PIPELINE_RUNNING
+            global PIPELINE_RUNNING, PIPELINE_LAST_OUTPUT
             task = form.get("task", [""])[0].strip()
             agents = form.get("agents", [""])[0].strip().upper()
             context_file = form.get("context_file", [""])[0].strip()
@@ -158,14 +159,15 @@ class Handler(BaseHTTPRequestHandler):
                 if PIPELINE_RUNNING:
                     return self.send("A specialist pipeline is already running.", status=409)
                 PIPELINE_RUNNING = True
+            run_id = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+            PIPELINE_LAST_OUTPUT = "workspace/orchestration/run-" + run_id
             def run_pipeline():
                 global PIPELINE_RUNNING
                 try:
                     LOGS.mkdir(exist_ok=True)
-                    run_id = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
                     command = [sys.executable, str(BASE / "agents" / "orchestrate.py"),
                                "--task", task, "--agents", ",".join(ids),
-                               "--out", "workspace/orchestration/run-" + run_id]
+                               "--out", PIPELINE_LAST_OUTPUT]
                     if context_file:
                         command.extend(["--context-file", context_file])
                     with (LOGS / "pipeline.log").open("a", encoding="utf-8") as log_file:
