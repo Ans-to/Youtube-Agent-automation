@@ -216,7 +216,7 @@ def main():
             for role in roles:
                 out_dir, report = create_attempt(
                     role["id"], args.task, context, cfg,
-                    root / role["id"],
+                    root,
                 )
                 print(role["id"], role["name"], "->", out_dir, "[" + report["status"] + "]")
             print("Human scoring is required. Use: python agents/practice.py assess --report <assessment.json>")
