@@ -72,7 +72,7 @@ def local_html(idea, title, cfg):
 def scan_risks(source):
     lower=source.lower()
     risks=[]
-    patterns=[(r"<script\\s+[^>]*src=","external script tag"),(r"<link\\s+[^>]*href=[\"']https?://","remote stylesheet/resource"),(r"<iframe\\b","embedded frame"),(r"<form\\b[^>]*\\baction\\s*=","form submission target"),(r"\\bfetch\\s*\\(","network fetch call"),(r"\\bxmlhttprequest\\b","XMLHttpRequest"),(r"\\bwebsocket\\b","WebSocket"),(r"\\beventsource\\b","EventSource"),(r"\\bsendbeacon\\s*\\(","sendBeacon"),(r"\\bimport\\s*\\(","dynamic import"),(r"\\beval\\s*\\(","eval call"),(r"new\\s+function\\s*\\(","Function constructor"),(r"https?://","external URL reference")]
+    patterns=[(r"<script\s+[^>]*src=","external script tag"),(r"<link\s+[^>]*href=["']https?://","remote stylesheet/resource"),(r"<iframe\b","embedded frame"),(r"<form\b[^>]*\baction\s*=","form submission target"),(r"\bfetch\s*\(","network fetch call"),(r"\bxmlhttprequest\b","XMLHttpRequest"),(r"\bwebsocket\b","WebSocket"),(r"\beventsource\b","EventSource"),(r"\bsendbeacon\s*\(","sendBeacon"),(r"\bimport\s*\(","dynamic import"),(r"\beval\s*\(","eval call"),(r"new\s+function\s*\(","Function constructor"),(r"https?://","external URL reference")]
     for pattern,label in patterns:
         if re.search(pattern,lower):risks.append(label)
     return risks
@@ -87,7 +87,7 @@ def main():
     except (FileNotFoundError,json.JSONDecodeError):cfg={}
     generated=local_html(idea,title,cfg)
     source=generated or fallback_html(title,idea)
-    head=re.search(r"<head\\b[^>]*>",source,re.IGNORECASE)
+    head=re.search(r"<head\b[^>]*>",source,re.IGNORECASE)
     if not head: raise SystemExit("Product HTML rejected: a valid head element is required.")
     csp = """<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data: blob:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'">"""
     source=source[:head.end()]+csp+source[head.end():]
@@ -100,7 +100,6 @@ def main():
     if output_base not in out.parents: raise SystemExit("Unsafe product output path.")
     out.mkdir(parents=True,exist_ok=True)
     risks=scan_risks(source)
-    out=(ROOT/a.out/slugify(title)).resolve();out.mkdir(parents=True,exist_ok=True)
     (out/"index.html").write_text(source,encoding="utf-8")
     (out/"README.md").write_text("# "+title+"\n\n## Product idea\n"+idea+"\n\n## Status\nPrototype generated locally. Review functionality, accessibility, security, and licensing before selling.\n\n## Validation notes\n"+("- Potential external/network patterns found: "+", ".join(risks) if risks else "Basic static scan found no configured external-network patterns; this is not a security audit.")+"\n",encoding="utf-8")
     manifest={"title":title,"idea":idea,"status":"draft","generated_by":"local_model" if generated else "deterministic_template","external_patterns_found":risks,"human_review_required":True,"published":False}
