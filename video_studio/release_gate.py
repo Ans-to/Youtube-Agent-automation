@@ -51,6 +51,8 @@ def main():
         "package_dir": str(root),
         "video_file": str(video),
         "video_sha256": video_hash,
+        "script_sha256": sha256(root / "script.md"),
+        "storyboard_sha256": sha256(root / "storyboard.json"),
         "approved_metadata": metadata,
         "script_reviewed": True,
         "storyboard_reviewed": True,
