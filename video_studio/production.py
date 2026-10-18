@@ -16,6 +16,7 @@ from research import research as collect_research, render_markdown as render_res
 
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform"}
+TRANSITION_TYPES = {"none", "fade", "wipe-left", "wipe-right"}
 
 
 def load_config():
@@ -143,6 +144,15 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     if visual_type not in VISUAL_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported visual_type: " + visual_type)
     scene["visual_type"] = visual_type
+    transition = str(scene.get("transition_in", "none")).lower()
+    if transition not in TRANSITION_TYPES:
+        raise ValueError("Scene " + str(index) + " uses unsupported transition_in: " + transition)
+    scene["transition_in"] = transition
+    if "transition_frames" in scene:
+        if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 1 <= scene["transition_frames"] <= 60:
+            raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
+    else:
+        scene["transition_frames"] = 12
     for key in ("visual_nodes", "timeline_events", "comparison_left", "comparison_right", "code_lines", "unresolved_notes"):
         if key in scene and (not isinstance(scene[key], list) or not all(isinstance(v, str) for v in scene[key])):
             raise ValueError("Scene " + str(index) + " field " + key + " must be an array of strings.")
