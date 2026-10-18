@@ -1,0 +1,7 @@
+# Local credentials and runtime state
+.env
+*.token
+github-token
+bridge/local-config.json
+__pycache__/
+*.py[cod]
