@@ -4,5 +4,5 @@
   "private": true,
   "description": "Deterministic Canvas2D video renderer for Offline Agent HQ",
   "scripts": { "render": "node render.js storyboard.example.json" },
-  "dependencies": { "puppeteer": "^24.10.2" }
+  "dependencies": { "puppeteer": "^25.14.0" }
 }
