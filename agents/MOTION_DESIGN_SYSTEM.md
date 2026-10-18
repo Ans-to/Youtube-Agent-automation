@@ -19,7 +19,7 @@ Every scene chooses one visual type based on its information purpose:
 
 Chart labels/values must match one-to-one. A chart is an explanatory visual, not permission to invent a metric; include a source note in the script or scene metadata when values are factual.
 
-Allowed transition values are \`none\`, \`fade\`, \`wipe-left\`, and \`wipe-right\`. \`transition_frames\` must be from 1 to 60. A transition is deterministic frame-by-frame and reveals the current scene over the dark base. Prefer restrained transitions and vary only when there is a narrative reason.
+The storyboard field `transition_in` accepts the values described below. Allowed transition values are \`none\`, \`fade\`, \`wipe-left\`, and \`wipe-right\`. \`transition_frames\` must be from 1 to 60. A transition is deterministic frame-by-frame and reveals the current scene over the dark base. Prefer restrained transitions and vary only when there is a narrative reason.
 
 ## 2. Shot design rules
 
