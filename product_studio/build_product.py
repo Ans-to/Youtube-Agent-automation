@@ -56,16 +56,13 @@ def local_html(idea, title, cfg):
     model=cfg.get("model",{})
     if not model.get("enabled"):return None
     url=model.get("base_url","")
-    if not (url.startswith("http://127.0.0.1:") or url.startswith("http://localhost:") or url.startswith("http://[::1]:")):
-        raise ValueError("Only a loopback local model endpoint is allowed.")
     prompt=("Create a self-contained single-file HTML prototype for this digital product idea: "+idea+
         "\nProduct title: "+title+
         "\nReturn only complete HTML. Requirements: functional, responsive, accessible labels, clear empty/error states, no external libraries, no remote images, no network requests, no analytics, no tracking, no eval or Function constructor. All user data must remain in the browser. Include an explicit prototype notice.")
     body={"model":model.get("model","local-model"),"messages":[
         {"role":"system","content":"You generate careful offline-first HTML prototypes. Output HTML only. Never include external script/style URLs, network calls, telemetry, or claims of security certification."},
         {"role":"user","content":prompt}],"temperature":0.2,"max_tokens":int(model.get("max_output_tokens",2500))}
-    req=urllib.request.Request(url,data=json.dumps(body).encode(),headers={"Content-Type":"application/json"},method="POST")
-    with urllib.request.urlopen(req,timeout=int(model.get("timeout_seconds",120))) as response:data=json.loads(response.read().decode("utf-8"))
+    data=post_local_model(url,body,model.get("timeout_seconds",120))
     text=data["choices"][0]["message"]["content"].strip()
     if text.startswith(chr(96)*3):text=text.split("\n",1)[-1].removesuffix(chr(96)*3).strip()
     if not text.lower().lstrip().startswith("<!doctype html") and not text.lower().lstrip().startswith("<html"):
