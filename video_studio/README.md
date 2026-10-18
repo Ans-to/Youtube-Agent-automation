@@ -48,7 +48,7 @@ For optional YouTube upload, create a Google OAuth desktop client in Google Clou
 
 Example private upload, only after local approval:
 
-    python video_studio/publish_youtube.py --video workspace/generated/video.mp4 --approval workspace/generated/release-approval.json --title "Video title" --description "Video description" --privacy private --confirm-publish
+    python video_studio/publish_youtube.py --video workspace/generated/video.mp4 --approval workspace/generated/release-approval.json --title "Video title" --description "Video description" --privacy private --made-for-kids no --confirm-publish
 
 Public uploads require the additional --confirm-public flag. The uploader verifies the approval record and video hash, uses user OAuth rather than an API key, and defaults to private visibility. OAuth setup, account consent, YouTube API access, and upload processing cannot be completed by repository code alone. Never commit client_secret.json or youtube-token.json.
 
