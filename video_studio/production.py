@@ -119,6 +119,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "Write exactly one production-ready scene for a faceless technology explainer. Return a JSON object with keys "
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
+        "Optional transition_in must be none, fade, wipe-left, or wipe-right; transition_frames must be an integer from 1 to 60.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
         "Section: " + json.dumps(section, ensure_ascii=False) + "\n"
