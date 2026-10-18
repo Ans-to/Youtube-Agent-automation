@@ -1,15 +1,106 @@
 {
-  "title": "CI Shorts Render Smoke Test",
+  "title": "Visual template Shorts smoke test",
   "width": 320,
   "height": 568,
   "fps": 2,
   "scenes": [
     {
       "duration_seconds": 1,
-      "eyebrow": "CI SHORTS TEST",
-      "headline": "Vertical render works",
-      "subhead": "1080 by 1920 profile layout",
-      "narration": "Vertical render works."
+      "eyebrow": "01 / HERO",
+      "headline": "Every frame has a purpose.",
+      "subhead": "A visual system, not a static slideshow.",
+      "narration": "Every frame has a purpose.",
+      "visual_type": "hero",
+      "graphic_label": "VISUAL THESIS"
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "02 / DATA",
+      "headline": "Show the signal.",
+      "subhead": "Give the audience one number to remember.",
+      "narration": "Show the signal.",
+      "visual_type": "stat",
+      "stat_value": "3.2×",
+      "stat_label": "FASTER WORKFLOW"
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "03 / TIMELINE",
+      "headline": "Make progress visible.",
+      "subhead": "Guide the viewer through each stage.",
+      "narration": "Make progress visible.",
+      "visual_type": "timeline",
+      "timeline_events": [
+        "PLAN",
+        "DESIGN",
+        "BUILD",
+        "REVIEW"
+      ]
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "04 / DIAGRAM",
+      "headline": "Explain the system.",
+      "subhead": "Connect inputs to a useful outcome.",
+      "narration": "Explain the system.",
+      "visual_type": "diagram",
+      "visual_nodes": [
+        "INPUT",
+        "PROCESS",
+        "OUTPUT"
+      ]
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "05 / COMPARE",
+      "headline": "Reveal the difference.",
+      "subhead": "A split-screen comparison makes change concrete.",
+      "narration": "Reveal the difference.",
+      "visual_type": "comparison",
+      "comparison_left_title": "BEFORE",
+      "comparison_right_title": "AFTER",
+      "comparison_left": [
+        "Manual",
+        "Slow",
+        "Scattered"
+      ],
+      "comparison_right": [
+        "Automated",
+        "Fast",
+        "Consistent"
+      ]
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "06 / CODE",
+      "headline": "Show the mechanism.",
+      "subhead": "Use code only when it teaches something.",
+      "narration": "Show the mechanism.",
+      "visual_type": "code",
+      "code_lines": [
+        "function render(frame) {",
+        "  drawScene(frame);",
+        "  return output;",
+        "}"
+      ]
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "07 / QUOTE",
+      "headline": "Keep the point human.",
+      "subhead": "A short quotation can reset the visual rhythm.",
+      "narration": "Keep the point human.",
+      "visual_type": "quote",
+      "quote": "Clarity is a design decision.",
+      "quote_source": "DESIGN PRINCIPLE"
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "08 / AUDIO",
+      "headline": "Motion has rhythm.",
+      "subhead": "Use audio energy as a visual accent.",
+      "narration": "Motion has rhythm.",
+      "visual_type": "waveform"
     }
   ]
 }
