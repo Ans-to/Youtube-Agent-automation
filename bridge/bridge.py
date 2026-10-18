@@ -96,7 +96,7 @@ def public_result(response: dict) -> dict:
     if action == "self_test":
         public["result"]["syntax_checked"] = [
             name for name in result.get("syntax_checked", [])
-            if name in {"agent.py", "dashboard.py"}
+            if name in {"agent.py", "dashboard.py", "bridge.py", "studio.py", "production.py", "validate_render.py", "release_gate.py", "publish_youtube.py", "build_product.py"}
         ]
     elif action == "run_task":
         public["result"]["task_id"] = result.get("task_id")
@@ -152,7 +152,7 @@ def project_status() -> dict:
 def run_self_test() -> dict:
     if not PROJECT.is_dir():
         return {"ok": False, "reason": "Project directory not found"}
-    files = [PROJECT / "agent.py", PROJECT / "dashboard.py"]
+    files = [PROJECT / "agent.py", PROJECT / "dashboard.py", PROJECT / "bridge" / "bridge.py",\n             PROJECT / "video_studio" / "studio.py", PROJECT / "video_studio" / "production.py",\n             PROJECT / "video_studio" / "validate_render.py", PROJECT / "video_studio" / "release_gate.py",\n             PROJECT / "video_studio" / "publish_youtube.py", PROJECT / "product_studio" / "build_product.py"]
     present = [str(p.name) for p in files if p.is_file()]
     if not present:
         return {"ok": False, "reason": "No expected Python source files found"}
