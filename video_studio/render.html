@@ -97,7 +97,7 @@
  window.setCanvasSize=function(width,height){if(!Number.isInteger(width)||!Number.isInteger(height)||width<320||height<180||width>3840||height>2160)throw new Error("Invalid canvas dimensions");canvas.width=width;canvas.height=height;};
   window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
-   const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?contentW:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
+   const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?w*.66:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
   ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
   for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
