@@ -117,6 +117,38 @@
       "visual_type": "waveform",
       "transition_in": "none",
       "transition_frames": 2
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "09 / KINETIC TYPE",
+      "headline": "Words reveal ideas",
+      "subhead": "Staggered word animation with a readable settle.",
+      "narration": "Words reveal ideas.",
+      "visual_type": "kinetic-type",
+      "transition_in": "wipe-left",
+      "transition_frames": 2
+    },
+    {
+      "duration_seconds": 1,
+      "eyebrow": "10 / BAR CHART",
+      "headline": "Compare values clearly",
+      "subhead": "Values must be supplied and evidence-backed.",
+      "narration": "Compare values clearly.",
+      "visual_type": "bar-chart",
+      "chart_values": [
+        4,
+        7,
+        5,
+        9
+      ],
+      "chart_labels": [
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "transition_in": "wipe-right",
+      "transition_frames": 2
     }
   ]
 }
