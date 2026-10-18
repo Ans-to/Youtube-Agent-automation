@@ -154,11 +154,18 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
             raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
     else:
         scene["transition_frames"] = 12
-    for key in ("visual_nodes", "timeline_events", "comparison_left", "comparison_right", "code_lines", "chart_labels", "unresolved_notes"):
+    array_limits = {
+        "visual_nodes": 4, "timeline_events": 4, "comparison_left": 3,
+        "comparison_right": 3, "code_lines": 6, "chart_labels": 6,
+        "unresolved_notes": 8,
+    }
+    for key, maximum in array_limits.items():
         if key in scene and (not isinstance(scene[key], list) or not all(isinstance(v, str) for v in scene[key])):
             raise ValueError("Scene " + str(index) + " field " + key + " must be an array of strings.")
+        if key in scene and len(scene[key]) > maximum:
+            raise ValueError("Scene " + str(index) + " field " + key + " may contain at most " + str(maximum) + " entries.")
         if key in scene:
-            scene[key] = [item[:120] for item in scene[key][:8]]
+            scene[key] = [item[:120] for item in scene[key]]
     if "chart_values" in scene:
         values = scene["chart_values"]
         if not isinstance(values, list) or not 2 <= len(values) <= 6 or any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v < 0 for v in values):
