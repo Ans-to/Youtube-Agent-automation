@@ -16,6 +16,8 @@ Every scene chooses one visual type based on its information purpose:
 | \`code\` | Show the mechanism, a code concept, or a technical example | \`code_lines\` (up to 6 lines) |
 | \`quote\` | Give a supported, attributed quotation or a short principle | \`quote\`, \`quote_source\` |
 | \`waveform\` | Add a restrained audio/energy motif or sound-related visual | no required extra fields |
+| kinetic-type | Animate a short headline with staggered, readable word reveals | short headline; optional show_orbit |
+| bar-chart | Animate a compact comparison of supplied, source-backed numeric values | chart_values (2–6 numbers), matching chart_labels (2–6 strings) |
 
 Chart labels/values must match one-to-one. A chart is an explanatory visual, not permission to invent a metric; include a source note in the script or scene metadata when values are factual.
 
