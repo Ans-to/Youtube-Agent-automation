@@ -33,7 +33,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return task brief, dependency order, role assignments, risks, measurable acceptance tests, and approval boundaries.",
-      "practice_drill": "Practice task: complete a small representative Coordinator assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Turn the request into a safe executable plan with explicit success criteria, dependencies, and approval boundaries. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return task brief, dependency order, role assignments, risks, measurable acceptance tests, and approval boundaries. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -62,7 +62,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return research questions, source hierarchy, evidence ledger, confidence notes, and unresolved claims.",
-      "practice_drill": "Practice task: complete a small representative Research Lead assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Design a traceable research plan and distinguish facts, hypotheses, and unanswered questions. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return research questions, source hierarchy, evidence ledger, confidence notes, and unresolved claims. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -91,7 +91,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return source-quality table and claim-by-claim support verdicts.",
-      "practice_drill": "Practice task: complete a small representative Source Auditor assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Assess whether each source directly supports the specific claim attributed to it. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return source-quality table and claim-by-claim support verdicts. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -120,7 +120,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return dated trend candidates with metrics, baselines, confidence, and caveats.",
-      "practice_drill": "Practice task: complete a small representative Trend Analyst assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Separate durable trend signals from short-lived spikes and anecdotal attention. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return dated trend candidates with metrics, baselines, confidence, and caveats. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -149,7 +149,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return audience assumptions, jobs-to-be-done, learning needs, barriers, and validation questions.",
-      "practice_drill": "Practice task: complete a small representative Audience Analyst assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Describe the audience's needs, knowledge, motivations, and barriers using evidence. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return audience assumptions, jobs-to-be-done, learning needs, barriers, and validation questions. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -178,7 +178,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return sourced competitor comparison matrix and original differentiation opportunities.",
-      "practice_drill": "Practice task: complete a small representative Competitor Analyst assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Compare public competitors on consistent dimensions without copying their expression. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return sourced competitor comparison matrix and original differentiation opportunities. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -207,7 +207,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return ranked topic shortlist with scores, evidence availability, audience payoff, and production risk.",
-      "practice_drill": "Practice task: complete a small representative Topic Scout assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Rank topic ideas by audience value, novelty, evidence availability, and production effort. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return ranked topic shortlist with scores, evidence availability, audience payoff, and production risk. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -236,7 +236,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return claim ledger with source, verdict, correction, date/unit checks, and publication blockers.",
-      "practice_drill": "Practice task: complete a small representative Fact Checker assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Atomize prose into individual factual claims and audit each against supplied evidence. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return claim ledger with source, verdict, correction, date/unit checks, and publication blockers. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -265,7 +265,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return narrative arc, timed section map, scene objectives, transitions, and evidence needs.",
-      "practice_drill": "Practice task: complete a small representative Script Architect assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Build a coherent narrative arc that turns evidence into an understandable story. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return narrative arc, timed section map, scene objectives, transitions, and evidence needs. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -294,7 +294,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return ranked hook options with factual dependencies and a supported recommended opening.",
-      "practice_drill": "Practice task: complete a small representative Hook Writer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Create a specific, accurate opening that earns attention without misleading the viewer. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return ranked hook options with factual dependencies and a supported recommended opening. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -323,7 +323,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return ordered section outline with purpose, key points, visual opportunities, and transitions.",
-      "practice_drill": "Practice task: complete a small representative Outline Writer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Turn a thesis into a logical, non-repetitive sequence with one learning objective per section. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return ordered section outline with purpose, key points, visual opportunities, and transitions. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -352,7 +352,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return plain-language explanation, example, analogy limits, glossary, and misconceptions.",
-      "practice_drill": "Practice task: complete a small representative Explainer Writer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Explain mechanisms precisely using plain language, concrete examples, and honest limits. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return plain-language explanation, example, analogy limits, glossary, and misconceptions. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -381,7 +381,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return natural localized narration, pronunciation notes, retained technical terms, and ambiguity flags.",
-      "practice_drill": "Practice task: complete a small representative Urdu Localizer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Write natural spoken Urdu with useful English technical terms and correct meaning. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return natural localized narration, pronunciation notes, retained technical terms, and ambiguity flags. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -410,7 +410,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return polished copy plus a brief change summary and unresolved ambiguities.",
-      "practice_drill": "Practice task: complete a small representative English Editor assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Improve clarity, grammar, precision, and cadence while preserving intended meaning. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return polished copy plus a brief change summary and unresolved ambiguities. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -439,7 +439,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return section-level pacing recommendations with rationale, potential benefit, and caveats.",
-      "practice_drill": "Practice task: complete a small representative Retention Editor assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Improve pacing by optimizing curiosity, progression, variation, and payoff—not manipulation. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return section-level pacing recommendations with rationale, potential benefit, and caveats. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -468,7 +468,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return ranked title options with search intent, rationale, and claim-risk notes.",
-      "practice_drill": "Practice task: complete a small representative Title Writer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Create concise titles whose search intent and promise match the final content. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return ranked title options with search intent, rationale, and claim-risk notes. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -497,7 +497,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return review-ready description, supplied source links, disclosure note, and missing-link checklist.",
-      "practice_drill": "Practice task: complete a small representative Description Writer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Provide a useful video summary, source links, chapters, and a transparent viewer next step. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return review-ready description, supplied source links, disclosure note, and missing-link checklist. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -526,7 +526,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return timestamped chapter labels with timing provenance and unresolved gaps.",
-      "practice_drill": "Practice task: complete a small representative Chapter Writer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Create concise chapters from real final timing and meaningful topic transitions. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return timestamped chapter labels with timing provenance and unresolved gaps. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -555,7 +555,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return composition brief, focal hierarchy, copy options, palette, and asset requirements.",
-      "practice_drill": "Practice task: complete a small representative Thumbnail Planner assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Design a legible mobile-first visual concept with one dominant idea. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return composition brief, focal hierarchy, copy options, palette, and asset requirements. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -584,7 +584,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return shot-by-shot storyboard with purpose, visual type, motion, duration, and required assets.",
-      "practice_drill": "Practice task: complete a small representative Storyboard Artist assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Convert each narration beat into a concrete shot that improves comprehension. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return shot-by-shot storyboard with purpose, visual type, motion, duration, and required assets. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -613,7 +613,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return frame-based timing charts, easing, key states, and readability holds.",
-      "practice_drill": "Practice task: complete a small representative Motion Designer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Apply timing, spacing, easing, anticipation, overshoot, follow-through, and visual hierarchy deliberately. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return frame-based timing charts, easing, key states, and readability holds. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -642,7 +642,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return deterministic Canvas2D implementation/spec with layout bounds and frame regression tests.",
-      "practice_drill": "Practice task: complete a small representative Canvas Animator assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Build deterministic Canvas2D frame functions driven only by scene data and frame/time. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return deterministic Canvas2D implementation/spec with layout bounds and frame regression tests. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -671,7 +671,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return dimension-aware type rules, safe margins, text styles, and overflow test cases.",
-      "practice_drill": "Practice task: complete a small representative Typography Designer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Build a typographic hierarchy that remains readable on mobile and across aspect ratios. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return dimension-aware type rules, safe margins, text styles, and overflow test cases. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -700,7 +700,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return color-token table, contrast notes, role usage rules, and accessible alternatives.",
-      "practice_drill": "Practice task: complete a small representative Palette Designer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Create a coherent palette for information hierarchy, contrast, and emotional intent. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return color-token table, contrast notes, role usage rules, and accessible alternatives. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -729,7 +729,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return validated node/edge diagram spec with layout, labels, and relationship rationale.",
-      "practice_drill": "Practice task: complete a small representative Diagram Designer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Model entities and relationships correctly before styling a diagram. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return validated node/edge diagram spec with layout, labels, and relationship rationale. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -758,7 +758,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return caption text/timing asset, format, reading-speed checks, and uncertain words.",
-      "practice_drill": "Practice task: complete a small representative Caption Builder assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Create accurate, readable captions aligned to the approved narration. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return caption text/timing asset, format, reading-speed checks, and uncertain words. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -787,7 +787,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return approved narration with breath groups, emphasis, pronunciation, and target pace.",
-      "practice_drill": "Practice task: complete a small representative Narration Director assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Shape speech for comprehension, emotional intention, pacing, and pronunciation. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return approved narration with breath groups, emphasis, pronunciation, and target pace. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -816,7 +816,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return audio segments, model/settings manifest, durations, and pronunciation issues.",
-      "practice_drill": "Practice task: complete a small representative TTS Operator assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Operate a configured local speech model repeatably and verify produced audio. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return audio segments, model/settings manifest, durations, and pronunciation issues. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -845,7 +845,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return audio QA report separating measured metadata, listening checks, and unresolved defects.",
-      "practice_drill": "Practice task: complete a small representative Audio Quality Reviewer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Check narration intelligibility, level consistency, clipping, noise, sync, and codec integrity. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return audio QA report separating measured metadata, listening checks, and unresolved defects. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -874,7 +874,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return asset-rights ledger with license evidence, attribution, permission scope, and blockers.",
-      "practice_drill": "Practice task: complete a small representative Music Rights Checker assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Verify the exact license and permitted use for each music/sound asset. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return asset-rights ledger with license evidence, attribution, permission scope, and blockers. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -903,7 +903,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return render manifest, output path, command settings, cleanup status, and verified validation results.",
-      "practice_drill": "Practice task: complete a small representative Render Operator assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Run deterministic frame rendering and encoding with validated inputs and reproducible settings. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return render manifest, output path, command settings, cleanup status, and verified validation results. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -932,7 +932,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return machine-readable validation report with measured properties and critical/warning defects.",
-      "practice_drill": "Practice task: complete a small representative Render Validator assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Validate output metadata and decode integrity, not just file existence. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return machine-readable validation report with measured properties and critical/warning defects. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -961,7 +961,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return visual issue ledger with exact scene/frame, severity, reproduction steps, and corrective action.",
-      "practice_drill": "Practice task: complete a small representative Visual QA assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Inspect representative opening, middle, closing, and high-density frames at final resolution. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return visual issue ledger with exact scene/frame, severity, reproduction steps, and corrective action. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -990,7 +990,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return subtitle defect list with confirmed/provisional timing and spelling/context corrections.",
-      "practice_drill": "Practice task: complete a small representative Subtitle QA assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Compare caption text to approved transcript and confirm timestamps/positioning. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return subtitle defect list with confirmed/provisional timing and spelling/context corrections. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1019,7 +1019,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return claim-to-source matrix, source details, support excerpt, and unresolved evidence list.",
-      "practice_drill": "Practice task: complete a small representative Source Citation Editor assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Attach precise sources to factual claims and maintain traceability from script to source. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return claim-to-source matrix, source details, support excerpt, and unresolved evidence list. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1048,7 +1048,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return copyright risk ledger, permissions needed, originality issues, and mitigation steps.",
-      "practice_drill": "Practice task: complete a small representative Copyright Reviewer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Check originality and permissions for text, image, footage, music, logos, and generated assets. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return copyright risk ledger, permissions needed, originality issues, and mitigation steps. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1077,7 +1077,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return severity-ranked safety issues, recommended edits, and unresolved human decisions.",
-      "practice_drill": "Practice task: complete a small representative Safety Reviewer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Identify harmful instructions, deception, regulated risk, unsafe demonstrations, and unsupported health/financial/legal claims. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return severity-ranked safety issues, recommended edits, and unresolved human decisions. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1106,7 +1106,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return data exposure findings, redactions, data-flow boundaries, and residual risks.",
-      "practice_drill": "Practice task: complete a small representative Privacy Reviewer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Prevent exposure of secrets, personal data, private records, and sensitive metadata. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return data exposure findings, redactions, data-flow boundaries, and residual risks. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1135,7 +1135,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return brand-deviation list, token corrections, and approved-style guidance.",
-      "practice_drill": "Practice task: complete a small representative Brand Consistency Reviewer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Maintain a distinctive, reusable channel identity across imagery, type, sound, and language. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return brand-deviation list, token corrections, and approved-style guidance. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1164,7 +1164,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return metadata validation report with consistency checks and publish blockers.",
-      "practice_drill": "Practice task: complete a small representative Metadata QA assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Ensure title, description, tags, chapters, thumbnail, audience declaration, and video match. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return metadata validation report with consistency checks and publish blockers. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1193,7 +1193,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return self-contained vertical beat sheet with timing, captions, visual reframes, and source timestamps.",
-      "practice_drill": "Practice task: complete a small representative Shorts Editor assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Create a complete vertical story with a fast setup, one idea, clear visual payoff, and close. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return self-contained vertical beat sheet with timing, captions, visual reframes, and source timestamps. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1222,7 +1222,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return chapter edit plan with durations, pacing notes, redundancy cuts, and transition fixes.",
-      "practice_drill": "Practice task: complete a small representative Long-Form Editor assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Shape long duration through chapter progression, varied visual grammar, examples, and payoff. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return chapter edit plan with durations, pacing notes, redundancy cuts, and transition fixes. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1251,7 +1251,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return clip candidates with source timestamps, context checks, hooks, and stand-alone rationale.",
-      "practice_drill": "Practice task: complete a small representative Clip Selector assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Identify self-contained clip candidates from a supplied transcript/video timing source. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return clip candidates with source timestamps, context checks, hooks, and stand-alone rationale. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1280,7 +1280,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return problem hypothesis, evidence grade, competitor set, validation experiment, and go/no-go criteria.",
-      "practice_drill": "Practice task: complete a small representative Product Researcher assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Validate a real user problem before recommending a product build. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return problem hypothesis, evidence grade, competitor set, validation experiment, and go/no-go criteria. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1309,7 +1309,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return MVP specification, user flow, data boundaries, architecture, tests, and out-of-scope items.",
-      "practice_drill": "Practice task: complete a small representative Product Architect assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Design a narrow MVP with user flow, data model, nonfunctional constraints, and failure paths. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return MVP specification, user flow, data boundaries, architecture, tests, and out-of-scope items. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1338,7 +1338,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return runnable implementation/files, setup, tests, known limits, and verified state.",
-      "practice_drill": "Practice task: complete a small representative Prototype Builder assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Produce a runnable, maintainable prototype with clear dependencies and testable behavior. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return runnable implementation/files, setup, tests, known limits, and verified state. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1367,7 +1367,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return quick-start, prerequisites, exact commands, expected output, troubleshooting, and limitations.",
-      "practice_drill": "Practice task: complete a small representative Documentation Writer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Create accurate quick starts, requirements, runnable examples, troubleshooting, and known limits. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return quick-start, prerequisites, exact commands, expected output, troubleshooting, and limitations. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1396,7 +1396,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return test matrix, deterministic regression tests, reproduction steps, and coverage gaps.",
-      "practice_drill": "Practice task: complete a small representative Test Engineer assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Build deterministic regression tests that verify behavior and catch known failure modes. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return test matrix, deterministic regression tests, reproduction steps, and coverage gaps. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1425,7 +1425,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return version/changelog, checksum, verification checklist, rollback notes, and release decision.",
-      "practice_drill": "Practice task: complete a small representative Release Manager assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Make releases reproducible, traceable, reviewed, and recoverable. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return version/changelog, checksum, verification checklist, rollback notes, and release decision. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1454,7 +1454,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return human decision checklist bound to exact artifact/version/metadata; this profile must never auto-approve.",
-      "practice_drill": "Practice task: complete a small representative Human Approval Gate assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Tabletop-only exercise: review a fictional release dossier, compare the proposed action with the exact artifact checksum and metadata, list missing approvals and consequences, and produce a stop/approve checklist for a human. Never make the actual approval decision, mint consent, or execute the action.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -1483,7 +1483,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return visual thesis, art-direction system, shot-by-shot style, transitions, palette/type rules, and creative QA criteria.",
-      "practice_drill": "Practice task: complete a small representative Motion Graphics Creative Director assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Own the visual thesis, premium editorial art direction, storyboard grammar, shot rhythm, and cohesive finish across the entire video. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return visual thesis, art-direction system, shot-by-shot style, transitions, palette/type rules, and creative QA criteria. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Visual thesis is specific, evidence-compatible, and consistent with the channel identity",
         "Shot grammar varies meaningfully and every scene has a distinct narrative purpose",
@@ -1513,7 +1513,7 @@
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
       "deliverable_contract": "Return implementable motion/compositing plan with frame timings, easing, mask/layer order, performance budget, and regression checks.",
-      "practice_drill": "Practice task: complete a small representative Motion Systems & Compositing Specialist assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
+      "practice_drill": "Field-specific practice: Design reusable, smooth, deterministic motion systems and layered compositing that are practical in Canvas2D/Puppeteer/FFmpeg. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return implementable motion/compositing plan with frame timings, easing, mask/layer order, performance budget, and regression checks. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Every proposed effect maps to an implemented visual type or is explicitly marked as future work",
         "Frame timing, easing, layer order, masks/reveals, and transition behavior are implementable and deterministic",
