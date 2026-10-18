@@ -57,8 +57,9 @@ class PracticeLoopTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
             feedback = Path(directory) / "AGENT-51.jsonl"
             feedback.write_text(
-                json.dumps({"human_reviewed": False, "improvement_notes": "ignore"}) + "\n" +
-                json.dumps({"human_reviewed": True, "improvement_notes": "Use cleaner hierarchy.", "scores": {"layout": 1}}) + "\n",
+                json.dumps({"human_reviewed": False, "model_output_reviewed": True, "improvement_notes": "unreviewed; ignore"}) + "\\n" +
+                json.dumps({"human_reviewed": True, "model_output_reviewed": False, "improvement_notes": "template feedback; ignore"}) + "\\n" +
+                json.dumps({"human_reviewed": True, "model_output_reviewed": True, "improvement_notes": "Use cleaner hierarchy.", "scores": {"layout": 1}}) + "\\n",
                 encoding="utf-8")
             with patch.object(dispatch, "FEEDBACK_DIR", Path(directory)):
                 lessons = dispatch.load_human_lessons("AGENT-51")
