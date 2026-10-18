@@ -90,7 +90,7 @@ def fetch_search_html(query, timeout=15):
         headers={"User-Agent": USER_AGENT, "Accept": "text/html", "Accept-Encoding": "identity"},
         method="GET")
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
-    with opener.open(request, timeout=max(3, min(int(timeout), 30)) as response:
+    with opener.open(request, timeout=max(3, min(int(timeout), 30))) as response:
         if response.status != 200:
             raise ValueError("Search engine returned HTTP " + str(response.status))
         data = response.read(1_500_001)
