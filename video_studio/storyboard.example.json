@@ -1,0 +1,12 @@
+{
+  "title": "Every Frame Is Code",
+  "width": 1920,
+  "height": 1080,
+  "fps": 30,
+  "scenes": [
+    {"duration_seconds": 4, "eyebrow": "OFFLINE AGENT HQ", "headline": "Every frame is code.", "subhead": "A deterministic motion-graphics prototype", "narration": "Every frame is code."},
+    {"duration_seconds": 4, "eyebrow": "LOCAL FIRST", "headline": "Nothing is filmed.", "subhead": "The visual system is generated from repeatable instructions.", "narration": "Nothing is filmed. The visual system is generated from repeatable instructions."},
+    {"duration_seconds": 4, "eyebrow": "DETERMINISTIC RENDER", "headline": "Same input.", "subhead": "Same timing, same drawing rules.", "narration": "Same input."},
+    {"duration_seconds": 4, "eyebrow": "REPRODUCIBLE OUTPUT", "headline": "Same pixels.", "subhead": "Render it locally with free tools.", "narration": "Same pixels. Render it locally with free tools."}
+  ]
+}
