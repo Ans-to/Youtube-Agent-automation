@@ -21,6 +21,8 @@ def main():
  if not 1<=fps<=60:raise SystemExit("Storyboard fps must be from 1 to 60.")
  run([node,"render.js",str(sb)])
  manifest=json.loads((BASE/"render-manifest.json").read_text(encoding="utf-8"))
+ frame_check=subprocess.run([sys.executable,str(BASE/"validate_frames.py"),"--frames",str(BASE/"frames"),"--manifest",str(BASE/"render-manifest.json")],cwd=str(BASE),check=True,capture_output=True,text=True,timeout=300)
+ print(frame_check.stdout.strip())
  output=(BASE/a.output).resolve();output.parent.mkdir(parents=True,exist_ok=True)
  silent=output.with_name(output.stem+".silent.mp4");frames=BASE/"frames"/"frame-%06d.png"
  run([ffmpeg,"-y","-hide_banner","-loglevel","warning","-framerate",str(fps),"-i",str(frames),"-frames:v",str(manifest["frame_count"]),"-c:v","libx264","-pix_fmt","yuv420p","-crf","20","-movflags","+faststart",str(silent)])
