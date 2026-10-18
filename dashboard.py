@@ -141,7 +141,7 @@ class Handler(BaseHTTPRequestHandler):
                 except (OSError, subprocess.TimeoutExpired) as exc:
                     LOGS.mkdir(exist_ok=True)
                     with (LOGS / "dashboard.log").open("a", encoding="utf-8") as f:
-                        f.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] RUN ERROR: {type(exc).__name__}\\n")
+                        f.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] RUN ERROR: {type(exc).__name__}\n")
                 finally:
                     RUNNING = False
 
