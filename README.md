@@ -4,6 +4,12 @@
 
 The project is designed for a low-cost phone-first setup. It uses Python's standard library for the task runner, dashboard, and bridge. It does not require a paid AI API.
 
+## Start on Windows PC or Android
+
+- **Windows:** run `setup_windows.ps1` in PowerShell, then launch `start_windows.bat`.
+- **Android:** use the Termux steps below.
+- **Mobile/PC behavior and limitations:** read [MOBILE_PC_GUIDE.md](MOBILE_PC_GUIDE.md). The dashboard is responsive, but separate local installs do not automatically synchronize, and the loopback-only dashboard is not remotely exposed.
+
 ## What is implemented
 
 - **Local dashboard:** mobile-friendly command deck at `http://127.0.0.1:8765`.
