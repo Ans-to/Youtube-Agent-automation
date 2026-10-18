@@ -118,6 +118,31 @@ class PracticeLoopTests(unittest.TestCase):
             self.assertEqual(lessons[0]["improvement_notes"], "Use cleaner hierarchy.")
             self.assertIn("layout", lessons[0]["gates_to_improve"])
 
+    def test_batch_practice_continues_after_one_role_fails(self):
+        with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
+            root = Path(directory) / "runs"
+            roles = [
+                {"id": "AGENT-51", "name": "Motion Graphics Creative Director"},
+                {"id": "AGENT-52", "name": "Motion Systems & Compositing Specialist"},
+            ]
+            success_dir = Path(directory) / "successful-attempt"
+            success_dir.mkdir()
+            with patch.object(practice, "create_attempt", side_effect=[
+                RuntimeError("temporary local model error"),
+                (success_dir, {"status": "pending_human_assessment"}),
+            ]) as attempt:
+                completed, failed = practice.run_practice_batch(
+                    roles, "Practice task", "", {"model": {"enabled": True}}, root
+                )
+            self.assertEqual(attempt.call_count, 2)
+            self.assertEqual(len(completed), 1)
+            self.assertEqual(completed[0]["agent_id"], "AGENT-52")
+            self.assertEqual(len(failed), 1)
+            self.assertEqual(failed[0]["agent_id"], "AGENT-51")
+            error_file = Path(failed[0]["error_file"])
+            self.assertTrue(error_file.is_file())
+            self.assertEqual(json.loads(error_file.read_text(encoding="utf-8"))["status"], "practice_failed")
+
     def test_batch_practice_lists_all_specialists_but_no_approval_roles(self):
         roles = practice.executable_roles()
         self.assertEqual(len(roles), 51)
