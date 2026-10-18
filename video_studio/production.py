@@ -61,9 +61,10 @@ def fallback(topic):
 
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--topic",required=True);parser.add_argument("--out",default="workspace/generated");parser.add_argument("--format",choices=["long","shorts"],default="long");parser.add_argument("--render",action="store_true")
+    parser.add_argument("--topic",required=True);parser.add_argument("--out",default="workspace/generated");parser.add_argument("--format",choices=["long","shorts"],default="long");parser.add_argument("--render",action="store_true");parser.add_argument("--with-voice",action="store_true",help="Use local Piper voice; requires --render and PIPER_MODEL")
     args=parser.parse_args();topic=args.topic.strip()
     if not topic or len(topic)>500:raise SystemExit("Topic must be 1–500 characters.")
+    if args.with_voice and not args.render:raise SystemExit("--with-voice requires --render.")
     data=local_generate(topic,load_config()) or fallback(topic);scenes=data.get("scenes")
     if not isinstance(scenes,list) or not 1<=len(scenes)<=100:raise SystemExit("Generated package invalid: scenes must be a list of 1–100.")
     total_seconds=0
@@ -85,6 +86,8 @@ def main():
     (output_dir/"package-status.json").write_text(json.dumps({"status":"draft","format":args.format,"topic":topic,"research_performed":False,"human_review_required":True,"published":False},indent=2)+"\n",encoding="utf-8")
     print("Draft package:",output_dir);print("Research performed: no. Verify facts and add source notes before publishing.")
     if args.render:
-        subprocess.run([sys.executable,str(BASE/"studio.py"),"--storyboard",str(output_dir/"storyboard.json"),"--output",str(output_dir/"video.mp4")],check=True)
+        command=[sys.executable,str(BASE/"studio.py"),"--storyboard",str(output_dir/"storyboard.json"),"--output",str(output_dir/"video.mp4")]
+        if args.with_voice:command.append("--with-voice")
+        subprocess.run(command,check=True)
 
 if __name__=="__main__":main()
