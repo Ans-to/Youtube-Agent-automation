@@ -32,5 +32,15 @@ class ProductStudioTests(unittest.TestCase):
         self.assertIn("does not send the text anywhere", page)
 
 
+
+    def test_local_model_rejects_non_loopback_and_userinfo_urls(self):
+        for url in ("http://example.com:8080/v1/chat/completions",
+                    "http://127.0.0.1:123@example.com:80/v1/chat/completions",
+                    "https://127.0.0.1:8080/v1/chat/completions",
+                    "http://127.0.0.1/v1/chat/completions"):
+            with self.subTest(url=url):
+                with self.assertRaises(ValueError):
+                    build_product.post_local_model(url, {}, 1)
+
 if __name__ == "__main__":
     unittest.main()
