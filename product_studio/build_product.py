@@ -72,7 +72,7 @@ def local_html(idea, title, cfg):
 def scan_risks(source):
     lower=source.lower()
     risks=[]
-    patterns=[(r"<script\s+[^>]*src=","external script tag"),(r"<link\s+[^>]*href=["']https?://","remote stylesheet/resource"),(r"<iframe\b","embedded frame"),(r"<form\b[^>]*\baction\s*=","form submission target"),(r"\bfetch\s*\(","network fetch call"),(r"\bxmlhttprequest\b","XMLHttpRequest"),(r"\bwebsocket\b","WebSocket"),(r"\beventsource\b","EventSource"),(r"\bsendbeacon\s*\(","sendBeacon"),(r"\bimport\s*\(","dynamic import"),(r"\beval\s*\(","eval call"),(r"new\s+function\s*\(","Function constructor"),(r"https?://","external URL reference")]
+    patterns=[(r"<script\s+[^>]*src=","external script tag"),(r"<link\b[^>]*https?://","remote stylesheet/resource"),(r"<iframe\b","embedded frame"),(r"<form\b[^>]*\baction\s*=","form submission target"),(r"\bfetch\s*\(","network fetch call"),(r"\bxmlhttprequest\b","XMLHttpRequest"),(r"\bwebsocket\b","WebSocket"),(r"\beventsource\b","EventSource"),(r"\bsendbeacon\s*\(","sendBeacon"),(r"\bimport\s*\(","dynamic import"),(r"\beval\s*\(","eval call"),(r"new\s+function\s*\(","Function constructor"),(r"https?://","external URL reference")]
     for pattern,label in patterns:
         if re.search(pattern,lower):risks.append(label)
     return risks
