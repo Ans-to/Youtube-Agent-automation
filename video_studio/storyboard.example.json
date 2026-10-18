@@ -4,9 +4,63 @@
   "height": 1080,
   "fps": 30,
   "scenes": [
-    {"duration_seconds": 4, "eyebrow": "OFFLINE AGENT HQ", "headline": "Every frame is code.", "subhead": "A deterministic motion-graphics prototype", "narration": "Every frame is code."},
-    {"duration_seconds": 4, "eyebrow": "LOCAL FIRST", "headline": "Nothing is filmed.", "subhead": "The visual system is generated from repeatable instructions.", "narration": "Nothing is filmed. The visual system is generated from repeatable instructions."},
-    {"duration_seconds": 4, "eyebrow": "DETERMINISTIC RENDER", "headline": "Same input.", "subhead": "Same timing, same drawing rules.", "narration": "Same input."},
-    {"duration_seconds": 4, "eyebrow": "REPRODUCIBLE OUTPUT", "headline": "Same pixels.", "subhead": "Render it locally with free tools.", "narration": "Same pixels. Render it locally with free tools."}
+    {
+      "duration_seconds": 4,
+      "eyebrow": "OFFLINE AGENT HQ",
+      "headline": "Every frame is code.",
+      "subhead": "A deterministic motion-graphics prototype",
+      "narration": "Every frame is code.",
+      "visual_type": "hero",
+      "graphic_label": "DETERMINISTIC",
+      "transition_in": "fade",
+      "transition_frames": 18
+    },
+    {
+      "duration_seconds": 4,
+      "eyebrow": "LOCAL FIRST",
+      "headline": "Nothing is filmed.",
+      "subhead": "The visual system is generated from repeatable instructions.",
+      "narration": "Nothing is filmed. The visual system is generated from repeatable instructions.",
+      "visual_type": "diagram",
+      "visual_nodes": [
+        "SOURCE CODE",
+        "CANVAS2D",
+        "PNG FRAMES"
+      ],
+      "transition_in": "wipe-left",
+      "transition_frames": 18
+    },
+    {
+      "duration_seconds": 4,
+      "eyebrow": "DETERMINISTIC RENDER",
+      "headline": "Same input.",
+      "subhead": "Same timing, same drawing rules.",
+      "narration": "Same input.",
+      "visual_type": "kinetic-type",
+      "transition_in": "wipe-right",
+      "transition_frames": 18
+    },
+    {
+      "duration_seconds": 4,
+      "eyebrow": "REPRODUCIBLE OUTPUT",
+      "headline": "Same pixels.",
+      "subhead": "Render it locally with free tools.",
+      "narration": "Same pixels. Render it locally with free tools.",
+      "visual_type": "comparison",
+      "comparison_left_title": "FIRST RUN",
+      "comparison_right_title": "SAME INPUT",
+      "comparison_left": [
+        "Same source",
+        "Same frames",
+        "Same layout"
+      ],
+      "comparison_right": [
+        "Same source",
+        "Same frames",
+        "Same layout"
+      ],
+      "transition_in": "fade",
+      "transition_frames": 18
+    }
   ]
 }
