@@ -69,8 +69,6 @@ def ask_local_model(prompt, cfg):
     if not m.get("enabled"):
         return None
     url = m.get("base_url", "")
-    if not (url.startswith("http://127.0.0.1:") or url.startswith("http://localhost:") or url.startswith("http://[::1]:")):
-        raise ValueError("Offline mode permits only a localhost/loopback model endpoint.")
     body = {
         "model": m.get("model", "local-model"),
         "messages": [
@@ -80,10 +78,7 @@ def ask_local_model(prompt, cfg):
         "temperature": 0.25,
         "max_tokens": int(m.get("max_output_tokens", 900))
     }
-    req = urllib.request.Request(url, data=json.dumps(body).encode(),
-        headers={"Content-Type": "application/json"}, method="POST")
-    with urllib.request.urlopen(req, timeout=int(m.get("timeout_seconds", 120))) as r:
-        data = json.loads(r.read().decode("utf-8"))
+    data = post_local_model(url, body, m.get("timeout_seconds", 120))
     return data["choices"][0]["message"]["content"].strip()
 
 def fallback(task, kind, context):
