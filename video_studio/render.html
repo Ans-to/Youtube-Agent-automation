@@ -13,7 +13,6 @@
   const w=canvas.width,h=canvas.height,portrait=h>w,left=w*.078,contentW=w*.844;
   const type=String(scene.visual_type||"hero").toLowerCase();
   const gx=portrait?left:w*.665,gy=portrait?(type==="bar-chart"?h*.63:h*.68):h*.36,gw=portrait?contentW:w*.255,gh=portrait?(type==="bar-chart"?h*.14:h*.08):h*.315;
-  const gx=portrait?left:w*.665,gy=portrait?h*.68:h*.36,gw=portrait?contentW:w*.255,gh=portrait?h*.08:h*.315;
   const accent=p.accent,fg=p.fg,muted=p.muted,panel="#15151d",line="#454552";
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const rounded=(x,y,ww,hh,r,fill,stroke)=>{ctx.beginPath();ctx.roundRect(x,y,ww,hh,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke()}};
