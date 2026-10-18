@@ -28,7 +28,7 @@ class PublishApprovalTests(unittest.TestCase):
             "video_sha256": sha256(video),
             "script_sha256": sha256(script),
             "storyboard_sha256": sha256(storyboard),
-            "approved_metadata": metadata,
+            "approved_metadata": {**metadata, "tags": list(metadata["tags"])},
         }
         return video, metadata, approval
 
