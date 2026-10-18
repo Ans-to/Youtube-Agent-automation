@@ -129,7 +129,7 @@ Put non-sensitive `.txt`, `.md`, or `.json` reference files in `workspace/`. Ins
 
 Run locally:
 ```sh
-python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py video_studio/studio.py video_studio/production.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
 python -m unittest discover -s tests -v
 ```
 
@@ -151,7 +151,7 @@ Create a script/storyboard draft from a topic with `python video_studio/producti
 
 ## Specialist roster and orchestration
 
-`agents/roster.json` defines 50 specialist role profiles. `agents/orchestrate.py` now runs a selected pipeline of up to 49 non-approval roles sequentially, passing prior-stage outputs as explicitly unverified context and writing a manifest under `workspace/orchestration/`. The dashboard includes a specialist-pipeline form. These are role prompts sharing one local model, not 50 independent concurrently running models. `AGENT-50` cannot be automatically orchestrated because it represents a real human approval step. No web research or external actions are performed by the pipeline.
+`agents/roster.json` defines 52 profiles: 51 specialist roles plus `AGENT-50`, the human approval gate. `agents/skillbooks.json` gives every role a field-specific workflow, quality gates, failure modes, deliverable contract, and practice drill. `agents/dispatch.py` injects that playbook into each specialist prompt, and reports a concise quality-gate check. This is prompt-level guidance and evaluation scaffolding, not fine-tuning of model weights or a guarantee of expert performance. `agents/orchestrate.py` runs up to 51 non-approval roles sequentially, including the two motion-design specialists, passing previous outputs as unverified context and writing a manifest under `workspace/orchestration/`. The dashboard exposes the pipeline. No automatic web research or external action is claimed by the specialist pipeline; use the separate video research option for source discovery, then verify sources manually.
 
 
 The video module also includes a separate optional YouTube uploader. It requires Google OAuth setup, a local approval record tied to the MP4 hash, and explicit upload confirmation; it defaults to private visibility and never publishes automatically without those checks. See video_studio/README.md.
