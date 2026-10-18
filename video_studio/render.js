@@ -28,6 +28,8 @@ async function main(){
   const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
   await page.goto("file://"+path.resolve(__dirname,"render.html"),{waitUntil:"load"});await page.setViewport({width:w,height:h,deviceScaleFactor:1});
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
+  const wrapCheck=await page.evaluate(()=>window.measureWrappedLines("word ".repeat(80),180,"16px Arial"));
+  if(!Number.isInteger(wrapCheck)||wrapCheck<2)throw new Error("Text wrapping regression: long text did not wrap to multiple lines.");
   let total=0;
   for(let si=0;si<s.scenes.length;si++){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
