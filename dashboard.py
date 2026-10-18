@@ -24,8 +24,10 @@ def save(path, data):
 def esc(v): return html.escape(str(v), quote=True)
 
 def task_state():
-    tasks = load(TASKS, [])
-    counts = {k: sum(1 for t in tasks if t.get("status", "pending") == k) for k in ("pending", "running", "completed", "failed", "needs_human_action")}
+    raw_tasks = load(TASKS, [])
+    tasks = [t for t in raw_tasks if isinstance(t, dict)] if isinstance(raw_tasks, list) else []
+    counts = {k: sum(1 for t in tasks if str(t.get("status", "pending")).lower() == k) for k in ("running", "completed", "failed", "needs_human_action")}
+    counts["pending"] = sum(1 for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"})
     cfg = load(CONFIG, {})
     model = cfg.get("model", {})
     return {"tasks": tasks[-100:], "counts": counts, "model_enabled": bool(model.get("enabled")),
@@ -124,12 +126,25 @@ class Handler(BaseHTTPRequestHandler):
             save(TASKS, tasks)
             return self._redirect("/")
         if path == "/run":
+            if RUNNING:
+                return self.send("A task cycle is already running. Wait for it to finish before starting another.", status=409)
+            RUNNING = True
+
             def runner():
                 global RUNNING
-                with RUN_LOCK:
-                    RUNNING = True
-                    try: subprocess.run([sys.executable, str(BASE / "agent.py"), "--once"], cwd=str(BASE), timeout=3600)
-                    finally: RUNNING = False
+                try:
+                    with RUN_LOCK:
+                        subprocess.run(
+                            [sys.executable, str(BASE / "agent.py"), "--once"],
+                            cwd=str(BASE), timeout=3600, check=False
+                        )
+                except (OSError, subprocess.TimeoutExpired) as exc:
+                    LOGS.mkdir(exist_ok=True)
+                    with (LOGS / "dashboard.log").open("a", encoding="utf-8") as f:
+                        f.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] RUN ERROR: {type(exc).__name__}\\n")
+                finally:
+                    RUNNING = False
+
             threading.Thread(target=runner, daemon=True).start()
             return self._redirect("/")
         if path == "/refresh": return self._redirect("/")
