@@ -1,6 +1,7 @@
 import importlib.util
 import pathlib
 import unittest
+from unittest.mock import patch
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("agent_hq_bridge", ROOT / "bridge" / "bridge.py")
@@ -10,7 +11,8 @@ SPEC.loader.exec_module(bridge)
 
 class BridgeTests(unittest.TestCase):
     def test_self_test_covers_practice_and_motion_documents(self):
-        result = bridge.run_self_test()
+        with patch.object(bridge, "PROJECT", ROOT):
+            result = bridge.run_self_test()
         self.assertTrue(result["ok"], result)
         checked = set(result["syntax_checked"])
         self.assertIn("practice.py", checked)
