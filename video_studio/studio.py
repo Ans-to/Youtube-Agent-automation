@@ -12,6 +12,7 @@ def main():
  p.add_argument("--output",default="outputs/offline-agent-hq-demo.mp4")
  p.add_argument("--with-voice",action="store_true",help="Use local Piper CLI and PIPER_MODEL path")
  a=p.parse_args();node=shutil.which("node");ffmpeg=shutil.which("ffmpeg")
+ if a.with_voice and (not shutil.which("piper") or not __import__("os").environ.get("PIPER_MODEL") or not Path(__import__("os").environ.get("PIPER_MODEL","")).is_file()):raise SystemExit("Voice requested, but Piper or PIPER_MODEL is missing.")
  if not node:raise SystemExit("Node.js was not found. Install Node.js LTS first.")
  if not ffmpeg:raise SystemExit("FFmpeg was not found. Install FFmpeg first.")
  sb=(BASE/a.storyboard).resolve()
