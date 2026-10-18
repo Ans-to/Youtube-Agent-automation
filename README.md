@@ -145,7 +145,7 @@ GitHub Actions runs these checks on pushes and pull requests to `main`.
 
 ## Video studio (new starter module)
 
-The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The first version generates typography and geometric motion graphics; it is not yet a complete professional editor or anime rig system.
+The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, and waveform compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
 
 Create a script/storyboard draft from a topic with `python video_studio/production.py --topic "Your topic"`. This uses a configured loopback local model if enabled; otherwise it writes a clearly marked template. It does not perform web research or publish content. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4.
 
@@ -187,4 +187,4 @@ python agents/orchestrate.py --task "Prepare a fact-checkable technology video s
 
 The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it produces drafts but still does not independently verify facts or browse the web. Review `pipeline-status.json` and all stage outputs before using them.
 
-Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. All 50 role profiles share the same configured local model endpoint; they are not 50 separate model processes.
+Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 52 role profiles: 51 specialist roles and the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
