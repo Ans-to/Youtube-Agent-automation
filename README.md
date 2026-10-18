@@ -156,6 +156,22 @@ Create a script/storyboard draft from a topic with `python video_studio/producti
 
 The video module also includes a separate optional YouTube uploader. It requires Google OAuth setup, a local approval record tied to the MP4 hash, and explicit upload confirmation; it defaults to private visibility and never publishes automatically without those checks. See video_studio/README.md.
 
+
+
+## Source-aware full-length video production
+
+With a compatible local model enabled in `config.json`, `video_studio/production.py` creates an outline and then generates narration scene by scene. Long-form defaults to 15 minutes and Shorts to 1 minute; the script checks scene count and minimum narration length, emits typed visual instructions, and can optionally synthesize scene-aligned narration with a local Piper voice. Without a model, it writes an explicitly labelled 20-second template. Rendering that demo requires `--render-template`; it is not a finished script.
+
+Optional free discovery can be enabled using `--research`. This collects DuckDuckGo search-result titles, links and snippets into `research.md`/ `research.json` without an API key. Search snippets are unverified research leads, not source-grounded facts. Open the source links, verify publication dates and claims, and review the final script before publication. For more reliable context, supply curated notes using `--source-file workspace/source-notes.md`.
+
+Example:
+
+```sh
+python video_studio/production.py --topic "How AI agents work" --format long --research --source-file workspace/source-notes.md --render
+```
+
+Add `--with-voice` only after installing Piper and setting `PIPER_MODEL` to a local voice model file. Use `--target-minutes 8` to change the duration. YouTube upload still requires explicit video-and-metadata approval and Google OAuth; content is never auto-published.
+
 ## Digital product prototype builder
 
 The `product_studio/` folder can generate a local-first single-file HTML utility prototype and ZIP package. It uses the configured loopback model only when enabled; otherwise it creates a starter template. The static scan is only a warning aid, not a security audit, and product deployment/sales remain manual. See `product_studio/README.md`.
