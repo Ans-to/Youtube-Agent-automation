@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Upload an explicitly approved local MP4 to YouTube; OAuth and confirmation are required."""
 import argparse,hashlib,json
+from datetime import datetime,timezone
 from pathlib import Path
 def sha256(path):
  h=hashlib.sha256()
@@ -44,5 +45,11 @@ def main():
  while response is None:
   status,response=request.next_chunk()
   if status:print("Upload progress: {:.1f}%".format(status.progress()*100),flush=True)
- print(json.dumps({"uploaded":True,"video_id":response.get("id"),"privacy":a.privacy,"watch_url":"https://www.youtube.com/watch?v="+str(response.get("id")),"note":"Upload accepted; processing and visibility may take time."},indent=2))
+ uploaded_at=datetime.now(timezone.utc).isoformat();video_id=response.get("id")
+ approval["upload"]={"uploaded":True,"uploaded_at":uploaded_at,"video_id":video_id,"privacy":a.privacy};approval_path.write_text(json.dumps(approval,indent=2)+"\n",encoding="utf-8")
+ status_path=Path(approval.get("package_dir",str(video.parent)))/"package-status.json"
+ if status_path.is_file():
+  package_status=json.loads(status_path.read_text(encoding="utf-8"));package_status.update({"status":"uploaded","uploaded":True,"published":a.privacy=="public","upload_privacy":a.privacy,"youtube_video_id":video_id,"uploaded_at":uploaded_at})
+  status_path.write_text(json.dumps(package_status,indent=2)+"\n",encoding="utf-8")
+ print(json.dumps({"uploaded":True,"video_id":video_id,"privacy":a.privacy,"watch_url":"https://www.youtube.com/watch?v="+str(video_id),"note":"Upload accepted; processing and visibility may take time."},indent=2))
 if __name__=="__main__":main()
