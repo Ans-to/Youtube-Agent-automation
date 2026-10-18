@@ -201,9 +201,11 @@ def run_one_queued_task(task_id: str) -> dict:
     request_text = " ".join(str(task.get(k, "")) for k in ("title", "input")).lower()
     external_patterns = [
         r"\bset (?:an? )?alarm\b", r"\b(?:wake me|remind me|schedule (?:a )?reminder)\b",
-        r"\bpublish (?:the|this|my|finished|final)\b", r"\bupload (?:the|this|my|finished|final)\b",
+        r"\bpublish (?:the|this|my|finished|final)\b", r"\bpublish\s+(?:the\s+|this\s+|my\s+|a\s+|an\s+)?(?:video|short|content|file|draft)\b",
+        r"\bupload (?:the|this|my|finished|final)\b", r"\bupload\s+(?:the\s+|this\s+|my\s+|a\s+|an\s+)?(?:video|short|content|file|draft)\b",
         r"\bsend (?:the|this|an? email|a message|the message)\b", r"\bemail .+ to .+",
-        r"\bpost (?:the|this|my|finished|final)\b", r"\bmake (?:a )?payment\b",
+        r"\bpost (?:the|this|my|finished|final)\b", r"\bpost\s+(?:the\s+|this\s+|my\s+|a\s+|an\s+)?(?:video|short|content|file)\b",
+        r"\bmake (?:a )?payment\b",
         r"\btransfer money\b", r"\bdelete (?:the|this|my)\b",
     ]
     if any(re.search(pattern, request_text, re.IGNORECASE) for pattern in external_patterns):
