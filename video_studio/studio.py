@@ -118,9 +118,8 @@ def main():
         cwd=str(BASE), check=True, capture_output=True, text=True, timeout=300)
     print(frame_check.stdout.strip())
 
-    output = Path(args.output).expanduser().resolve()
-    if not output.is_absolute():
-        output = (BASE / args.output).resolve()
+    output_arg = Path(args.output).expanduser()
+    output = output_arg.resolve() if output_arg.is_absolute() else (BASE / output_arg).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     silent = output.with_name(output.stem + ".silent.mp4")
     frames = BASE / "frames" / "frame-%06d.png"
