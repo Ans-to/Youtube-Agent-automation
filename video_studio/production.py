@@ -235,17 +235,17 @@ def main():
             section = section_list[min(len(section_list) - 1, (index - 1) * len(section_list) // scene_count)]
             scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count, words_per_scene, previous)
             words = len(scene["narration"].split())
-            if words < max(8, int(words_per_scene * 0.45)):
+            if words < max(8, int(words_per_scene * 0.65)):
                 scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count,
                                      words_per_scene * 2, previous)
-                if len(scene["narration"].split()) < max(8, int(words_per_scene * 0.45)):
+                if len(scene["narration"].split()) < max(8, int(words_per_scene * 0.65)):
                     raise ValueError("Scene " + str(index) + " narration remained too short after retry; no final package was marked ready.")
             scene["duration_seconds"] = target_seconds / scene_count
             scene.setdefault("caption", scene["narration"])
             scenes.append(scene)
             previous = {"headline": scene["headline"], "summary": scene["narration"][-800:]}
         script_text = "\n\n".join("[" + str(i + 1) + "] " + scene["narration"] for i, scene in enumerate(scenes))
-        required_words = max(80, int(target_minutes * 85))
+        required_words = max(80, int(target_minutes * 100))
         if len(script_text.split()) < required_words:
             raise ValueError("Generated script is below the minimum narration-length check; increase scene count or model output capacity.")
         content = {"title": outline["title"], "description": outline["description"],
@@ -279,16 +279,18 @@ def main():
         "scenes": scenes,
     }
     (output_dir / "storyboard.json").write_text(json.dumps(storyboard, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    actual_words = len(script_body.split())
+    actual_words = len(" ".join(str(scene.get("narration", "")) for scene in scenes).split())
     status = {
         "status": "draft" if model_enabled else "template_demo",
         "format": args.format, "topic": topic, "target_minutes": target_minutes,
         "target_seconds": target_seconds, "storyboard_seconds": sum(float(s["duration_seconds"]) for s in scenes),
         "narration_words": actual_words, "generated_by": generated_by,
+        "duration_target_met": bool(model_enabled),
+        "publishable": False,
         "source_notes_provided": bool(manual_source_notes), "web_research_performed": bool(research_metadata),
         "research_result_count": len(research_results), "research_independently_verified": False,
         "human_review_required": True, "published": False,
-        "note": "Model output is a draft. This code does not independently research or verify claims.",
+        "note": ("Model output is a draft; factual claims still need review." if model_enabled else "This is only a 20-second template demo. The requested full-length script was not generated."),
     }
     (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Draft package:", output_dir)
