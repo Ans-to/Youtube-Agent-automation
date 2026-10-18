@@ -149,9 +149,16 @@ def record_human_assessment(report_path, scores, improvement_notes="", feedback_
     total = sum(normalized.values())
     maximum = 2 * len(normalized)
     all_pass = all(value == 2 for value in normalized.values())
+    model_attempt = report.get("mode") == "local_model"
+    reviewed_status = (
+        ("human_reviewed_pass" if all_pass else "human_reviewed_needs_improvement")
+        if model_attempt else
+        ("template_reviewed_only" if all_pass else "template_reviewed_needs_improvement")
+    )
     report.update({
-        "status": "human_reviewed_pass" if all_pass else "human_reviewed_needs_improvement",
+        "status": reviewed_status,
         "human_reviewed": True,
+        "model_output_reviewed": model_attempt,
         "human_reviewed_at": utc_stamp(),
         "human_scores": normalized,
         "human_evidence": evidence_by_gate,
@@ -173,10 +180,13 @@ def record_human_assessment(report_path, scores, improvement_notes="", feedback_
         out_dir.mkdir(parents=True, exist_ok=True)
         feedback_file = out_dir / (report["agent_id"] + ".jsonl")
         record = {
-            "human_reviewed": True, "agent_id": report["agent_id"],
+            "human_reviewed": True,
+            "model_output_reviewed": model_attempt,
+            "agent_id": report["agent_id"],
             "assessed_at": report["human_reviewed_at"], "scores": normalized,
             "improvement_notes": notes, "assessment_path": str(path),
             "score_percent": report["score_percent"],
+            "assessment_status": reviewed_status,
         }
         with task_queue_lock(feedback_file):
             with feedback_file.open("a", encoding="utf-8") as stream:
