@@ -3,6 +3,7 @@
 import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress
 from pathlib import Path
 from datetime import datetime
+from queue_store import task_queue_lock, load_tasks, save_tasks
 
 BASE = Path(__file__).resolve().parent
 TASKS = BASE / "tasks.json"
@@ -219,23 +220,43 @@ def process(task, cfg):
 
 def cycle():
     cfg = load(CONFIG, {})
-    tasks = load(TASKS, [])
-    pending = [t for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"}]
+    max_tasks = max(1, min(20, int(cfg.get("runner", {}).get("max_tasks_per_cycle", 3))))
     count = 0
-    for task in pending[:int(cfg.get("runner", {}).get("max_tasks_per_cycle", 3))]:
-        task["status"] = "running"
-        save(TASKS, tasks)
+    while count < max_tasks:
+        with task_queue_lock(TASKS):
+            tasks = load_tasks(TASKS)
+            task = next((t for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"}), None)
+            if task is None:
+                break
+            task_id = str(task.get("id", ""))
+            if not task_id:
+                task["status"] = "failed"
+                task["error"] = "Task is missing an ID."
+                save_tasks(TASKS, tasks)
+                count += 1
+                continue
+            task["status"] = "running"
+            task["started_at"] = stamp()
+            task["error"] = ""
+            save_tasks(TASKS, tasks)
         try:
-            path = process(task, cfg)
-            if task.get("status") == "needs_human_action":
-                print(f"Needs human action {task.get('id')} -> {path}")
+            process(task, cfg)
+            if task.get("status") != "needs_human_action":
+                print(f"Completed {task_id} -> {task.get('output_file', '')}")
             else:
-                print(f"Completed {task.get('id')} -> {path}")
+                print(f"Needs human action {task_id} -> {task.get('output_file', '')}")
         except Exception as e:
-            task.update(status="failed", error=str(e)[:400])
-            log(f"FAILED {task.get('id')}: {e}")
-            print(f"Failed {task.get('id')}: {e}")
-        save(TASKS, tasks)
+            task.update(status="failed", error=str(e)[:400], completed_at=stamp())
+            log(f"FAILED {task_id}: {type(e).__name__}: {e}")
+            print(f"Failed {task_id}: {type(e).__name__}: {e}")
+        with task_queue_lock(TASKS):
+            latest = load_tasks(TASKS)
+            match = next((item for item in latest if str(item.get("id", "")) == task_id), None)
+            if match is not None:
+                match.update({k: v for k, v in task.items() if k in {
+                    "status", "started_at", "completed_at", "output_file", "error"
+                }})
+                save_tasks(TASKS, latest)
         count += 1
     if count == 0:
         print("No pending tasks.")
