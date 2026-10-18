@@ -8,6 +8,7 @@ import os
 import pathlib
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -154,7 +155,7 @@ def run_one_queued_task(task_id: str) -> dict:
     }
 
 
-def main() -> int:
+def run_once() -> int:
     if not TOKEN_FILE.is_file():
         print("Missing GitHub token file:", TOKEN_FILE, file=sys.stderr)
         print("Create it locally; never commit it or paste it into chat.", file=sys.stderr)
@@ -235,6 +236,35 @@ def main() -> int:
     seen_path.write_text(json.dumps(sorted(seen), indent=2), encoding="utf-8")
     print(f"Bridge check complete. New requests processed: {processed}.")
     return 0
+
+
+def main() -> int:
+    watch = "--watch" in sys.argv[1:]
+    interval = 30
+    for arg in sys.argv[1:]:
+        if arg.startswith("--interval="):
+            try:
+                interval = int(arg.split("=", 1)[1])
+            except ValueError:
+                print("Invalid --interval; use a whole number of seconds.", file=sys.stderr)
+                return 2
+    if interval < 10 or interval > 3600:
+        print("--interval must be between 10 and 3600 seconds.", file=sys.stderr)
+        return 2
+    if not watch:
+        return run_once()
+    print(f"Offline Agent HQ bridge watching GitHub every {interval}s. Press Ctrl+C to stop.")
+    while True:
+        try:
+            code = run_once()
+            if code != 0:
+                print(f"Bridge check returned {code}; will retry.")
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+            print(f"Bridge check failed ({type(exc).__name__}); will retry.")
+        except KeyboardInterrupt:
+            print("\\nBridge stopped by user.")
+            return 0
+        time.sleep(interval)
 
 
 if __name__ == "__main__":
