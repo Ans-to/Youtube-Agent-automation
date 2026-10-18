@@ -181,7 +181,7 @@ The dashboard includes a Specialist practice lab. Choose a role and submit a con
 
 To create practice artifacts for all 51 executable specialist roles, run python agents/practice.py practice --all. On a phone, start with --all --limit 5 to avoid a large queue of model work. With model.enabled=false, the output is template-only playbook material, not AI-generated practice work. Enable a compatible local model before expecting generated artifacts.
 
-Only human-reviewed improvement notes are injected into later runs. These assessments measure a particular practice attempt; they do not certify universal mastery or update model weights. AGENT-50 is reserved for human approval and cannot be run automatically. See agents/TRAINING.md for the review loop and agents/MOTION_DESIGN_SYSTEM.md for visual scene and transition rules.
+Only human-reviewed notes from actual local-model outputs are injected into later runs. Template-only reviews are marked as template reviews and are excluded from the model-feedback loop. These assessments measure a particular practice attempt; they do not certify universal mastery or update model weights. AGENT-50 is reserved for human approval and cannot be run automatically. See agents/TRAINING.md for the review loop and agents/MOTION_DESIGN_SYSTEM.md for visual scene and transition rules.
 
 ## Digital product prototype builder
 
