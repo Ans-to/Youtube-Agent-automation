@@ -8,4 +8,4 @@ From the repository root:
 
 Output is written under workspace/products/ and includes index.html, README.md, product-status.json, and a ZIP archive.
 
-The generator performs a basic static scan for remote scripts/resources, network requests, and dynamic code execution patterns. This is a warning mechanism, not a security audit. Review and test generated HTML before using real data or selling it. A deterministic fallback template is not a finished product; adapt its workflow to the chosen product idea.
+The generator applies a restrictive Content Security Policy and rejects HTML when its heuristic scan detects remote URLs/scripts, network APIs, embedded frames, form submission targets, or dynamic code patterns. This is defense-in-depth, not a true browser sandbox or security audit; obfuscated behavior may evade static scanning. Review and test generated HTML in an isolated browser profile before using real data or selling it. A deterministic fallback template is not a finished product; adapt its workflow to the chosen product idea.
