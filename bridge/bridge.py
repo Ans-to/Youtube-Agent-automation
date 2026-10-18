@@ -25,7 +25,7 @@ STATE_DIR = pathlib.Path(os.environ.get(
     "AGENT_HQ_STATE_DIR", str(pathlib.Path.home() / ".local/state/offline-agent-hq")
 )).expanduser()
 # Deliberately narrow: never add shell, arbitrary code, package installation, or task execution.
-ALLOWED_ACTIONS = {"status", "self_test"}
+ALLOWED_ACTIONS = {"status", "self_test", "run_task"}
 
 
 def api_get(path: str, token: str) -> dict:
@@ -101,6 +101,59 @@ def run_self_test() -> dict:
             "note": "No tasks were run and tasks.json was not modified intentionally."}
 
 
+def run_one_queued_task(task_id: str) -> dict:
+    """Run only the specifically named, locally queued safe task; never accept task text remotely."""
+    tasks_path = PROJECT / "tasks.json"
+    agent_path = PROJECT / "agent.py"
+    if not tasks_path.is_file() or not agent_path.is_file():
+        return {"ok": False, "reason": "tasks.json or agent.py is missing"}
+    try:
+        tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return {"ok": False, "reason": f"Cannot safely read tasks.json: {type(exc).__name__}"}
+    if not isinstance(tasks, list):
+        return {"ok": False, "reason": "Unsupported tasks.json format; expected a list"}
+    matches = [t for t in tasks if isinstance(t, dict) and str(t.get("id", "")) == task_id]
+    if len(matches) != 1:
+        return {"ok": False, "reason": "Task ID must match exactly one existing local task"}
+    task = matches[0]
+    if str(task.get("status", "")).lower() not in {"pending", "queued"}:
+        return {"ok": False, "reason": "Task is not pending/queued; refusing to rerun"}
+    if task.get("kind") not in {"plan", "draft", "summarize_workspace", "review_output"}:
+        return {"ok": False, "reason": "Task type is not allowlisted"}
+    # Conservative gate: do not run tasks whose wording requests an external action.
+    import re
+    request_text = " ".join(str(task.get(k, "")) for k in ("title", "input")).lower()
+    external_patterns = [
+        r"\\bset (?:an? )?alarm\\b", r"\\b(?:wake me|remind me|schedule (?:a )?reminder)\\b",
+        r"\\bpublish (?:the|this|my|finished|final)\\b", r"\\bupload (?:the|this|my|finished|final)\\b",
+        r"\\bsend (?:the|this|an? email|a message|the message)\\b", r"\\bemail .+ to .+",
+        r"\\bpost (?:the|this|my|finished|final)\\b", r"\\bmake (?:a )?payment\\b",
+        r"\\btransfer money\\b", r"\\bdelete (?:the|this|my)\\b",
+    ]
+    if any(re.search(pattern, request_text, re.IGNORECASE) for pattern in external_patterns):
+        return {"ok": False, "reason": "Task appears to request an external action; human action required"}
+    # Runner processes the pending queue, so require this to be the ONLY pending task.
+    pending = [t for t in tasks if isinstance(t, dict) and str(t.get("status", "")).lower() in {"pending", "queued"}]
+    if len(pending) != 1 or str(pending[0].get("id", "")) != task_id:
+        return {"ok": False, "reason": "Refusing ambiguous queue: target must be the only pending task"}
+    try:
+        proc = subprocess.run(
+            [sys.executable, str(agent_path), "--once"],
+            cwd=str(PROJECT), capture_output=True, text=True, timeout=3600, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return {"ok": False, "reason": "Task runner timed out; inspect local logs before retrying"}
+    return {
+        "ok": proc.returncode == 0,
+        "task_id": task_id,
+        "returncode": proc.returncode,
+        "stdout_tail": (proc.stdout or "")[-1500:],
+        "stderr_tail": (proc.stderr or "")[-1500:],
+        "note": "Only the existing local queue was eligible; no task text or shell command was accepted from GitHub."
+    }
+
+
 def main() -> int:
     if not TOKEN_FILE.is_file():
         print("Missing GitHub token file:", TOKEN_FILE, file=sys.stderr)
@@ -144,7 +197,10 @@ def main() -> int:
             continue
         action = request.get("action")
         # Reject extra fields so requests cannot smuggle command strings or arguments.
-        if set(request) != {"id", "approved", "action"} or action not in ALLOWED_ACTIONS:
+        expected_fields = {"id", "approved", "action"}
+        if action == "run_task":
+            expected_fields.add("task_id")
+        if set(request) != expected_fields or action not in ALLOWED_ACTIONS:
             print("Rejected request with unsupported fields/action:", req_id)
             seen.add(req_id)
             continue
@@ -153,6 +209,12 @@ def main() -> int:
             result = project_status()
         elif action == "self_test":
             result = run_self_test()
+        elif action == "run_task":
+            task_id = request.get("task_id")
+            if not isinstance(task_id, str) or not task_id or len(task_id) > 100:
+                result = {"ok": False, "reason": "Invalid task_id"}
+            else:
+                result = run_one_queued_task(task_id)
         else:
             result = {"ok": False, "reason": "Action not allowlisted"}
 
