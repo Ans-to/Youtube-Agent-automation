@@ -67,7 +67,7 @@ def main():
     source=generated or fallback_html(title,idea)
     lower=source.lower()
     risks=[]
-    for pattern,label in [(r"<script\\s+[^>]*src=","external script tag"),(r"<link\\s+[^>]*href=[\"']https?://","remote stylesheet/resource"),(r"\\bfetch\\s*\\(","network fetch call"),(r"\\bxmlhttprequest\\b","XMLHttpRequest"),(r"\\beval\\s*\\(","eval call"),(r"new\\s+function\\s*\\(","Function constructor"),(r"https?://","external URL reference")]:
+    for pattern,label in [(r"<script\s+[^>]*src=","external script tag"),(r"<link\s+[^>]*href=[\"']https?://","remote stylesheet/resource"),(r"\bfetch\s*\(","network fetch call"),(r"\bxmlhttprequest\b","XMLHttpRequest"),(r"\beval\s*\(","eval call"),(r"new\s+function\s*\(","Function constructor"),(r"https?://","external URL reference")]:
         if re.search(pattern,lower):risks.append(label)
     out=(ROOT/a.out/slugify(title)).resolve();out.mkdir(parents=True,exist_ok=True)
     (out/"index.html").write_text(source,encoding="utf-8")
