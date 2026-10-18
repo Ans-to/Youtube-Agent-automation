@@ -11,7 +11,9 @@
       "subhead": "A visual system, not a static slideshow.",
       "narration": "Every frame has a purpose.",
       "visual_type": "hero",
-      "graphic_label": "VISUAL THESIS"
+      "graphic_label": "VISUAL THESIS",
+      "transition_in": "fade",
+      "transition_frames": 2
     },
     {
       "duration_seconds": 1,
@@ -21,7 +23,9 @@
       "narration": "Show the signal.",
       "visual_type": "stat",
       "stat_value": "3.2×",
-      "stat_label": "FASTER WORKFLOW"
+      "stat_label": "FASTER WORKFLOW",
+      "transition_in": "wipe-left",
+      "transition_frames": 2
     },
     {
       "duration_seconds": 1,
@@ -35,7 +39,9 @@
         "DESIGN",
         "BUILD",
         "REVIEW"
-      ]
+      ],
+      "transition_in": "wipe-right",
+      "transition_frames": 2
     },
     {
       "duration_seconds": 1,
@@ -48,7 +54,9 @@
         "INPUT",
         "PROCESS",
         "OUTPUT"
-      ]
+      ],
+      "transition_in": "fade",
+      "transition_frames": 2
     },
     {
       "duration_seconds": 1,
@@ -68,7 +76,9 @@
         "Automated",
         "Fast",
         "Consistent"
-      ]
+      ],
+      "transition_in": "wipe-left",
+      "transition_frames": 2
     },
     {
       "duration_seconds": 1,
@@ -82,7 +92,9 @@
         "  drawScene(frame);",
         "  return output;",
         "}"
-      ]
+      ],
+      "transition_in": "wipe-right",
+      "transition_frames": 2
     },
     {
       "duration_seconds": 1,
@@ -92,7 +104,9 @@
       "narration": "Keep the point human.",
       "visual_type": "quote",
       "quote": "Clarity is a design decision.",
-      "quote_source": "DESIGN PRINCIPLE"
+      "quote_source": "DESIGN PRINCIPLE",
+      "transition_in": "fade",
+      "transition_frames": 2
     },
     {
       "duration_seconds": 1,
@@ -100,7 +114,9 @@
       "headline": "Motion has rhythm.",
       "subhead": "Use audio energy as a visual accent.",
       "narration": "Motion has rhythm.",
-      "visual_type": "waveform"
+      "visual_type": "waveform",
+      "transition_in": "none",
+      "transition_frames": 2
     }
   ]
 }
