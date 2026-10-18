@@ -37,7 +37,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         raise ValueError("Task must be 1–6000 characters.")
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
     roles_by_id = {role.get("id"): role for role in roles}
-    selected = agent_ids or DEFAULT_PIPELINE
+    selected = DEFAULT_PIPELINE if agent_ids is None else agent_ids
     if not selected or len(selected) > 51 or len(set(selected)) != len(selected):
         raise ValueError("Choose 1–51 unique specialist IDs; AGENT-50 is reserved for human approval.")
     if any(agent_id not in roles_by_id for agent_id in selected):
