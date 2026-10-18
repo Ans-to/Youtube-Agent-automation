@@ -154,7 +154,7 @@ def run_self_test() -> dict:
         return {"ok": False, "reason": "Project directory not found"}
     python_files = [
         PROJECT / "agent.py", PROJECT / "dashboard.py", PROJECT / "queue_store.py",
-        PROJECT / "agents" / "dispatch.py", PROJECT / "agents" / "orchestrate.py",
+        PROJECT / "agents" / "dispatch.py", PROJECT / "agents" / "orchestrate.py", PROJECT / "agents" / "practice.py",
         PROJECT / "bridge" / "bridge.py",
         PROJECT / "video_studio" / "studio.py", PROJECT / "video_studio" / "production.py",
         PROJECT / "video_studio" / "research.py", PROJECT / "video_studio" / "validate_render.py",
@@ -162,7 +162,8 @@ def run_self_test() -> dict:
         PROJECT / "video_studio" / "publish_youtube.py", PROJECT / "product_studio" / "build_product.py",
     ]
     json_files = [PROJECT / "agents" / "roster.json", PROJECT / "agents" / "skillbooks.json"]
-    required = python_files + json_files
+    documentation_files = [PROJECT / "agents" / "MOTION_DESIGN_SYSTEM.md", PROJECT / "agents" / "TRAINING.md"]
+    required = python_files + json_files + documentation_files
     missing = [str(path.relative_to(PROJECT)) for path in required if not path.is_file()]
     if missing:
         return {"ok": False, "reason": "Required project files are missing", "missing": missing}
@@ -187,6 +188,7 @@ def run_self_test() -> dict:
                 if len(ids) != len(set(ids)) or not ids:
                     raise ValueError("skillbooks.json profile IDs are empty or duplicated")
             checked.append(path.name)
+        checked.extend(path.name for path in documentation_files)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         return {"ok": False, "checked": checked, "error": str(exc)[:1000]}
     return {"ok": True, "syntax_checked": checked,
