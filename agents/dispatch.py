@@ -9,6 +9,7 @@ ROOT=BASE.parent
 ROSTER=BASE/"roster.json"
 SKILLBOOK=BASE/"skillbooks.json"
 MOTION_ROLES={"AGENT-19","AGENT-20","AGENT-21","AGENT-22","AGENT-23","AGENT-24","AGENT-25","AGENT-31","AGENT-32","AGENT-33","AGENT-41","AGENT-42","AGENT-51","AGENT-52"}
+FEEDBACK_DIR=ROOT/"workspace"/"training"/"feedback"
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -45,6 +46,26 @@ def ensure_executable_role(role):
     if role.get("id") == "AGENT-50":
         raise ValueError("AGENT-50 is a human approval boundary and cannot be run as an automatic model role.")
     return role
+
+def load_human_lessons(agent_id, limit=3):
+    path=FEEDBACK_DIR/(agent_id+".jsonl")
+    if not path.is_file():
+        return []
+    lessons=[]
+    try:
+        for line in path.read_text(encoding="utf-8",errors="replace").splitlines()[-max(1,min(limit,5)):]:
+            try:
+                item=json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if item.get("human_reviewed") is True:
+                notes=str(item.get("improvement_notes","")).strip()[:700]
+                scores=item.get("scores",{})
+                weak=[str(k) for k,v in scores.items() if isinstance(v,int) and v<2][:5] if isinstance(scores,dict) else []
+                lessons.append({"improvement_notes":notes,"gates_to_improve":weak})
+    except OSError:
+        return []
+    return lessons
 
 def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
