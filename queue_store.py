@@ -43,6 +43,9 @@ def load_tasks(path):
         return []
     if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
         raise ValueError("tasks.json must contain a JSON array of task objects.")
+    ids = [str(item.get("id", "")) for item in data if item.get("id")]
+    if len(ids) != len(set(ids)):
+        raise ValueError("Task IDs must be unique; refusing to update an ambiguous queue.")
     return data
 
 
