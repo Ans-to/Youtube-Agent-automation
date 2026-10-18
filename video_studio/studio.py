@@ -35,7 +35,9 @@ def main():
   silent.unlink(missing_ok=True)
  else:
   silent.replace(output);print("No voice synthesized. Add --with-voice after installing a local Piper voice.")
- validation=subprocess.run([sys.executable,str(BASE/"validate_render.py"),str(output)],cwd=str(BASE),check=True,capture_output=True,text=True)
+ validation_args=[sys.executable,str(BASE/"validate_render.py"),str(output),"--width",str(int(data.get("width",1920))),"--height",str(int(data.get("height",1080))),"--fps",str(fps)]
+ if a.with_voice: validation_args.append("--require-audio")
+ validation=subprocess.run(validation_args,cwd=str(BASE),check=True,capture_output=True,text=True)
  print(validation.stdout.strip())
  print("SUCCESS:",output);print("Duration:",manifest["duration_seconds"],"seconds");print("Frames:",manifest["frame_count"]);print("Local MP4 only: this pipeline does not upload or publish content.")
 if __name__=="__main__":main()
