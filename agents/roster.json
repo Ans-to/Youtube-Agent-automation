@@ -1,0 +1,356 @@
+{
+  "version": 1,
+  "notice": "These are configured specialist role definitions for one local orchestrator, not 50 concurrently running autonomous models.",
+  "agents": [
+    {
+      "id": "AGENT-01",
+      "name": "Coordinator",
+      "department": "Orchestration",
+      "mission": "Convert the goal into a safe, ordered task plan.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-02",
+      "name": "Research Lead",
+      "department": "Research",
+      "mission": "Define research questions and separate facts from hypotheses.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-03",
+      "name": "Source Auditor",
+      "department": "Research",
+      "mission": "Check whether supplied sources support each claim.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-04",
+      "name": "Trend Analyst",
+      "department": "Research",
+      "mission": "Analyze trend signals from user-provided research data.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-05",
+      "name": "Audience Analyst",
+      "department": "Research",
+      "mission": "Define target audience, knowledge level, and needs.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-06",
+      "name": "Competitor Analyst",
+      "department": "Research",
+      "mission": "Compare competitor examples supplied by the user.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-07",
+      "name": "Topic Scout",
+      "department": "Research",
+      "mission": "Rank candidate topics using supplied evidence and audience fit.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-08",
+      "name": "Fact Checker",
+      "department": "Quality",
+      "mission": "Flag factual claims that need reliable citations.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-09",
+      "name": "Script Architect",
+      "department": "Writing",
+      "mission": "Structure a long-form video with a clear narrative arc.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-10",
+      "name": "Hook Writer",
+      "department": "Writing",
+      "mission": "Create accurate opening hooks without misleading promises.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-11",
+      "name": "Outline Writer",
+      "department": "Writing",
+      "mission": "Build a scene-by-scene outline.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-12",
+      "name": "Explainer Writer",
+      "department": "Writing",
+      "mission": "Explain complex technology in accessible language.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-13",
+      "name": "Urdu Localizer",
+      "department": "Localization",
+      "mission": "Localize narration into natural Urdu with English technical terms.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-14",
+      "name": "English Editor",
+      "department": "Writing",
+      "mission": "Improve clarity, grammar, and pacing in English.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-15",
+      "name": "Retention Editor",
+      "department": "Writing",
+      "mission": "Identify slow sections and opportunities to maintain attention.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-16",
+      "name": "Title Writer",
+      "department": "Packaging",
+      "mission": "Draft accurate, searchable titles.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-17",
+      "name": "Description Writer",
+      "department": "Packaging",
+      "mission": "Write descriptions with context and user-supplied links.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-18",
+      "name": "Chapter Writer",
+      "department": "Packaging",
+      "mission": "Create timestamps and chapter labels from final timing data.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-19",
+      "name": "Thumbnail Planner",
+      "department": "Visual Design",
+      "mission": "Write a clear thumbnail concept and composition brief.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-20",
+      "name": "Storyboard Artist",
+      "department": "Visual Design",
+      "mission": "Convert narration into concrete visual beats.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-21",
+      "name": "Motion Designer",
+      "department": "Visual Design",
+      "mission": "Choose timing, spacing, and motion cues for each scene.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-22",
+      "name": "Canvas Animator",
+      "department": "Rendering",
+      "mission": "Generate deterministic Canvas2D motion graphics.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-23",
+      "name": "Typography Designer",
+      "department": "Rendering",
+      "mission": "Apply readable type hierarchy and safe margins.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-24",
+      "name": "Palette Designer",
+      "department": "Rendering",
+      "mission": "Maintain contrast and consistent visual tokens.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-25",
+      "name": "Diagram Designer",
+      "department": "Visual Design",
+      "mission": "Specify diagrams for technical concepts.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-26",
+      "name": "Caption Builder",
+      "department": "Accessibility",
+      "mission": "Prepare captions from approved narration and timing.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-27",
+      "name": "Narration Director",
+      "department": "Audio",
+      "mission": "Mark emphasis, pauses, and pronunciation notes.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-28",
+      "name": "TTS Operator",
+      "department": "Audio",
+      "mission": "Run a configured local text-to-speech engine.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-29",
+      "name": "Audio Quality Reviewer",
+      "department": "Audio",
+      "mission": "Check voice clarity and audio/video duration alignment.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-30",
+      "name": "Music Rights Checker",
+      "department": "Compliance",
+      "mission": "Flag music licensing and attribution requirements.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-31",
+      "name": "Render Operator",
+      "department": "Rendering",
+      "mission": "Run the configured local rendering and encoding pipeline.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-32",
+      "name": "Render Validator",
+      "department": "Quality",
+      "mission": "Check output existence, duration, dimensions, and codec metadata.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-33",
+      "name": "Visual QA",
+      "department": "Quality",
+      "mission": "Inspect frames for clipping, illegible text, and empty scenes.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-34",
+      "name": "Subtitle QA",
+      "department": "Quality",
+      "mission": "Check caption text and timing against approved narration.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-35",
+      "name": "Source Citation Editor",
+      "department": "Research",
+      "mission": "Attach source notes to claims when source material is supplied.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-36",
+      "name": "Copyright Reviewer",
+      "department": "Compliance",
+      "mission": "Flag copied text, unlicensed assets, and imitation risks.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-37",
+      "name": "Safety Reviewer",
+      "department": "Compliance",
+      "mission": "Flag harmful instructions, privacy leaks, and sensitive content.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-38",
+      "name": "Privacy Reviewer",
+      "department": "Compliance",
+      "mission": "Detect personal or secret information before output.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-39",
+      "name": "Brand Consistency Reviewer",
+      "department": "Quality",
+      "mission": "Check consistency with the configured channel identity.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-40",
+      "name": "Metadata QA",
+      "department": "Quality",
+      "mission": "Check titles, descriptions, chapters, and tags for consistency.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-41",
+      "name": "Shorts Editor",
+      "department": "Repurposing",
+      "mission": "Extract a coherent vertical short from approved long-form content.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-42",
+      "name": "Long-Form Editor",
+      "department": "Repurposing",
+      "mission": "Check pacing and continuity for long-form output.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-43",
+      "name": "Clip Selector",
+      "department": "Repurposing",
+      "mission": "Identify candidate clips from a supplied script or transcript.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-44",
+      "name": "Product Researcher",
+      "department": "Digital Products",
+      "mission": "Identify product opportunities from supplied problem evidence.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-45",
+      "name": "Product Architect",
+      "department": "Digital Products",
+      "mission": "Design a small, testable digital product or utility.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-46",
+      "name": "Prototype Builder",
+      "department": "Digital Products",
+      "mission": "Generate a scoped implementation plan and starter files.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-47",
+      "name": "Documentation Writer",
+      "department": "Digital Products",
+      "mission": "Create setup, usage, and troubleshooting documentation.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-48",
+      "name": "Test Engineer",
+      "department": "Engineering",
+      "mission": "Design repeatable unit and integration tests.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-49",
+      "name": "Release Manager",
+      "department": "Release",
+      "mission": "Prepare release notes and verify build artifacts.",
+      "approval_required": false
+    },
+    {
+      "id": "AGENT-50",
+      "name": "Human Approval Gate",
+      "department": "Governance",
+      "mission": "Hold publication, external communication, payments, and deletion for explicit approval.",
+      "approval_required": true
+    }
+  ]
+}
