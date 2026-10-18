@@ -11,7 +11,7 @@ def main():
  p=argparse.ArgumentParser(description=__doc__)
  p.add_argument("--video",required=True);p.add_argument("--approval",required=True)
  p.add_argument("--title",required=True);p.add_argument("--description",default="");p.add_argument("--tags",default="")
- p.add_argument("--privacy",choices=["private","unlisted","public"],default="private")
+ p.add_argument("--privacy",choices=["private","unlisted","public"],default="private");p.add_argument("--made-for-kids",choices=["yes","no"],required=True,help="Choose this accurately for the uploaded content")
  p.add_argument("--client-secrets",default="client_secret.json");p.add_argument("--token-file",default="youtube-token.json")
  p.add_argument("--confirm-publish",action="store_true");p.add_argument("--confirm-public",action="store_true")
  a=p.parse_args()
@@ -38,7 +38,7 @@ def main():
   credentials=InstalledAppFlow.from_client_secrets_file(str(client),scopes).run_local_server(port=0)
   token.write_text(credentials.to_json(),encoding="utf-8")
  youtube=build("youtube","v3",credentials=credentials)
- body={"snippet":{"title":a.title[:100],"description":a.description[:5000],"tags":[x.strip() for x in a.tags.split(",") if x.strip()][:500],"categoryId":"28"},"status":{"privacyStatus":a.privacy,"selfDeclaredMadeForKids":False}}
+ body={"snippet":{"title":a.title[:100],"description":a.description[:5000],"tags":[x.strip() for x in a.tags.split(",") if x.strip()][:500],"categoryId":"28"},"status":{"privacyStatus":a.privacy,"selfDeclaredMadeForKids":a.made_for_kids=="yes"}}
  media=MediaFileUpload(str(video),chunksize=8*1024*1024,resumable=True,mimetype="video/mp4")
  request=youtube.videos().insert(part="snippet,status",body=body,media_body=media);response=None
  while response is None:
