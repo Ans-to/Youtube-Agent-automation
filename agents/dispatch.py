@@ -51,21 +51,26 @@ def load_human_lessons(agent_id, limit=3):
     path=FEEDBACK_DIR/(agent_id+".jsonl")
     if not path.is_file():
         return []
-    lessons=[]
+    eligible=[]
     try:
-        for line in path.read_text(encoding="utf-8",errors="replace").splitlines()[-max(1,min(limit,5)):]:
+        for line in path.read_text(encoding="utf-8",errors="replace").splitlines():
             try:
                 item=json.loads(line)
             except json.JSONDecodeError:
                 continue
             if item.get("human_reviewed") is True and item.get("model_output_reviewed") is True:
-                notes=str(item.get("improvement_notes","")).strip()[:700]
-                scores=item.get("scores",{})
-                weak=[str(k) for k,v in scores.items() if isinstance(v,int) and v<2][:5] if isinstance(scores,dict) else []
-                lessons.append({"improvement_notes":notes,"gates_to_improve":weak})
+                eligible.append(item)
     except OSError:
         return []
+    lessons=[]
+    for item in eligible[-max(1,min(limit,5)):]:
+        notes=str(item.get("improvement_notes","")).strip()[:700]
+        scores=item.get("scores",{})
+        weak=[str(k) for k,v in scores.items() if isinstance(v,int) and not isinstance(v,bool) and v<2][:5] if isinstance(scores,dict) else []
+        if notes:
+            lessons.append({"improvement_notes":notes,"gates_to_improve":weak})
     return lessons
+
 
 def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
