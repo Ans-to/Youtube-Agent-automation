@@ -17,6 +17,28 @@ class QueueStoreTests(unittest.TestCase):
             self.assertEqual(load_tasks(path), [{"id": "TASK-1", "status": "pending"}])
             self.assertFalse(Path(str(path) + ".tmp-" + str(__import__("os").getpid())).exists())
 
+    def test_stale_lock_owned_by_live_process_is_not_stolen(self):
+        import os
+        import time
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "tasks.json"
+            lock = Path(str(path) + ".lock")
+            lock.write_text(str(os.getpid()), encoding="ascii")
+            old = time.time() - 601
+            os.utime(lock, (old, old))
+            with self.assertRaises(TimeoutError):
+                with task_queue_lock(path, timeout=0.01):
+                    self.fail("Should not acquire another live process's lock.")
+            self.assertEqual(lock.read_text(encoding="ascii"), str(os.getpid()))
+
+    def test_process_liveness_helper_handles_missing_pid(self):
+        from unittest.mock import patch
+        import queue_store
+        with patch("queue_store.os.kill", side_effect=ProcessLookupError):
+            self.assertFalse(queue_store.process_is_alive(987654321))
+        with patch("queue_store.os.kill", side_effect=PermissionError):
+            self.assertTrue(queue_store.process_is_alive(987654321))
+
     def test_rejects_non_list_queue(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "tasks.json"
