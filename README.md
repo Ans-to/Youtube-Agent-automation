@@ -147,7 +147,7 @@ GitHub Actions runs these checks on pushes and pull requests to `main`.
 
 The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, and waveform compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
 
-Create a script/storyboard draft from a topic with `python video_studio/production.py --topic "Your topic"`. This uses a configured loopback local model if enabled; otherwise it writes a clearly marked template. It does not perform web research or publish content. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4.
+Create a script/storyboard draft from a topic with `python video_studio/production.py --topic "Your topic"`. This uses a configured loopback local model if enabled; otherwise it writes a clearly marked 20-second template demo. Optional --research collects public search-result leads without an API key, but does not independently verify claims. The script never uploads or publishes automatically. Add --render after installing Node.js, Puppeteer, and FFmpeg to produce an MP4.
 
 ## Specialist roster and orchestration
 
@@ -171,6 +171,17 @@ python video_studio/production.py --topic "How AI agents work" --format long --r
 ```
 
 Add `--with-voice` only after installing Piper and setting `PIPER_MODEL` to a local voice model file. Use `--target-minutes 8` to change the duration. YouTube upload still requires explicit video-and-metadata approval and Google OAuth; content is never auto-published.
+
+## Specialist practice and human-reviewed improvement
+
+The dashboard includes a Specialist practice lab. Choose a role and submit a concrete task. The practice tool writes an artifact and assessment.json under workspace/training/runs/. Then score the artifact against each gate with a 0 (fail), 1 (partial), or 2 (pass) rating and concrete evidence:
+
+    python agents/practice.py practice --agent AGENT-51 --task "Create an art-direction brief for a 60-second technology explainer"
+    python agents/practice.py assess --report "workspace/training/runs/AGENT-51/<run-id>/assessment.json"
+
+To create practice artifacts for all 51 executable specialist roles, run python agents/practice.py practice --all. On a phone, start with --all --limit 5 to avoid a large queue of model work. With model.enabled=false, the output is template-only playbook material, not AI-generated practice work. Enable a compatible local model before expecting generated artifacts.
+
+Only human-reviewed improvement notes are injected into later runs. These assessments measure a particular practice attempt; they do not certify universal mastery or update model weights. AGENT-50 is reserved for human approval and cannot be run automatically. See agents/TRAINING.md for the review loop and agents/MOTION_DESIGN_SYSTEM.md for visual scene and transition rules.
 
 ## Digital product prototype builder
 
