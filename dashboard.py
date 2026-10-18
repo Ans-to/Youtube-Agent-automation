@@ -170,6 +170,108 @@ class Handler(BaseHTTPRequestHandler):
             except (TimeoutError, ValueError, OSError) as exc:
                 return self.send("Could not safely update task queue: "+esc(type(exc).__name__), status=503)
             return self._redirect("/")
+        if path == "/generate-video":
+            global VIDEO_RUNNING, VIDEO_LAST_OUTPUT
+            topic = form.get("topic", [""])[0].strip()
+            fmt = form.get("format", ["long"])[0].strip().lower()
+            mode = form.get("render_mode", ["draft"])[0].strip().lower()
+            source_file = form.get("source_file", [""])[0].strip()
+            do_research = form.get("research", [""])[0] == "yes"
+            with_voice = form.get("with_voice", [""])[0] == "yes"
+            if not topic or len(topic) > 500 or fmt not in {"long", "shorts"} or mode not in {"draft", "render", "template"}:
+                return self.send("Invalid video request. Check topic, format, and output mode.", status=400)
+            target_raw = form.get("target_minutes", [""])[0].strip()
+            target_minutes = None
+            if target_raw:
+                try:
+                    target_minutes = float(target_raw)
+                except ValueError:
+                    return self.send("Target minutes must be a number between 0.25 and 16.", status=400)
+                if not 0.25 <= target_minutes <= 16:
+                    return self.send("Target minutes must be between 0.25 and 16.", status=400)
+            if with_voice and mode != "render":
+                return self.send("Local narration can only be selected with the full render mode.", status=400)
+            if mode == "render" and not load(CONFIG, {}).get("model", {}).get("enabled"):
+                return self.send("A local model is disabled. Enable a compatible local model to render a full-length video, or choose the explicit template-demo mode.", status=400)
+            if mode == "template" and (do_research or source_file or with_voice):
+                return self.send("Template demo mode cannot be combined with research, source files, or voice.", status=400)
+            if source_file:
+                if len(source_file) > 500 or Path(source_file).suffix.lower() not in {".txt", ".md", ".json"}:
+                    return self.send("Source notes must be a .txt, .md, or .json file inside workspace.", status=400)
+                workspace = (BASE / "workspace").resolve()
+                supplied = Path(source_file).expanduser()
+                source_path = (BASE / supplied).resolve() if not supplied.is_absolute() else supplied.resolve()
+                if source_path == workspace or workspace not in source_path.parents or not source_path.is_file():
+                    return self.send("Source notes must be an existing file inside workspace.", status=400)
+                source_file = str(source_path)
+            claimed, active = try_claim_workflow("video studio")
+            if not claimed:
+                return self.send("Another workflow is already running: "+esc(active)+".", status=409)
+            run_id = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
+            VIDEO_LAST_OUTPUT = "workspace/video-runs/run-" + run_id
+            VIDEO_RUNNING = True
+            def run_video():
+                global VIDEO_RUNNING
+                try:
+                    LOGS.mkdir(exist_ok=True)
+                    command = [sys.executable, str(BASE / "video_studio" / "production.py"),
+                               "--topic", topic, "--format", fmt, "--out", VIDEO_LAST_OUTPUT]
+                    if target_minutes is not None:
+                        command.extend(["--target-minutes", str(target_minutes)])
+                    if source_file:
+                        command.extend(["--source-file", source_file])
+                    if do_research:
+                        command.append("--research")
+                    if mode == "render":
+                        command.append("--render")
+                    elif mode == "template":
+                        command.append("--render-template")
+                    if with_voice:
+                        command.append("--with-voice")
+                    with (LOGS / "video-studio.log").open("a", encoding="utf-8") as log_file:
+                        log_file.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] Video run started: {fmt}, mode={mode}\n")
+                        try:
+                            result = subprocess.run(command, cwd=str(BASE), stdout=log_file,
+                                                    stderr=subprocess.STDOUT, timeout=14400, check=False)
+                            log_file.write(f"Video run exit code: {result.returncode}\n")
+                        except (OSError, subprocess.TimeoutExpired) as exc:
+                            log_file.write(f"Video run error: {type(exc).__name__}\n")
+                finally:
+                    VIDEO_RUNNING = False
+                    release_workflow("video studio")
+            threading.Thread(target=run_video, daemon=True).start()
+            return self._redirect("/")
+        if path == "/build-product":
+            global PRODUCT_RUNNING, PRODUCT_LAST_OUTPUT
+            title = form.get("product_title", [""])[0].strip()
+            idea = form.get("product_idea", [""])[0].strip()
+            if not title or len(title) > 100 or not idea or len(idea) > 1000:
+                return self.send("Product title must be 1–100 characters and product idea 1–1000 characters.", status=400)
+            claimed, active = try_claim_workflow("digital product studio")
+            if not claimed:
+                return self.send("Another workflow is already running: "+esc(active)+".", status=409)
+            run_id = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
+            PRODUCT_LAST_OUTPUT = "workspace/product-runs/run-" + run_id
+            PRODUCT_RUNNING = True
+            def run_product():
+                global PRODUCT_RUNNING
+                try:
+                    LOGS.mkdir(exist_ok=True)
+                    command = [sys.executable, str(BASE / "product_studio" / "build_product.py"),
+                               "--title", title, "--idea", idea, "--out", PRODUCT_LAST_OUTPUT]
+                    with (LOGS / "product-studio.log").open("a", encoding="utf-8") as log_file:
+                        log_file.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] Product prototype started\n")
+                        try:
+                            result = subprocess.run(command, cwd=str(BASE), stdout=log_file,
+                                                    stderr=subprocess.STDOUT, timeout=900, check=False)
+                            log_file.write(f"Product prototype exit code: {result.returncode}\n")
+                        except (OSError, subprocess.TimeoutExpired) as exc:
+                            log_file.write(f"Product prototype error: {type(exc).__name__}\n")
+                finally:
+                    PRODUCT_RUNNING = False
+                    release_workflow("digital product studio")
+            threading.Thread(target=run_product, daemon=True).start()
+            return self._redirect("/")
         if path == "/run-pipeline":
             global PIPELINE_RUNNING, PIPELINE_LAST_OUTPUT
             task = form.get("task", [""])[0].strip()
