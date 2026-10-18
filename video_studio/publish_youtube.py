@@ -24,6 +24,12 @@ def main():
  if approval.get("approved") is not True:raise SystemExit("Approval record is not approved.")
  if Path(approval.get("video_file","")).resolve()!=video:raise SystemExit("Approval record references a different video.")
  if approval.get("video_sha256")!=sha256(video):raise SystemExit("Video changed after approval; review and approve it again.")
+ approved=approval.get("approved_metadata")
+ if not isinstance(approved,dict):raise SystemExit("Approval is missing metadata review; create a new approval with release_gate.py.")
+ requested={"title":a.title.strip(),"description":a.description.strip(),"tags":[x.strip() for x in a.tags.split(",") if x.strip()],"privacy":a.privacy,"made_for_kids":a.made_for_kids}
+ if requested!=approved:raise SystemExit("Upload metadata differs from the approved record. Re-review and approve the exact title, description, tags, visibility, and made-for-kids setting.")
+ if not requested["title"] or len(requested["title"])>100 or len(requested["description"])>5000 or len(requested["tags"])>500 or any(len(tag)>100 for tag in requested["tags"]):raise SystemExit("Upload metadata exceeds YouTube limits.")
+
  try:
   from google.auth.transport.requests import Request
   from google.oauth2.credentials import Credentials
@@ -39,7 +45,7 @@ def main():
   credentials=InstalledAppFlow.from_client_secrets_file(str(client),scopes).run_local_server(port=0)
   token.write_text(credentials.to_json(),encoding="utf-8")
  youtube=build("youtube","v3",credentials=credentials)
- body={"snippet":{"title":a.title[:100],"description":a.description[:5000],"tags":[x.strip() for x in a.tags.split(",") if x.strip()][:500],"categoryId":"28"},"status":{"privacyStatus":a.privacy,"selfDeclaredMadeForKids":a.made_for_kids=="yes"}}
+ body={"snippet":{"title":approved["title"],"description":approved["description"],"tags":approved["tags"],"categoryId":"28"},"status":{"privacyStatus":a.privacy,"selfDeclaredMadeForKids":a.made_for_kids=="yes"}}
  media=MediaFileUpload(str(video),chunksize=8*1024*1024,resumable=True,mimetype="video/mp4")
  request=youtube.videos().insert(part="snippet,status",body=body,media_body=media);response=None
  while response is None:
