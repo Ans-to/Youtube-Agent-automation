@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Offline Agent HQ: local task queue with constrained specialist stages."""
-import argparse, json, time, urllib.request
+import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress
 from pathlib import Path
 from datetime import datetime
 
