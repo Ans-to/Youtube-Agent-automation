@@ -48,14 +48,11 @@ def run_role(role,task,context,cfg):
                 "- List missing information and required human review.\n\n"
                 "Template mode only: no language model was enabled; this is not an AI-generated result.\n")
     url=model.get("base_url","")
-    if not (url.startswith("http://127.0.0.1:") or url.startswith("http://localhost:") or url.startswith("http://[::1]:")):
-        raise ValueError("Only a loopback local model endpoint is allowed.")
     body={"model":model.get("model","local-model"),"messages":[
       {"role":"system","content":"You are specialist "+role["name"]+". Mission: "+role["mission"]+" Work only with the supplied task and context. Do not claim web access, verified external actions, or facts unsupported by context. State uncertainty and required human review."},
       {"role":"user","content":"TASK\n"+task+"\n\nSUPPLIED CONTEXT\n"+(context or "(No context supplied.)")}],
       "temperature":0.25,"max_tokens":int(model.get("max_output_tokens",900))}
-    req=urllib.request.Request(url,data=json.dumps(body).encode(),headers={"Content-Type":"application/json"},method="POST")
-    with urllib.request.urlopen(req,timeout=int(model.get("timeout_seconds",120))) as response:data=json.loads(response.read().decode("utf-8"))
+    data=post_local_model(url,body,model.get("timeout_seconds",120))
     return data["choices"][0]["message"]["content"].strip()
 
 def main():
