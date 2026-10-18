@@ -8,7 +8,8 @@
  const canvas=document.getElementById("frame"),ctx=canvas.getContext("2d",{alpha:false});
  const p={bg:"#0b0b0f",fg:"#f4f2ec",accent:"#c8ff3d",muted:"#a7a7b3",grid:"#24242c"};
  function wrap(text,maxWidth,font){ctx.font=font;const lines=[];let line="";for(const word of String(text||"").split(/\\s+/)){const c=line?line+" "+word:word;if(ctx.measureText(c).width>maxWidth&&line){lines.push(line);line=word}else line=c}if(line)lines.push(line);return lines}
- window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame){
+ window.setCanvasSize=function(width,height){if(!Number.isInteger(width)||!Number.isInteger(height)||width<320||height<180||width>3840||height>2160)throw new Error("Invalid canvas dimensions");canvas.width=width;canvas.height=height;};
+  window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
   const left=w*.078,contentW=w*.844,grid=Math.max(24,Math.round(w/30)),fontSize=portrait?w*.078:Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.45:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.76:h*.79,footerY=h*.87,barW=contentW*.58;
   ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
