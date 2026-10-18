@@ -1,0 +1,15 @@
+{
+  "title": "Oversized render guard test",
+  "width": 320,
+  "height": 568,
+  "fps": 60,
+  "scenes": [
+    {
+      "duration_seconds": 600,
+      "eyebrow": "LIMIT TEST",
+      "headline": "Must be rejected",
+      "subhead": "No frames should be written",
+      "narration": ""
+    }
+  ]
+}
