@@ -1,0 +1,8 @@
+{
+  "name": "offline-agent-hq-video-studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic Canvas2D video renderer for Offline Agent HQ",
+  "scripts": { "render": "node render.js storyboard.example.json" },
+  "dependencies": { "puppeteer": "^24.10.2" }
+}
