@@ -151,7 +151,7 @@ Create a script/storyboard draft from a topic with `python video_studio/producti
 
 ## Specialist roster and orchestration
 
-`agents/roster.json` defines 50 specialist role profiles. `agents/orchestrate.py` now runs a selected pipeline of up to 12 roles sequentially, passing prior-stage outputs as explicitly unverified context and writing a manifest under `workspace/orchestration/`. The dashboard includes a specialist-pipeline form. These are role prompts sharing one local model, not 50 independent concurrently running models. `AGENT-50` cannot be automatically orchestrated because it represents a real human approval step. No web research or external actions are performed by the pipeline.
+`agents/roster.json` defines 50 specialist role profiles. `agents/orchestrate.py` now runs a selected pipeline of up to 49 non-approval roles sequentially, passing prior-stage outputs as explicitly unverified context and writing a manifest under `workspace/orchestration/`. The dashboard includes a specialist-pipeline form. These are role prompts sharing one local model, not 50 independent concurrently running models. `AGENT-50` cannot be automatically orchestrated because it represents a real human approval step. No web research or external actions are performed by the pipeline.
 
 
 The video module also includes a separate optional YouTube uploader. It requires Google OAuth setup, a local approval record tied to the MP4 hash, and explicit upload confirmation; it defaults to private visibility and never publishes automatically without those checks. See video_studio/README.md.
