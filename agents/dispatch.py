@@ -58,7 +58,7 @@ def load_human_lessons(agent_id, limit=3):
                 item=json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if item.get("human_reviewed") is True:
+            if item.get("human_reviewed") is True and item.get("model_output_reviewed") is True:
                 notes=str(item.get("improvement_notes","")).strip()[:700]
                 scores=item.get("scores",{})
                 weak=[str(k) for k,v in scores.items() if isinstance(v,int) and v<2][:5] if isinstance(scores,dict) else []
