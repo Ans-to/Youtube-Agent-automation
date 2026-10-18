@@ -24,7 +24,7 @@
   ctx.font=subFont;ctx.fillStyle=p.muted;sub.slice(0,3).forEach((line,i)=>ctx.fillText(line,left,subY+i*Math.max(27,w*.032)));
   ctx.fillStyle="#30303a";ctx.fillRect(left,barY,barW,3);ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);
   ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;
-  const cx=w*.84,cy=portrait?h*.22:h*.26,r=Math.min(w,h)*(portrait?.055:.075);
+  const cx=w*.84,cy=portrait?h*.22:h*.26,r=Math.min(w,h)*(portrait ? 0.055 : 0.075);
   ctx.beginPath();ctx.arc(cx,cy,r+pulse*8,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,r*1.42+pulse*8,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
   ctx.font="600 "+Math.max(13,w*.0105)+"px monospace";ctx.fillStyle=p.muted;ctx.fillText("FRAME "+String(globalFrame).padStart(6,"0"),left,footerY);
   ctx.textAlign="right";ctx.fillText("LOCAL RENDER / "+String(Math.round(progress*100)).padStart(3," ")+"%",w-left,footerY);ctx.textAlign="left";
