@@ -3,8 +3,6 @@
 import argparse
 import ipaddress
 import json
-import socket
-import sys
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -41,10 +39,15 @@ def safe_public_url(value):
 def unwrap_result_url(value):
     value = urllib.parse.urljoin(SEARCH_URL, value)
     parts = urllib.parse.urlsplit(value)
-    if parts.hostname and parts.hostname.endswith("duckduckgo.com") and parts.path.startswith("/l/"):
+    if parts.hostname and (parts.hostname == "duckduckgo.com" or parts.hostname.endswith(".duckduckgo.com")) and parts.path.startswith("/l/"):
         target = urllib.parse.parse_qs(parts.query).get("uddg", [""])[0]
         value = urllib.parse.unquote(target)
     return safe_public_url(value)
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, "Search redirects are disabled", headers, fp)
 
 
 class ResultParser(HTMLParser):
@@ -73,6 +76,9 @@ class ResultParser(HTMLParser):
         if tag == "a" and self.mode == "title":
             self.active = None
             self.mode = None
+        elif tag == "a" and self.mode == "snippet":
+            self.active = None
+            self.mode = None
         elif tag in {"div", "span"} and self.mode == "snippet":
             self.active = None
             self.mode = None
@@ -83,7 +89,7 @@ def fetch_search_html(query, timeout=15):
         SEARCH_URL + "?" + urllib.parse.urlencode({"q": query}),
         headers={"User-Agent": USER_AGENT, "Accept": "text/html", "Accept-Encoding": "identity"},
         method="GET")
-    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), urllib.request.HTTPRedirectHandler())
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}), NoRedirect())
     with opener.open(request, timeout=max(3, min(int(timeout), 30)) as response:
         if response.status != 200:
             raise ValueError("Search engine returned HTTP " + str(response.status))
