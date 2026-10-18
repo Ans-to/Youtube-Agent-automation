@@ -68,6 +68,15 @@ jobs:
       - name: Audit renderer dependencies
         working-directory: video_studio
         run: npm audit --audit-level=high
+      - name: Reject invalid transition before browser launch
+        working-directory: video_studio
+        run: |
+          set +e
+          node render.js storyboard.invalid-transition.json > invalid-transition.log 2>&1
+          code=$?
+          set -e
+          if [ "$code" -eq 0 ]; then echo "Invalid transition was unexpectedly accepted"; exit 1; fi
+          grep -q "Unsupported transition_in" invalid-transition.log
       - name: Reject oversized storyboard before allocating frames
         working-directory: video_studio
         run: |
