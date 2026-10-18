@@ -13,6 +13,14 @@ class AgentDispatcherTests(unittest.TestCase):
         self.assertIsNotNone(role)
         self.assertEqual(role["name"], "Script Architect")
 
+    def test_finds_skillbook_for_each_new_motion_role(self):
+        for agent_id in ("AGENT-51", "AGENT-52"):
+            with self.subTest(agent_id=agent_id):
+                profile = dispatch.find_skill(agent_id)
+                self.assertIsNotNone(profile)
+                self.assertGreaterEqual(len(profile["workflow"]), 3)
+                self.assertGreaterEqual(len(profile["quality_gates"]), 3)
+
     def test_unknown_role_returns_none(self):
         self.assertIsNone(dispatch.find_role("AGENT-99"))
 
@@ -21,6 +29,8 @@ class AgentDispatcherTests(unittest.TestCase):
         output = dispatch.run_role(role, "Review this claim", "No sources", {"model": {"enabled": False}})
         self.assertIn("Template mode only", output)
         self.assertIn("Fact Checker", output)
+        self.assertIn("Field mastery playbook", output)
+        self.assertIn("QUALITY GATES", output)
 
     def test_slug_removes_path_separators(self):
         self.assertNotIn("/", dispatch.safe_slug("../danger/task"))
