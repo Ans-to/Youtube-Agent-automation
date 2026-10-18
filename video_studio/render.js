@@ -9,12 +9,18 @@ async function main(){
  if(!Number.isInteger(h)||h<180||h>2160)throw new Error("height must be 180..2160");
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
- const dir=path.resolve("frames");fs.mkdirSync(dir,{recursive:true});
+ const MAX_FRAMES=30000,MAX_SECONDS=1000;
+ const totalSeconds=s.scenes.reduce((sum,scene)=>{const sec=Number(scene&&scene.duration_seconds);if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("Each scene duration must be >0 and <=600 seconds");return sum+sec;},0);
+ if(totalSeconds>MAX_SECONDS)throw new Error("Storyboard exceeds the 1000-second render limit.");
+ const estimatedFrames=s.scenes.reduce((sum,scene)=>sum+Math.max(1,Math.round(Number(scene.duration_seconds)*fps)),0);
+ if(estimatedFrames>MAX_FRAMES)throw new Error("Storyboard exceeds the 30000-frame render limit.");
+ const dir=path.resolve(__dirname,"frames");fs.mkdirSync(dir,{recursive:true});
  for(const f of fs.readdirSync(dir))if(/^frame-\d{6}\.png$/.test(f))fs.unlinkSync(path.join(dir,f));
  const browser=await puppeteer.launch({headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});
  try{
   const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
   await page.goto("file://"+path.resolve(__dirname,"render.html"),{waitUntil:"load"});await page.setViewport({width:w,height:h,deviceScaleFactor:1});
+  await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   let total=0;
   for(let si=0;si<s.scenes.length;si++){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
@@ -26,7 +32,7 @@ async function main(){
    }
    console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
   }
-  fs.writeFileSync(path.resolve("render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,generated_at:new Date().toISOString()},null,2)+"\n");
+  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,generated_at:new Date().toISOString()},null,2)+"\n");
   console.log("Rendered "+total+" frames to "+dir);
  }finally{await browser.close()}
 }
