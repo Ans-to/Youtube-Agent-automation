@@ -24,7 +24,7 @@ class PracticeLoopTests(unittest.TestCase):
             self.assertFalse(report["model_weight_training_performed"])
             self.assertTrue((attempt_dir / "artifact.md").is_file())
             self.assertTrue((attempt_dir / "assessment.json").is_file())
-            self.assertIn("no AI generation occurred", report["notes"])
+            self.assertIn("no ai generation occurred", report["notes"].lower())
 
     def test_human_assessment_requires_evidence_and_records_feedback(self):
         practice.WORKSPACE.mkdir(parents=True, exist_ok=True)
