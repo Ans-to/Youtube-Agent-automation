@@ -99,7 +99,6 @@ def main():
     out=(output_base/slugify(title)).resolve()
     if output_base not in out.parents: raise SystemExit("Unsafe product output path.")
     out.mkdir(parents=True,exist_ok=True)
-    risks=scan_risks(source)
     (out/"index.html").write_text(source,encoding="utf-8")
     (out/"README.md").write_text("# "+title+"\n\n## Product idea\n"+idea+"\n\n## Status\nPrototype generated locally. Review functionality, accessibility, security, and licensing before selling.\n\n## Validation notes\n"+("- Potential external/network patterns found: "+", ".join(risks) if risks else "Basic static scan found no configured external-network patterns; this is not a security audit.")+"\n",encoding="utf-8")
     manifest={"title":title,"idea":idea,"status":"draft","generated_by":"local_model" if generated else "deterministic_template","external_patterns_found":risks,"human_review_required":True,"published":False}
