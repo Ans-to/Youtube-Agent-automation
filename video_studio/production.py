@@ -66,10 +66,19 @@ def main():
     if not topic or len(topic)>500:raise SystemExit("Topic must be 1–500 characters.")
     data=local_generate(topic,load_config()) or fallback(topic);scenes=data.get("scenes")
     if not isinstance(scenes,list) or not 1<=len(scenes)<=100:raise SystemExit("Generated package invalid: scenes must be a list of 1–100.")
+    total_seconds=0
     for index,scene in enumerate(scenes):
-        if not isinstance(scene,dict) or not isinstance(scene.get("duration_seconds"),(int,float)) or scene["duration_seconds"]<=0:
-            raise SystemExit("Invalid scene at index "+str(index))
-    output_dir=(BASE.parent/args.out).resolve();output_dir.mkdir(parents=True,exist_ok=True)
+        if not isinstance(scene,dict) or not isinstance(scene.get("duration_seconds"),(int,float)) or isinstance(scene.get("duration_seconds"),bool) or scene["duration_seconds"]<=0 or scene["duration_seconds"]>600:
+            raise SystemExit("Invalid scene duration at index "+str(index))
+        if not all(isinstance(scene.get(key,""),str) for key in ("eyebrow","headline","subhead","narration")):
+            raise SystemExit("Scene text fields must be strings at index "+str(index))
+        total_seconds+=scene["duration_seconds"]
+    if total_seconds>1000:raise SystemExit("Generated package exceeds the 1000-second render limit.")
+    workspace_root=(BASE.parent/"workspace").resolve()
+    output_dir=(BASE.parent/args.out).resolve()
+    if output_dir!=workspace_root and workspace_root not in output_dir.parents:
+        raise SystemExit("Output directory must remain inside the project workspace.")
+    output_dir.mkdir(parents=True,exist_ok=True)
     (output_dir/"script.md").write_text("# "+str(data.get("title",topic))+"\n\n"+str(data.get("description",""))+"\n\n"+str(data.get("script",""))+"\n",encoding="utf-8")
     storyboard={"title":str(data.get("title",topic)),"width":1080 if args.format=="shorts" else 1920,"height":1920 if args.format=="shorts" else 1080,"fps":30,"scenes":scenes}
     (output_dir/"storyboard.json").write_text(json.dumps(storyboard,ensure_ascii=False,indent=2)+"\n",encoding="utf-8")
