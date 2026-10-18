@@ -222,10 +222,11 @@ def cycle(task_id=None):
     cfg = load(CONFIG, {})
     max_tasks = max(1, min(20, int(cfg.get("runner", {}).get("max_tasks_per_cycle", 3))))
     count = 0
+    requested_task_id = task_id
     while count < max_tasks:
         with task_queue_lock(TASKS):
             tasks = load_tasks(TASKS)
-            task = next((t for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"} and (task_id is None or str(t.get("id", "")) == task_id)), None)
+            task = next((t for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"} and (requested_task_id is None or str(t.get("id", "")) == requested_task_id)), None)
             if task is None:
                 break
             task_id = str(task.get("id", ""))
@@ -258,6 +259,8 @@ def cycle(task_id=None):
                 }})
                 save_tasks(TASKS, latest)
         count += 1
+        if requested_task_id is not None:
+            break
     if count == 0:
         print("No pending tasks.")
     return count
