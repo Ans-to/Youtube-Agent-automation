@@ -186,6 +186,9 @@ def process(task, cfg):
         r"\bpost\s+(?:the\s+|this\s+|my\s+|a\s+|an\s+)?(?:video|short|content|file)\b",
         r"\bmake (?:a )?payment\b",
         r"\btransfer money\b",
+        r"\b(?:transfer|send|withdraw)\s+(?:money|funds|payment|cash)\b",
+        r"\b(?:purchase|buy|order)\s+(?:the|this|a|an|any|some)\b",
+        r"\b(?:delete|erase|remove)\s+(?:all|every|any|the|this|my|these|those|files?|folders?|records?|data|account|task)\b",
         r"\bdelete (?:the|this|my)\b",
     ]
     import re
