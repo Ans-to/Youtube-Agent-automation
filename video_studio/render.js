@@ -10,7 +10,7 @@ async function main(){
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
  const dir=path.resolve("frames");fs.mkdirSync(dir,{recursive:true});
- for(const f of fs.readdirSync(dir))if(/^frame-\\d{6}\\.png$/.test(f))fs.unlinkSync(path.join(dir,f));
+ for(const f of fs.readdirSync(dir))if(/^frame-\d{6}\.png$/.test(f))fs.unlinkSync(path.join(dir,f));
  const browser=await puppeteer.launch({headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});
  try{
   const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
@@ -26,7 +26,7 @@ async function main(){
    }
    console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
   }
-  fs.writeFileSync(path.resolve("render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,generated_at:new Date().toISOString()},null,2)+"\\n");
+  fs.writeFileSync(path.resolve("render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,generated_at:new Date().toISOString()},null,2)+"\n");
   console.log("Rendered "+total+" frames to "+dir);
  }finally{await browser.close()}
 }
