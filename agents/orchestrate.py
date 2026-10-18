@@ -60,28 +60,46 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             + "Do not claim external research or external actions. Flag facts that require independent sourcing. "
             + "Return this stage's deliverable and explicit unresolved issues."
         )
-        result = dispatch.run_role(role, instruction, combined_context, cfg)
         filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
+        try:
+            result = dispatch.run_role(role, instruction, combined_context, cfg)
+            if not isinstance(result, str) or not result.strip():
+                raise ValueError("Specialist returned an empty result.")
+        except Exception as exc:
+            failure = {
+                "sequence": index, "agent_id": agent_id, "role": role["name"],
+                "output_file": None, "status": "failed",
+                "error_type": type(exc).__name__, "error": str(exc)[:500],
+                "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
+            }
+            records.append(failure)
+            manifest = build_manifest(task, records, cfg, status="failed")
+            (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            return destination, manifest
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
         records.append({
             "sequence": index, "agent_id": agent_id, "role": role["name"],
-            "output_file": filename, "status": "completed",
+            "output_file": filename, "status": "draft_generated",
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-20000:]
-    manifest = {
+    manifest = build_manifest(task, records, cfg, status="draft")
+    (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return destination, manifest
+
+
+def build_manifest(task, records, cfg, status):
+    return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task.strip(),
         "pipeline": records,
-        "status": "draft",
+        "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
         "research_performed": False,
         "external_actions_performed": False,
         "human_review_required": True,
         "note": "Sequential specialist pipeline; roles share one configured local model. Outputs are drafts, not verified facts.",
     }
-    (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return destination, manifest
 
 
 def main():
