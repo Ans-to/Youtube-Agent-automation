@@ -96,7 +96,7 @@ def public_result(response: dict) -> dict:
     if action == "self_test":
         public["result"]["syntax_checked"] = [
             name for name in result.get("syntax_checked", [])
-            if name in {"agent.py", "dashboard.py", "queue_store.py", "dispatch.py", "orchestrate.py", "bridge.py", "studio.py", "production.py", "research.py", "validate_render.py", "validate_frames.py", "release_gate.py", "publish_youtube.py", "build_product.py"}
+            if name in {"agent.py", "dashboard.py", "queue_store.py", "dispatch.py", "orchestrate.py", "skillbooks.json", "bridge.py", "studio.py", "production.py", "research.py", "validate_render.py", "validate_frames.py", "release_gate.py", "publish_youtube.py", "build_product.py"}
         ]
     elif action == "run_task":
         public["result"]["task_id"] = result.get("task_id")
@@ -157,6 +157,7 @@ def run_self_test() -> dict:
         PROJECT / "dashboard.py",
         PROJECT / "queue_store.py",
         PROJECT / "agents" / "dispatch.py",
+        PROJECT / "agents" / "skillbooks.json",
         PROJECT / "agents" / "orchestrate.py",
         PROJECT / "bridge" / "bridge.py",
         PROJECT / "video_studio" / "studio.py",
