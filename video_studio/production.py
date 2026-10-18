@@ -33,7 +33,7 @@ def local_generate(topic, cfg):
         return None
     url = model.get("base_url", "")
     prompt = ("Create a responsible faceless YouTube video package for this topic: " + topic + "\n"
-        "Return only valid JSON with keys title, description, script, scenes. scenes must be an array of 4 to 8 objects with duration_seconds (number), eyebrow, headline, subhead, narration. "
+        "Return only valid JSON with keys title, description, script, scenes. scenes must be an array of 4 to 8 objects with duration_seconds (number), eyebrow, headline, subhead, narration, and visual_type chosen from hero, stat, timeline, diagram, comparison, code, quote, waveform. Use visual_nodes for diagrams, timeline_events for timelines, stat_value/stat_label for stat cards, comparison_left/comparison_right for comparisons, code_lines for code panels, quote/quote_source for quotations. "
         "Use concise factual language; do not invent research, citations, or claim you browsed the web. Mark claims that need sourcing in the script. "
         "Narration should be in Urdu with English technical terms by default, unless the topic explicitly asks for another language. Make visual beats practical for deterministic typography and geometric Canvas2D graphics.")
     body = {"model": model.get("model", "local-model"),
@@ -52,10 +52,10 @@ def local_generate(topic, cfg):
 
 def fallback(topic):
     scenes = [
-      {"duration_seconds":5,"eyebrow":"THE QUESTION","headline":topic[:80],"subhead":"A topic package created with the offline template.","narration":topic},
-      {"duration_seconds":5,"eyebrow":"THE CONTEXT","headline":"What we know","subhead":"Add trusted source notes before presenting factual claims.","narration":"Known context se shuru karein aur factual claims ko reliable sources se verify karein."},
-      {"duration_seconds":5,"eyebrow":"THE EXPLANATION","headline":"How it works","subhead":"Use one concept per scene, with a simple visual metaphor.","narration":"Core idea ko step by step explain karein, har scene mein ek concept rakhein."},
-      {"duration_seconds":5,"eyebrow":"THE TAKEAWAY","headline":"What to remember","subhead":"Review, fact-check, and edit before publication.","narration":"Practical takeaway summarize karein. Yeh sirf template hai, researched ya fact-checked content nahi."}]
+      {"duration_seconds":5,"eyebrow":"THE QUESTION","headline":topic[:80],"subhead":"A topic package created with the offline template.","narration":topic,"visual_type":"hero","graphic_label":"THE CORE IDEA"},
+      {"duration_seconds":5,"eyebrow":"THE CONTEXT","headline":"What we know","subhead":"Add trusted source notes before presenting factual claims.","narration":"Known context se shuru karein aur factual claims ko reliable sources se verify karein.","visual_type":"diagram","visual_nodes":["EVIDENCE","EXPLANATION","TAKEAWAY"]},
+      {"duration_seconds":5,"eyebrow":"THE EXPLANATION","headline":"How it works","subhead":"Use one concept per scene, with a simple visual metaphor.","narration":"Core idea ko step by step explain karein, har scene mein ek concept rakhein.","visual_type":"code","code_lines":["input = evidence;","process = explain(input);","output = clear_idea;"]},
+      {"duration_seconds":5,"eyebrow":"THE TAKEAWAY","headline":"What to remember","subhead":"Review, fact-check, and edit before publication.","narration":"Practical takeaway summarize karein. Yeh sirf template hai, researched ya fact-checked content nahi.","visual_type":"timeline","timeline_events":["QUESTION","EVIDENCE","EXPLAIN","REVIEW"]}]
     return {"title":topic[:90],"description":"Offline template package. Research and verify factual claims before publication.",
       "script":"# "+topic+"\n\nTemplate only: no local model was enabled and no web research was performed. Add trustworthy sources and verify claims before publishing.\n","scenes":scenes}
 
@@ -73,6 +73,9 @@ def main():
             raise SystemExit("Invalid scene duration at index "+str(index))
         if not all(isinstance(scene.get(key,""),str) for key in ("eyebrow","headline","subhead","narration")):
             raise SystemExit("Scene text fields must be strings at index "+str(index))
+        if scene.get("visual_type","hero") not in {"hero","stat","timeline","diagram","comparison","code","quote","waveform"}:
+            raise SystemExit("Unsupported visual_type at index "+str(index))
+        scene.setdefault("visual_type","hero")
         total_seconds+=scene["duration_seconds"]
     if total_seconds>1000:raise SystemExit("Generated package exceeds the 1000-second render limit.")
     workspace_root=(BASE.parent/"workspace").resolve()
