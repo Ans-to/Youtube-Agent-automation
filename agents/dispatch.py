@@ -73,7 +73,9 @@ def main():
         context=source.read_text(encoding="utf-8",errors="replace")[:20000]
     cfg=load_json(ROOT/"config.json",{})
     result=run_role(role,task,context,cfg)
-    out=Path(a.output).expanduser().resolve() if a.output else ROOT/"workspace"/"agent-runs"/(safe_slug(role["id"]+"-"+task[:40])+".md")
+    workspace=(ROOT/"workspace").resolve()
+    out=Path(a.output).expanduser().resolve() if a.output else workspace/"agent-runs"/(safe_slug(role["id"]+"-"+task[:40])+".md")
+    if out==workspace or workspace not in out.parents:raise SystemExit("Output path must remain inside the project workspace.")
     out.parent.mkdir(parents=True,exist_ok=True)
     out.write_text(result.rstrip()+"\n",encoding="utf-8")
     print("Role:",role["id"],role["name"]);print("Output:",out)
