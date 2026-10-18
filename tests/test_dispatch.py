@@ -23,8 +23,8 @@ class AgentDispatcherTests(unittest.TestCase):
 
     def test_human_approval_role_cannot_be_run_automatically(self):
         role = dispatch.find_role("AGENT-50")
-        with self.assertRaisesRegex(SystemExit, "human approval boundary"):
-            dispatch.main_from_args if False else (_ for _ in ()).throw(SystemExit("AGENT-50 is a human approval boundary and cannot be run as an automatic model role."))
+        with self.assertRaisesRegex(ValueError, "human approval boundary"):
+            dispatch.run_role(role, "Approve this upload", "", {"model": {"enabled": False}})
 
     def test_unknown_role_returns_none(self):
         self.assertIsNone(dispatch.find_role("AGENT-99"))
