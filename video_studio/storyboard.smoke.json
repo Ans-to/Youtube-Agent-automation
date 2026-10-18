@@ -1,0 +1,15 @@
+{
+  "title": "CI Render Smoke Test",
+  "width": 320,
+  "height": 180,
+  "fps": 2,
+  "scenes": [
+    {
+      "duration_seconds": 1,
+      "eyebrow": "CI TEST",
+      "headline": "Render works",
+      "subhead": "Canvas2D to MP4",
+      "narration": "Render works."
+    }
+  ]
+}
