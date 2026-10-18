@@ -9,6 +9,14 @@ SPEC.loader.exec_module(bridge)
 
 
 class BridgeTests(unittest.TestCase):
+    def test_self_test_covers_practice_and_motion_documents(self):
+        result = bridge.run_self_test()
+        self.assertTrue(result["ok"], result)
+        checked = set(result["syntax_checked"])
+        self.assertIn("practice.py", checked)
+        self.assertIn("MOTION_DESIGN_SYSTEM.md", checked)
+        self.assertIn("TRAINING.md", checked)
+
     def test_valid_request_ids_are_path_safe(self):
         self.assertTrue(bridge.valid_request_id("self-test-004"))
         self.assertTrue(bridge.valid_request_id("run_task_12"))
