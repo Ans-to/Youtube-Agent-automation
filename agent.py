@@ -218,14 +218,14 @@ def process(task, cfg):
 
     return path
 
-def cycle():
+def cycle(task_id=None):
     cfg = load(CONFIG, {})
     max_tasks = max(1, min(20, int(cfg.get("runner", {}).get("max_tasks_per_cycle", 3))))
     count = 0
     while count < max_tasks:
         with task_queue_lock(TASKS):
             tasks = load_tasks(TASKS)
-            task = next((t for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"}), None)
+            task = next((t for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"} and (task_id is None or str(t.get("id", "")) == task_id)), None)
             if task is None:
                 break
             task_id = str(task.get("id", ""))
@@ -268,6 +268,7 @@ def main():
     mode.add_argument("--once", action="store_true")
     mode.add_argument("--loop", action="store_true")
     ap.add_argument("--interval", type=int, default=None)
+    ap.add_argument("--task-id", help="Process only this exact existing local task ID")
     args = ap.parse_args()
     if args.loop:
         cfg = load(CONFIG, {})
@@ -275,12 +276,12 @@ def main():
         print(f"Agent loop running every {interval}s. Ctrl+C to stop.")
         try:
             while True:
-                cycle()
+                cycle(args.task_id)
                 time.sleep(interval)
         except KeyboardInterrupt:
             print("Stopped.")
     else:
-        cycle()
+        cycle(args.task_id)
 
 if __name__ == "__main__":
     main()
