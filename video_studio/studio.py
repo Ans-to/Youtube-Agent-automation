@@ -1,50 +1,164 @@
 #!/usr/bin/env python3
-"""Orchestrate deterministic Canvas2D rendering and FFmpeg encoding."""
-import argparse, json, os, shutil, subprocess, sys
+"""Render a storyboard to H.264 MP4, with optional scene-aligned local Piper narration."""
+import argparse
+import json
+import math
+import os
+import shutil
+import subprocess
+import sys
 from pathlib import Path
-BASE=Path(__file__).resolve().parent
-def run(command,cwd=BASE):
- print("+"," ".join(str(x) for x in command),flush=True)
- subprocess.run(command,cwd=str(cwd),check=True)
+
+BASE = Path(__file__).resolve().parent
+
+
+def run(command, cwd=BASE, **kwargs):
+    print("+", " ".join(str(item) for item in command), flush=True)
+    return subprocess.run(command, cwd=str(cwd), check=True, **kwargs)
+
+
+def probe_duration(ffprobe, path):
+    result = subprocess.run(
+        [ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "json", str(path)],
+        check=True, capture_output=True, text=True, timeout=60)
+    duration = float(json.loads(result.stdout).get("format", {}).get("duration", 0))
+    if duration <= 0:
+        raise ValueError("Could not determine audio duration for " + str(path))
+    return duration
+
+
+def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps):
+    voice_dir = BASE / "voice_segments"
+    shutil.rmtree(voice_dir, ignore_errors=True)
+    voice_dir.mkdir(parents=True)
+    segments = []
+    for index, scene in enumerate(data["scenes"]):
+        narration = str(scene.get("narration", "")).strip()
+        raw = voice_dir / ("raw-%03d.wav" % index)
+        if narration:
+            run([piper, "--model", model, "--output_file", str(raw)],
+                input=(narration + "\n").encode("utf-8"))
+            spoken_duration = probe_duration(ffprobe, raw)
+        else:
+            original = float(scene["duration_seconds"])
+            run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+                 "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
+                 "-t", str(original), "-c:a", "pcm_s16le", str(raw)])
+            spoken_duration = 0.0
+        target_seconds = max(float(scene["duration_seconds"]), spoken_duration + 0.45)
+        target_frames = max(1, math.ceil(target_seconds * fps))
+        aligned_seconds = target_frames / fps
+        scene["duration_seconds"] = aligned_seconds
+        normalized = voice_dir / ("segment-%03d.wav" % index)
+        run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw),
+             "-af", "apad,atrim=duration=" + ("%.6f" % aligned_seconds),
+             "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(normalized)])
+        segments.append(normalized)
+    storyboard = BASE / "voice-storyboard.generated.json"
+    storyboard.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return storyboard, voice_dir, segments
+
+
+def combine_voice(segments, ffmpeg, output):
+    if not segments:
+        raise ValueError("No audio segments were generated.")
+    command = [ffmpeg, "-y", "-hide_banner", "-loglevel", "warning"]
+    labels = []
+    for index, path in enumerate(segments):
+        command.extend(["-i", str(path)])
+        labels.append("[" + str(index) + ":a]")
+    filter_graph = "".join(labels) + "concat=n=" + str(len(segments)) + ":v=0:a=1[outa]"
+    command.extend(["-filter_complex", filter_graph, "-map", "[outa]",
+                    "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(output)])
+    run(command)
+
+
 def main():
- p=argparse.ArgumentParser(description=__doc__)
- p.add_argument("--storyboard",default="storyboard.example.json")
- p.add_argument("--output",default="outputs/offline-agent-hq-demo.mp4")
- p.add_argument("--with-voice",action="store_true",help="Use local Piper CLI and PIPER_MODEL path")
- a=p.parse_args();node=shutil.which("node");ffmpeg=shutil.which("ffmpeg")
- if a.with_voice and (not shutil.which("piper") or not __import__("os").environ.get("PIPER_MODEL") or not Path(__import__("os").environ.get("PIPER_MODEL","")).is_file()):raise SystemExit("Voice requested, but Piper or PIPER_MODEL is missing.")
- if not node:raise SystemExit("Node.js was not found. Install Node.js LTS first.")
- if not ffmpeg:raise SystemExit("FFmpeg was not found. Install FFmpeg first.")
- sb=(BASE/a.storyboard).resolve()
- if not sb.is_file():raise SystemExit("Storyboard not found: "+str(sb))
- data=json.loads(sb.read_text(encoding="utf-8"));fps=int(data.get("fps",30))
- if not 1<=fps<=60:raise SystemExit("Storyboard fps must be from 1 to 60.")
- run([node,"render.js",str(sb)])
- manifest=json.loads((BASE/"render-manifest.json").read_text(encoding="utf-8"))
- frame_check=subprocess.run([sys.executable,str(BASE/"validate_frames.py"),"--frames",str(BASE/"frames"),"--manifest",str(BASE/"render-manifest.json")],cwd=str(BASE),check=True,capture_output=True,text=True,timeout=300)
- print(frame_check.stdout.strip())
- output=(BASE/a.output).resolve();output.parent.mkdir(parents=True,exist_ok=True)
- silent=output.with_name(output.stem+".silent.mp4");frames=BASE/"frames"/"frame-%06d.png"
- run([ffmpeg,"-y","-hide_banner","-loglevel","warning","-framerate",str(fps),"-i",str(frames),"-frames:v",str(manifest["frame_count"]),"-c:v","libx264","-pix_fmt","yuv420p","-crf","20","-movflags","+faststart",str(silent)])
- if a.with_voice:
-  piper=shutil.which("piper");model=os.environ.get("PIPER_MODEL","").strip()
-  if not piper or not model or not Path(model).is_file():raise SystemExit("Voice requested, but Piper or PIPER_MODEL is missing.")
-  text=" ".join(str(scene.get("narration","")) for scene in data["scenes"]).strip()
-  if not text:raise SystemExit("No narration text exists in the storyboard.")
-  narration=BASE/"narration.wav"
-  subprocess.run([piper,"--model",model,"--output_file",str(narration)],input=(text+"\n").encode("utf-8"),cwd=str(BASE),check=True)
-  ffprobe=shutil.which("ffprobe")
-  if not ffprobe:raise SystemExit("ffprobe is required to verify narration duration.")
-  audio_info=subprocess.run([ffprobe,"-v","error","-show_entries","format=duration","-of","json",str(narration)],check=True,capture_output=True,text=True,timeout=60)
-  audio_duration=float(json.loads(audio_info.stdout).get("format",{}).get("duration",0))
-  if audio_duration>float(manifest["duration_seconds"])+0.25:raise SystemExit("Narration is longer than the video. Increase scene durations or shorten narration before rendering again.")
-  run([ffmpeg,"-y","-hide_banner","-loglevel","warning","-i",str(silent),"-i",str(narration),"-map","0:v:0","-map","1:a:0","-af","apad","-c:v","copy","-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",str(output)])
-  silent.unlink(missing_ok=True)
- else:
-  silent.replace(output);print("No voice synthesized. Add --with-voice after installing a local Piper voice.")
- validation_args=[sys.executable,str(BASE/"validate_render.py"),str(output),"--width",str(int(data.get("width",1920))),"--height",str(int(data.get("height",1080))),"--fps",str(fps)]
- if a.with_voice: validation_args.append("--require-audio")
- validation=subprocess.run(validation_args,cwd=str(BASE),check=True,capture_output=True,text=True)
- print(validation.stdout.strip())
- print("SUCCESS:",output);print("Duration:",manifest["duration_seconds"],"seconds");print("Frames:",manifest["frame_count"]);print("Local MP4 only: this pipeline does not upload or publish content.")
-if __name__=="__main__":main()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--storyboard", default="storyboard.example.json")
+    parser.add_argument("--output", default="outputs/offline-agent-hq-demo.mp4")
+    parser.add_argument("--with-voice", action="store_true", help="Use local Piper CLI and PIPER_MODEL path")
+    parser.add_argument("--keep-frames", action="store_true", help="Keep PNG frames after a successful MP4 render")
+    args = parser.parse_args()
+    node, ffmpeg, ffprobe = shutil.which("node"), shutil.which("ffmpeg"), shutil.which("ffprobe")
+    if not node:
+        raise SystemExit("Node.js was not found. Install Node.js LTS first.")
+    if not ffmpeg or not ffprobe:
+        raise SystemExit("FFmpeg and ffprobe are required and must be available on PATH.")
+    piper, model = shutil.which("piper"), os.environ.get("PIPER_MODEL", "").strip()
+    if args.with_voice and (not piper or not model or not Path(model).is_file()):
+        raise SystemExit("Voice requested, but Piper or a valid PIPER_MODEL file is missing.")
+
+    storyboard = Path(args.storyboard).expanduser().resolve()
+    if not storyboard.is_file():
+        storyboard = (BASE / args.storyboard).resolve()
+    if not storyboard.is_file():
+        raise SystemExit("Storyboard not found: " + str(storyboard))
+    data = json.loads(storyboard.read_text(encoding="utf-8"))
+    fps = int(data.get("fps", 30))
+    if not 1 <= fps <= 60:
+        raise SystemExit("Storyboard fps must be from 1 to 60.")
+    if not isinstance(data.get("scenes"), list) or not data["scenes"]:
+        raise SystemExit("Storyboard must contain at least one scene.")
+
+    voice_dir, segments, generated_storyboard = None, [], None
+    render_storyboard = storyboard
+    if args.with_voice:
+        if not any(str(scene.get("narration", "")).strip() for scene in data["scenes"]):
+            raise SystemExit("No narration text exists in the storyboard.")
+        generated_storyboard, voice_dir, segments = prepare_voice(data, piper, model, ffmpeg, ffprobe, fps)
+        render_storyboard = generated_storyboard
+
+    run([node, "render.js", str(render_storyboard)])
+    manifest_path = BASE / "render-manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    frame_check = subprocess.run(
+        [sys.executable, str(BASE / "validate_frames.py"), "--frames", str(BASE / "frames"),
+         "--manifest", str(manifest_path)],
+        cwd=str(BASE), check=True, capture_output=True, text=True, timeout=300)
+    print(frame_check.stdout.strip())
+
+    output = Path(args.output).expanduser().resolve()
+    if not output.is_absolute():
+        output = (BASE / args.output).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    silent = output.with_name(output.stem + ".silent.mp4")
+    frames = BASE / "frames" / "frame-%06d.png"
+    run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-framerate", str(fps),
+         "-i", str(frames), "-frames:v", str(manifest["frame_count"]),
+         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
+         "-movflags", "+faststart", str(silent)])
+    if args.with_voice:
+        combined = voice_dir / "combined.wav"
+        combine_voice(segments, ffmpeg, combined)
+        run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-i", str(silent),
+             "-i", str(combined), "-map", "0:v:0", "-map", "1:a:0",
+             "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-shortest",
+             "-movflags", "+faststart", str(output)])
+        silent.unlink(missing_ok=True)
+    else:
+        silent.replace(output)
+        print("No voice synthesized. Add --with-voice after installing Piper and setting PIPER_MODEL.")
+
+    validation_args = [sys.executable, str(BASE / "validate_render.py"), str(output),
+                       "--width", str(int(manifest["width"])), "--height", str(int(manifest["height"])),
+                       "--fps", str(fps)]
+    if args.with_voice:
+        validation_args.append("--require-audio")
+    validation = subprocess.run(validation_args, cwd=str(BASE), check=True,
+                                capture_output=True, text=True, timeout=120)
+    print(validation.stdout.strip())
+    if not args.keep_frames:
+        shutil.rmtree(BASE / "frames", ignore_errors=True)
+    if voice_dir:
+        shutil.rmtree(voice_dir, ignore_errors=True)
+    if generated_storyboard:
+        generated_storyboard.unlink(missing_ok=True)
+    print("SUCCESS:", output)
+    print("Duration:", manifest["duration_seconds"], "seconds")
+    print("Frames:", manifest["frame_count"])
+    print("Local MP4 only: this pipeline does not upload or publish content.")
+
+
+if __name__ == "__main__":
+    main()
