@@ -147,6 +147,10 @@ def main():
     validation = subprocess.run(validation_args, cwd=str(BASE), check=True,
                                 capture_output=True, text=True, timeout=120)
     print(validation.stdout.strip())
+    if generated_storyboard:
+        aligned_copy = output.with_suffix(".storyboard.json")
+        shutil.copy2(generated_storyboard, aligned_copy)
+        print("Aligned storyboard:", aligned_copy)
     if not args.keep_frames:
         shutil.rmtree(BASE / "frames", ignore_errors=True)
     if voice_dir:
