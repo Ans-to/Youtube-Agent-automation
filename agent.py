@@ -214,7 +214,7 @@ def process(task, cfg):
         task.update(
             status="completed",
             completed_at=stamp(),
-            output_file=str(path.relative_to(BASE)),
+            output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error="",
         )
         log(f"COMPLETED {task.get('id')} -> {path.name}")
