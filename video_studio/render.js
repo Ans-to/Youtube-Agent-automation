@@ -41,6 +41,14 @@ async function main(){
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   const wrapCheck=await page.evaluate(()=>window.measureWrappedLines("word ".repeat(80),180,"16px Arial"));
   if(!Number.isInteger(wrapCheck)||wrapCheck<2)throw new Error("Text wrapping regression: long text did not wrap to multiple lines.");
+  const captionCheck=await page.evaluate(()=>{
+   const text=Array.from({length:80},(_,i)=>"captionword"+i).join(" ");
+   const info=window.captionPageForTest(text,180,"16px Arial",0.5);
+   const first=window.captionPageForTest(text,180,"16px Arial",0);
+   const last=window.captionPageForTest(text,180,"16px Arial",0.99999);
+   return {totalLines:info.allLines.length,totalPages:info.totalPages,firstIndex:first.pageIndex,lastIndex:last.pageIndex};
+  });
+  if(captionCheck.totalPages<2||captionCheck.firstIndex!==0||captionCheck.lastIndex!==captionCheck.totalPages-1)throw new Error("Caption pagination regression: long narration is not split across readable pages.");
   let total=0;
   for(let si=0;si<s.scenes.length;si++){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
