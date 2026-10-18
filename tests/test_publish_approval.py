@@ -10,6 +10,10 @@ class PublishApprovalTests(unittest.TestCase):
         root = Path(directory)
         video = root / "video.mp4"
         video.write_bytes(b"fake video bytes for approval hashing")
+        script = root / "script.md"
+        script.write_text("approved narration", encoding="utf-8")
+        storyboard = root / "storyboard.json"
+        storyboard.write_text("{\"scenes\": []}", encoding="utf-8")
         metadata = {
             "title": "Approved title",
             "description": "Approved description",
@@ -22,6 +26,8 @@ class PublishApprovalTests(unittest.TestCase):
             "package_dir": str(root.resolve()),
             "video_file": str(video.resolve()),
             "video_sha256": sha256(video),
+            "script_sha256": sha256(script),
+            "storyboard_sha256": sha256(storyboard),
             "approved_metadata": metadata,
         }
         return video, metadata, approval
@@ -43,6 +49,20 @@ class PublishApprovalTests(unittest.TestCase):
             video, metadata, approval = self.make_package(directory)
             video.write_bytes(b"changed after approval")
             with self.assertRaisesRegex(ValueError, "Video changed after approval"):
+                validate_approval(approval, video.resolve(), metadata)
+
+    def test_rejects_script_changed_after_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video, metadata, approval = self.make_package(directory)
+            (Path(directory) / "script.md").write_text("changed narration", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Script changed after approval"):
+                validate_approval(approval, video.resolve(), metadata)
+
+    def test_rejects_storyboard_changed_after_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video, metadata, approval = self.make_package(directory)
+            (Path(directory) / "storyboard.json").write_text("{\"scenes\": [\"changed\"]}", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Storyboard changed after approval"):
                 validate_approval(approval, video.resolve(), metadata)
 
     def test_rejects_wrong_package_path(self):
