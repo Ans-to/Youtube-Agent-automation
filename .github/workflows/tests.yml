@@ -53,6 +53,9 @@ jobs:
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
+      - name: Audit renderer dependencies
+        working-directory: video_studio
+        run: npm audit --audit-level=high
       - name: Render and validate a 1-second MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4
         working-directory: .
