@@ -96,7 +96,7 @@ def public_result(response: dict) -> dict:
     if action == "self_test":
         public["result"]["syntax_checked"] = [
             name for name in result.get("syntax_checked", [])
-            if name in {"agent.py", "dashboard.py", "bridge.py", "studio.py", "production.py", "validate_render.py", "release_gate.py", "publish_youtube.py", "build_product.py"}
+            if name in {"agent.py", "dashboard.py", "queue_store.py", "dispatch.py", "bridge.py", "studio.py", "production.py", "validate_render.py", "release_gate.py", "publish_youtube.py", "build_product.py"}
         ]
     elif action == "run_task":
         public["result"]["task_id"] = result.get("task_id")
@@ -155,6 +155,8 @@ def run_self_test() -> dict:
     files = [
         PROJECT / "agent.py",
         PROJECT / "dashboard.py",
+        PROJECT / "queue_store.py",
+        PROJECT / "agents" / "dispatch.py",
         PROJECT / "bridge" / "bridge.py",
         PROJECT / "video_studio" / "studio.py",
         PROJECT / "video_studio" / "production.py",
@@ -164,8 +166,9 @@ def run_self_test() -> dict:
         PROJECT / "product_studio" / "build_product.py",
     ]
     present = [str(p.name) for p in files if p.is_file()]
-    if not present:
-        return {"ok": False, "reason": "No expected Python source files found"}
+    if len(present) != len(files):
+        missing = [str(p.relative_to(PROJECT)) for p in files if not p.is_file()]
+        return {"ok": False, "reason": "Required project files are missing", "missing": missing}
     # Syntax-check source files only. This does not run agent.py or process tasks.
     checked = []
     for path in files:
@@ -226,7 +229,7 @@ def run_one_queued_task(task_id: str) -> dict:
         return {"ok": False, "reason": "Refusing ambiguous queue: target must be the only pending task"}
     try:
         proc = subprocess.run(
-            [sys.executable, str(agent_path), "--once"],
+            [sys.executable, str(agent_path), "--once", "--task-id", task_id],
             cwd=str(PROJECT), capture_output=True, text=True, timeout=3600, check=False
         )
     except subprocess.TimeoutExpired:
