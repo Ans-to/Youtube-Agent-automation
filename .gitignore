@@ -23,3 +23,10 @@ __pycache__/
 # Personal runtime configuration and task queue
 /config.json
 /tasks.json
+
+# Video renderer runtime artifacts
+/video_studio/node_modules/
+/video_studio/frames/
+/video_studio/outputs/
+/video_studio/render-manifest.json
+/video_studio/narration.wav
