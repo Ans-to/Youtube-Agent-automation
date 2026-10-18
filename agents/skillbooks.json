@@ -1485,10 +1485,11 @@
       "deliverable_contract": "Return visual thesis, art-direction system, shot-by-shot style, transitions, palette/type rules, and creative QA criteria.",
       "practice_drill": "Practice task: complete a small representative Motion Graphics Creative Director assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
       "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
+        "Visual thesis is specific, evidence-compatible, and consistent with the channel identity",
+        "Shot grammar varies meaningfully and every scene has a distinct narrative purpose",
+        "Composition, typography, color, negative space, and safe areas remain readable in 16:9 and 9:16",
+        "Transition rhythm supports the story rather than adding repetitive decoration",
+        "Assets, numbers, quotations, and competitor references have clear provenance or are flagged"
       ]
     },
     {
@@ -1514,10 +1515,11 @@
       "deliverable_contract": "Return implementable motion/compositing plan with frame timings, easing, mask/layer order, performance budget, and regression checks.",
       "practice_drill": "Practice task: complete a small representative Motion Systems & Compositing Specialist assignment from supplied inputs; score the output against every quality gate (0=fail, 1=partial, 2=pass), revise all zero/one scores, and record only human-reviewed reusable lessons. This drill does not fine-tune model weights.",
       "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
+        "Every proposed effect maps to an implemented visual type or is explicitly marked as future work",
+        "Frame timing, easing, layer order, masks/reveals, and transition behavior are implementable and deterministic",
+        "Portrait/landscape layout, captions, and visual safe areas are handled without overlap",
+        "Frame count, CPU/storage budget, and long-text/data-array limits are respected",
+        "Regression tests cover valid data, invalid transitions, frame dimensions, and output validation"
       ]
     }
   ]
