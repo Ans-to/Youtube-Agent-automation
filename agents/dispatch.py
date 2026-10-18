@@ -21,7 +21,7 @@ def post_local_model(url, body, timeout):
     if parts.scheme!="http" or not address.is_loopback or port is None or not 1<=port<=65535 or parts.username or parts.password or parts.query or parts.fragment:
         raise ValueError("Only a plain HTTP endpoint on a literal loopback IP and explicit port is allowed.")
     req=urllib.request.Request(url,data=json.dumps(body).encode("utf-8"),headers={"Content-Type":"application/json","Accept":"application/json"},method="POST")
-    with urllib.request.build_opener(_NoRedirect()).open(req,timeout=max(1,min(int(timeout),300))) as response:data=json.loads(response.read(20*1024*1024+1).decode("utf-8"))
+    with urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect()).open(req,timeout=max(1,min(int(timeout),300))) as response:data=json.loads(response.read(20*1024*1024+1).decode("utf-8"))
     if not isinstance(data,dict):raise ValueError("Local model response must be a JSON object.")
     return data
 
