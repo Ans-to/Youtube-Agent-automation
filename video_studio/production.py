@@ -12,6 +12,7 @@ BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 sys.path.insert(0, str(ROOT))
 from agent import post_local_model
+from research import research as collect_research, render_markdown as render_research_markdown
 
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform"}
@@ -182,6 +183,7 @@ def main():
     parser.add_argument("--format", choices=["long", "shorts"], default="long")
     parser.add_argument("--target-minutes", type=float, help="Requested narration length; default 15 minutes for long, 1 minute for Shorts.")
     parser.add_argument("--source-file", help="Local .txt, .md, or .json source notes to ground claims.")
+    parser.add_argument("--research", action="store_true", help="Collect free DuckDuckGo search leads; results are not independently verified.")
     parser.add_argument("--scenes", type=int, help="Override scene count (1–100); defaults to about 3 scenes per minute.")
     parser.add_argument("--render", action="store_true", help="Render final storyboard to MP4.")
     parser.add_argument("--render-template", action="store_true", help="Explicitly permit a short, clearly labelled template demo without AI generation.")
@@ -203,7 +205,16 @@ def main():
     if target_seconds > 1000 or round(target_seconds * 30) > 30000:
         raise SystemExit("Target duration exceeds the renderer's supported limits.")
     cfg = load_config()
-    source_notes = read_source(args.source_file)
+    manual_source_notes = read_source(args.source_file)
+    source_notes = manual_source_notes
+    research_metadata, research_results, research_markdown = None, [], ""
+    if args.research:
+        try:
+            research_metadata, research_results = collect_research(topic, max_results=5)
+            research_markdown = render_research_markdown(research_metadata, research_results)
+            source_notes = (source_notes + "\n\n" + research_markdown).strip()
+        except (ValueError, RuntimeError, OSError, urllib.error.URLError) as exc:
+            raise SystemExit("Web research failed: " + str(exc))
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
     if args.render and not model_enabled and not args.render_template:
         raise SystemExit("No local model is enabled. This produces only a 20-second template, not the requested full video. Use --render-template only for a demo.")
@@ -254,9 +265,13 @@ def main():
     script_body = str(content.get("script", ""))
     title = str(content.get("title", topic))[:100]
     desc = str(content.get("description", ""))
-    source_section = "\n\n## Source notes supplied by user\n" + source_notes[:50000] if source_notes else "\n\n## Source verification\nNo source notes were supplied. Verify factual claims before publication."
-    script_md = "# " + title + "\n\n" + desc + "\n\n## Narration draft\n" + script_body + source_section + "\n"
+    source_section = "\n\n## Source notes supplied by user\n" + manual_source_notes[:50000] if manual_source_notes else "\n\n## Source verification\nNo user source notes were supplied. Verify factual claims before publication."
+    research_section = "\n\n## Web research leads (not independently verified)\n" + research_markdown if research_markdown else ""
+    script_md = "# " + title + "\n\n" + desc + "\n\n## Narration draft\n" + script_body + source_section + research_section + "\n"
     (output_dir / "script.md").write_text(script_md, encoding="utf-8")
+    if research_metadata:
+        (output_dir / "research.md").write_text(research_markdown, encoding="utf-8")
+        (output_dir / "research.json").write_text(json.dumps({"metadata": research_metadata, "results": research_results}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     storyboard = {
         "title": title, "width": 1080 if args.format == "shorts" else 1920,
         "height": 1920 if args.format == "shorts" else 1080, "fps": 30,
@@ -269,7 +284,8 @@ def main():
         "format": args.format, "topic": topic, "target_minutes": target_minutes,
         "target_seconds": target_seconds, "storyboard_seconds": sum(float(s["duration_seconds"]) for s in scenes),
         "narration_words": actual_words, "generated_by": generated_by,
-        "source_notes_provided": bool(source_notes), "web_research_performed": False,
+        "source_notes_provided": bool(manual_source_notes), "web_research_performed": bool(research_metadata),
+        "research_result_count": len(research_results), "research_independently_verified": False,
         "human_review_required": True, "published": False,
         "note": "Model output is a draft. This code does not independently research or verify claims.",
     }
