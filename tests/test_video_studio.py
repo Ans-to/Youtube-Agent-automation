@@ -18,11 +18,13 @@ class VideoStudioTests(unittest.TestCase):
             self.assertGreater(scene["duration_seconds"], 0)
             self.assertIn("headline", scene)
 
-    def test_roster_has_fifty_unique_roles(self):
+    def test_roster_has_fifty_two_unique_role_profiles(self):
         data = json.loads((ROOT / "agents" / "roster.json").read_text(encoding="utf-8"))
         agents = data["agents"]
-        self.assertEqual(len(agents), 50)
-        self.assertEqual(len({agent["id"] for agent in agents}), 50)
+        self.assertEqual(len(agents), 52)
+        self.assertEqual(len({agent["id"] for agent in agents}), 52)
+        self.assertIn("Motion Graphics Creative Director", {agent["name"] for agent in agents})
+        self.assertIn("Motion Systems & Compositing Specialist", {agent["name"] for agent in agents})
         self.assertTrue(any(agent["approval_required"] for agent in agents))
 
     def test_fallback_is_explicitly_not_researched(self):
@@ -30,6 +32,7 @@ class VideoStudioTests(unittest.TestCase):
         self.assertEqual(len(result["scenes"]), 4)
         self.assertIn("no web research was performed", result["script"])
         self.assertTrue(all(scene["duration_seconds"] > 0 for scene in result["scenes"]))
+        self.assertTrue(all(scene.get("visual_type") in {"hero", "diagram", "code", "timeline"} for scene in result["scenes"]))
 
 
 
