@@ -8,6 +8,7 @@ BASE=Path(__file__).resolve().parent
 ROOT=BASE.parent
 ROSTER=BASE/"roster.json"
 SKILLBOOK=BASE/"skillbooks.json"
+MOTION_ROLES={"AGENT-19","AGENT-20","AGENT-21","AGENT-22","AGENT-23","AGENT-24","AGENT-25","AGENT-31","AGENT-32","AGENT-33","AGENT-41","AGENT-42","AGENT-51","AGENT-52"}
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -69,6 +70,10 @@ def run_role(role,task,context,cfg):
       "\n\nDELIVERABLE CONTRACT\n"+str(skill.get("deliverable_contract",""))+
       "\n\nPRACTICE DRILL (use when asked to practice)\n"+str(skill.get("practice_drill",""))
     )
+    if role["id"] in MOTION_ROLES:
+        motion_reference=BASE/"MOTION_DESIGN_SYSTEM.md"
+        if motion_reference.is_file():
+            playbook += "\n\nIMPLEMENTED MOTION DESIGN SYSTEM\n"+motion_reference.read_text(encoding="utf-8")[:12000]
     if not model.get("enabled"):
         return ("# "+role["name"]+" — template mode\n\n"
                 "**Mission:** "+role["mission"]+"\n\n"
