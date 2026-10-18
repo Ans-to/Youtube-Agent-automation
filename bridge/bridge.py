@@ -152,46 +152,45 @@ def project_status() -> dict:
 def run_self_test() -> dict:
     if not PROJECT.is_dir():
         return {"ok": False, "reason": "Project directory not found"}
-    files = [
-        PROJECT / "agent.py",
-        PROJECT / "dashboard.py",
-        PROJECT / "queue_store.py",
-        PROJECT / "agents" / "dispatch.py",
-        PROJECT / "agents" / "skillbooks.json",
-        PROJECT / "agents" / "orchestrate.py",
+    python_files = [
+        PROJECT / "agent.py", PROJECT / "dashboard.py", PROJECT / "queue_store.py",
+        PROJECT / "agents" / "dispatch.py", PROJECT / "agents" / "orchestrate.py",
         PROJECT / "bridge" / "bridge.py",
-        PROJECT / "video_studio" / "studio.py",
-        PROJECT / "video_studio" / "production.py",
-        PROJECT / "video_studio" / "research.py",
-        PROJECT / "video_studio" / "validate_render.py",
-        PROJECT / "video_studio" / "validate_frames.py",
-        PROJECT / "video_studio" / "release_gate.py",
-        PROJECT / "video_studio" / "publish_youtube.py",
-        PROJECT / "product_studio" / "build_product.py",
+        PROJECT / "video_studio" / "studio.py", PROJECT / "video_studio" / "production.py",
+        PROJECT / "video_studio" / "research.py", PROJECT / "video_studio" / "validate_render.py",
+        PROJECT / "video_studio" / "validate_frames.py", PROJECT / "video_studio" / "release_gate.py",
+        PROJECT / "video_studio" / "publish_youtube.py", PROJECT / "product_studio" / "build_product.py",
     ]
-    present = [str(p.name) for p in files if p.is_file()]
-    if len(present) != len(files):
-        missing = [str(p.relative_to(PROJECT)) for p in files if not p.is_file()]
+    json_files = [PROJECT / "agents" / "roster.json", PROJECT / "agents" / "skillbooks.json"]
+    required = python_files + json_files
+    missing = [str(path.relative_to(PROJECT)) for path in required if not path.is_file()]
+    if missing:
         return {"ok": False, "reason": "Required project files are missing", "missing": missing}
-    # Syntax-check source files only. This does not run agent.py or process tasks.
     checked = []
-    for path in files:
-        if path.is_file():
-            proc = subprocess.run(
-                [sys.executable, "-m", "py_compile", str(path)],
-                cwd=str(PROJECT),
-                capture_output=True,
-                text=True,
-                timeout=20,
-                check=False,
-            )
-            if proc.returncode:
-                return {"ok": False, "checked": checked, "file": path.name,
-                        "error": (proc.stderr or proc.stdout)[-1000:]}
+    for path in python_files:
+        proc = subprocess.run(
+            [sys.executable, "-m", "py_compile", str(path)],
+            cwd=str(PROJECT), capture_output=True, text=True, timeout=20, check=False,
+        )
+        if proc.returncode:
+            return {"ok": False, "checked": checked, "file": path.name,
+                    "error": (proc.stderr or proc.stdout)[-1000:]}
+        checked.append(path.name)
+    try:
+        for path in json_files:
+            with path.open("r", encoding="utf-8") as stream:
+                data = json.load(stream)
+            if not isinstance(data, dict):
+                raise ValueError(path.name + " root must be a JSON object")
+            if path.name == "skillbooks.json":
+                ids = [profile.get("agent_id") for profile in data.get("profiles", []) if isinstance(profile, dict)]
+                if len(ids) != len(set(ids)) or not ids:
+                    raise ValueError("skillbooks.json profile IDs are empty or duplicated")
             checked.append(path.name)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        return {"ok": False, "checked": checked, "error": str(exc)[:1000]}
     return {"ok": True, "syntax_checked": checked,
-            "note": "No tasks were run and tasks.json was not modified intentionally."}
-
+            "note": "Python syntax and required JSON profiles checked. No tasks were run and tasks.json was not modified intentionally."}
 
 def run_one_queued_task(task_id: str) -> dict:
     """Run only the specifically named, locally queued safe task; never accept task text remotely."""
