@@ -30,3 +30,12 @@ __pycache__/
 /video_studio/outputs/
 /video_studio/render-manifest.json
 /video_studio/narration.wav
+
+# Atomic queue lock/temp files
+/tasks.json.lock
+/tasks.json.tmp-*
+
+# Local narration intermediates and generated voice storyboard
+/video_studio/voice_segments/
+/video_studio/voice-storyboard.generated.json
+/video_studio/*.silent.mp4
