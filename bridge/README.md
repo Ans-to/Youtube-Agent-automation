@@ -1,67 +1,89 @@
 # Offline Agent HQ — controlled GitHub bridge
 
-This bridge is a **polling, allowlisted control channel**, not a remote shell. It is designed for Termux and the existing OfflineAgentHQ project.
+The bridge is a **polling, allowlisted control channel**, not a remote shell. The user starts it on the phone; it polls this repository and performs only explicitly approved actions.
 
-## Safety boundary
-- GitHub credentials stay on the phone in a local file; never commit them or paste them into chat.
-- Accepted actions are `status`, `self_test`, and guarded `run_task`.
-- No arbitrary shell, Python snippets, URLs, package installs, or task text are accepted from GitHub.
-- `status` reports file presence and sizes only; it does not reveal task contents or configuration values.
-- `self_test` syntax-checks local Python files; it does not intentionally run tasks or edit `tasks.json`.
-- `run_task` can only target an existing local task ID. The task must already be pending/queued, use an allowlisted task kind, not appear to request an external action, and be the **only** pending/queued task because the current runner processes the queue rather than accepting a task ID.
-- The bridge rejects unapproved requests, duplicate request IDs, and requests with extra fields. Do not treat this as a substitute for reviewing what you approve.
-- Never use this bridge for passwords, private data, payments, publishing, messaging, deletion, or other consequential external actions. Such work still needs human review and execution.
-- Results are saved locally under `~/.local/state/offline-agent-hq/`. This version does **not** upload results to GitHub, so the controller cannot remotely verify completion from the repository alone.
+## Supported actions
 
-## Current stage
-This repository contains the protocol and bridge client. It does not grant ChatGPT direct access to Termux; the phone must run the client and poll GitHub. The client does not start automatically and does not install itself. Android may stop background processes, so watch mode is not guaranteed to stay alive indefinitely.
+- `status`: reports whether the project folder exists and records a sanitized status result.
+- `self_test`: syntax-checks `agent.py` and `dashboard.py`; it does not intentionally run tasks or edit `tasks.json`.
+- `run_task`: runs one specifically named, existing local task only when it is pending/queued, uses an allowlisted task kind, passes the external-action guard, and is the **only** pending/queued task.
+
+No remote task text, arbitrary shell commands, Python snippets, package installs, arbitrary URLs, publishing, messaging, payments, or deletion actions are accepted.
+
+## Request validation
+
+- Every request must have `approved: true`.
+- Only the exact fields required for its action are accepted; extra fields cause rejection.
+- Request IDs must match `[A-Za-z0-9][A-Za-z0-9_-]{0,79}`.
+- Processed IDs are stored locally and will not be run again by this client.
+- The bridge rejects tasks that appear to request external actions. This is a conservative filter, not a complete natural-language safety system; review the exact task locally before approval.
+- The task runner processes the queue, not a direct task ID. The bridge therefore requires the target to be the only pending/queued task.
+
+## Results and privacy
+
+Local results are saved under `~/.local/state/offline-agent-hq/`. After each accepted request, the bridge also attempts to create `bridge/results/<request-id>.json` on GitHub.
+
+GitHub result reports contain only minimal metadata: request ID, action, timestamp, success flag, syntax-checked source filenames for self-tests, or task ID/status for task runs. They do **not** include task prompts, generated output, stdout/stderr, local filesystem paths, configuration values, or credentials.
+
+The local result is written first. If GitHub reporting fails, the local result remains available and the request is marked seen to avoid repeating a task. The terminal will state that the report could not be uploaded. The bridge does not overwrite an existing result file with the same ID.
+
+## Token requirements
+
+The token file defaults to:
+
+`~/.config/offline-agent-hq/github-token`
+
+Use a token limited to this repository with **Contents: read and write** permission. Read access is needed to poll `bridge/requests/`; write access is needed to publish `bridge/results/`. If the token has read-only access, local execution can still happen, but result uploads will fail. Never commit or share the token.
+
+Optional environment variables:
+
+- `AGENT_HQ_REPO`
+- `AGENT_HQ_PROJECT`
+- `AGENT_HQ_TOKEN_FILE`
+- `AGENT_HQ_STATE_DIR`
 
 ## Running
-Run once:
+
+One poll:
 ```sh
-python bridge.py
+python bridge/bridge.py
 ```
 
-Poll repeatedly every 30 seconds:
+Poll every 30 seconds:
 ```sh
-python bridge.py --watch
+python bridge/bridge.py --watch --interval=30
 ```
 
-Custom interval is limited to 10–3600 seconds:
-```sh
-python bridge.py --watch --interval=30
-```
-
-Press Ctrl+C to stop watch mode. The bridge reads the token from `~/.config/offline-agent-hq/github-token` by default and uses the project directory `/storage/emulated/0/Download/OfflineAgentHQ/OfflineAgentHQ` by default. Environment variables can override these paths.
+Interval must be between 10 and 3600 seconds. Stop watch mode with Ctrl+C. Android may terminate background processes; continuous polling is not guaranteed.
 
 ## Request formats
 
 Status:
 ```json
 {
-  "id": "status-001",
+  "id": "status-010",
   "approved": true,
   "action": "status"
 }
 ```
 
-Self-test:
+Syntax-only test:
 ```json
 {
-  "id": "self-test-002",
+  "id": "self-test-010",
   "approved": true,
   "action": "self_test"
 }
 ```
 
-Guarded task run (only after checking the local queue and explicitly deciding to run that exact task):
+Run an already-existing local task only after checking its content and deciding to run it:
 ```json
 {
-  "id": "run-task-001",
+  "id": "run-task-010",
   "approved": true,
   "action": "run_task",
-  "task_id": "TASK-ID-HERE"
+  "task_id": "TASK-0009"
 }
 ```
 
-The `task_id` is only an identifier for a task already stored locally; the bridge does not accept new task text or shell commands.
+Do not use this bridge for secrets or consequential external actions. A generated plan or draft is not evidence that an external action happened.
