@@ -2,9 +2,11 @@
 """Allowlisted GitHub polling bridge for Offline Agent HQ. No remote shell."""
 from __future__ import annotations
 
+import base64
 import hashlib
 import json
 import os
+import re
 import pathlib
 import subprocess
 import sys
@@ -52,8 +54,80 @@ def get_file(path: str, token: str) -> dict | None:
         raise
 
 
+def api_put_json(path: str, content: dict, token: str, message: str) -> dict:
+    """Create a JSON file at a fixed, caller-controlled repository path."""
+    body = {
+        "message": message,
+        "content": base64.b64encode(
+            (json.dumps(content, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
+        ).decode("ascii"),
+    }
+    req = urllib.request.Request(
+        API + f"/repos/{REPO}/contents/{path}",
+        data=json.dumps(body).encode("utf-8"),
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": "Bearer " + token,
+            "X-GitHub-Api-Version": "2022-11-28",
+            "User-Agent": "Offline-Agent-HQ-Safe-Bridge",
+            "Content-Type": "application/json",
+        },
+        method="PUT",
+    )
+    with urllib.request.urlopen(req, timeout=20) as response:
+        return json.loads(response.read().decode("utf-8"))
+
+
+def valid_request_id(value: object) -> bool:
+    """Restrict IDs so they cannot escape the local or repository result folders."""
+    return isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", value) is not None
+
+
+def public_result(response: dict) -> dict:
+    """Return a minimal report; never publish prompts, output text, paths, or raw logs."""
+    action = response.get("action")
+    result = response.get("result", {})
+    public = {
+        "id": response.get("id"),
+        "action": action,
+        "completed_at": response.get("completed_at"),
+        "result": {"ok": bool(result.get("ok", True))},
+    }
+    if action == "self_test":
+        public["result"]["syntax_checked"] = [
+            name for name in result.get("syntax_checked", [])
+            if name in {"agent.py", "dashboard.py"}
+        ]
+    elif action == "run_task":
+        public["result"]["task_id"] = result.get("task_id")
+        public["result"]["returncode"] = result.get("returncode")
+        public["result"]["status"] = (
+            "completed" if result.get("ok") else "failed_or_refused"
+        )
+    elif action == "status":
+        public["result"]["status"] = "status_check_completed"
+    return public
+
+
+def publish_result(response: dict, token: str) -> tuple[bool, str]:
+    """Publish only sanitized metadata. A result path is write-once to avoid overwrites."""
+    req_id = response["id"]
+    path = f"bridge/results/{req_id}.json"
+    if get_file(path, token) is not None:
+        return False, "A result file with this ID already exists; refusing to overwrite it."
+    try:
+        api_put_json(
+            path,
+            public_result(response),
+            token,
+            f"Record Agent HQ result for {req_id}",
+        )
+        return True, path
+    except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
+        return False, f"GitHub result upload failed ({type(exc).__name__}); local result was retained."
+
+
 def decode_content(item: dict) -> str:
-    import base64
     if item.get("encoding") != "base64":
         raise ValueError("Unexpected GitHub content encoding")
     return base64.b64decode(item["content"]).decode("utf-8")
@@ -191,7 +265,7 @@ def run_once() -> int:
             print("Ignoring invalid JSON request:", item["name"])
             continue
         req_id = request.get("id")
-        if not isinstance(req_id, str) or not req_id or req_id in seen:
+        if not valid_request_id(req_id) or req_id in seen:
             continue
         if request.get("approved") is not True:
             print("Request not approved; skipped:", req_id)
@@ -226,12 +300,17 @@ def run_once() -> int:
             "completed_at": datetime.now(timezone.utc).isoformat(),
             "result": result,
         }
-        # Write locally only; do not publish machine details back to GitHub by default.
-        out = STATE_DIR / (req_id.replace("/", "_") + ".result.json")
+        # Persist locally before attempting reporting so a network/write failure never
+        # loses the execution record or causes a completed task to be rerun on next poll.
+        out = STATE_DIR / (req_id + ".result.json")
         out.write_text(json.dumps(response, indent=2), encoding="utf-8")
         seen.add(req_id)
         processed += 1
-        print(f"{req_id}: {action} finished; local result: {out}")
+        published, detail = publish_result(response, token)
+        if published:
+            print(f"{req_id}: {action} finished; local result: {out}; GitHub report: {detail}")
+        else:
+            print(f"{req_id}: {action} finished locally; GitHub report unavailable: {detail}")
 
     seen_path.write_text(json.dumps(sorted(seen), indent=2), encoding="utf-8")
     print(f"Bridge check complete. New requests processed: {processed}.")
