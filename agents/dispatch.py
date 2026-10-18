@@ -91,6 +91,9 @@ def run_role(role,task,context,cfg):
       "\n\nDELIVERABLE CONTRACT\n"+str(skill.get("deliverable_contract",""))+
       "\n\nPRACTICE DRILL (use when asked to practice)\n"+str(skill.get("practice_drill",""))
     )
+    lessons=load_human_lessons(role["id"])
+    if lessons:
+        playbook += "\n\nHUMAN-REVIEWED IMPROVEMENT NOTES (follow when applicable; do not repeat sensitive data)\n"+json.dumps(lessons,ensure_ascii=False)[:2500]
     if role["id"] in MOTION_ROLES:
         motion_reference=BASE/"MOTION_DESIGN_SYSTEM.md"
         if motion_reference.is_file():
