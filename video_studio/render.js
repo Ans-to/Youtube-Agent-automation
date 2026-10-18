@@ -9,7 +9,7 @@ async function main(){
  if(!Number.isInteger(h)||h<180||h>2160)throw new Error("height must be 180..2160");
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
- const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform"]);
+ const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform","kinetic-type","bar-chart"]);
  const transitionTypes=new Set(["none","fade","wipe-left","wipe-right"]);
  for(const [index,scene] of s.scenes.entries()){
   if(!scene||typeof scene!=="object"||Array.isArray(scene))throw new Error("Scene "+index+" must be a JSON object.");
@@ -19,6 +19,13 @@ async function main(){
   if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
   if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
   for(const key of ["headline","eyebrow","subhead","narration"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
+  for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
+  for(const key of ["visual_nodes","timeline_events","comparison_left","comparison_right","code_lines","chart_labels"])if(scene[key]!==undefined&&(!Array.isArray(scene[key])||scene[key].length>8||!scene[key].every(v=>typeof v==="string"&&v.length<=120)))throw new Error("Scene "+index+" field "+key+" must be an array of at most 8 short strings.");
+  if(scene.chart_values!==undefined&&(!Array.isArray(scene.chart_values)||scene.chart_values.length<2||scene.chart_values.length>6||!scene.chart_values.every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=0)))throw new Error("Scene "+index+" chart_values must contain 2–6 finite non-negative numbers.");
+  if(kind==="bar-chart"){
+   if(!Array.isArray(scene.chart_values)||scene.chart_values.length<2||scene.chart_values.length>6)throw new Error("bar-chart requires 2–6 chart_values.");
+   if(!Array.isArray(scene.chart_labels)||scene.chart_labels.length!==scene.chart_values.length)throw new Error("bar-chart requires one chart_label per chart_value.");
+  }
  }
  const MAX_FRAMES=30000,MAX_SECONDS=1000;
  const totalSeconds=s.scenes.reduce((sum,scene)=>{const sec=Number(scene&&scene.duration_seconds);if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("Each scene duration must be >0 and <=600 seconds");return sum+sec;},0);
