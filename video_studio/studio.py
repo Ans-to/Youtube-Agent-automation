@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Orchestrate deterministic Canvas2D rendering and FFmpeg encoding."""
-import argparse, json, os, shutil, subprocess
+import argparse, json, os, shutil, subprocess, sys
 from pathlib import Path
 BASE=Path(__file__).resolve().parent
 def run(command,cwd=BASE):
