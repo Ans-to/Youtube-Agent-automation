@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 from datetime import datetime
 import json, html, subprocess, sys, threading, mimetypes
+from queue_store import task_queue_lock, load_tasks, save_tasks
 
 BASE = Path(__file__).resolve().parent
 TASKS = BASE / "tasks.json"
@@ -118,12 +119,16 @@ class Handler(BaseHTTPRequestHandler):
             user_input = form.get("input", [""])[0].strip()[:6000]
             if not title or not user_input or kind not in {"plan", "draft", "summarize_workspace", "review_output"}:
                 return self.send("Invalid task. Go back and check title, type, and instructions.", status=400)
-            tasks = load(TASKS, [])
-            # Use the largest existing numeric ID to avoid reusing IDs after deletions.
-            nums = [int(t.get("id", "TASK-0000").split("-")[-1]) for t in tasks if str(t.get("id", "")).startswith("TASK-") and str(t.get("id", "")).split("-")[-1].isdigit()]
-            task_id = "TASK-%04d" % (max(nums, default=0) + 1)
-            tasks.append({"id": task_id, "title": title, "kind": kind, "input": user_input, "status": "pending", "error": ""})
-            save(TASKS, tasks)
+            try:
+                with task_queue_lock(TASKS):
+                    tasks = load_tasks(TASKS)
+                    # Use the largest existing numeric ID to avoid reusing IDs after deletions.
+                    nums = [int(t.get("id", "TASK-0000").split("-")[-1]) for t in tasks if str(t.get("id", "")).startswith("TASK-") and str(t.get("id", "")).split("-")[-1].isdigit()]
+                    task_id = "TASK-%04d" % (max(nums, default=0) + 1)
+                    tasks.append({"id": task_id, "title": title, "kind": kind, "input": user_input, "status": "pending", "error": ""})
+                    save_tasks(TASKS, tasks)
+            except (TimeoutError, ValueError, OSError) as exc:
+                return self.send("Could not safely update task queue: "+esc(type(exc).__name__), status=503)
             return self._redirect("/")
         if path == "/run":
             if RUNNING:
