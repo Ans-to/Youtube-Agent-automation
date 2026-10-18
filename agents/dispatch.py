@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run one of the 50 specialist role profiles against a local model endpoint."""
-import argparse,json,re,urllib.request
+import argparse,json,re,urllib.request,urllib.error,urllib.parse,ipaddress
 from datetime import datetime
 from pathlib import Path
 
