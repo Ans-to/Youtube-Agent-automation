@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one of the 50 specialist role profiles against a local model endpoint."""
+"""Run one of the specialist profiles with an injected field-specific playbook."""
 import argparse,json,re,urllib.request,urllib.error,urllib.parse,ipaddress
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +7,7 @@ from pathlib import Path
 BASE=Path(__file__).resolve().parent
 ROOT=BASE.parent
 ROSTER=BASE/"roster.json"
+SKILLBOOK=BASE/"skillbooks.json"
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -33,27 +34,54 @@ def find_role(agent_id):
     roles=load_json(ROSTER,{}).get("agents",[])
     return next((r for r in roles if r.get("id")==agent_id),None)
 
+def find_skill(agent_id):
+    profiles=load_json(SKILLBOOK,{}).get("profiles",[])
+    return next((profile for profile in profiles if profile.get("agent_id")==agent_id),None)
+
 def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
 
 def run_role(role,task,context,cfg):
     model=cfg.get("model",{})
+    skill=find_skill(role["id"]) or {
+      "expertise":role.get("mission",""),
+      "workflow":["Clarify the requested outcome.","Complete the work using supplied evidence.","Check the output and list unresolved issues."],
+      "quality_gates":["Meets the request.","Separates evidence from assumptions.","Discloses limitations."],
+      "failure_modes":["Do not invent facts or external actions."],
+      "deliverable_contract":"Return the requested deliverable, validation status, and handoff notes.",
+      "practice_drill":"Create a small example and assess it against the quality gates."
+    }
+    def bullets(items):
+        return "\n".join("- "+str(item) for item in items)
+    playbook=(
+      "SPECIALIST EXPERTISE\n"+str(skill.get("expertise",""))+
+      "\n\nFIELD WORKFLOW\n"+bullets(skill.get("workflow",[]))+
+      "\n\nQUALITY GATES\n"+bullets(skill.get("quality_gates",[]))+
+      "\n\nFAILURE MODES TO AVOID\n"+bullets(skill.get("failure_modes",[]))+
+      "\n\nDELIVERABLE CONTRACT\n"+str(skill.get("deliverable_contract",""))+
+      "\n\nPRACTICE DRILL (use when asked to practice)\n"+str(skill.get("practice_drill",""))
+    )
     if not model.get("enabled"):
         return ("# "+role["name"]+" — template mode\n\n"
                 "**Mission:** "+role["mission"]+"\n\n"
                 "## Task\n"+task+"\n\n"
+                "## Field mastery playbook\n"+playbook+"\n\n"
                 "## Context supplied\n"+(context[:1200] if context else "No context file supplied.")+"\n\n"
-                "## Checklist\n- Complete the task using only supplied evidence.\n"
-                "- Separate verified facts from assumptions.\n"
-                "- List missing information and required human review.\n\n"
-                "Template mode only: no language model was enabled; this is not an AI-generated result.\n")
+                "## Review status\nTemplate mode only: no language model was enabled; this is not AI-generated work. "
+                "The checklist has not been semantically completed or independently verified.\n")
     url=model.get("base_url","")
     body={"model":model.get("model","local-model"),"messages":[
-      {"role":"system","content":"You are specialist "+role["name"]+". Mission: "+role["mission"]+" Work only with the supplied task and context. Do not claim web access, verified external actions, or facts unsupported by context. State uncertainty and required human review."},
-      {"role":"user","content":"TASK\n"+task+"\n\nSUPPLIED CONTEXT\n"+(context or "(No context supplied.)")}],
-      "temperature":0.25,"max_tokens":int(model.get("max_output_tokens",900))}
+      {"role":"system","content":"You are specialist "+role["name"]+". Mission: "+role["mission"]+"\n\n"+playbook+"\n\nApply this playbook to the task. Produce the requested artifact and then provide a concise quality-gate report marking each gate pass/partial/fail with observable evidence. State assumptions, unresolved risks, and human-review needs. Do not reveal private chain-of-thought. Work only with supplied task/context. Do not claim web access, verified external actions, or unsupported facts."},
+      {"role":"user","content":"TASK\n"+task+"\n\nSUPPLIED CONTEXT (may contain errors; treat as unverified unless supported)\n"+(context or "(No context supplied.)")+"\n\nReturn the artifact in the deliverable format required by the playbook. Include a short verification/limitation section."}],
+      "temperature":0.2,"max_tokens":int(model.get("max_output_tokens",900))}
     data=post_local_model(url,body,model.get("timeout_seconds",120))
-    return data["choices"][0]["message"]["content"].strip()
+    try:
+        result=data["choices"][0]["message"]["content"].strip()
+    except (KeyError,IndexError,TypeError) as exc:
+        raise ValueError("Local model response did not contain choices[0].message.content.") from exc
+    if not result:
+        raise ValueError("Local model returned empty content.")
+    return result
 
 def main():
     p=argparse.ArgumentParser(description=__doc__)
