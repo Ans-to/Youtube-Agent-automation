@@ -126,6 +126,22 @@ class PracticeLoopTests(unittest.TestCase):
         self.assertIn("AGENT-51", {role["id"] for role in roles})
         self.assertIn("AGENT-52", {role["id"] for role in roles})
 
+    def test_template_reviews_do_not_hide_older_model_feedback(self):
+        with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
+            feedback = Path(directory) / "AGENT-51.jsonl"
+            rows = [
+                {"human_reviewed": True, "model_output_reviewed": True, "improvement_notes": "Keep model lesson.", "scores": {"layout": 1}}
+            ]
+            rows.extend(
+                {"human_reviewed": True, "model_output_reviewed": False, "improvement_notes": "Template note.", "scores": {"layout": 2}}
+                for _ in range(6)
+            )
+            feedback.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            with patch.object(dispatch, "FEEDBACK_DIR", Path(directory)):
+                lessons = dispatch.load_human_lessons("AGENT-51", limit=3)
+            self.assertEqual(len(lessons), 1)
+            self.assertEqual(lessons[0]["improvement_notes"], "Keep model lesson.")
+
     def test_human_approval_profile_cannot_be_practiced_automatically(self):
         with self.assertRaisesRegex(ValueError, "human approval boundary"):
             practice.create_attempt("AGENT-50", task="Approve a release", config={"model": {"enabled": False}})
