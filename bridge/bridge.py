@@ -259,12 +259,13 @@ def main() -> int:
             code = run_once()
             if code != 0:
                 print(f"Bridge check returned {code}; will retry.")
+            time.sleep(interval)
         except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
             print(f"Bridge check failed ({type(exc).__name__}); will retry.")
+            time.sleep(interval)
         except KeyboardInterrupt:
-            print("\\nBridge stopped by user.")
+            print("Bridge stopped by user.")
             return 0
-        time.sleep(interval)
 
 
 if __name__ == "__main__":
