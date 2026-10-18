@@ -31,6 +31,11 @@ def main():
   if not text:raise SystemExit("No narration text exists in the storyboard.")
   narration=BASE/"narration.wav"
   subprocess.run([piper,"--model",model,"--output_file",str(narration)],input=(text+"\n").encode("utf-8"),cwd=str(BASE),check=True)
+  ffprobe=shutil.which("ffprobe")
+  if not ffprobe:raise SystemExit("ffprobe is required to verify narration duration.")
+  audio_info=subprocess.run([ffprobe,"-v","error","-show_entries","format=duration","-of","json",str(narration)],check=True,capture_output=True,text=True,timeout=60)
+  audio_duration=float(json.loads(audio_info.stdout).get("format",{}).get("duration",0))
+  if audio_duration>float(manifest["duration_seconds"])+0.25:raise SystemExit("Narration is longer than the video. Increase scene durations or shorten narration before rendering again.")
   run([ffmpeg,"-y","-hide_banner","-loglevel","warning","-i",str(silent),"-i",str(narration),"-map","0:v:0","-map","1:a:0","-af","apad","-c:v","copy","-c:a","aac","-b:a","160k","-shortest","-movflags","+faststart",str(output)])
   silent.unlink(missing_ok=True)
  else:
