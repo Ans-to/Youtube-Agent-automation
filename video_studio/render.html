@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline Agent HQ Canvas Renderer</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0b0f}canvas{display:block;width:100%;height:100%}</style></head>
+<body><canvas id="frame" width="1920" height="1080"></canvas>
+<script>
+(() => {
+ const canvas=document.getElementById("frame"),ctx=canvas.getContext("2d",{alpha:false});
+ const p={bg:"#0b0b0f",fg:"#f4f2ec",accent:"#c8ff3d",muted:"#a7a7b3",grid:"#24242c"};
+ function wrap(text,maxWidth,font){ctx.font=font;const lines=[];let line="";for(const word of String(text||"").split(/\\s+/)){const c=line?line+" "+word:word;if(ctx.measureText(c).width>maxWidth&&line){lines.push(line);line=word}else line=c}if(line)lines.push(line);return lines}
+ window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame){
+  const w=canvas.width,h=canvas.height,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
+  ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
+  for(let x=0;x<w;x+=64){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+  for(let y=0;y<h;y+=64){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+  ctx.fillStyle=p.accent;ctx.fillRect(150,150,54,7);ctx.font="700 25px Arial";ctx.fillStyle=p.muted;ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),150,205);
+  const lines=wrap(scene.headline||"Every frame is code.",1500,"700 88px Arial");ctx.font="700 88px Arial";ctx.fillStyle=p.fg;
+  const startY=lines.length>1?440:500;lines.forEach((line,i)=>{ctx.globalAlpha=Math.min(1,Math.max(0,progress*5-i*.25));ctx.fillText(line,150,startY+i*105)});ctx.globalAlpha=1;
+  const sub=wrap(scene.subhead||"",1250,"400 32px Arial");ctx.font="400 32px Arial";ctx.fillStyle=p.muted;sub.slice(0,2).forEach((line,i)=>ctx.fillText(line,154,650+i*44));
+  ctx.fillStyle="#30303a";ctx.fillRect(150,850,720,3);ctx.fillStyle=p.accent;ctx.fillRect(150,850,Math.max(0,Math.min(720,progress*720)),3);
+  ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;ctx.beginPath();ctx.arc(1660,280,80+pulse*12,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(1660,280,112+pulse*12,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
+  ctx.font="600 20px monospace";ctx.fillStyle=p.muted;ctx.fillText("FRAME "+String(globalFrame).padStart(6,"0"),150,930);ctx.textAlign="right";ctx.fillText("LOCAL RENDER / "+String(Math.round(progress*100)).padStart(3," ")+"%",1770,930);ctx.textAlign="left";
+  ctx.fillStyle=p.fg;ctx.font="600 18px monospace";ctx.fillText("OFFLINE AGENT HQ",150,990);
+ };
+})();
+</script></body></html>
