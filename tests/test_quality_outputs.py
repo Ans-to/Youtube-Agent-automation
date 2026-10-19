@@ -5,7 +5,7 @@ from quality_outputs import youtube_package, structured_plan, structured_draft, 
 class QualityOutputTests(unittest.TestCase):
     def test_youtube_package_is_detailed_and_evidence_safe(self):
         result = youtube_package("AI safety explainer", "How do local AI agents work?")
-        for expected in ("Scene 01", "Motion-graphics direction", "Research register",
+        for expected in ("01 — Cold open", "Motion-graphics direction", "Research register",
                          "Shorts cutdown", "Release QA", "[VERIFY]", "No sources were consulted"):
             self.assertIn(expected, result)
         self.assertIn("How do local AI agents work?", result)
