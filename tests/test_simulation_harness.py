@@ -50,6 +50,21 @@ class SimulationHarnessTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(label, "external_blocked")
 
+    def test_interrupted_task_without_retry_stays_blocked(self):
+        class ControlledRandom:
+            def __init__(self):
+                self.values = iter([0.99, 0.99, 0.01, 0.99])
+
+            def random(self):
+                return next(self.values)
+
+            def randrange(self, *args):
+                return 2
+
+        ok, label = simulation_harness.run_case(ControlledRandom(), 8)
+        self.assertTrue(ok)
+        self.assertEqual(label, "interrupted")
+
     def test_illegal_terminal_transition_is_rejected(self):
         task = simulation_harness.TaskModel()
         task.transition("queued")
