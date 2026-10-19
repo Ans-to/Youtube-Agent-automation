@@ -294,7 +294,7 @@ def main():
     script_body = str(content.get("script", ""))
     title = str(content.get("title", topic))[:100]
     desc = str(content.get("description", ""))
-    source_section = "\n\n## Source notes supplied by user\n" + manual_source_notes[:50000] if manual_source_notes else "\n\n## Source verification\nNo user source notes were supplied. Verify factual claims before publication."
+    source_section = "\n\n## Supplied source notes and CEO specialist research (unverified)\n" + manual_source_notes[:50000] if manual_source_notes else "\n\n## Source verification\nNo curated source notes were supplied. Verify factual claims before publication."
     research_section = "\n\n## Web research leads (not independently verified)\n" + research_markdown if research_markdown else ""
     script_md = "# " + title + "\n\n" + desc + "\n\n## Narration draft\n" + script_body + source_section + research_section + "\n"
     (output_dir / "script.md").write_text(script_md, encoding="utf-8")
