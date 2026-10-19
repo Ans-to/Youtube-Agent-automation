@@ -77,32 +77,32 @@ Copy storyboard.example.json and change title, canvas size, fps, scenes, duratio
 The renderer writes frames under `video_studio/frames/` and a render manifest beside the renderer. It validates field-specific array sizes to prevent silent truncation (4 diagram nodes, 4 timeline events, 3 comparison bullets per side, 6 code lines, and 2–6 chart values/labels). PNG frames are deleted after a successful MP4 render to conserve storage; pass `--keep-frames` to retain them. It sizes the Canvas2D drawing buffer to the requested storyboard dimensions, including 1080×1920 Shorts. Rendering is capped at 1000 seconds and 30000 frames to limit storage use. `ffprobe` is required and validates H.264, duration, exact dimensions, frame rate, and requested audio presence.
 
 ## Current limits
-This is a starter renderer, not a professional editor or anime rig system. It currently draws typography, a grid, progress bars, and geometric accents. Advanced character rigs, scene transitions, source-grounded web research, automatically timed captions, and a full long-form research pipeline are not implemented. Uploading is optional and approval-gated; the code cannot promise monetization or income.
+This is a deterministic starter renderer, not a professional editor or anime rig system. It draws typography, grids, progress bars, geometric accents, and a procedural 2D presenter. Eased fade, wipe, slide, and zoom transitions are supported. Advanced skeletal character rigs, forced phoneme alignment, source-grounded long-form research, and automatic YouTube publishing remain outside the current implementation. Publishing is approval-gated; the code cannot promise monetization or income.
 
 ## Professional motion-design and character roadmap
 
 The agent's creative/QA contract is in:
 - [Professional Motion Design Director](skills/PRO_MOTION_DIRECTOR.md): transition selection, easing, staging, typography, audio-led pacing, review rubric, and render QA.
-- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, viseme-aligned lip sync, natural male narration, and acceptance tests.
+- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, viseme-aligned lip sync, English narration, and acceptance tests.
 
-**Important status distinction:** these files establish requirements and a technical plan; they do not mean the current renderer has been upgraded to meet them. The current Canvas2D engine does not yet render a production-quality full-body character, and Piper output is not automatically natural-sounding. The existing README's setup command may produce a silent video unless `--with-voice` is explicitly used with a valid Piper installation and model.
+**Important status distinction:** the renderer now includes a more detailed procedural presenter (hands/fingers, clothing details, gaze, brows, expressions, blinking, and secondary head motion), but it is not a production-quality skeletal or anime rig. Piper output is not automatically natural-sounding. Direct `studio.py` renders can be silent when used for visual smoke tests; the `production.py` final-render path requires a verified English Piper model and generates SRT/WebVTT subtitles.
 
 Recommended implementation order:
-1. Replace fixed, uniform transition behavior with a scene-pair-aware transition planner and continuous easing; render and inspect boundary samples.
+1. Improve scene-pair-aware transition planning and continuity; the renderer now supports eased fade, directional wipe, slide-left/right, and zoom, with boundary-frame regression tests.
 2. Add voice-model selection and audio QA. Reject missing, test-only, or clipped speech; align scene duration to speech rather than trimming speech to scene duration.
 3. Add a separate licensed 2D skeletal character pipeline, phrase-level facial motion and phoneme/viseme timing; composite transparent character renders into the existing edit.
 4. Integrate a fail-closed multimodal reviewer, objective frame/audio checks, timestamped defects, and exact-output hashes.
-5. Run a fresh end-to-end 5–10 second character-and-speech sample before attempting a long-form render.
+5. Keep the topic-to-video package builder in CI: script, storyboard, English TTS, SRT/WebVTT, MP4 validation, and strict technical QC must all pass before accepting a change.
 
 Research references and evaluation criteria are documented in the two skill files. A prompt alone cannot train a model to professional skill; the workflow needs suitable models/assets, repeated renders, measured defects, and regression tests.
 
 ## Motion/character acceptance prototype status
 
-The renderer now has an optional procedural 2D presenter layer (`scene.character`) with breathing/bob, arm gesture, blinking, simple body movement, and selectable mouth shapes. Storyboards may provide normalized `x`/`y`, `scale`, `walking`, colour fields, and `visemes: [{t, shape}]`. These viseme cues are normalized scene-time cues, **not** forced alignment to speech. This is a lightweight stylized presenter, not a production-quality anime rig or a full skeletal deformation system.
+The renderer has an optional procedural 2D presenter layer (`scene.character`) with breathing/bob, arm gesture, separate hand/finger shapes, collar/seam/pocket/button details, hair highlights, gaze saccades, expression-aware brows, blinking, subtle head nod, and selectable mouth shapes. Storyboards may provide normalized `x`/`y`, `scale`, `walking`, colour fields, and `visemes: [{t, shape}]`. These viseme cues are normalized scene-time cues, **not** forced alignment to speech. This is a lightweight stylized presenter, not a production-quality anime rig or a full skeletal deformation system.
 
 Scene transitions composite previous and incoming frames with eased fade, directional wipe, slide-left/right, and zoom transitions. Transition frames are bounded to the scene length and configured frame limit. Choose a transition for editorial meaning; use `none` for a deliberate hard cut.
 
-A short regression storyboard is provided at `storyboard.motion-character-demo.json`. Render it with:
+Landscape and vertical regression storyboards are provided at `storyboard.motion-character-demo.json` and `storyboard.motion-character-demo-shorts.json`. GitHub Actions renders both with English TTS and validates their subtitle sidecars and audio.
 
     npm install
     python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4
