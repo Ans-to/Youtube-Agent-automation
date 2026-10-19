@@ -120,15 +120,15 @@ jobs:
         working-directory: video_studio
         run: npm install
       - name: Render motion-character transition prototype
-        run: python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4
+        run: python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output video_studio/outputs/motion-character-transition-demo.mp4
       - name: Validate rendered MP4
         run: |
-          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate -show_entries format=duration -of json outputs/motion-character-transition-demo.mp4
-          test -s outputs/motion-character-transition-demo.mp4
+          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate -show_entries format=duration -of json video_studio/outputs/motion-character-transition-demo.mp4
+          test -s video_studio/outputs/motion-character-transition-demo.mp4
       - name: Upload rendered prototype
         uses: actions/upload-artifact@v4
         with:
           name: motion-character-transition-prototype
-          path: outputs/motion-character-transition-demo.mp4
+          path: video_studio/outputs/motion-character-transition-demo.mp4
           if-no-files-found: error
           retention-days: 7
