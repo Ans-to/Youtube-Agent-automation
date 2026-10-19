@@ -39,8 +39,46 @@ if (-not (Has-Command "node") -or -not (Has-Command "npm")) {
 $NodeMajor = 0
 if (Has-Command "node") { $NodeMajor = [int]((& node -p "process.versions.node.split(String.fromCharCode(46))[0]").Trim()) }
 if ($NodeMajor -gt 0 -and $NodeMajor -lt 22) { Install-WingetPackage "OpenJS.NodeJS.LTS" "Node.js 22+ LTS and npm" }
+function Install-PortableFfmpeg {
+    $ToolsRoot = Join-Path $Root "tools"
+    $FfmpegRoot = Join-Path $ToolsRoot "ffmpeg"
+    $FfmpegExe = Join-Path $FfmpegRoot "bin\ffmpeg.exe"
+    if (Test-Path $FfmpegExe) {
+        $env:Path = "$FfmpegRoot\bin;$env:Path"
+        return
+    }
+
+    New-Item -ItemType Directory -Force -Path $ToolsRoot | Out-Null
+    $ZipPath = Join-Path $ToolsRoot "ffmpeg-release-essentials.zip"
+    $DownloadUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
+    Write-Host "winget is unavailable. Downloading a portable FFmpeg build directly..." -ForegroundColor Cyan
+    try {
+        Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing
+        $ExtractRoot = Join-Path $ToolsRoot "ffmpeg-extract"
+        if (Test-Path $ExtractRoot) { Remove-Item $ExtractRoot -Recurse -Force }
+        Expand-Archive -LiteralPath $ZipPath -DestinationPath $ExtractRoot -Force
+        $Found = Get-ChildItem -Path $ExtractRoot -Filter ffmpeg.exe -Recurse -File | Select-Object -First 1
+        if (-not $Found) { throw "The downloaded archive did not contain ffmpeg.exe." }
+        $SourceBin = $Found.Directory.FullName
+        if (Test-Path $FfmpegRoot) { Remove-Item $FfmpegRoot -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path $FfmpegRoot | Out-Null
+        Copy-Item -Path (Join-Path $SourceBin "*") -Destination (Join-Path $FfmpegRoot "bin") -Recurse -Force
+        $env:Path = "$FfmpegRoot\bin;$env:Path"
+        Remove-Item $ExtractRoot -Recurse -Force
+        Remove-Item $ZipPath -Force
+        if (-not (Has-Command "ffmpeg")) { throw "FFmpeg was extracted but could not be detected." }
+        Write-Host "Portable FFmpeg installed inside the project; no administrator rights or winget required." -ForegroundColor Green
+    } catch {
+        throw "Could not install FFmpeg automatically. Check internet access, then retry. Details: $($_.Exception.Message)"
+    }
+}
+
 if (-not (Has-Command "ffmpeg")) {
-    Install-WingetPackage "Gyan.FFmpeg" "FFmpeg video encoder"
+    if (Has-Command "winget") {
+        Install-WingetPackage "Gyan.FFmpeg" "FFmpeg video encoder"
+    } else {
+        Install-PortableFfmpeg
+    }
 }
 
 Refresh-Path
