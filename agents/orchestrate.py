@@ -374,6 +374,8 @@ def main():
     print("Mode:", "local model" if manifest["model_enabled"] else "template fallback; no AI generation")
     print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")
     print("Human review required; no external action was performed.")
+    if manifest.get("status") == "failed":
+        raise SystemExit(2)
 
 
 if __name__ == "__main__":
