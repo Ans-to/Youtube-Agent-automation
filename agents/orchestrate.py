@@ -347,29 +347,69 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             if not isinstance(result, str) or not result.strip():
                 raise ValueError("Specialist returned an empty result.")
         except Exception as exc:
-            # Persist the failure and continue. A single timed-out specialist must not
-            # prevent downstream builders or AGENT-08 from reporting a useful final gate.
+            # Preserve research files created before a model timeout, then continue to
+            # downstream specialists and the final quality gate.
+            reports_after_failure = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
+            failed_stage_reports = sorted(reports_after_failure - reports_before)
+            failed_stage_report_names = [str(path.relative_to(ROOT)) for path in failed_stage_reports]
+            research_pages_attempted = 0
+            research_pages_fetched = 0
+            evidence_sections = []
+            for report_path in failed_stage_reports:
+                structured_path = report_path.with_suffix(".json")
+                try:
+                    report_data = json.loads(structured_path.read_text(encoding="utf-8"))
+                    metadata = report_data.get("metadata", {})
+                    research_pages_attempted += int(metadata.get("pages_attempted", 0))
+                    research_pages_fetched += int(metadata.get("pages_fetched", 0))
+                except (OSError, ValueError, TypeError):
+                    pass
+                try:
+                    evidence_sections.append(
+                        "\n\n## Research saved before specialist failure — "
+                        + str(report_path.relative_to(ROOT)) + "\n"
+                        + report_path.read_text(encoding="utf-8", errors="replace")[:5000]
+                    )
+                except OSError:
+                    pass
+            if research_pages_fetched:
+                failure_research_status = "pages_fetched"
+            elif research_pages_attempted:
+                failure_research_status = "search_leads_only"
+            elif failed_stage_reports:
+                failure_research_status = "failure_disclosed"
+            else:
+                failure_research_status = "not_recorded"
+
             failure_filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"] + "-failure") + ".md"
+            report_listing = "\n".join("- " + item for item in failed_stage_report_names) or "- None recorded"
             failure_text = (
                 "# Specialist stage failed: " + role["name"] + "\n\n"
                 + "- Agent: " + agent_id + "\n"
                 + "- Stage: " + str(index) + " of " + str(len(assignments)) + "\n"
                 + "- Error type: " + type(exc).__name__ + "\n"
-                + "- Error: " + str(exc)[:1000] + "\n\n"
-                + "No deliverable was confirmed for this stage. Downstream stages may proceed using other available context, "
-                  "but must treat this contribution and any missing evidence as unresolved.\n"
+                + "- Error: " + str(exc)[:1000] + "\n"
+                + "- Research status before failure: " + failure_research_status + "\n"
+                + "- Research pages fetched before failure: " + str(research_pages_fetched) + "\n"
+                + "- Research reports: \n" + report_listing + "\n\n"
+                + "No specialist deliverable was confirmed. Any saved research below is source evidence to assess, "
+                  "not proof of the final claims. Downstream stages may continue, but missing work remains unresolved.\n"
+                + "".join(evidence_sections)
             )
             (destination / failure_filename).write_text(failure_text, encoding="utf-8")
             failure = {
                 "sequence": index, "agent_id": agent_id, "role": role["name"],
                 "assigned_task": specialist_task, "output_file": failure_filename, "status": "failed",
-                "research_status": "failure_disclosed",
+                "research_status": failure_research_status,
+                "research_reports": failed_stage_report_names,
+                "research_pages_attempted": research_pages_attempted,
+                "research_pages_fetched": research_pages_fetched,
                 "error_type": type(exc).__name__, "error": str(exc)[:500],
                 "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
             }
             records.append(failure)
             combined_context = (
-                combined_context + "\n\n--- " + role["name"] + " stage failure (not a deliverable) ---\n"
+                combined_context + "\n\n--- " + role["name"] + " stage failure and preserved research ---\n"
                 + failure_text
             )[-24000:]
             continue
