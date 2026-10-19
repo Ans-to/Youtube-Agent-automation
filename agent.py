@@ -243,7 +243,7 @@ def process(task, cfg):
         "",
         "## Pipeline manifest",
         "",
-        "Saved at: " + str((out_dir / "pipeline-status.json").relative_to(BASE)),
+        "Saved at: " + (str((out_dir / "pipeline-status.json").relative_to(BASE)) if (out_dir / "pipeline-status.json").is_relative_to(BASE) else str(out_dir / "pipeline-status.json")),
     ])
     result = "\n".join(sections).rstrip() + "\n"
     OUTPUTS.mkdir(exist_ok=True)
@@ -285,7 +285,7 @@ def process(task, cfg):
             status="needs_human_action",
             completed_at="",
             research_status="attempted_by_ceo_and_specialists",
-            output_file=str(path.relative_to(BASE)),
+            output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error="Deliverables generated only. This local system did not perform or verify the requested external action.",
         )
         log(f"NEEDS HUMAN ACTION {task.get('id')} -> {path.name}")
@@ -294,7 +294,7 @@ def process(task, cfg):
             status="completed",
             completed_at=stamp(),
             research_status="attempted_by_ceo_and_specialists",
-            output_file=str(path.relative_to(BASE)),
+            output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error="",
         )
         log(f"COMPLETED {task.get('id')} -> {path.name}")
