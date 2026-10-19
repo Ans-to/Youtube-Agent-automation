@@ -34,6 +34,18 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertIn("training_running", state)
         self.assertIn("training_output", state)
 
+    def test_output_markdown_renderer_formats_headings_and_lists(self):
+        rendered = dashboard.render_markdown_safe("# Heading\\n\\n- first\\n- second")
+        self.assertIn("<h1>Heading</h1>", rendered)
+        self.assertIn("<ul>", rendered)
+        self.assertIn("<li>first</li>", rendered)
+        self.assertIn("<li>second</li>", rendered)
+
+    def test_output_markdown_renderer_escapes_untrusted_html(self):
+        rendered = dashboard.render_markdown_safe("<script>alert(1)</script>")
+        self.assertNotIn("<script>", rendered)
+        self.assertIn("&lt;script&gt;", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
