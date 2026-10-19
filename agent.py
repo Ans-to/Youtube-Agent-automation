@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
 """Offline Agent HQ: local task queue with constrained specialist stages."""
-import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress
+import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress, sys
 from pathlib import Path
 from datetime import datetime
 from queue_store import task_queue_lock, load_tasks, save_tasks
 from quality_outputs import youtube_package, structured_plan, structured_draft, structured_review
 
 BASE = Path(__file__).resolve().parent
+RESEARCH_DIR = BASE / "video_studio"
+if str(RESEARCH_DIR) not in sys.path:
+    sys.path.insert(0, str(RESEARCH_DIR))
+try:
+    from research import research as collect_web_research, render_markdown as render_research_markdown
+except Exception:
+    collect_web_research = None
+    render_research_markdown = None
 TASKS = BASE / "tasks.json"
 CONFIG = BASE / "config.json"
 WORKSPACE = BASE / "workspace"
@@ -103,20 +111,20 @@ Template mode cannot perform semantic summarization. The text above is an invent
 
 def build_prompt(task, kind, context, cfg):
     max_chars = int(cfg.get("runner", {}).get("max_input_chars", 6000))
-    return f"""Perform the task using only the supplied request and local workspace context.
+    return f"""Perform the task using the supplied request, local workspace context, and any AUTOMATED WEB RESEARCH section included below.
 Use these stages internally:
 Coordinator: identify goal and constraints.
 Planner: choose a short approach.
 Worker: complete the deliverable.
 Reviewer: check for unsupported claims, contradictions, omissions, and unsafe suggestions; revise.
-Do not claim access to the internet, sensors, other apps, or files not included below. Never request secrets.
+Do not claim access to sensors, other apps, or files not included below. Internet research is only available through the explicitly supplied research section; never claim pages were fetched or checked unless the report says so. Never request secrets.
 CRITICAL ACTION-VERIFICATION RULES:
 - Generating text, instructions, a plan, or a draft does not perform an external action.
 - Never say an alarm was set, a reminder scheduled, a message sent, a file uploaded, or content published unless the supplied context contains reliable confirmation from the relevant service or tool.
 - If no such confirmation is supplied, explicitly state that the action was NOT performed or verified and explain what the user must do themselves.
 - Never invent tool calls, confirmations, execution logs, or success messages.
 - The Reviewer must check every statement claiming that an action was completed against the supplied evidence. If evidence is absent, correct the claim.
-Return the final deliverable in clear Markdown. Do not claim tests, web research, publishing, or external actions unless supplied evidence confirms them.
+Return the final deliverable in clear Markdown. Do not claim tests, independently verified facts, publishing, or external actions unless supplied evidence confirms them. Cite source URLs from the research report for claims supported by retrieved page text; label unresolved or weakly supported claims [VERIFY].
 
 For youtube_package tasks, create a detailed faceless YouTube package: include a narrative thesis, scene-by-scene script with timecodes, Urdu narration with English technical terms unless requested otherwise, motion-graphics/compositing instructions, audio/editing notes, title/thumbnail/description options, Shorts cutdown, source register, and release QA. Match requested duration with plausible narration word counts; do not call a short outline a 15-minute script. Never invent facts, numbers, quotes, citations, or research. Mark unsupported claims [VERIFY] and state what evidence is needed. Distinguish source-supported details from assumptions. End with unresolved issues.
 
@@ -133,10 +141,38 @@ def process(task, cfg):
     kind = task.get("kind", "")
     if kind not in {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}:
         raise ValueError("Unsupported task type.")
+    # Every queued task attempts fresh web research before the model or template worker runs.
+    research_report = ""
+    research_status = "unavailable"
+    if collect_web_research is not None:
+        try:
+            topic = (str(task.get("title", "")) + " " + str(task.get("input", ""))).strip()[:500]
+            metadata, sources = collect_web_research(
+                topic,
+                queries=[topic[:300], topic[:250] + " official documentation",
+                         topic[:250] + " independent analysis evidence"],
+                max_results=5,
+            )
+            research_report = render_research_markdown(metadata, sources)[:22000]
+            research_status = "search_and_page_fetch_attempted"
+        except Exception as exc:
+            research_report = (
+                "# Automated web research unavailable\n\n"
+                "Research attempt failed: " + type(exc).__name__ + ": " + str(exc)[:500] + "\n\n"
+                "Do not claim research succeeded. Continue only with supplied context and mark claims requiring evidence [VERIFY].\n"
+            )
+            research_status = "failed:" + type(exc).__name__
+    else:
+        research_report = "# Automated web research unavailable\n\nResearch module could not be loaded. Do not claim research succeeded.\n"
+    task["research_status"] = research_status
+    if kind not in {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}:
+        raise ValueError("Unsupported task type.")
     context = workspace_text(cfg) if kind in {"summarize_workspace", "review_output"} else ""
+    context = (context + "\n\n## AUTOMATED WEB RESEARCH\n" + research_report)[:30000]
     result = ask_local_model(build_prompt(task, kind, context, cfg), cfg, kind)
     if not result:
         result = fallback(task, kind, context)
+        result += "\n\n## Automated research report\n\n" + research_report
     OUTPUTS.mkdir(exist_ok=True)
     path = OUTPUTS / (safe_id(task.get("id")) + ".md")
     path.write_text(result.rstrip() + "\n", encoding="utf-8")
@@ -180,6 +216,7 @@ def process(task, cfg):
         task.update(
             status=status,
             completed_at="",
+            research_status=research_status,
             output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error=message,
         )
@@ -188,6 +225,7 @@ def process(task, cfg):
         task.update(
             status="completed",
             completed_at=stamp(),
+            research_status=research_status,
             output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error="",
         )
