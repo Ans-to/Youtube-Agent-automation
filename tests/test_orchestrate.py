@@ -25,6 +25,19 @@ class CEODelegationTests(unittest.TestCase):
         self.assertNotIn("AGENT-50", ids)
         self.assertLessEqual(len(ids), 8)
 
+    def test_youtube_automation_studio_routes_to_software_specialists(self):
+        assignments, mode = orchestrate.heuristic_assignments(
+            "Build my YouTube automation agent studio with specialist roles"
+        )
+        ids = [item["agent_id"] for item in assignments]
+        self.assertEqual(mode, "heuristic_no_model")
+        self.assertIn("AGENT-46", ids)
+        self.assertIn("AGENT-47", ids)
+        self.assertIn("AGENT-48", ids)
+        self.assertNotIn("AGENT-09", ids)
+        self.assertNotIn("AGENT-51", ids)
+        self.assertNotIn("AGENT-52", ids)
+
     def test_enabled_ceo_model_plan_is_used_when_json_is_valid(self):
         roles = {item.get("id"): item for item in orchestrate.dispatch.load_json(
             orchestrate.dispatch.ROSTER, {}
