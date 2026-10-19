@@ -329,7 +329,7 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
     }
     return metadata, all_results
 
-def render_markdown(metadata, results):
+def render_markdown(metadata, results, max_page_text=2500):
     lines = [
         "# Research leads: " + metadata["topic"], "",
         "- Collected: " + metadata["collected_at"],
