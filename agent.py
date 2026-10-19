@@ -206,6 +206,20 @@ def process(task, cfg):
             break
     if manifest.get("status") == "failed":
         sections.extend(["## Pipeline status", "", "The CEO pipeline stopped after a specialist failure. Review the saved pipeline manifest and logs before retrying.", ""])
+    sections.extend(["", "## Built-in artifact tools", ""])
+    if manifest.get("tool_runs"):
+        for tool in manifest["tool_runs"]:
+            sections.append("- " + str(tool.get("tool", "tool")) + ": " + str(tool.get("status", "unknown")))
+            if tool.get("artifact_dir"):
+                sections.append("  - Artifact directory: " + str(tool["artifact_dir"]))
+            if tool.get("log_file"):
+                sections.append("  - Tool log: " + str(tool["log_file"]))
+            if tool.get("reason"):
+                sections.append("  - Note: " + str(tool["reason"]))
+            if tool.get("error"):
+                sections.append("  - Error: " + str(tool["error"]))
+    else:
+        sections.append("- No additional built-in artifact tool was selected for this task.")
     sections.extend([
         "## Review requirements",
         "",
