@@ -9,7 +9,7 @@
       "eyebrow": "MOTION TEST / 01",
       "headline": "Ideas need a clear visual",
       "subhead": "A presenter layer with idle motion and an explanatory gesture",
-      "narration": "ایک اچھا visual idea واضح ہونا چاہیے، تاکہ viewer فوراً اصل بات سمجھ سکے۔",
+      "narration": "A strong visual idea should be clear enough for viewers to understand immediately.",
       "visual_type": "hero",
       "graphic_label": "THE CORE IDEA",
       "transition_in": "none",
@@ -25,21 +25,21 @@
         "shirt": "#6479b8",
         "trousers": "#303746"
       },
-      "caption": "ایک اچھا visual idea واضح ہونا چاہیے، تاکہ viewer فوراً اصل بات سمجھ سکے۔"
+      "caption": "A strong visual idea should be clear enough for viewers to understand immediately."
     },
     {
       "duration_seconds": 5,
       "eyebrow": "MOTION TEST / 02",
       "headline": "Transitions should connect",
       "subhead": "A directional wipe bridges related information, not random scenes",
-      "narration": "Smooth transitions ایک scene کو اگلے خیال سے جوڑتی ہیں، اور video کی flow برقرار رکھتی ہیں۔",
+      "narration": "Smooth transitions connect one scene to the next idea and preserve the video's flow.",
       "visual_type": "diagram",
       "visual_nodes": [
         "CONTEXT",
         "EXPLANATION",
         "TAKEAWAY"
       ],
-      "transition_in": "wipe-left",
+      "transition_in": "slide-left",
       "transition_frames": 16,
       "character": {
         "enabled": true,
@@ -53,14 +53,14 @@
         "shirt": "#6479b8",
         "trousers": "#303746"
       },
-      "caption": "Smooth transitions ایک scene کو اگلے خیال سے جوڑتی ہیں، اور video کی flow برقرار رکھتی ہیں۔"
+      "caption": "Smooth transitions connect one scene to the next idea and preserve the video's flow."
     },
     {
       "duration_seconds": 5,
       "eyebrow": "MOTION TEST / 03",
       "headline": "Review at normal speed",
       "subhead": "Check continuity, readability, and timing before release",
-      "narration": "ہر render کو normal speed پر review کریں، glitches درست کریں، پھر ہی final video approve کریں۔",
+      "narration": "Review every render at normal speed, fix visual defects, and approve the final cut only after quality checks.",
       "visual_type": "timeline",
       "timeline_events": [
         "PLAN",
@@ -68,7 +68,7 @@
         "REVIEW",
         "REFINE"
       ],
-      "transition_in": "fade",
+      "transition_in": "zoom",
       "transition_frames": 18,
       "character": {
         "enabled": true,
@@ -82,7 +82,7 @@
         "shirt": "#6479b8",
         "trousers": "#303746"
       },
-      "caption": "ہر render کو normal speed پر review کریں، glitches درست کریں، پھر ہی final video approve کریں۔"
+      "caption": "Review every render at normal speed, fix visual defects, and approve the final cut only after quality checks."
     }
   ]
 }
