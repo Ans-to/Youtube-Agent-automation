@@ -122,8 +122,11 @@ def run_role(role,task,context,cfg):
             )
     else:
         research_context = "WEB RESEARCH MODULE UNAVAILABLE. Do not claim internet research succeeded; disclose limitation."
-    context = ((context or "") + "\n\n## AUTOMATIC WEB RESEARCH (attempted for this task)\n"
-               + research_context)[:30000]
+    prior_context = context or ""
+    if len(prior_context) > 12000:
+        prior_context = prior_context[:5000] + "\n\n[Middle context omitted for prompt budget]\n\n" + prior_context[-6500:]
+    context = ("## AUTOMATIC WEB RESEARCH (attempted for this task)\n" + research_context[:17500]
+               + "\n\n## PRIOR-STAGE AND USER CONTEXT (unverified)\n" + prior_context)[:30000]
     model=cfg.get("model",{})
     skill=find_skill(role["id"]) or {
       "expertise":role.get("mission",""),
