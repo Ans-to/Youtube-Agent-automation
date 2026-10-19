@@ -191,6 +191,8 @@ def process(task, cfg):
     ]
     for item in manifest.get("ceo_assignments", []):
         sections.append("- " + str(item.get("agent_id", "unknown")) + ": " + str(item.get("task", "")))
+    for report in manifest.get("ceo_research_reports", []):
+        sections.append("- CEO research report: " + str(report))
     sections.extend(["", "## Specialist deliverables", ""])
     total_chars = 0
     for record in manifest.get("pipeline", []):
