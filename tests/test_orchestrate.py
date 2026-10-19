@@ -25,6 +25,29 @@ class CEODelegationTests(unittest.TestCase):
         self.assertNotIn("AGENT-50", ids)
         self.assertLessEqual(len(ids), 8)
 
+    def test_superhero_fight_scene_script_routes_to_creative_specialists(self):
+        assignments, mode = orchestrate.heuristic_assignments(
+            "create a complete script of two mint long superman and goku fight scene by scene"
+        )
+        ids = [item["agent_id"] for item in assignments]
+        self.assertEqual(mode, "heuristic_no_model")
+        self.assertIn("AGENT-02", ids)
+        self.assertIn("AGENT-09", ids)
+        self.assertIn("AGENT-20", ids)
+        self.assertIn("AGENT-51", ids)
+        self.assertIn("AGENT-52", ids)
+        self.assertIn("AGENT-08", ids)
+
+    def test_plain_code_setup_script_is_not_routed_to_creative_video_roles(self):
+        assignments, _ = orchestrate.heuristic_assignments(
+            "Write a Python setup script to install project dependencies"
+        )
+        ids = [item["agent_id"] for item in assignments]
+        self.assertNotIn("AGENT-09", ids)
+        self.assertNotIn("AGENT-20", ids)
+        self.assertNotIn("AGENT-51", ids)
+        self.assertNotIn("AGENT-52", ids)
+
     def test_youtube_automation_studio_routes_to_software_specialists(self):
         assignments, mode = orchestrate.heuristic_assignments(
             "Build my YouTube automation agent studio with specialist roles"
