@@ -181,6 +181,7 @@ def plan_delegation(task, context, cfg, roles_by_id):
             "Choose 2-7 specialist assignments, in dependency order. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
+            "NON-NEGOTIABLE VIDEO RULE: all video voice-over narration and subtitles must be English only, regardless of the topic, country, or languages discussed. Never delegate translation/localization that changes a video's narration or subtitles away from English. "
             "Return ONLY valid JSON in this exact shape: "
             '{"assignments":[{"agent_id":"AGENT-02","task":"Specific work and deliverable"}]}\n\n'
             "USER GOAL:\n" + task + "\n\nAVAILABLE SPECIALISTS:\n"
