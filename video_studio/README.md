@@ -1,13 +1,13 @@
 # Offline Agent HQ — deterministic video studio
 
-This module renders a local MP4 from a JSON storyboard using Canvas2D in headless Chromium and FFmpeg. Optional narration uses a locally installed Piper TTS voice. The YouTube uploader is separate and requires OAuth setup.
+This module renders local MP4s from JSON storyboards using deterministic Canvas2D in headless Chromium and FFmpeg. Final production renders use an English Piper voice and always emit English subtitles in SRT and WebVTT; captions are also drawn into the frames. The YouTube uploader is separate and approval-gated.
 
 ## Requirements
 - Python 3.10 or newer
 - Node.js LTS
 - FFmpeg and ffprobe available on PATH
 - A Windows PC is recommended; PNG-frame rendering is CPU- and storage-intensive.
-- Optional voice: Piper CLI and a local voice model file.
+- Required for final production renders: Piper CLI plus a verified English voice model and matching `.onnx.json` config. Silent rendering is for visual smoke tests only.\n- Every render requires English narration text and emits validated `.srt` and `.vtt` subtitle sidecars.
 - Optional YouTube upload: Google OAuth desktop client JSON and the dependencies in requirements-publish.txt.
 
 ## Windows setup
@@ -18,21 +18,21 @@ Open PowerShell in this directory and run:
 
 Puppeteer downloads a compatible Chromium build during npm install. If your network blocks this, install a supported Chrome/Chromium build and configure Puppeteer to use it.
 
-## Urdu male narration (local, no paid API)
+## English narration and subtitles (local, no paid API)
 
-A tested candidate is the MIT-licensed Piper `ur_PK-fasih-medium` voice. The model is medium quality, and its model card warns that mixed Urdu/English pronunciation may vary; listen-test the actual script before publishing.
+Final production renders must use English narration. The CI pipeline downloads the MIT-licensed Piper `en_US-lessac-medium` model from a pinned Hugging Face revision and verifies its SHA-256 before synthesis. Voice models and config files are not committed to the repository.
 
-1. Install Piper TTS in your active Python environment: `python -m pip install piper-tts`.
-2. Download both the `.onnx` model and its matching `.onnx.json` config from the [Piper Urdu voice files](https://huggingface.co/rhasspy/piper-voices/tree/main/ur/ur_PK/fasih/medium).
-3. Set `PIPER_MODEL` to the absolute model path, then render with `--with-voice`.
+1. Install Piper TTS in the active Python environment: `python -m pip install piper-tts`.
+2. Download an English voice model and its matching `.onnx.json` config. Review the voice model card and license before redistribution.
+3. Set `PIPER_MODEL` to the absolute path to the English `.onnx` file. The adjacent config must identify a language code beginning with `en`.
 
 PowerShell example:
 
-    $env:PIPER_MODEL = "C:\\path\\to\\ur_PK-fasih-medium.onnx"
-    python studio.py --storyboard storyboard.example.json --output outputs\\offline-agent-hq-demo.mp4 --with-voice
-    python validate_render.py outputs\\offline-agent-hq-demo.mp4 --require-audio
+    $env:PIPER_MODEL = "C:\\path\\to\\en_US-lessac-medium.onnx"
+    python studio.py --storyboard storyboard.motion-character-demo.json --output outputs\\english-demo.mp4 --with-voice
+    python validate_render.py outputs\\english-demo.mp4 --require-audio
 
-The render validator now rejects a requested audio track that is missing, silent, or below the default mean loudness floor (-35 dBFS), and rejects peaks above -0.1 dBFS. This is a technical signal check, not a judgement of naturalness, pronunciation, intelligibility, or lip-sync. Without `--with-voice`, the output remains silent by design.
+Every render also writes matching `.srt` and `.vtt` subtitle files. Subtitle text is derived from the English narration, timed across each scene's measured speech duration, and checked for valid, ordered cues. This is scene/phrase-level timing, not forced word alignment. The validator checks audio presence, signal level, clipping, dimensions, frame rate, and duration; it cannot certify naturalness, pronunciation, factual correctness, or lip-sync. Human listening and visual review remain required.
 ## Generate a topic package
 From the repository root, run:
 
@@ -42,7 +42,7 @@ From the repository root, run:
 
 With no enabled local model, this creates a clearly marked 20-second template, not a researched script. Rendering that demo requires the explicit `--render-template` flag. If a compatible OpenAI-style local inference server is enabled in config.json, the builder creates a structured outline and then generates each scene in a separate local-model request to support 15-minute long-form scripts. It checks scene count and minimum narration length before packaging. The model output is still a draft and does not independently verify factual claims.
 
-Scene narration captions are paginated into readable two-line cards over the scene duration. They are scene-level captions, not word-level forced alignment to speech. Narration defaults to Urdu with English technical terms when a local model is enabled. Use --format shorts for a 1080×1920 vertical storyboard or --format long for 1920×1080 landscape. To render the generated storyboard, add --render. Review script.md, storyboard.json, and video.mp4 manually.
+Scene narration captions are paginated into readable two-line cards, while SRT and WebVTT sidecars are generated for every render. Narration is English-only. The production command refuses final rendering unless an English Piper model is configured; it automatically enables voice synthesis and creates subtitle sidecars. Use --format shorts for a 1080×1920 vertical storyboard or --format long for 1920×1080 landscape. Review script.md, storyboard.json, video.mp4, video.srt, and video.vtt manually.
 
 
 
@@ -100,11 +100,11 @@ Research references and evaluation criteria are documented in the two skill file
 
 The renderer now has an optional procedural 2D presenter layer (`scene.character`) with breathing/bob, arm gesture, blinking, simple body movement, and selectable mouth shapes. Storyboards may provide normalized `x`/`y`, `scale`, `walking`, colour fields, and `visemes: [{t, shape}]`. These viseme cues are normalized scene-time cues, **not** forced alignment to speech. This is a lightweight stylized presenter, not a production-quality anime rig or a full skeletal deformation system.
 
-Scene transitions now composite the previous scene's last frame over the incoming scene for fade/wipe transitions rather than painting an opaque overlay over the incoming frame. Transition frames are bounded to 6–24 frames. A transition should be selected intentionally; use `none` for a hard cut.
+Scene transitions composite previous and incoming frames with eased fade, directional wipe, slide-left/right, and zoom transitions. Transition frames are bounded to the scene length and configured frame limit. Choose a transition for editorial meaning; use `none` for a deliberate hard cut.
 
 A short regression storyboard is provided at `storyboard.motion-character-demo.json`. Render it with:
 
     npm install
     python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4
 
-This command produces a **silent visual test** unless `--with-voice` and a valid local Piper voice are configured. It is not a natural-voice acceptance test. A human-quality male Urdu/English voice, phoneme-aligned lip-sync, professional character acting, and an actual multimodal reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
+This command produces English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
