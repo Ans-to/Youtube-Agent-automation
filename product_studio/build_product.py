@@ -52,7 +52,7 @@ source.addEventListener("input",update);document.getElementById("upper").onclick
 </script></body></html>
 """
 
-def local_html(idea, title, cfg):
+def local_html(idea, title, cfg, source_notes=""):
     model=cfg.get("model",{})
     if not model.get("enabled"):return None
     url=model.get("base_url","")
