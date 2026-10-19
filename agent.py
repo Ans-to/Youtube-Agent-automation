@@ -183,6 +183,7 @@ def process(task, cfg):
         "- Delegation mode: " + str(manifest.get("delegation_mode", "unknown")),
         "- Model enabled: " + str(bool(manifest.get("model_enabled"))),
         "- Pipeline status: " + str(manifest.get("status", "unknown")),
+        "- Final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")),
         "- Specialist stages: " + str(len(manifest.get("pipeline", []))),
         "- Research: CEO planning when model-enabled; each selected specialist stage attempts its own research",
         "- Independent fact verification: not guaranteed; review source reports and claims",
