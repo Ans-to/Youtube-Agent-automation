@@ -1,4 +1,4 @@
-name: Million-simulation quality gate
+name: System regression and million-simulation gate
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       trials:
-        description: "Number of deterministic lifecycle simulations"
+        description: "Synthetic lifecycle simulations per seed"
         required: false
         default: "1000000"
         type: string
@@ -16,34 +16,49 @@ permissions:
   contents: read
 
 concurrency:
-  group: million-simulation-${{ github.workflow }}-${{ github.ref }}
+  group: system-simulation-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  simulate:
-    name: Run 1,000,000 lifecycle simulations
+  system-regression:
+    name: Full offline regression and 4-seed simulation
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     steps:
-      - name: Checkout repository
+      - name: Check out repository
         uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run simulation harness unit tests
-        run: python -m unittest discover -s tests -p "test_simulation_harness.py" -v
-      - name: Run deterministic simulation gate
+      - name: Compile application and test modules
+        run: |
+          python -m compileall -q agent.py dashboard.py queue_store.py bridge agents video_studio product_studio tests simulation_harness.py
+      - name: Validate JSON configuration and agent roster
+        run: |
+          python -m json.tool agents/roster.json > /dev/null
+          python -m json.tool agents/skillbooks.json > /dev/null
+          python -m json.tool video_studio/storyboard.example.json > /dev/null
+          python -m json.tool config.example.json > /dev/null
+      - name: Run complete offline regression suite
+        run: python -m unittest discover -s tests -v
+      - name: Run four independent million-case lifecycle simulations
         env:
           SIMULATION_TRIALS: ${{ github.event.inputs.trials || '1000000' }}
         run: |
-          python -m py_compile simulation_harness.py
-          python simulation_harness.py --trials "$SIMULATION_TRIALS" --seed 20261019 --json | tee simulation-report.json
-      - name: Upload simulation report
+          set -euo pipefail
+          mkdir -p simulation-reports
+          for seed in 20261019 1 42 3735928559; do
+            echo "Running ${SIMULATION_TRIALS} synthetic lifecycle cases with seed ${seed}"
+            python simulation_harness.py --trials "${SIMULATION_TRIALS}" --seed "${seed}" --json > "simulation-reports/seed-${seed}.json"
+            python -c 'import json,sys; r=json.load(open(sys.argv[1], encoding="utf-8")); assert r["ok"], r; assert r["trials_completed"] == r["trials_requested"], r; print("PASS:", r["trials_completed"], "cases; seed", r["seed"], "scenarios", r["scenario_counts"])' "simulation-reports/seed-${seed}.json"
+          done
+      - name: Upload regression and simulation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: million-simulation-report-${{ github.run_number }}
-          path: simulation-report.json
+          name: system-simulation-reports-${{ github.run_number }}
+          path: |
+            simulation-reports/*.json
           if-no-files-found: warn
           retention-days: 30
