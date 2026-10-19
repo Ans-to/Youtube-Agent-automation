@@ -12,7 +12,7 @@ async function main(){
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
  const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform","kinetic-type","bar-chart"]);
- const transitionTypes=new Set(["none","fade","wipe-left","wipe-right"]);
+ const transitionTypes=new Set(["none","fade","wipe-left","wipe-right","slide-left","slide-right","zoom"]);
  for(const [index,scene] of s.scenes.entries()){
   if(!scene||typeof scene!=="object"||Array.isArray(scene))throw new Error("Scene "+index+" must be a JSON object.");
   const kind=String(scene.visual_type||"hero").toLowerCase();
