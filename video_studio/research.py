@@ -287,17 +287,31 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
     fetch_limit = max(1, min(int(max_results), 8))
     page_targets = []
     selected_urls = set()
+    selected_hosts = set()
     for term in terms:
-        match = next((item for item in all_results if item.get("query") == term and item["url"] not in selected_urls), None)
+        candidates = [item for item in all_results if item.get("query") == term and item["url"] not in selected_urls]
+        match = next((item for item in candidates
+                      if (urllib.parse.urlsplit(item["url"]).hostname or "").lower() not in selected_hosts),
+                     candidates[0] if candidates else None)
         if match is not None and len(page_targets) < fetch_limit:
             page_targets.append(match)
             selected_urls.add(match["url"])
+            selected_hosts.add((urllib.parse.urlsplit(match["url"]).hostname or "").lower())
     for item in all_results:
         if len(page_targets) >= fetch_limit:
             break
-        if item["url"] not in selected_urls:
+        host = (urllib.parse.urlsplit(item["url"]).hostname or "").lower()
+        if item["url"] not in selected_urls and (host not in selected_hosts or len(page_targets) + 1 >= fetch_limit):
             page_targets.append(item)
             selected_urls.add(item["url"])
+            selected_hosts.add(host)
+    if len(page_targets) < fetch_limit:
+        for item in all_results:
+            if len(page_targets) >= fetch_limit:
+                break
+            if item["url"] not in selected_urls:
+                page_targets.append(item)
+                selected_urls.add(item["url"])
     for item in page_targets:
         try:
             page = page_fetch_fn(item["url"])
