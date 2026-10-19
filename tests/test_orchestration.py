@@ -29,7 +29,7 @@ class OrchestrationTests(unittest.TestCase):
             self.assertEqual(manifest["research_performed"], "attempted_for_each_specialist_stage")
             self.assertTrue(manifest["human_review_required"])
             self.assertTrue((destination / "pipeline-status.json").is_file())
-            self.assertEqual(len(list(destination.glob("*.md"))), 2)
+            self.assertEqual(len(list(destination.glob("*.md"))), 3)
 
 
 if __name__ == "__main__":
