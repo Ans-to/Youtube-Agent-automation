@@ -49,6 +49,30 @@ class DashboardWorkflowTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "16,000"):
                     dashboard.enqueue_task("Too long", "youtube_package", "x" * 16001)
 
+    def test_start_task_runner_launches_background_worker(self):
+        from unittest.mock import patch
+        with patch.object(dashboard, "RUNNING", False), patch.object(dashboard.threading, "Thread") as thread:
+            started, active = dashboard.start_task_runner()
+            self.assertTrue(started)
+            self.assertEqual(active, "")
+            thread.return_value.start.assert_called_once()
+            dashboard.release_workflow("task runner")
+
+    def test_attach_task_progress_reads_only_valid_task_progress_path(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            progress_path = root / "workspace" / "orchestration" / "task-TASK-0007" / "pipeline-progress.json"
+            progress_path.parent.mkdir(parents=True)
+            progress_path.write_text(json.dumps({"phase": "Specialist stage 2/4", "completed_stages": 1, "total_stages": 4}), encoding="utf-8")
+            with patch.object(dashboard, "BASE", root):
+                tasks = dashboard.attach_task_progress([{"id": "TASK-0007", "status": "running"}, {"id": "../unsafe", "status": "running"}])
+            self.assertEqual(tasks[0]["progress"]["phase"], "Specialist stage 2/4")
+            self.assertNotIn("progress", tasks[1])
+
     def test_workflow_gate_allows_only_one_active_workflow(self):
         claimed, active = dashboard.try_claim_workflow("test workflow")
         self.assertTrue(claimed)
@@ -61,7 +85,7 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertTrue(claimed_after_release)
 
     def test_dashboard_exposes_video_product_and_specialist_forms(self):
-        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'Leave blank: CEO chooses the team'):
+        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'Leave blank: CEO chooses the team', 'progressMarkup(t)', 'start_task_runner()'):
             with self.subTest(action=action):
                 self.assertIn(action, dashboard.HTML_PAGE)
 
