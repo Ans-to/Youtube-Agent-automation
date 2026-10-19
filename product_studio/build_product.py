@@ -61,7 +61,7 @@ def local_html(idea, title, cfg, source_notes=""):
         "\nReturn only complete HTML. Requirements: functional, responsive, accessible labels, clear empty/error states, no external libraries, no remote images, no network requests, no analytics, no tracking, no eval or Function constructor. All user data must remain in the browser. Include an explicit prototype notice. Use supplied research context to make the prototype specific to the user problem; do not invent demand or unsupported claims.\nRESEARCH AND SPECIALIST NOTES (unverified until reviewed):\n" + (source_notes[:8000] if source_notes else "(No research context supplied.)"))
     body={"model":model.get("model","local-model"),"messages":[
         {"role":"system","content":"You generate careful offline-first HTML prototypes. Output HTML only. Never include external script/style URLs, network calls, telemetry, or claims of security certification."},
-        {"role":"user","content":prompt}],"temperature":0.2,"max_tokens":int(model.get("max_output_tokens",2500))}
+        {"role":"user","content":prompt}],"temperature":0.2,"max_tokens":min(5000,max(int(model.get("product_max_output_tokens",3500)),int(model.get("max_output_tokens",2500))))}
     data=post_local_model(url,body,model.get("timeout_seconds",120))
     text=data["choices"][0]["message"]["content"].strip()
     if text.startswith(chr(96)*3):text=text.split("\n",1)[-1].removesuffix(chr(96)*3).strip()
