@@ -21,9 +21,9 @@ concurrency:
 
 jobs:
   system-regression:
-    name: Full offline regression and 4-seed simulation
+    name: Full offline regression suite
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -41,7 +41,31 @@ jobs:
           python -m json.tool video_studio/storyboard.example.json > /dev/null
           python -m json.tool config.example.json > /dev/null
       - name: Run complete offline regression suite
-        run: python -m unittest discover -s tests -v
+        run: |
+          set -o pipefail
+          python -m unittest discover -s tests -v 2>&1 | tee system-test.log
+      - name: Upload system regression log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: system-regression-log-${{ github.run_number }}
+          path: system-test.log
+          if-no-files-found: warn
+          retention-days: 30
+
+  simulations:
+    name: Four independent million-case simulation runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Compile simulation harness
+        run: python -m py_compile simulation_harness.py
       - name: Run four independent million-case lifecycle simulations
         env:
           SIMULATION_TRIALS: ${{ github.event.inputs.trials || '1000000' }}
@@ -49,16 +73,16 @@ jobs:
           set -euo pipefail
           mkdir -p simulation-reports
           for seed in 20261019 1 42 3735928559; do
+            report="simulation-reports/seed-${seed}.json"
             echo "Running ${SIMULATION_TRIALS} synthetic lifecycle cases with seed ${seed}"
-            python simulation_harness.py --trials "${SIMULATION_TRIALS}" --seed "${seed}" --json > "simulation-reports/seed-${seed}.json"
-            python -c 'import json,sys; r=json.load(open(sys.argv[1], encoding="utf-8")); assert r["ok"], r; assert r["trials_completed"] == r["trials_requested"], r; print("PASS:", r["trials_completed"], "cases; seed", r["seed"], "scenarios", r["scenario_counts"])' "simulation-reports/seed-${seed}.json"
+            python simulation_harness.py --trials "${SIMULATION_TRIALS}" --seed "${seed}" --json > "${report}"
+            python -c 'import json,sys; r=json.load(open(sys.argv[1], encoding="utf-8")); assert r["ok"], r; assert r["trials_completed"] == r["trials_requested"], r; required={"external_blocked","interrupted","normal","external"}; missing=required-set(r["scenario_counts"]); assert not missing, {"missing_scenarios":sorted(missing),"report":r}; print("PASS:", r["trials_completed"], "cases; seed", r["seed"], "scenarios", r["scenario_counts"])' "${report}"
           done
-      - name: Upload regression and simulation reports
+      - name: Upload simulation reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: system-simulation-reports-${{ github.run_number }}
-          path: |
-            simulation-reports/*.json
+          path: simulation-reports/*.json
           if-no-files-found: warn
           retention-days: 30
