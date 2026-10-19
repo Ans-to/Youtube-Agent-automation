@@ -78,6 +78,7 @@ jobs:
           out.write_text(json.dumps(source, indent=2) + "\n")
           PY
           python video_studio/studio.py --storyboard outputs/e2e-evidence/landscape-30s-storyboard.json --output outputs/e2e-evidence/landscape-30s.mp4 --keep-frames
+          cp video_studio/outputs/e2e-evidence/landscape-30s.mp4 outputs/e2e-evidence/landscape-30s.mp4
           python video_studio/validate_render.py outputs/e2e-evidence/landscape-30s.mp4 --width 1280 --height 720 --fps 24 > outputs/e2e-evidence/landscape-validation.json
       - name: Render 15-second vertical Shorts motion-graphics test
         run: |
@@ -93,6 +94,7 @@ jobs:
           out.write_text(json.dumps(source, indent=2) + "\n")
           PY
           python video_studio/studio.py --storyboard outputs/e2e-evidence/shorts-15s-storyboard.json --output outputs/e2e-evidence/shorts-15s.mp4 --keep-frames
+          cp video_studio/outputs/e2e-evidence/shorts-15s.mp4 outputs/e2e-evidence/shorts-15s.mp4
           python video_studio/validate_render.py outputs/e2e-evidence/shorts-15s.mp4 --width 540 --height 960 --fps 24 > outputs/e2e-evidence/shorts-validation.json
       - name: Generate frame samples and objective evidence report
         if: always()
