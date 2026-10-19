@@ -353,6 +353,8 @@ class Handler(BaseHTTPRequestHandler):
                 source_path = (BASE / supplied).resolve() if not supplied.is_absolute() else supplied.resolve()
                 if source_path == workspace or workspace not in source_path.parents or not source_path.is_file():
                     return self.send("Source notes must be an existing file inside workspace.", status=400)
+                if source_path.stat().st_size > 2_000_000:
+                    return self.send("Source notes must not exceed 2 MB.", status=400)
                 source_file = str(source_path)
             duration_note = ("target_minutes: " + str(target_minutes)) if target_minutes is not None else ""
             request_parts = [
@@ -407,6 +409,8 @@ class Handler(BaseHTTPRequestHandler):
                 resolved_context = (BASE / supplied).resolve() if not supplied.is_absolute() else supplied.resolve()
                 if resolved_context == workspace or workspace not in resolved_context.parents or not resolved_context.is_file():
                     return self.send("Context file must be an existing .txt, .md, or .json file inside the local workspace.", status=400)
+                if resolved_context.stat().st_size > 2_000_000:
+                    return self.send("Context file must not exceed 2 MB.", status=400)
                 context_file = str(resolved_context)
             claimed, active = try_claim_workflow("CEO command pipeline")
             if not claimed:
