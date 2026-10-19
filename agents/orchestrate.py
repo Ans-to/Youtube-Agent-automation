@@ -169,8 +169,11 @@ def run_builtin_tools(task, destination, cfg):
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
                    "--topic", topic, "--format", fmt, "--out", relative_out, "--research"]
         render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
+        template_demo = bool(re.search(r"\b(template demo|demo render)\b", lower)) and not model_enabled
         if render_requested and model_enabled:
             command.append("--render")
+        elif render_requested and template_demo:
+            command.extend(["--render", "--render-template"])
         elif render_requested:
             results.append({
                 "tool": "video_studio", "status": "blocked",
