@@ -94,7 +94,7 @@ if ([string]::IsNullOrWhiteSpace($answer) -or $answer.Trim().ToLowerInvariant() 
     if (-not $Config.model.max_output_tokens) { $Config.model.max_output_tokens = 2200 }
     if (-not $Config.model.product_max_output_tokens) { $Config.model.product_max_output_tokens = 3500 }
     if (-not $Config.model.timeout_seconds) { $Config.model.timeout_seconds = 180 }
-    $Config | ConvertTo-Json -Depth 20 | Set-Content -Encoding UTF8 -Path $ConfigPath
+    [System.IO.File]::WriteAllText($ConfigPath, ($Config | ConvertTo-Json -Depth 20), (New-Object System.Text.UTF8Encoding($false)))
     Write-Host "Local model configured. No paid API key was added." -ForegroundColor Green
 } else {
     Write-Host "Skipped local AI model. The dashboard and deterministic tools work, but advanced AI output requires a compatible local model." -ForegroundColor Yellow
