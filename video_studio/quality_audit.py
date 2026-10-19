@@ -33,6 +33,21 @@ def intervals(stderr, start_pattern, end_pattern=None):
             for s, e in zip(starts, ends) if e >= s]
 
 
+def parse_silence_events(stderr, duration):
+    starts = [float(x) for x in re.findall(r"silence_start:([0-9.]+)", stderr)]
+    ends = [float(x) for x in re.findall(r"silence_end:([0-9.]+)", stderr)]
+    events = [{"start": s, "end": e, "duration": round(e-s, 3)}
+              for s, e in zip(starts, ends) if e >= s]
+    # FFmpeg omits silence_end when silence persists to EOF.
+    if starts and (not ends or starts[-1] > ends[-1]):
+        tail_start = starts[-1]
+        if duration >= tail_start:
+            events.append({"start": tail_start, "end": duration,
+                           "duration": round(duration-tail_start, 3),
+                           "continues_to_eof": True})
+    return events
+
+
 def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
           max_silence_seconds=1.5):
     path = Path(path)
@@ -86,18 +101,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         code, log = run_filter(ffmpeg, path, audio_filter="silencedetect=noise=-45dB:d=" + str(max_silence_seconds))
         if code:
             raise ValueError("FFmpeg silence detector failed: " + log[-1000:])
-        starts = [float(x) for x in re.findall(r"silence_start:([0-9.]+)", log)]
-        ends = [float(x) for x in re.findall(r"silence_end:([0-9.]+)", log)]
-        # A silence continuing to EOF may have no silence_end marker.
-        silence_events = [{"start": s, "end": e, "duration": round(e-s, 3)}
-                          for s, e in zip(starts, ends) if e >= s]
-        # FFmpeg omits silence_end when silence persists to EOF. Do not silently pass it.
-        if starts and (not ends or starts[-1] > ends[-1]):
-            tail_start = starts[-1]
-            if duration >= tail_start:
-                silence_events.append({"start": tail_start, "end": duration,
-                                       "duration": round(duration-tail_start, 3),
-                                       "continues_to_eof": True})
+        silence_events = parse_silence_events(log, duration)
         report["checks"]["audio_silence"] = {"count": len(silence_events),
             "events": silence_events, "threshold_seconds": max_silence_seconds}
         if silence_events:
