@@ -175,10 +175,21 @@ class CEODelegationTests(unittest.TestCase):
             workspace.mkdir()
             output = workspace / "run-timeout"
             calls = []
+            later_contexts = {}
 
             def fake_role(role, task, context, cfg):
                 calls.append(role["id"])
+                if role["id"] in {"AGENT-03", "AGENT-12", "AGENT-08"}:
+                    later_contexts[role["id"]] = context
                 if role["id"] == "AGENT-02":
+                    report_dir = root / "workspace" / "research" / "agent-runs"
+                    report_dir.mkdir(parents=True)
+                    report = report_dir / "agent-02-test.md"
+                    report.write_text("# Research saved before timeout\\n\\nPreserved source finding: verify the source date.\\n", encoding="utf-8")
+                    report.with_suffix(".json").write_text(
+                        json.dumps({"metadata": {"pages_attempted": 1, "pages_fetched": 1}, "results": []}),
+                        encoding="utf-8",
+                    )
                     raise TimeoutError("local model timed out")
                 if role["id"] == "AGENT-08":
                     return "# Final Review\n\nThe research stage timed out; claims remain unverified.\n\nOVERALL QUALITY GATE: PARTIAL\n"
@@ -205,6 +216,10 @@ class CEODelegationTests(unittest.TestCase):
             self.assertEqual(failed["status"], "failed")
             self.assertEqual(failed["error_type"], "TimeoutError")
             self.assertTrue((destination / failed["output_file"]).is_file())
+            self.assertEqual(failed["research_status"], "pages_fetched")
+            self.assertEqual(failed["research_pages_fetched"], 1)
+            self.assertIn("agent-02-test.md", failed["research_reports"][0])
+            self.assertIn("Preserved source finding", later_contexts["AGENT-03"])
             self.assertEqual(manifest["pipeline"][-1]["quality_gate"], "partial")
 
     def test_explicit_reviewer_failure_is_preserved_in_pipeline_status(self):
