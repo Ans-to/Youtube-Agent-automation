@@ -8,6 +8,12 @@ import dispatch
 
 
 class AgentDispatcherTests(unittest.TestCase):
+    def setUp(self):
+        from unittest.mock import patch
+        self.research_patch = patch.object(dispatch, "collect_web_research", None)
+        self.research_patch.start()
+        self.addCleanup(self.research_patch.stop)
+
     def test_finds_specialist_role(self):
         role = dispatch.find_role("AGENT-09")
         self.assertIsNotNone(role)
