@@ -20,6 +20,16 @@ class QualityAuditParsingTests(unittest.TestCase):
         self.assertEqual(AUDIT.intervals("black_start:2.000", r"black_start:([0-9.]+)",
                                          r"black_end:([0-9.]+)"), [])
 
+    def test_detects_silence_continuing_to_eof(self):
+        events = AUDIT.parse_silence_events("silence_start:8.000", 10.0)
+        self.assertEqual(events, [{"start": 8.0, "end": 10.0, "duration": 2.0,
+                                   "continues_to_eof": True}])
+
+    def test_pairs_closed_silence_intervals(self):
+        events = AUDIT.parse_silence_events(
+            "silence_start:1.000 silence_end:2.000", 5.0)
+        self.assertEqual(events, [{"start": 1.0, "end": 2.0, "duration": 1.0}])
+
     def test_missing_file_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             with self.assertRaisesRegex(ValueError, "missing or too small"):
