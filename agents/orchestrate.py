@@ -225,7 +225,7 @@ def build_manifest(task, records, cfg, status, delegation_mode="unspecified", as
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
         "research_performed": "attempted_for_each_specialist_stage",
-        "research_method": "DuckDuckGo HTML search, no API key; snippets are unverified leads",
+        "research_method": "DuckDuckGo HTML search plus bounded public webpage text extraction; retrieved content is evidence to assess, not automatic verification",
         "research_pages_independently_verified": False,
         "external_actions_performed": False,
         "human_review_required": True,
