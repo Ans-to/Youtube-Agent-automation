@@ -285,7 +285,7 @@ def process(task, cfg):
         task.update(
             status="needs_human_action",
             completed_at="",
-            research_status="attempted_by_ceo_and_specialists",
+            research_status=research_status_value,
             output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error="Deliverables generated only. This local system did not perform or verify the requested external action.",
         )
@@ -294,7 +294,7 @@ def process(task, cfg):
         task.update(
             status="completed",
             completed_at=stamp(),
-            research_status="attempted_by_ceo_and_specialists",
+            research_status=research_status_value,
             output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error="",
         )
