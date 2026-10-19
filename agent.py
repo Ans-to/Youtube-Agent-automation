@@ -270,7 +270,7 @@ def cycle(task_id=None):
             match = next((item for item in latest if str(item.get("id", "")) == task_id), None)
             if match is not None:
                 match.update({k: v for k, v in task.items() if k in {
-                    "status", "started_at", "completed_at", "output_file", "error"
+                    "status", "started_at", "completed_at", "output_file", "error", "research_status"
                 }})
                 save_tasks(TASKS, latest)
         count += 1
