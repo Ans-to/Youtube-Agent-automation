@@ -352,7 +352,7 @@ def main():
     if args.render:
         command = [sys.executable, str(BASE / "studio.py"), "--storyboard",
                    str(output_dir / "storyboard.json"), "--output", str(output_dir / "video.mp4"), "--with-voice"]
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True, timeout=3600)
         aligned_storyboard = output_dir / "video.storyboard.json"
         if aligned_storyboard.is_file():
             (output_dir / "storyboard.json").write_text(aligned_storyboard.read_text(encoding="utf-8"), encoding="utf-8")
@@ -368,7 +368,7 @@ def main():
     elif args.render_template:
         command = [sys.executable, str(BASE / "studio.py"), "--storyboard",
                    str(output_dir / "storyboard.json"), "--output", str(output_dir / "video.mp4"), "--with-voice"]
-        subprocess.run(command, check=True)
+        subprocess.run(command, check=True, timeout=3600)
         aligned_storyboard = output_dir / "video.storyboard.json"
         if aligned_storyboard.is_file():
             aligned = json.loads(aligned_storyboard.read_text(encoding="utf-8"))
