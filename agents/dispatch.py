@@ -109,7 +109,9 @@ def run_role(role,task,context,cfg):
             if research_dir not in report_path.parents:
                 raise ValueError("Research report path escaped the workspace.")
             report_path.write_text(research_context.rstrip() + "\n", encoding="utf-8")
-            research_context += "\n\nSaved research report: " + str(report_path.relative_to(ROOT))
+            json_path = report_path.with_suffix(".json")
+            json_path.write_text(json.dumps({"metadata": metadata, "results": sources}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            research_context += "\n\nSaved research report: " + str(report_path.relative_to(ROOT)) + "\nSaved structured sources: " + str(json_path.relative_to(ROOT))
         except Exception as exc:
             research_context = (
                 "WEB RESEARCH ATTEMPT FAILED: " + type(exc).__name__ + ": " + str(exc)[:500] + "\n"
