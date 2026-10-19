@@ -71,3 +71,20 @@ The renderer writes frames under `video_studio/frames/` and a render manifest be
 
 ## Current limits
 This is a starter renderer, not a professional editor or anime rig system. It currently draws typography, a grid, progress bars, and geometric accents. Advanced character rigs, scene transitions, source-grounded web research, automatically timed captions, and a full long-form research pipeline are not implemented. Uploading is optional and approval-gated; the code cannot promise monetization or income.
+
+## Professional motion-design and character roadmap
+
+The agent's creative/QA contract is in:
+- [Professional Motion Design Director](skills/PRO_MOTION_DIRECTOR.md): transition selection, easing, staging, typography, audio-led pacing, review rubric, and render QA.
+- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, viseme-aligned lip sync, natural male narration, and acceptance tests.
+
+**Important status distinction:** these files establish requirements and a technical plan; they do not mean the current renderer has been upgraded to meet them. The current Canvas2D engine does not yet render a production-quality full-body character, and Piper output is not automatically natural-sounding. The existing README's setup command may produce a silent video unless `--with-voice` is explicitly used with a valid Piper installation and model.
+
+Recommended implementation order:
+1. Replace fixed, uniform transition behavior with a scene-pair-aware transition planner and continuous easing; render and inspect boundary samples.
+2. Add voice-model selection and audio QA. Reject missing, test-only, or clipped speech; align scene duration to speech rather than trimming speech to scene duration.
+3. Add a separate licensed 2D skeletal character pipeline, phrase-level facial motion and phoneme/viseme timing; composite transparent character renders into the existing edit.
+4. Integrate a fail-closed multimodal reviewer, objective frame/audio checks, timestamped defects, and exact-output hashes.
+5. Run a fresh end-to-end 5–10 second character-and-speech sample before attempting a long-form render.
+
+Research references and evaluation criteria are documented in the two skill files. A prompt alone cannot train a model to professional skill; the workflow needs suitable models/assets, repeated renders, measured defects, and regression tests.
