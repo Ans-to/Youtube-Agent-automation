@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
+sys.path.insert(0, str(BASE))
+from captions import build_subtitles, validate_english_text, validate_english_voice_model, validate_subtitle_text
 
 
 def run(command, cwd=BASE, **kwargs):
@@ -28,23 +30,27 @@ def probe_duration(ffprobe, path):
 
 
 def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps):
+    validate_english_voice_model(model)
     voice_dir = BASE / "voice_segments"
     shutil.rmtree(voice_dir, ignore_errors=True)
     voice_dir.mkdir(parents=True)
     segments = []
     for index, scene in enumerate(data["scenes"]):
-        narration = str(scene.get("narration", "")).strip()
+        narration = validate_english_text(scene.get("narration", ""), "Scene " + str(index + 1) + " narration")
+        scene["caption"] = narration
         raw = voice_dir / ("raw-%03d.wav" % index)
         if narration:
             run([piper, "--model", model, "--output_file", str(raw)],
                 input=(narration + "\n").encode("utf-8"))
             spoken_duration = probe_duration(ffprobe, raw)
+            scene["narration_duration_seconds"] = spoken_duration
         else:
             original = float(scene["duration_seconds"])
             run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
                  "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
                  "-t", str(original), "-c:a", "pcm_s16le", str(raw)])
             spoken_duration = 0.0
+            scene["narration_duration_seconds"] = float(scene["duration_seconds"])
         target_seconds = max(float(scene["duration_seconds"]), spoken_duration + 0.45)
         target_frames = max(1, math.ceil(target_seconds * fps))
         aligned_seconds = target_frames / fps
@@ -95,6 +101,11 @@ def main():
     if not storyboard.is_file():
         raise SystemExit("Storyboard not found: " + str(storyboard))
     data = json.loads(storyboard.read_text(encoding="utf-8"))
+    if not isinstance(data, dict) or not isinstance(data.get("scenes"), list) or not data["scenes"]:
+        raise SystemExit("Storyboard must contain at least one scene.")
+    for index, scene in enumerate(data["scenes"], 1):
+        scene["narration"] = validate_english_text(scene.get("narration", ""), "Scene " + str(index) + " narration")
+        scene["caption"] = scene["narration"]
     fps = int(data.get("fps", 30))
     if not 1 <= fps <= 60:
         raise SystemExit("Storyboard fps must be from 1 to 60.")
@@ -122,6 +133,12 @@ def main():
     output = output_arg.resolve() if output_arg.is_absolute() else (BASE / output_arg).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     silent = output.with_name(output.stem + ".silent.mp4")
+    srt_path, vtt_path = output.with_suffix(".srt"), output.with_suffix(".vtt")
+    srt_text, vtt_text = build_subtitles(data)
+    subtitle_report = validate_subtitle_text(srt_text, vtt_text)
+    srt_path.write_text(srt_text, encoding="utf-8")
+    vtt_path.write_text(vtt_text, encoding="utf-8")
+    print("Subtitle validation:", json.dumps(subtitle_report))
     frames = BASE / "frames" / "frame-%06d.png"
     run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-framerate", str(fps),
          "-i", str(frames), "-frames:v", str(manifest["frame_count"]),
@@ -158,6 +175,8 @@ def main():
     if generated_storyboard:
         generated_storyboard.unlink(missing_ok=True)
     print("SUCCESS:", output)
+    print("English subtitles (SRT):", srt_path)
+    print("English subtitles (WebVTT):", vtt_path)
     print("Duration:", manifest["duration_seconds"], "seconds")
     print("Frames:", manifest["frame_count"])
     print("Local MP4 only: this pipeline does not upload or publish content.")
