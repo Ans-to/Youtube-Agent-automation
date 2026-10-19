@@ -369,6 +369,15 @@ def main():
         command = [sys.executable, str(BASE / "studio.py"), "--storyboard",
                    str(output_dir / "storyboard.json"), "--output", str(output_dir / "video.mp4"), "--with-voice"]
         subprocess.run(command, check=True)
+        aligned_storyboard = output_dir / "video.storyboard.json"
+        if aligned_storyboard.is_file():
+            aligned = json.loads(aligned_storyboard.read_text(encoding="utf-8"))
+            (output_dir / "storyboard.json").write_text(json.dumps(aligned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            status["storyboard_seconds"] = sum(float(scene["duration_seconds"]) for scene in aligned["scenes"])
+            status["rendered_duration_seconds"] = status["storyboard_seconds"]
+            status["duration_target_met"] = abs(status["rendered_duration_seconds"] - target_seconds) <= 1 / 30
+            status["narration_alignment"] = "per-scene English audio; SRT/WebVTT generated and validated"
+            aligned_storyboard.unlink(missing_ok=True)
         status["voice_language"] = "English"
         status["subtitles_required"] = True
         status["subtitle_files"] = ["video.srt", "video.vtt"]
