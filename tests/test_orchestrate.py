@@ -14,6 +14,8 @@ class SpecialistRetryTests(unittest.TestCase):
     def test_quality_gate_requires_exactly_one_explicit_verdict(self):
         self.assertEqual(orchestrate.extract_quality_gate("Review\nOVERALL QUALITY GATE: PASS\n"), "pass")
         self.assertEqual(orchestrate.extract_quality_gate("Review without a verdict"), "unconfirmed")
+        self.assertEqual(orchestrate.extract_quality_gate("OVERALL QUALITY GATE:\\nPASS"), "unconfirmed")
+        self.assertEqual(orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS extra"), "unconfirmed")
         self.assertEqual(
             orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS\nOVERALL QUALITY GATE: FAIL"),
             "unconfirmed",
