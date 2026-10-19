@@ -325,12 +325,30 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             return destination, manifest
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
         reports_after = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
-        research_reports = sorted(str(path.relative_to(ROOT)) for path in reports_after - reports_before)
-        research_status = "report_saved" if research_reports else ("failure_disclosed" if "WEB RESEARCH ATTEMPT FAILED" in result else "not_confirmed")
+        new_report_paths = reports_after - reports_before
+        research_reports = sorted(str(path.relative_to(ROOT)) for path in new_report_paths)
+        pages_attempted = 0
+        pages_fetched = 0
+        for report_path in new_report_paths:
+            structured_path = report_path.with_suffix(".json")
+            try:
+                report_data = json.loads(structured_path.read_text(encoding="utf-8"))
+                metadata = report_data.get("metadata", {})
+                pages_attempted += int(metadata.get("pages_attempted", 0))
+                pages_fetched += int(metadata.get("pages_fetched", 0))
+            except (OSError, ValueError, TypeError):
+                continue
+        if pages_fetched:
+            research_status = "pages_fetched"
+        elif research_reports:
+            research_status = "search_leads_only"
+        else:
+            research_status = "failure_disclosed" if "WEB RESEARCH ATTEMPT FAILED" in result else "not_confirmed"
         records.append({
             "sequence": index, "agent_id": agent_id, "role": role["name"],
             "assigned_task": specialist_task, "output_file": filename, "status": "draft_generated",
             "research_status": research_status, "research_reports": research_reports,
+            "research_pages_attempted": pages_attempted, "research_pages_fetched": pages_fetched,
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
