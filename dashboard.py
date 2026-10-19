@@ -71,7 +71,7 @@ def task_state():
 
 HTML_PAGE = r'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#09070b"><title>Offline Agent HQ // Command Deck</title>
+<meta name="theme-color" content="#09070b"><meta name="description" content="Local-first AI agent command centre for task management, video production, and digital product prototyping."><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml"><title>Offline Agent HQ // Command Deck</title>
 <style>
 :root{--bg:#08070b;--panel:#111016;--panel2:#17121b;--line:#51211e;--red:#ff3b2f;--orange:#ff8a32;--gold:#ffc56c;--muted:#a99ca5;--text:#f8edf0;--green:#72f6b2;--blue:#73dfff;--radius:16px}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 38%,#281016 0,#0b080e 42%,#050509 100%);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
@@ -108,6 +108,7 @@ const roles=Array.isArray(d.agent_roster)?d.agent_roster:[];$('rosterCount').tex
 const done=[...d.tasks].reverse().filter(t=>t.output_file).slice(0,6);$('outputs').innerHTML=done.length?done.map(t=>`<div class="task"><div class="task-top"><div><h3>${esc(t.title||t.id)}</h3><div class="eyebrow">${esc(t.output_file)}</div></div><a class="tag" href="/output?id=${encodeURIComponent(t.id)}">OPEN</a></div></div>`).join(''):'<div class="empty">No output files recorded yet.</div>';
 }catch(e){$('liveText').textContent='DASHBOARD API ERROR';$('activity').innerHTML='<div class="empty">Could not refresh state: '+esc(e.message)+'</div>'}}
 refresh();setInterval(refresh,4000);
+if('serviceWorker' in navigator){navigator.serviceWorker.register('/service-worker.js').catch(()=>{});}
 </script></body></html>'''
 
 class Handler(BaseHTTPRequestHandler):
@@ -121,6 +122,20 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         parsed = urlparse(self.path); path = parsed.path; query = parse_qs(parsed.query)
+        # Serve only fixed, repository-owned PWA assets; never accept arbitrary file paths.
+        static_assets = {
+            "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json; charset=utf-8"),
+            "/service-worker.js": ("service-worker.js", "text/javascript; charset=utf-8"),
+            "/icon.svg": ("icon.svg", "image/svg+xml; charset=utf-8"),
+            "/offline.html": ("offline.html", "text/html; charset=utf-8"),
+        }
+        if path in static_assets:
+            file_name, content_type = static_assets[path]
+            try:
+                asset = (BASE / "web" / file_name).read_text(encoding="utf-8")
+            except OSError:
+                return self.send("PWA asset unavailable", status=503)
+            return self.send(asset, content_type)
         if path == "/": return self.send(HTML_PAGE)
         if path == "/api/state": return self.send(json.dumps(task_state()), "application/json; charset=utf-8")
         if path == "/health": return self.send(json.dumps({"status":"ok","task_count":len(load(TASKS, []))}), "application/json; charset=utf-8")
