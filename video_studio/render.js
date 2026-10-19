@@ -64,7 +64,7 @@ async function main(){
    for(let lf=0;lf<count;lf++){
     if(transitionFrames&&lf<transitionFrames){
      const t=transitionFrames<=1?1:lf/(transitionFrames-1);
-     await page.evaluate((prev,pf,pc,pg,cur,cf,cc,cg,kind,progress)=>window.drawTransitionFrame(prev,pf,pc,pg,cur,cf,cc,cg,kind,progress),previous,previousCount-1,previousCount,Math.max(0,total-count),scene,lf,count,total,String(scene.transition_in),t);
+     await page.evaluate((prev,pf,pc,pg,cur,cf,cc,cg,kind,progress)=>window.drawTransitionFrame(prev,pf,pc,pg,cur,cf,cc,cg,kind,progress),previous,previousCount-1,previousCount,Math.max(0,total-1),scene,lf,count,total,String(scene.transition_in),t);
     }else{ await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,total); }
     await page.screenshot({path:path.join(dir,"frame-"+String(total).padStart(6,"0")+".png"),type:"png"});total++;
    }
