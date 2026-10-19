@@ -1,12 +1,13 @@
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "video_studio"))
 import production
-from captions import build_subtitles, validate_english_text, validate_subtitle_text
+from captions import build_subtitles, validate_english_text, validate_english_voice_model, validate_subtitle_text
 
 
 class VideoStudioTests(unittest.TestCase):
@@ -63,6 +64,23 @@ class VideoStudioTests(unittest.TestCase):
         self.assertIn("matching subtitles.", srt)
         self.assertTrue(vtt.startswith("WEBVTT"))
         self.assertEqual(storyboard["scenes"][0]["caption"], storyboard["scenes"][0]["narration"])
+
+    def test_voice_model_language_is_verified_from_adjacent_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "voice.onnx"
+            model.write_bytes(b"model-placeholder")
+            config = Path(str(model) + ".json")
+            config.write_text(json.dumps({"language": {"code": "en_US"}}), encoding="utf-8")
+            self.assertEqual(validate_english_voice_model(model), "en_US")
+            config.write_text(json.dumps({"language": {"code": "ur_PK"}}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "English-only"):
+                validate_english_voice_model(model)
+
+    def test_subtitle_validation_rejects_overlapping_cues(self):
+        srt = "1\\n00:00:00,000 --> 00:00:02,000\\nFirst caption.\\n\\n2\\n00:00:01,000 --> 00:00:03,000\\nSecond caption.\\n"
+        vtt = "WEBVTT\\n\\n00:00:00.000 --> 00:00:02.000\\nFirst caption.\\n\\n00:00:01.000 --> 00:00:03.000\\nSecond caption.\\n"
+        with self.assertRaisesRegex(ValueError, "overlap"):
+            validate_subtitle_text(srt, vtt)
 
     def test_subtitle_validation_rejects_empty_files(self):
         with self.assertRaisesRegex(ValueError, "required"):
