@@ -141,9 +141,9 @@ def run_role(role,task,context,cfg):
                          query_topic[:250] + " independent analysis evidence",
                          query_topic[:250] + " limitations risks",
                          query_topic[:250] + " recent updates"],
-                max_results=5,
+                max_results=8,
             )
-            research_context = render_research_markdown(metadata, sources)[:18000]
+            research_context = render_research_markdown(metadata, sources, max_page_text=1800)[:18000]
             report_md, report_json = save_research_report(role["id"], research_context, metadata, sources)
             research_context += "\n\nSaved research report: " + report_md + "\nSaved structured sources: " + report_json
         except Exception as exc:
