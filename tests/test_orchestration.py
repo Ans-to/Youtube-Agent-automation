@@ -26,7 +26,7 @@ class OrchestrationTests(unittest.TestCase):
             )
             self.assertEqual(len(manifest["pipeline"]), 3)
             self.assertEqual(manifest["pipeline"][-1]["agent_id"], "AGENT-08")
-            self.assertFalse(manifest["research_performed"])
+            self.assertEqual(manifest["research_performed"], "attempted_for_each_specialist_stage")
             self.assertTrue(manifest["human_review_required"])
             self.assertTrue((destination / "pipeline-status.json").is_file())
             self.assertEqual(len(list(destination.glob("*.md"))), 2)
