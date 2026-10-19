@@ -39,7 +39,7 @@ def read_context(path):
 def heuristic_assignments(task):
     """Transparent no-model routing: a small role set matched to task intent."""
     text = task.lower()
-    video = any(word in text for word in ("youtube", "video", "shorts", "short-form", "script", "storyboard", "motion graphics", "animation", "narration"))
+    video = bool(re.search(r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b", text))
     software = any(word in text for word in ("build", "code", "software", "app", "website", "tool", "program", "automation", "debug", "feature", "repository", "system"))
     product = any(word in text for word in ("product", "sell", "customer", "market", "business", "monetize", "revenue", "launch"))
     assignments = [{"agent_id": "AGENT-02", "task": "Research the task requirements, authoritative sources, current constraints, and viable approaches. Return source-linked evidence and uncertainties."}]
