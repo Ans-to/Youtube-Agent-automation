@@ -27,7 +27,7 @@ def slug(value):
 def extract_quality_gate(text):
     """Accept a quality verdict only when exactly one explicit gate line is present."""
     matches = re.findall(
-        r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$",
+        r"(?im)^[ \t]*OVERALL QUALITY GATE:[ \t]*(PASS|PARTIAL|FAIL)[ \t]*[.!]?[ \t]*$",
         str(text or ""),
     )
     return matches[0].lower() if len(matches) == 1 else "unconfirmed"
