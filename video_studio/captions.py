@@ -102,9 +102,12 @@ def build_subtitles(storyboard):
 
 def validate_subtitle_text(srt_text, vtt_text):
     """Fail closed on empty/invalid subtitle sidecars and malformed time ranges."""
+    # Accept Windows CRLF, classic Mac CR, and UTF-8 BOMs from external subtitle tools.
+    srt_text = str(srt_text or "").lstrip("\\ufeff").replace("\\r\\n", "\\n").replace("\\r", "\\n")
+    vtt_text = str(vtt_text or "").lstrip("\\ufeff").replace("\\r\\n", "\\n").replace("\\r", "\\n")
     if not srt_text.strip() or not vtt_text.startswith("WEBVTT"):
         raise ValueError("Both non-empty SRT and WebVTT subtitle files are required.")
-    blocks = [block for block in srt_text.strip().split("\n\n") if block.strip()]
+    blocks = [block for block in srt_text.strip().split("\\n\\n") if block.strip()]
     if not blocks:
         raise ValueError("SRT file contains no cues.")
     previous_end = -1.0
