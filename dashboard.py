@@ -109,10 +109,16 @@ def task_state():
     counts["pending"] = sum(1 for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"})
     cfg = load(CONFIG, {})
     model = cfg.get("model", {})
+    video_task = next((t for t in reversed(tasks) if str(t.get("title", "")).startswith("Video:")), None)
+    product_task = next((t for t in reversed(tasks) if str(t.get("title", "")).startswith("Digital product:")), None)
+    video_status = str(video_task.get("status", "")) if video_task else ""
+    product_status = str(product_task.get("status", "")) if product_task else ""
+    video_output = (video_task.get("output_file") or ("Queued " + str(video_task.get("id", "")) + " (" + video_status + ")")) if video_task else VIDEO_LAST_OUTPUT
+    product_output = (product_task.get("output_file") or ("Queued " + str(product_task.get("id", "")) + " (" + product_status + ")")) if product_task else PRODUCT_LAST_OUTPUT
     return {"tasks": tasks[-100:], "counts": counts, "model_enabled": bool(model.get("enabled")),
             "model_name": model.get("model", "local-model"), "running": RUNNING, "active_workflow": ACTIVE_WORKFLOW, "pipeline_running": PIPELINE_RUNNING, "pipeline_output": PIPELINE_LAST_OUTPUT,
-            "video_running": VIDEO_RUNNING, "video_output": VIDEO_LAST_OUTPUT,
-            "product_running": PRODUCT_RUNNING, "product_output": PRODUCT_LAST_OUTPUT,
+            "video_running": VIDEO_RUNNING or video_status == "running", "video_output": video_output,
+            "product_running": PRODUCT_RUNNING or product_status == "running", "product_output": product_output,
             "training_running": TRAINING_RUNNING, "training_output": TRAINING_LAST_OUTPUT,
             "pipeline": ["CEO Coordinator", "Researching Specialists", "Assigned Workers", "Quality Reviewer"],
             "updated": datetime.now().astimezone().isoformat(timespec="seconds"), "agent_roster": load(AGENTS, {}).get("agents", [])}
