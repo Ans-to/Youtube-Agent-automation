@@ -254,6 +254,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
     roles_by_id = {role.get("id"): role for role in roles}
     cfg = config if config is not None else dispatch.load_json(ROOT / "config.json", {})
+    ceo_research_dir = ROOT / "workspace" / "research" / "agent-runs"
+    ceo_reports_before = set(ceo_research_dir.glob("agent-01-*.md")) if ceo_research_dir.is_dir() else set()
     if agent_ids is None:
         assignments, delegation_mode = plan_delegation(task.strip(), context, cfg, roles_by_id)
     else:
@@ -266,6 +268,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             raise ValueError("CEO and human approval roles cannot be run as ordinary specialist stages.")
         assignments = [{"agent_id": agent_id, "task": "Complete your specialist contribution to this overall goal: " + task.strip()} for agent_id in selected]
         delegation_mode = "user_selected_roles"
+    ceo_reports_after = set(ceo_research_dir.glob("agent-01-*.md")) if ceo_research_dir.is_dir() else set()
+    ceo_research_reports = sorted(str(path.relative_to(ROOT)) for path in ceo_reports_after - ceo_reports_before)
     selected = [item["agent_id"] for item in assignments]
     destination = Path(output_dir).resolve() if output_dir else WORKSPACE / "orchestration" / slug(task[:80])
     if destination == WORKSPACE or WORKSPACE not in destination.parents:
@@ -305,7 +309,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
             }
             records.append(failure)
-            manifest = build_manifest(task, records, cfg, status="failed", delegation_mode=delegation_mode, assignments=assignments)
+            manifest = build_manifest(task, records, cfg, status="failed", delegation_mode=delegation_mode, assignments=assignments, ceo_research_reports=ceo_research_reports)
             (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             return destination, manifest
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
@@ -323,18 +327,19 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     final_status = "failed" if required_tool_failed else "draft"
-    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs)
+    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return destination, manifest
 
 
-def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None):
+def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None):
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task.strip(),
         "pipeline": records,
         "delegation_mode": delegation_mode,
         "ceo_assignments": assignments or [],
+        "ceo_research_reports": ceo_research_reports or [],
         "tool_runs": tool_runs or [],
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
