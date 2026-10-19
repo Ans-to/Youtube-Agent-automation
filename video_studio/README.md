@@ -88,3 +88,16 @@ Recommended implementation order:
 5. Run a fresh end-to-end 5–10 second character-and-speech sample before attempting a long-form render.
 
 Research references and evaluation criteria are documented in the two skill files. A prompt alone cannot train a model to professional skill; the workflow needs suitable models/assets, repeated renders, measured defects, and regression tests.
+
+## Motion/character acceptance prototype status
+
+The renderer now has an optional procedural 2D presenter layer (`scene.character`) with breathing/bob, arm gesture, blinking, simple body movement, and selectable mouth shapes. Storyboards may provide normalized `x`/`y`, `scale`, `walking`, colour fields, and `visemes: [{t, shape}]`. These viseme cues are normalized scene-time cues, **not** forced alignment to speech. This is a lightweight stylized presenter, not a production-quality anime rig or a full skeletal deformation system.
+
+Scene transitions now composite the previous scene's last frame over the incoming scene for fade/wipe transitions rather than painting an opaque overlay over the incoming frame. Transition frames are bounded to 6–24 frames. A transition should be selected intentionally; use `none` for a hard cut.
+
+A short regression storyboard is provided at `storyboard.motion-character-demo.json`. Render it with:
+
+    npm install
+    python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4
+
+This command produces a **silent visual test** unless `--with-voice` and a valid local Piper voice are configured. It is not a natural-voice acceptance test. A human-quality male Urdu/English voice, phoneme-aligned lip-sync, professional character acting, and an actual multimodal reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
