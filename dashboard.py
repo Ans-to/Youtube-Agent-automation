@@ -550,8 +550,13 @@ def main():
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise SystemExit("Safety check: dashboard must bind to loopback only.")
     server = HTTPServer((host, port), Handler)
+    if has_pending_tasks():
+        print("Pending tasks detected; automatically resuming the local queue worker.")
+        started, active = start_task_runner()
+        if not started:
+            print("Queue remains pending because another workflow is active: " + active)
     print(f"Holographic Offline Agent HQ: http://127.0.0.1:{port}")
-    print("Keep Termux open. Press Ctrl+C to stop.")
+    print("Keep the terminal open. Press Ctrl+C to stop.")
     try: server.serve_forever()
     except KeyboardInterrupt: print("\nDashboard stopped.")
     finally: server.server_close()
