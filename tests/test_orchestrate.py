@@ -189,7 +189,7 @@ class CEODelegationTests(unittest.TestCase):
                     config={"model": {"enabled": False}},
                 )
             self.assertGreater(len(manifest["task"]), 6000)
-            self.assertEqual(manifest["task"], long_task)
+            self.assertEqual(manifest["task"], long_task.strip())
             self.assertTrue((destination / "pipeline-status.json").is_file())
 
     def test_pipeline_status_is_blocked_when_full_render_is_unavailable(self):
