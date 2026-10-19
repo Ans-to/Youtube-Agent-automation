@@ -489,9 +489,11 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
     reviewer_gate = reviewer_record.get("quality_gate", "unconfirmed")
     specialist_failed = any(item.get("status") == "failed" for item in records)
-    final_status = "failed" if (required_tool_failed or specialist_failed) else (
+    final_status = "failed" if required_tool_failed else (
         "blocked" if required_tool_blocked else (
-            "review_failed" if reviewer_gate == "fail" else "draft"
+            "review_failed" if reviewer_gate == "fail" else (
+                "partial" if specialist_failed or reviewer_gate in {"partial", "unconfirmed"} else "draft"
+            )
         )
     )
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports)
