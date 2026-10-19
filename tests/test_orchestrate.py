@@ -47,10 +47,10 @@ class CEODelegationTests(unittest.TestCase):
         ).get("agents", [])}
         assignments = orchestrate.parse_ceo_assignments(
             '{"assignments":['
+            '{"agent_id":"AGENT-08","task":"Review factual claims"},'
             '{"agent_id":"AGENT-09","task":"Write the script"},'
             '{"agent_id":"AGENT-50","task":"Approve publishing"},'
-            '{"agent_id":"AGENT-09","task":"Duplicate"},'
-            '{"agent_id":"AGENT-08","task":"Review factual claims"}]}',
+            '{"agent_id":"AGENT-09","task":"Duplicate"}]}',
             roles,
         )
         ids = [item["agent_id"] for item in assignments]
