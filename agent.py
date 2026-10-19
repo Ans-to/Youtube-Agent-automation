@@ -244,7 +244,16 @@ def process(task, cfg):
     ]
     import re
     needs_action = any(re.search(pattern, request_text, re.IGNORECASE) for pattern in external_action_patterns)
-    if needs_action:
+    if manifest.get("status") == "failed":
+        task.update(
+            status="failed",
+            completed_at=stamp(),
+            research_status="attempted_by_ceo_and_specialists",
+            output_file=str(path.relative_to(BASE)),
+            error="CEO pipeline stopped after a specialist failure. Partial output was saved; inspect the manifest before retrying.",
+        )
+        log(f"FAILED {task.get('id')} -> partial output {path.name}")
+    elif needs_action:
         task.update(
             status="needs_human_action",
             completed_at="",
@@ -289,10 +298,12 @@ def cycle(task_id=None):
             save_tasks(TASKS, tasks)
         try:
             process(task, cfg)
-            if task.get("status") != "needs_human_action":
-                print(f"Completed {task_id} -> {task.get('output_file', '')}")
-            else:
+            if task.get("status") == "failed":
+                print(f"Failed {task_id}: {task.get('error', '')}")
+            elif task.get("status") == "needs_human_action":
                 print(f"Needs human action {task_id} -> {task.get('output_file', '')}")
+            else:
+                print(f"Completed {task_id} -> {task.get('output_file', '')}")
         except Exception as e:
             task.update(status="failed", error=str(e)[:400], completed_at=stamp())
             log(f"FAILED {task_id}: {type(e).__name__}: {e}")
