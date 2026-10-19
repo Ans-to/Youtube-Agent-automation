@@ -128,6 +128,36 @@ def validate_subtitle_text(srt_text, vtt_text):
         if len(text) > 1000:
             raise ValueError("Subtitle cue exceeds the 1000-character limit.")
         previous_end = end
-    if vtt_text.count("-->") != len(blocks):
+    vtt_blocks = [block for block in vtt_text.strip().split("\\n\\n") if block.strip()]
+    if not vtt_blocks or vtt_blocks[0].strip() != "WEBVTT":
+        raise ValueError("WebVTT header is missing or malformed.")
+    vtt_cues = vtt_blocks[1:]
+    if len(vtt_cues) != len(blocks):
         raise ValueError("SRT and WebVTT cue counts do not match.")
+
+    def normalize_cue_text(lines):
+        return " ".join(" ".join(lines).split())
+
+    def parse_vtt_stamp(stamp):
+        match = re.fullmatch(r"(\\d{2,}):(\\d{2}):(\\d{2})\\.(\\d{3})", stamp)
+        if not match:
+            raise ValueError("Invalid WebVTT timestamp: " + stamp)
+        h, m, sec, ms = map(int, match.groups())
+        return h * 3600 + m * 60 + sec + ms / 1000
+
+    for index, (srt_block, vtt_block) in enumerate(zip(blocks, vtt_cues), 1):
+        srt_lines = srt_block.splitlines()
+        vtt_lines = vtt_block.splitlines()
+        if len(vtt_lines) < 2:
+            raise ValueError("Malformed WebVTT cue block " + str(index) + ".")
+        vtt_timing = re.fullmatch(r"(\\d{2,}:\\d{2}:\\d{2}\\.\\d{3}) --> (\\d{2,}:\\d{2}:\\d{2}\\.\\d{3})", vtt_lines[0])
+        if not vtt_timing:
+            raise ValueError("Malformed WebVTT cue timing at cue " + str(index) + ".")
+        vtt_start, vtt_end = map(parse_vtt_stamp, vtt_timing.groups())
+        srt_match = TIMESTAMP_SRT.fullmatch(srt_lines[1])
+        srt_start, srt_end = map(seconds, srt_match.groups())
+        if abs(vtt_start - srt_start) > 0.001 or abs(vtt_end - srt_end) > 0.001:
+            raise ValueError("SRT and WebVTT cue timings differ at cue " + str(index) + ".")
+        if normalize_cue_text(srt_lines[2:]) != normalize_cue_text(vtt_lines[1:]):
+            raise ValueError("SRT and WebVTT subtitle text differs at cue " + str(index) + ".")
     return {"cue_count": len(blocks), "duration_seconds": previous_end}
