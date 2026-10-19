@@ -147,10 +147,18 @@
   window.drawFrame(previous,previousFrame,previousCount,previousGlobal,true);
   const outgoing=new Image();outgoing.src=canvas.toDataURL("image/png");await outgoing.decode();
   window.drawFrame(current,currentFrame,currentCount,currentGlobal,true);
-  const q=easeSmooth(t);ctx.save();
-  if(kind==="fade"){ctx.globalAlpha=1-q;ctx.drawImage(outgoing,0,0,canvas.width,canvas.height);}
-  else if(kind==="wipe-left"||kind==="wipe-right"){const width=canvas.width*(1-q);ctx.beginPath();ctx.rect(kind==="wipe-left"?canvas.width-width:0,0,width,canvas.height);ctx.clip();ctx.drawImage(outgoing,0,0,canvas.width,canvas.height);}
-  else {ctx.globalAlpha=1-q;ctx.drawImage(outgoing,0,0,canvas.width,canvas.height);}
+  const incoming=new Image();incoming.src=canvas.toDataURL("image/png");await incoming.decode();
+  const q=easeSmooth(t),w=canvas.width,h=canvas.height;ctx.save();
+  if(kind==="fade"){ctx.globalAlpha=1-q;ctx.drawImage(outgoing,0,0,w,h);}
+  else if(kind==="wipe-left"||kind==="wipe-right"){const width=w*(1-q);ctx.beginPath();ctx.rect(kind==="wipe-left"?w-width:0,0,width,h);ctx.clip();ctx.drawImage(outgoing,0,0,w,h);}
+  else if(kind==="slide-left"||kind==="slide-right"){
+   ctx.drawImage(outgoing,0,0,w,h);
+   const offset=(1-q)*w*(kind==="slide-left"?1:-1);
+   ctx.drawImage(incoming,offset,0,w,h);
+  }else if(kind==="zoom"){
+   ctx.drawImage(outgoing,0,0,w,h);ctx.globalAlpha=q;ctx.translate(w/2,h/2);
+   const scale=.92+.08*q;ctx.scale(scale,scale);ctx.drawImage(incoming,-w/2,-h/2,w,h);
+  }else{ctx.globalAlpha=1-q;ctx.drawImage(outgoing,0,0,w,h);}
   ctx.restore();
  }
  window.drawTransitionFrame=drawTransitionFrame;
