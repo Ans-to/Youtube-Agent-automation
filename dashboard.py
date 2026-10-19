@@ -54,6 +54,54 @@ def save(path, data):
 
 def esc(v): return html.escape(str(v), quote=True)
 
+def render_markdown_safe(source):
+    """Render a safe, readable subset of Markdown without executing generated HTML."""
+    output = []
+    list_tag = None
+
+    def close_list():
+        nonlocal list_tag
+        if list_tag:
+            output.append("</" + list_tag + ">")
+            list_tag = None
+
+    for raw in source.splitlines():
+        line = raw.strip()
+        if not line:
+            close_list()
+            continue
+        heading = re.match(r"^(#{1,3})\s+(.+)$", line)
+        if heading:
+            close_list()
+            level = len(heading.group(1))
+            output.append("<h" + str(level) + ">" + esc(heading.group(2)) + "</h" + str(level) + ">")
+        elif line.startswith("- "):
+            if list_tag != "ul":
+                close_list()
+                output.append("<ul>")
+                list_tag = "ul"
+            output.append("<li>" + esc(line[2:]) + "</li>")
+        elif re.match(r"^\d+\.\s+", line):
+            if list_tag != "ol":
+                close_list()
+                output.append("<ol>")
+                list_tag = "ol"
+            output.append("<li>" + esc(re.sub(r"^\d+\.\s+", "", line)) + "</li>")
+        elif line == "---":
+            close_list()
+            output.append("<hr>")
+        elif line.startswith("> "):
+            close_list()
+            output.append("<blockquote>" + esc(line[2:]) + "</blockquote>")
+        else:
+            close_list()
+            safe = esc(line)
+            safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe)
+            output.append("<p>" + safe + "</p>")
+    close_list()
+    return "\n".join(output)
+
+
 def task_state():
     raw_tasks = load(TASKS, [])
     tasks = [t for t in raw_tasks if isinstance(t, dict)] if isinstance(raw_tasks, list) else []
@@ -154,7 +202,7 @@ class Handler(BaseHTTPRequestHandler):
             if not rel or BASE not in candidate.parents or not candidate.is_file(): return self.send("Output file not found", status=404)
             content = candidate.read_text(encoding="utf-8", errors="replace")
             # Render Markdown as safe preformatted text; no JS or HTML from task output is executed.
-            return self.send("<!doctype html><meta name='viewport' content='width=device-width'><title>"+esc(task.get("title"))+"</title><body style='font:15px/1.6 system-ui;background:#0b090e;color:#f8edf0;padding:20px;max-width:900px;margin:auto'><a style='color:#ff9c3e' href='/'>← Dashboard</a><h1>"+esc(task.get("title"))+"</h1><p style='color:#a99ca5'>Markdown output · "+esc(rel)+"</p><pre style='white-space:pre-wrap;overflow-wrap:anywhere;background:#17121b;border:1px solid #51211e;border-radius:12px;padding:16px'>"+esc(content)+"</pre></body>")
+            return self.send("<!doctype html><meta name='viewport' content='width=device-width'><title>"+esc(task.get("title"))+"</title><style>body{font:16px/1.65 system-ui;background:#09080e;color:#f8edf0;padding:16px;max-width:980px;margin:auto}.doc{background:#141019;border:1px solid #512b31;border-radius:16px;padding:clamp(16px,4vw,32px);overflow-wrap:anywhere}h1,h2,h3{color:#ffd19b;line-height:1.25}h2{margin-top:28px;border-bottom:1px solid #54333e;padding-bottom:8px}a{color:#ffbd86}li{margin:7px 0}blockquote{border-left:3px solid #ff8a32;padding-left:12px;color:#d8bdc6}hr{border:0;border-top:1px solid #54333e}p{margin:12px 0}</style><a href='/'>← Dashboard</a><p style='color:#a99ca5'>"+esc(rel)+"</p><article class='doc'><h1>"+esc(task.get("title"))+"</h1>"+render_markdown_safe(content)+"</article></body>")
         return self.send("Not found", status=404)
 
     def do_POST(self):
