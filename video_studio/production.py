@@ -231,7 +231,7 @@ def main():
         raise SystemExit("Target minutes must be between 0.25 and 16 to stay within renderer resource limits.")
     if args.with_voice and not args.render:
         raise SystemExit("--with-voice requires --render.")
-    if args.render:
+    if args.render or args.render_template:
         piper = shutil.which("piper")
         voice_model = os.environ.get("PIPER_MODEL", "").strip()
         if not piper or not voice_model:
@@ -363,8 +363,12 @@ def main():
             aligned_storyboard.unlink(missing_ok=True)
     elif args.render_template:
         command = [sys.executable, str(BASE / "studio.py"), "--storyboard",
-                   str(output_dir / "storyboard.json"), "--output", str(output_dir / "video.mp4")]
+                   str(output_dir / "storyboard.json"), "--output", str(output_dir / "video.mp4"), "--with-voice"]
         subprocess.run(command, check=True)
+        status["voice_language"] = "English"
+        status["subtitles_required"] = True
+        status["subtitle_files"] = ["video.srt", "video.vtt"]
+        (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
