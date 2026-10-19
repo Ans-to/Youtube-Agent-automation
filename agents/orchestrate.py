@@ -188,9 +188,9 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
     )
     video_requested = bool(video_intent and re.search(verbs, intent_lower))
     product_requested = bool(re.search(
-        r"\b(digital product|product prototype|(?:build|create|make|develop|implement)\s+(?:(?:me|a|an|the)\s+)?(?:(?:simple|small|local|offline|responsive|basic|functional|custom|tiny|working)\s+){0,3}(?:product|app|website|web app|software tool|tool|utility|prototype|calculator|dashboard)|product idea for (?:a )?tool)\b",
+        r"\b(?:build|create|make|develop|implement)\s+(?:(?:me|a|an|the)\s+)?(?:(?:simple|small|local|offline|responsive|basic|functional|custom|tiny|working|digital)\s+){0,3}(?:product|app|website|web app|software tool|tool|utility|prototype|calculator|dashboard)\b",
         intent_lower,
-    ))
+    ) or re.search(r"\bproduct idea for (?:a )?tool\b", intent_lower))
     render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", intent_lower))
     template_demo = bool(re.search(r"\b(template demo|demo render)\b", intent_lower)) and not model_enabled
     source_path = None
