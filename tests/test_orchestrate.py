@@ -360,6 +360,47 @@ class CEODelegationTests(unittest.TestCase):
             self.assertIn("Preserved source finding", later_contexts["AGENT-03"])
             self.assertEqual(manifest["pipeline"][-1]["quality_gate"], "partial")
 
+    def test_reviewer_partial_triggers_one_repair_and_a_final_re_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-repair"
+            calls = []
+            review_count = 0
+
+            def fake_role(role, task, context, cfg):
+                nonlocal review_count
+                agent_id = role["id"]
+                calls.append(agent_id)
+                if agent_id == "AGENT-08":
+                    review_count += 1
+                    if review_count == 1:
+                        return "# Review\\n\\nMissing required evidence.\\n\\nOVERALL QUALITY GATE: PARTIAL\\n"
+                    return "# Final review\\n\\nRepair fixed the critical gap.\\n\\nOVERALL QUALITY GATE: PASS\\n"
+                if agent_id == "AGENT-52" and "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
+                    return "# Corrected motion specification\\n\\nEvidence and acceptance checks added.\\n"
+                return "# Deliverable\\n\\nDraft output from " + agent_id
+
+            with patch.object(orchestrate, "ROOT", root), \\
+                 patch.object(orchestrate, "WORKSPACE", workspace), \\
+                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \\
+                 patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role):
+                destination, manifest = orchestrate.run_pipeline(
+                    "Create a YouTube video with professional motion graphics",
+                    output_dir=output,
+                    config={"model": {"enabled": True, "max_output_tokens": 500}},
+                )
+
+            self.assertEqual(review_count, 2)
+            self.assertIn("AGENT-52", calls)
+            self.assertEqual(manifest["quality_gate"], "pass")
+            self.assertEqual(manifest["status"], "draft")
+            self.assertTrue(manifest["repair_attempt"]["attempted"])
+            self.assertEqual(manifest["repair_attempt"]["status"], "completed")
+            self.assertTrue((destination / "99-final-quality-review.md").is_file())
+            self.assertTrue((destination / manifest["repair_attempt"]["repair_file"]).is_file())
+
     def test_explicit_reviewer_failure_is_preserved_in_pipeline_status(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
