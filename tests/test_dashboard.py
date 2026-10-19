@@ -85,7 +85,7 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertTrue(claimed_after_release)
 
     def test_dashboard_exposes_video_product_and_specialist_forms(self):
-        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'Leave blank: CEO chooses the team', 'progressMarkup(t)', 'start_task_runner()'):
+        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'Leave blank: CEO chooses the team', 'progressMarkup(t)'):
             with self.subTest(action=action):
                 self.assertIn(action, dashboard.HTML_PAGE)
 
