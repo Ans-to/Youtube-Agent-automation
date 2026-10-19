@@ -432,7 +432,7 @@ class Handler(BaseHTTPRequestHandler):
                     if context_file:
                         command.extend(["--context-file", context_file])
                     with (LOGS / "pipeline.log").open("a", encoding="utf-8") as log_file:
-                        log_file.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] Pipeline started: {','.join(ids)}\n")
+                        log_file.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] CEO pipeline started; delegation: {','.join(ids) if ids else 'automatic'}\n")
                         try:
                             result = subprocess.run(command, cwd=str(BASE), stdout=log_file,
                                                     stderr=subprocess.STDOUT, timeout=7200, check=False)
