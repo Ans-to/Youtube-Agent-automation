@@ -131,7 +131,15 @@ class EndToEndSimulationTests(unittest.TestCase):
 
                 after = json.loads(tasks_path.read_text(encoding="utf-8"))
                 self.assertEqual(after[0]["id"], task_id)
-                self.assertEqual(after[0]["status"], "completed", after[0].get("error", ""))
+                self.assertTrue(after[0].get("output_file"))
+
+                manifest_path = workspace / "orchestration" / ("task-" + task_id) / "pipeline-status.json"
+                self.assertTrue(manifest_path.is_file())
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    after[0]["status"], "completed",
+                    "Unexpected queue status; pipeline manifest follows:\n" + json.dumps(manifest, indent=2)
+                )
                 self.assertTrue(after[0].get("output_file"))
 
                 result_file = root / after[0]["output_file"]
@@ -140,10 +148,6 @@ class EndToEndSimulationTests(unittest.TestCase):
                 self.assertIn("CEO delegation plan", result_text)
                 self.assertIn("Specialist deliverables", result_text)
                 self.assertIn("SIMULATED", result_text.upper())
-
-                manifest_path = workspace / "orchestration" / ("task-" + task_id) / "pipeline-status.json"
-                self.assertTrue(manifest_path.is_file())
-                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
                 self.assertEqual(manifest["delegation_mode"], "ceo_model_delegation")
                 self.assertEqual(manifest["pipeline"][-1]["agent_id"], "AGENT-08")
                 self.assertEqual(manifest["quality_gate"], "pass")
