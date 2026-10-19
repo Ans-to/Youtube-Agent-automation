@@ -7,6 +7,10 @@ from queue_store import task_queue_lock, load_tasks, save_tasks
 from quality_outputs import youtube_package, structured_plan, structured_draft, structured_review
 
 BASE = Path(__file__).resolve().parent
+AGENT_DIR = BASE / "agents"
+if str(AGENT_DIR) not in sys.path:
+    sys.path.insert(0, str(AGENT_DIR))
+from orchestrate import run_pipeline as run_ceo_pipeline
 RESEARCH_DIR = BASE / "video_studio"
 if str(RESEARCH_DIR) not in sys.path:
     sys.path.insert(0, str(RESEARCH_DIR))
@@ -143,48 +147,92 @@ def process(task, cfg):
     kind = task.get("kind", "")
     if kind not in {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}:
         raise ValueError("Unsupported task type.")
-    # Every queued task attempts fresh web research before the model or template worker runs.
-    research_report = ""
-    research_status = "unavailable"
-    if collect_web_research is not None:
-        try:
-            topic = sanitize_research_query((str(task.get("title", "")) + " " + str(task.get("input", ""))).strip())
-            metadata, sources = collect_web_research(
-                topic,
-                queries=[topic[:300], topic[:250] + " official documentation",
-                         topic[:250] + " independent analysis evidence"],
-                max_results=5,
-            )
-            research_report = render_research_markdown(metadata, sources)[:22000]
-            research_status = "search_and_page_fetch_attempted"
-        except Exception as exc:
-            research_report = (
-                "# Automated web research unavailable\n\n"
-                "Research attempt failed: " + type(exc).__name__ + ": " + str(exc)[:500] + "\n\n"
-                "Do not claim research succeeded. Continue only with supplied context and mark claims requiring evidence [VERIFY].\n"
-            )
-            research_status = "failed:" + type(exc).__name__
-    else:
-        research_report = "# Automated web research unavailable\n\nResearch module could not be loaded. Do not claim research succeeded.\n"
-    task["research_status"] = research_status
-    if kind not in {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}:
-        raise ValueError("Unsupported task type.")
+
+    # Every queued task is sent to the CEO, who delegates distinct subtasks to specialists.
+    title = str(task.get("title", "Untitled")).strip()
+    user_request = str(task.get("input", "")).strip()
+    goal = (
+        "TASK TYPE: " + kind + "\n"
+        "TASK TITLE: " + title + "\n"
+        "USER REQUEST:\n" + user_request + "\n\n"
+        "REQUIRED OUTCOME: produce the requested usable deliverable, not just advice about how to make it. "
+        "Respect the task type, supplied constraints, privacy, and human approval boundaries. "
+        "Specialists must research the task before working, use source-linked evidence where relevant, "
+        "create their assigned deliverables, and pass unresolved issues forward. "
+        "Do not claim an artifact was executed, rendered, uploaded, published, or externally verified unless the available tools and evidence confirm it."
+    )
     context = workspace_text(cfg) if kind in {"summarize_workspace", "review_output"} else ""
-    context = (context + "\n\n## AUTOMATED WEB RESEARCH\n" + research_report)[:30000]
-    result = ask_local_model(build_prompt(task, kind, context, cfg), cfg, kind)
-    if not result:
-        result = fallback(task, kind, context)
-        result += "\n\n## Automated research report\n\n" + research_report
+    destination = (WORKSPACE / "orchestration" / ("task-" + safe_id(task.get("id")))).resolve()
+    destination.mkdir(parents=True, exist_ok=True)
+    out_dir, manifest = run_ceo_pipeline(
+        goal,
+        context=context,
+        agent_ids=None,
+        output_dir=destination,
+        config=cfg,
+    )
+
+    # Aggregate specialist deliverables into the queue's stable output path.
+    sections = [
+        "# CEO-led task result",
+        "",
+        "- Task ID: " + safe_id(task.get("id")),
+        "- Task type: " + kind,
+        "- Delegation mode: " + str(manifest.get("delegation_mode", "unknown")),
+        "- Model enabled: " + str(bool(manifest.get("model_enabled"))),
+        "- Specialist stages: " + str(len(manifest.get("pipeline", []))),
+        "- Research: attempted by the CEO when model-enabled and by each specialist stage",
+        "- Independent fact verification: not guaranteed; review source reports and claims",
+        "",
+        "## CEO delegation plan",
+        "",
+    ]
+    for item in manifest.get("ceo_assignments", []):
+        sections.append("- " + str(item.get("agent_id", "unknown")) + ": " + str(item.get("task", "")))
+    sections.extend(["", "## Specialist deliverables", ""])
+    total_chars = 0
+    for record in manifest.get("pipeline", []):
+        sections.extend(["### " + str(record.get("role", record.get("agent_id", "Specialist"))), ""])
+        sections.append("- Status: " + str(record.get("status", "unknown")))
+        if record.get("assigned_task"):
+            sections.append("- Assigned task: " + str(record["assigned_task"]))
+        output_file = record.get("output_file")
+        if output_file:
+            candidate = (out_dir / output_file).resolve()
+            if out_dir.resolve() in candidate.parents and candidate.is_file():
+                body = candidate.read_text(encoding="utf-8", errors="replace")[:12000]
+                remaining = max(0, 48000 - total_chars)
+                body = body[:remaining]
+                sections.extend(["", body, ""])
+                total_chars += len(body)
+            else:
+                sections.append("- Deliverable file was not found at the expected workspace location.")
+        if record.get("error"):
+            sections.append("- Error: " + str(record["error"])[:500])
+        sections.append("")
+        if total_chars >= 48000:
+            sections.append("[Output aggregation truncated to the configured size limit.]")
+            break
+    if manifest.get("status") == "failed":
+        sections.extend(["## Pipeline status", "", "The CEO pipeline stopped after a specialist failure. Review the saved pipeline manifest and logs before retrying.", ""])
+    sections.extend([
+        "## Review requirements",
+        "",
+        "- Treat search snippets and extracted pages as evidence to evaluate, not automatic proof.",
+        "- Check citations, dates, source independence, and whether each source supports its associated claim.",
+        "- Confirm generated code, documents, renders, and other artifacts exist and meet the user's acceptance criteria.",
+        "- External actions such as publishing, payments, deletion, or messaging remain approval-gated.",
+        "",
+        "## Pipeline manifest",
+        "",
+        "Saved at: " + str((out_dir / "pipeline-status.json").relative_to(BASE)),
+    ])
+    result = "\n".join(sections).rstrip() + "\n"
     OUTPUTS.mkdir(exist_ok=True)
     path = OUTPUTS / (safe_id(task.get("id")) + ".md")
-    path.write_text(result.rstrip() + "\n", encoding="utf-8")
+    path.write_text(result, encoding="utf-8")
 
-    # Generated text is not proof that an external action happened.
-    request_text = " ".join(
-        str(task.get(k, "")) for k in ("title", "input")
-    ).strip().lower()
-
-    # Flag explicit execution requests, not ordinary drafting or planning.
+    request_text = " ".join(str(task.get(k, "")) for k in ("title", "input")).strip().lower()
     external_action_patterns = [
         r"\bset (?:an? )?alarm\b",
         r"\b(?:wake me|remind me|schedule (?:a )?reminder)\b",
@@ -204,36 +252,27 @@ def process(task, cfg):
         r"\bdelete (?:the|this|my)\b",
     ]
     import re
-    needs_action = any(
-        re.search(pattern, request_text, re.IGNORECASE)
-        for pattern in external_action_patterns
-    )
-
+    needs_action = any(re.search(pattern, request_text, re.IGNORECASE) for pattern in external_action_patterns)
     if needs_action:
-        status = "needs_human_action"
-        message = (
-            "Plan or draft generated only. This local runner did not perform "
-            "or verify the requested external action."
-        )
         task.update(
-            status=status,
+            status="needs_human_action",
             completed_at="",
-            research_status=research_status,
-            output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
-            error=message,
+            research_status="attempted_by_ceo_and_specialists",
+            output_file=str(path.relative_to(BASE)),
+            error="Deliverables generated only. This local system did not perform or verify the requested external action.",
         )
         log(f"NEEDS HUMAN ACTION {task.get('id')} -> {path.name}")
     else:
         task.update(
             status="completed",
             completed_at=stamp(),
-            research_status=research_status,
-            output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
+            research_status="attempted_by_ceo_and_specialists",
+            output_file=str(path.relative_to(BASE)),
             error="",
         )
         log(f"COMPLETED {task.get('id')} -> {path.name}")
-
     return path
+
 
 def cycle(task_id=None):
     cfg = load(CONFIG, {})
