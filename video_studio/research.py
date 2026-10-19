@@ -6,6 +6,7 @@ import json
 import urllib.error
 import urllib.parse
 import urllib.request
+import socket
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -117,7 +118,129 @@ def parse_results(markup, query, max_results=6):
     return results
 
 
-def research(topic, queries=None, max_results=5, search_fn=fetch_search_html):
+
+MAX_PAGE_BYTES = 1_500_000
+MAX_PAGE_TEXT = 12_000
+
+
+def _host_is_public(host):
+    """Reject private, loopback, link-local, reserved, and unresolved hosts."""
+    host = (host or "").lower().rstrip(".")
+    if not host or host in {"localhost", "localhost.localdomain"} or host.endswith(".local"):
+        return False
+    try:
+        addresses = [ipaddress.ip_address(host)]
+    except ValueError:
+        try:
+            addresses = [ipaddress.ip_address(item[4][0]) for item in socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)]
+        except (OSError, ValueError):
+            return False
+    return bool(addresses) and all(address.is_global for address in addresses)
+
+
+def _validated_page_url(value):
+    url = safe_public_url(value)
+    if not url:
+        return None
+    try:
+        host = urllib.parse.urlsplit(url).hostname
+    except ValueError:
+        return None
+    return url if _host_is_public(host) else None
+
+
+class SafePageRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        target = _validated_page_url(urllib.parse.urljoin(req.full_url, newurl))
+        if not target:
+            raise urllib.error.HTTPError(req.full_url, code, "Redirect target rejected by public-host safety checks", headers, fp)
+        return super().redirect_request(req, fp, code, msg, headers, target)
+
+
+class PageTextParser(HTMLParser):
+    """Extract readable page text while ignoring executable and non-content elements."""
+    SKIP = {"script", "style", "noscript", "svg", "canvas", "iframe", "form", "nav", "footer", "header"}
+    BLOCK = {"p", "div", "article", "section", "main", "h1", "h2", "h3", "h4", "li", "br", "tr"}
+    def __init__(self):
+        super().__init__(convert_charrefs=True)
+        self.skip_depth = 0
+        self.title_depth = 0
+        self.in_title = False
+        self.title_parts = []
+        self.parts = []
+
+    def handle_starttag(self, tag, attrs):
+        tag = tag.lower()
+        if tag == "title":
+            self.in_title = True
+        if tag in self.SKIP:
+            self.skip_depth += 1
+        if not self.skip_depth and tag in self.BLOCK:
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag):
+        tag = tag.lower()
+        if tag == "title":
+            self.in_title = False
+        if tag in self.SKIP and self.skip_depth:
+            self.skip_depth -= 1
+        if not self.skip_depth and tag in self.BLOCK:
+            self.parts.append("\n")
+
+    def handle_data(self, data):
+        value = " ".join(data.split())
+        if not value:
+            return
+        if self.in_title:
+            self.title_parts.append(value)
+        if not self.skip_depth:
+            self.parts.append(value)
+
+    def result(self):
+        title = " ".join(self.title_parts).strip()[:300]
+        text = " ".join(" ".join(self.parts).split())[:MAX_PAGE_TEXT]
+        return title, text
+
+
+def fetch_page(url, timeout=12, opener=None):
+    """Fetch bounded public HTTP(S) page text. Returns a status object, never raw HTML."""
+    validated = _validated_page_url(url)
+    if not validated:
+        return {"fetch_status": "rejected", "page_title": "", "page_text": "", "fetch_error": "URL or host failed public-address validation"}
+    request = urllib.request.Request(
+        validated,
+        headers={"User-Agent": USER_AGENT, "Accept": "text/html,application/xhtml+xml,text/plain;q=0.8", "Accept-Encoding": "identity"},
+        method="GET",
+    )
+    page_opener = opener or urllib.request.build_opener(urllib.request.ProxyHandler({}), SafePageRedirect())
+    try:
+        with page_opener.open(request, timeout=max(3, min(int(timeout), 20))) as response:
+            final_url = _validated_page_url(response.geturl())
+            if not final_url:
+                return {"fetch_status": "rejected", "page_title": "", "page_text": "", "fetch_error": "Final URL failed public-address validation"}
+            content_type = response.headers.get("Content-Type", "").lower()
+            if not any(kind in content_type for kind in ("text/html", "application/xhtml+xml", "text/plain")):
+                return {"fetch_status": "skipped_non_text", "page_title": "", "page_text": "", "fetch_error": "Response is not a supported text content type"}
+            data = response.read(MAX_PAGE_BYTES + 1)
+            if len(data) > MAX_PAGE_BYTES:
+                data = data[:MAX_PAGE_BYTES]
+                truncated = True
+            else:
+                truncated = False
+            charset = response.headers.get_content_charset() or "utf-8"
+            markup = data.decode(charset, errors="replace")
+            parser = PageTextParser()
+            parser.feed(markup)
+            title, text = parser.result()
+            if truncated:
+                text = text[:MAX_PAGE_TEXT]
+            if not text:
+                return {"fetch_status": "empty", "page_title": title, "page_text": "", "fetch_error": "No readable page text extracted"}
+            return {"fetch_status": "fetched", "page_title": title, "page_text": text, "final_url": final_url, "truncated": truncated}
+    except (OSError, ValueError, urllib.error.URLError, TimeoutError, UnicodeError) as exc:
+        return {"fetch_status": "failed", "page_title": "", "page_text": "", "fetch_error": type(exc).__name__ + ": " + str(exc)[:180]}
+
+def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, page_fetch_fn=fetch_page):
     if not isinstance(topic, str) or not topic.strip() or len(topic) > 500:
         raise ValueError("Research topic must be 1–500 characters.")
     terms = queries or [
@@ -141,28 +264,49 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html):
     if not all_results:
         raise RuntimeError("No search results were collected. Check connectivity or try supplied source notes. " +
                            ("Last error: " + errors[-1]["error"] if errors else "The search engine returned no parseable results."))
+
+    # Fetch a bounded number of result pages so agents receive source content, not just snippets.
+    page_errors = []
+    for item in all_results[:max(1, min(int(max_results), 8))]:
+        try:
+            page = page_fetch_fn(item["url"])
+        except Exception as exc:
+            page = {"fetch_status": "failed", "page_title": "", "page_text": "",
+                    "fetch_error": type(exc).__name__ + ": " + str(exc)[:180]}
+        item.update(page)
+        if item.get("fetch_status") != "fetched":
+            page_errors.append({"url": item["url"], "status": item.get("fetch_status", "unknown"),
+                                "error": item.get("fetch_error", "")[:200]})
+        elif item.get("page_title"):
+            item["page_title"] = item["page_title"][:300]
+        item["page_text"] = str(item.get("page_text", ""))[:MAX_PAGE_TEXT]
+
+    fetched_count = sum(1 for item in all_results if item.get("fetch_status") == "fetched")
     metadata = {
         "topic": topic.strip(),
         "collected_at": datetime.now(timezone.utc).isoformat(),
         "engine": "DuckDuckGo HTML (no API key)",
         "queries": terms,
         "result_count": len(all_results),
+        "pages_attempted": min(len(all_results), max(1, min(int(max_results), 8))),
+        "pages_fetched": fetched_count,
         "search_errors": errors,
+        "page_errors": page_errors,
         "verified": False,
-        "note": "Search titles/snippets are discovery leads. Open and verify the linked sources before using factual claims.",
+        "note": "Search leads and page text are collected for analysis, but claims are not independently fact-checked. Check source authority, publication dates, context, and corroboration.",
     }
     return metadata, all_results
-
 
 def render_markdown(metadata, results):
     lines = [
         "# Research leads: " + metadata["topic"], "",
         "- Collected: " + metadata["collected_at"],
         "- Search engine: " + metadata["engine"],
-        "- Results: " + str(metadata["result_count"]),
+        "- Search results: " + str(metadata["result_count"]),
+        "- Source pages fetched: " + str(metadata.get("pages_fetched", 0)) + "/" + str(metadata.get("pages_attempted", 0)),
         "- Independently verified: no",
         "",
-        "> These are discovery leads, not proof. Open primary sources, check dates and context, and record the evidence supporting each factual claim.",
+        "> Retrieved page text is evidence to inspect, not automatic proof. Compare primary and independent sources, check dates and context, and attach source URLs to factual claims.",
         "",
     ]
     for index, item in enumerate(results, start=1):
@@ -171,8 +315,16 @@ def render_markdown(metadata, results):
             "- URL: " + item["url"],
             "- Search query: " + item["query"],
             "- Search snippet: " + (item["snippet"] or "(No snippet was returned.)"),
+            "- Page fetch status: " + str(item.get("fetch_status", "not_attempted")),
+            "- Page title: " + str(item.get("page_title", "")),
+            "- Extracted page text: " + (str(item.get("page_text", "")) or "(No page text extracted.)"),
             "",
         ])
+    if metadata.get("page_errors"):
+        lines.extend(["## Source page fetch warnings", ""])
+        for error in metadata["page_errors"]:
+            lines.append("- " + error["url"] + ": " + error["status"] + " — " + error.get("error", ""))
+        lines.append("")
     if metadata["search_errors"]:
         lines.extend(["## Partial search warnings", ""])
         for error in metadata["search_errors"]:
