@@ -389,7 +389,31 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
-    tool_context = (context + "\n\n## CEO specialist research and deliverables (unverified until reviewed)\n" + combined_context[-24000:])[:40000]
+    research_sections = []
+    research_budget = 22000
+    research_root = (ROOT / "workspace" / "research" / "agent-runs").resolve()
+    for record in records:
+        for report in record.get("research_reports", []):
+            if research_budget <= 0:
+                break
+            report_path = (ROOT / report).resolve()
+            if research_root not in report_path.parents or report_path.suffix.lower() != ".md" or not report_path.is_file():
+                continue
+            try:
+                report_text = report_path.read_text(encoding="utf-8", errors="replace")[:min(5000, research_budget)]
+            except OSError:
+                continue
+            research_sections.append("\n\n## Source-linked research report — " + str(record.get("role", record.get("agent_id", "specialist"))) + "\n" + report_text)
+            research_budget -= len(report_text)
+        if research_budget <= 0:
+            break
+    tool_context = (
+        context
+        + "\n\n## Retrieved specialist research reports (unverified until reviewed)\n"
+        + "".join(research_sections)
+        + "\n\n## CEO specialist deliverables (unverified until reviewed)\n"
+        + combined_context[-16000:]
+    )[:40000]
     tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     required_tool_blocked = any(item.get("status") == "blocked" for item in tool_runs)
