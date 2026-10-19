@@ -382,10 +382,12 @@ class CEODelegationTests(unittest.TestCase):
                     return "# Corrected motion specification\n\nEvidence and acceptance checks added.\n"
                 return "# Deliverable\n\nDraft output from " + agent_id
 
-            with patch.object(orchestrate, "ROOT", root), \\
-                 patch.object(orchestrate, "WORKSPACE", workspace), \\
-                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \\
-                 patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role):
+            with (
+                patch.object(orchestrate, "ROOT", root),
+                patch.object(orchestrate, "WORKSPACE", workspace),
+                patch.object(orchestrate, "run_builtin_tools", return_value=[]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role),
+            ):
                 destination, manifest = orchestrate.run_pipeline(
                     "Create a YouTube video with professional motion graphics",
                     output_dir=output,
