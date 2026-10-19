@@ -24,7 +24,7 @@
       "visual_type": "stat",
       "stat_value": "3.2×",
       "stat_label": "FASTER WORKFLOW",
-      "transition_in": "wipe-left",
+      "transition_in": "WIPE-LEFT",
       "transition_frames": 2
     },
     {
