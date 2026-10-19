@@ -229,9 +229,9 @@ if ($ModelReady) {
         $Config.model.enabled = $true
         $Config.model.base_url = "http://127.0.0.1:11434/v1/chat/completions"
         $Config.model.model = "llama3.2:3b"
-        if (-not $Config.model.max_output_tokens) { $Config.model.max_output_tokens = 2200 }
+        if (-not $Config.model.max_output_tokens) { $Config.model.max_output_tokens = 900 }
         if (-not $Config.model.product_max_output_tokens) { $Config.model.product_max_output_tokens = 3500 }
-        if (-not $Config.model.timeout_seconds) { $Config.model.timeout_seconds = 180 }
+        if (-not $Config.model.timeout_seconds) { $Config.model.timeout_seconds = 240 }
         [System.IO.File]::WriteAllText($ConfigPath, ($Config | ConvertTo-Json -Depth 20), (New-Object System.Text.UTF8Encoding($false)))
         Write-Host "Local model configured. No paid API key was added." -ForegroundColor Green
     } else {
