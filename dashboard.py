@@ -70,7 +70,7 @@ def render_markdown_safe(source):
         if not line:
             close_list()
             continue
-        heading = re.match(r"^(#{1,3})\\s+(.+)$", line)
+        heading = re.match(r"^(#{1,3})\s+(.+)$", line)
         if heading:
             close_list()
             level = len(heading.group(1))
@@ -81,12 +81,12 @@ def render_markdown_safe(source):
                 output.append("<ul>")
                 list_tag = "ul"
             output.append("<li>" + esc(line[2:]) + "</li>")
-        elif re.match(r"^\\d+\\.\\s+", line):
+        elif re.match(r"^\d+\.\s+", line):
             if list_tag != "ol":
                 close_list()
                 output.append("<ol>")
                 list_tag = "ol"
-            output.append("<li>" + esc(re.sub(r"^\\d+\\.\\s+", "", line)) + "</li>")
+            output.append("<li>" + esc(re.sub(r"^\d+\.\s+", "", line)) + "</li>")
         elif line == "---":
             close_list()
             output.append("<hr>")
@@ -96,7 +96,7 @@ def render_markdown_safe(source):
         else:
             close_list()
             safe = esc(line)
-            safe = re.sub(r"\\*\\*(.+?)\\*\\*", r"<strong>\\1</strong>", safe)
+            safe = re.sub(r"\\*\\*(.+?)\\*\\*", r"<strong>\1</strong>", safe)
             output.append("<p>" + safe + "</p>")
     close_list()
     return "\\n".join(output)
