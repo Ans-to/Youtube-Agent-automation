@@ -121,8 +121,10 @@ def parse_ceo_assignments(text, roles_by_id):
 
 
 def plan_delegation(task, context, cfg, roles_by_id):
-    """Let the CEO choose specialist roles; use deterministic routing only when no model/valid plan exists."""
-    if cfg.get("model", {}).get("enabled"):
+    """Let the CEO choose specialist roles; use deterministic routing only when no valid model plan exists."""
+    model_enabled = bool(cfg.get("model", {}).get("enabled"))
+    ceo_error = False
+    if model_enabled:
         roster = [
             {"id": role.get("id"), "name": role.get("name"), "department": role.get("department"),
              "mission": role.get("mission")}
@@ -145,8 +147,11 @@ def plan_delegation(task, context, cfg, roles_by_id):
             if assignments:
                 return assignments, "ceo_model_delegation"
         except Exception:
-            pass
-    return heuristic_assignments(task)
+            ceo_error = True
+    assignments, _ = heuristic_assignments(task)
+    if model_enabled:
+        return assignments, "heuristic_fallback_after_ceo_error" if ceo_error else "heuristic_fallback_invalid_ceo_plan"
+    return assignments, "heuristic_no_model"
 
 
 def run_builtin_tools(task, destination, cfg, source_context=""):
