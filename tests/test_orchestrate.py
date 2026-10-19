@@ -215,6 +215,7 @@ class CEODelegationTests(unittest.TestCase):
             self.assertGreaterEqual(len(calls), 2)
             saved_plan = json.loads((destination / "00-ceo-delegation.json").read_text(encoding="utf-8"))
             self.assertTrue(saved_plan["assignments"])
+            self.assertEqual(manifest["pipeline"][-1]["agent_id"], "AGENT-08")
             for record in manifest["pipeline"]:
                 if record.get("output_file"):
                     self.assertTrue((destination / record["output_file"]).is_file())
