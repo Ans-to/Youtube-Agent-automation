@@ -4,6 +4,8 @@ on:
   push:
     branches: ["**"]
   pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
   workflow_dispatch:
     inputs:
       trials:
@@ -54,6 +56,7 @@ jobs:
           retention-days: 30
 
   simulations:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     name: Four independent million-case simulation runs
     runs-on: ubuntu-latest
     timeout-minutes: 25
