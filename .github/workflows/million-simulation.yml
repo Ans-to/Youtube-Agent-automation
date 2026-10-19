@@ -1,0 +1,47 @@
+name: Million-simulation quality gate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      trials:
+        description: "Number of deterministic lifecycle simulations"
+        required: false
+        default: "1000000"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: million-simulation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulate:
+    name: Run 1,000,000 lifecycle simulations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run deterministic simulation gate
+        env:
+          SIMULATION_TRIALS: ${{ github.event.inputs.trials || '1000000' }}
+        run: |
+          python -m py_compile simulation_harness.py
+          python simulation_harness.py --trials "$SIMULATION_TRIALS" --seed 20261019 --json | tee simulation-report.json
+      - name: Upload simulation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: million-simulation-report-${{ github.run_number }}
+          path: simulation-report.json
+          if-no-files-found: warn
+          retention-days: 30
