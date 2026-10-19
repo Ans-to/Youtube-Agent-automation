@@ -1,0 +1,147 @@
+{
+  "title": "Agent HQ — Character Motion and Transition Test",
+  "width": 1280,
+  "height": 720,
+  "fps": 30,
+  "scenes": [
+    {
+      "duration_seconds": 5,
+      "eyebrow": "MOTION TEST / 01",
+      "headline": "Ideas need a clear visual",
+      "subhead": "A presenter layer with idle motion and an explanatory gesture",
+      "narration": "A visual idea should be introduced clearly.",
+      "visual_type": "hero",
+      "graphic_label": "THE CORE IDEA",
+      "transition_in": "none",
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.82,
+        "y": 0.57,
+        "scale": 0.28,
+        "walking": 0,
+        "skin": "#c58e72",
+        "hair": "#25212a",
+        "shirt": "#6479b8",
+        "trousers": "#303746",
+        "visemes": [
+          {
+            "t": 0,
+            "shape": "closed"
+          },
+          {
+            "t": 0.15,
+            "shape": "open"
+          },
+          {
+            "t": 0.33,
+            "shape": "wide"
+          },
+          {
+            "t": 0.52,
+            "shape": "round"
+          },
+          {
+            "t": 0.75,
+            "shape": "closed"
+          }
+        ]
+      }
+    },
+    {
+      "duration_seconds": 5,
+      "eyebrow": "MOTION TEST / 02",
+      "headline": "Transitions should connect",
+      "subhead": "A directional wipe bridges related information, not random scenes",
+      "narration": "Transitions should connect the outgoing shot with the next idea.",
+      "visual_type": "diagram",
+      "visual_nodes": [
+        "CONTEXT",
+        "EXPLANATION",
+        "TAKEAWAY"
+      ],
+      "transition_in": "wipe-left",
+      "transition_frames": 16,
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.82,
+        "y": 0.57,
+        "scale": 0.28,
+        "walking": 0,
+        "skin": "#c58e72",
+        "hair": "#25212a",
+        "shirt": "#6479b8",
+        "trousers": "#303746",
+        "visemes": [
+          {
+            "t": 0,
+            "shape": "closed"
+          },
+          {
+            "t": 0.2,
+            "shape": "open"
+          },
+          {
+            "t": 0.45,
+            "shape": "wide"
+          },
+          {
+            "t": 0.65,
+            "shape": "round"
+          },
+          {
+            "t": 0.85,
+            "shape": "closed"
+          }
+        ]
+      }
+    },
+    {
+      "duration_seconds": 5,
+      "eyebrow": "MOTION TEST / 03",
+      "headline": "Review at normal speed",
+      "subhead": "Check continuity, readability, and timing before release",
+      "narration": "Every boundary should be inspected before publishing.",
+      "visual_type": "timeline",
+      "timeline_events": [
+        "PLAN",
+        "ANIMATE",
+        "REVIEW",
+        "REFINE"
+      ],
+      "transition_in": "fade",
+      "transition_frames": 18,
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.82,
+        "y": 0.57,
+        "scale": 0.28,
+        "walking": 0,
+        "skin": "#c58e72",
+        "hair": "#25212a",
+        "shirt": "#6479b8",
+        "trousers": "#303746",
+        "visemes": [
+          {
+            "t": 0,
+            "shape": "closed"
+          },
+          {
+            "t": 0.25,
+            "shape": "open"
+          },
+          {
+            "t": 0.5,
+            "shape": "wide"
+          },
+          {
+            "t": 0.75,
+            "shape": "round"
+          }
+        ]
+      }
+    }
+  ]
+}
