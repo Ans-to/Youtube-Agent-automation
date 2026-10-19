@@ -116,7 +116,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
             report["warnings"].append("Strict audit requires an audio stream.")
     if report["warnings"] and strict:
         report["passed"] = False
-    report["scope_note"] = ("Technical heuristics only. Does not judge artistic quality, Urdu pronunciation, "
+    report["scope_note"] = ("Technical heuristics only. Does not judge artistic quality, English pronunciation, "
                             "factual accuracy, subtitle-to-speech alignment, or phoneme-level lip-sync.")
     return report
 
