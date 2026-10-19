@@ -321,6 +321,13 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             + "This stage automatically attempts free web research. Prioritize primary sources, use the retrieved page text, compare independent sources for important claims, cite URLs, distinguish sourced facts from assumptions, and disclose search failures. Do not claim page verification unless page content was supplied. Do not claim external actions. "
             + "Return your concrete deliverable, validation status, and explicit unresolved issues."
         )
+        if agent_id == "AGENT-08":
+            instruction += (
+                "\n\nMACHINE-READABLE FINAL GATE: End your deliverable with exactly one line in this format: "
+                "OVERALL QUALITY GATE: PASS, PARTIAL, or FAIL. Use PASS only when critical claims are supported; "
+                "PARTIAL when material evidence is missing; FAIL when material claims are unsupported, contradictory, or unsafe. "
+                "Do not mark PASS merely because the draft is well formatted."
+            )
         filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
         research_dir = ROOT / "workspace" / "research" / "agent-runs"
         reports_before = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
