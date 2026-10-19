@@ -27,6 +27,36 @@ class ProductStudioTests(unittest.TestCase):
         self.assertIn("eval call", labels)
         self.assertIn("external URL reference", labels)
 
+    def test_local_model_prompt_receives_supplied_research_notes(self):
+        from unittest.mock import patch
+        response = {
+            "choices": [{
+                "message": {
+                    "content": "<!doctype html><html><head><title>Prototype</title></head><body>Prototype</body></html>"
+                }
+            }]
+        }
+        config = {
+            "model": {
+                "enabled": True,
+                "base_url": "http://127.0.0.1:8080/v1/chat/completions",
+                "model": "test-model",
+                "max_output_tokens": 500,
+                "timeout_seconds": 5,
+            }
+        }
+        with patch.object(build_product, "post_local_model", return_value=response) as call:
+            result = build_product.local_html(
+                "A textile reconciliation tool",
+                "Textile Reconciler",
+                config,
+                "Source [S1]: official documentation at https://example.com/docs",
+            )
+        self.assertIn("<!doctype html>", result.lower())
+        prompt = call.call_args.args[1]["messages"][1]["content"]
+        self.assertIn("Source [S1]", prompt)
+        self.assertIn("unverified until reviewed", prompt.lower())
+
     def test_fallback_does_not_require_cloud_model(self):
         page = build_product.fallback_html("Simple Tool", "Test idea")
         self.assertIn("does not send the text anywhere", page)
