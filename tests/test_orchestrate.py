@@ -134,6 +134,26 @@ class CEODelegationTests(unittest.TestCase):
             self.assertNotIn("--render", command)
             self.assertIn("--research", command)
 
+    def test_pipeline_status_is_blocked_when_full_render_is_unavailable(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-video"
+            roles = orchestrate.dispatch.load_json(orchestrate.dispatch.ROSTER, {}).get("agents", [])
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "WORKSPACE", workspace), \
+                 patch.object(orchestrate.dispatch, "run_role", return_value="# Draft\n\nTemplate-only stage output"), \
+                 patch.object(orchestrate, "_run_fixed_tool", return_value={"tool": "video_studio", "status": "completed"}):
+                _, manifest = orchestrate.run_pipeline(
+                    "Create and render a full YouTube video about AI agents to MP4",
+                    output_dir=output,
+                    config={"model": {"enabled": False}},
+                )
+            self.assertEqual(manifest["status"], "blocked")
+            self.assertTrue(any(item.get("tool") == "video_render" and item.get("status") == "blocked"
+                                for item in manifest["tool_runs"]))
+
     def test_pipeline_persists_ceo_plan_and_individual_deliverables(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"
