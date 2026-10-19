@@ -311,7 +311,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         if role_name:
             snapshot["role"] = role_name
         temporary = progress_path.with_suffix(".tmp")
-        temporary.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        temporary.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         temporary.replace(progress_path)
 
     save_progress("running", "CEO delegation", "CEO is planning the task and selecting specialist responsibilities.")
