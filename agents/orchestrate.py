@@ -57,7 +57,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             task.strip()
             + "\n\nPipeline stage " + str(index) + " of " + str(len(selected)) + ". "
             + "Use prior-stage notes as unverified working context. Correct errors when evidence permits. "
-            + "Do not claim external research or external actions. Flag facts that require independent sourcing. "
+            + "Each stage automatically attempts free web research. Use the injected research leads, prioritize primary sources, distinguish sourced facts from assumptions, and disclose search failures. Do not claim page verification unless page content was supplied. Do not claim external actions. "
             + "Return this stage's deliverable and explicit unresolved issues."
         )
         filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
@@ -95,10 +95,10 @@ def build_manifest(task, records, cfg, status):
         "pipeline": records,
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
-        "research_performed": False,
+        "research_performed": "attempted_for_each_specialist_stage",\n        "research_method": "DuckDuckGo HTML search, no API key; snippets are unverified leads",\n        "research_pages_independently_verified": False,
         "external_actions_performed": False,
         "human_review_required": True,
-        "note": "Sequential specialist pipeline; roles share one configured local model. Outputs are drafts, not verified facts.",
+        "note": "Sequential specialist pipeline; each specialist run attempts fresh web research and receives search leads. Search availability can fail, snippets are not independent verification, and outputs require quality review.",
     }
 
 
@@ -120,7 +120,7 @@ def main():
     print("Pipeline output:", destination)
     print("Stages:", len(manifest["pipeline"]))
     print("Mode:", "local model" if manifest["model_enabled"] else "template fallback; no AI generation")
-    print("Human review required; no web research or external action was performed.")
+    print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")\n    print("Human review required; no external action was performed.")
 
 
 if __name__ == "__main__":
