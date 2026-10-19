@@ -7,6 +7,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 import socket
+import re
 from datetime import datetime, timezone
 from html.parser import HTMLParser
 from pathlib import Path
@@ -239,6 +240,21 @@ def fetch_page(url, timeout=12, opener=None):
             return {"fetch_status": "fetched", "page_title": title, "page_text": text, "final_url": final_url, "truncated": truncated}
     except (OSError, ValueError, urllib.error.URLError, TimeoutError, UnicodeError) as exc:
         return {"fetch_status": "failed", "page_title": "", "page_text": "", "fetch_error": type(exc).__name__ + ": " + str(exc)[:180]}
+
+
+def sanitize_research_query(value):
+    """Remove common secrets and direct identifiers before sending task text to a search provider."""
+    text = str(value or "")
+    patterns = [
+        (r"(?i)\b(?:api[_ -]?key|access[_ -]?token|secret|password|passwd|authorization)\b\s*[:=]\s*['\"]?[^\s,'\";]+", "[REDACTED_SECRET]"),
+        (r"\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b", "[REDACTED_TOKEN]"),
+        (r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[REDACTED_EMAIL]"),
+        (r"(?<!\w)(?:\+?92|0)?3\d{2}[- ]?\d{7}(?!\w)", "[REDACTED_PHONE]"),
+        (r"\b\d{5}-\d{7}-\d\b", "[REDACTED_ID_NUMBER]"),
+    ]
+    for pattern, replacement in patterns:
+        text = re.sub(pattern, replacement, text)
+    return " ".join(text.split())[:500]
 
 def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, page_fetch_fn=fetch_page):
     if not isinstance(topic, str) or not topic.strip() or len(topic) > 500:
