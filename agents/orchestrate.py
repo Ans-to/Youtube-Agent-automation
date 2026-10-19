@@ -27,7 +27,7 @@ def slug(value):
 def extract_quality_gate(text):
     """Accept a quality verdict only when exactly one explicit gate line is present."""
     matches = re.findall(
-        r"(?im)^\\s*OVERALL QUALITY GATE:\\s*(PASS|PARTIAL|FAIL)\\s*[.!]?\\s*$",
+        r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$",
         str(text or ""),
     )
     return matches[0].lower() if len(matches) == 1 else "unconfirmed"
@@ -473,11 +473,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             )[-24000:]
             continue
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
-        quality_gate = "unconfirmed"
-        if agent_id == "AGENT-08":
-            gate_match = re.search(r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$", result)
-            if gate_match:
-                quality_gate = gate_match.group(1).lower()
+        quality_gate = extract_quality_gate(result) if agent_id == "AGENT-08" else None
         reports_after = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
         new_report_paths = reports_after - reports_before
         research_reports = sorted(str(path.relative_to(ROOT)) for path in new_report_paths)
@@ -573,10 +569,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                     )
                     final_review_path = destination / "99-final-quality-review.md"
                     final_review_path.write_text(final_review.rstrip() + "\n", encoding="utf-8")
-                    final_gate_match = re.search(
-                        r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$", final_review
-                    )
-                    final_gate = final_gate_match.group(1).lower() if final_gate_match else "unconfirmed"
+                    final_gate = extract_quality_gate(final_review)
                     reviewer_record["initial_quality_gate"] = reviewer_record.get("quality_gate")
                     reviewer_record["quality_gate"] = final_gate
                     reviewer_record["final_review_file"] = str(final_review_path.name)
