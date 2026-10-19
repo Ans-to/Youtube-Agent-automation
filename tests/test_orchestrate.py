@@ -296,9 +296,13 @@ class CEODelegationTests(unittest.TestCase):
             output = workspace / "run-1"
             roles = orchestrate.dispatch.load_json(orchestrate.dispatch.ROSTER, {}).get("agents", [])
             calls = []
+            observed_progress = []
 
             def fake_role(role, task, context, cfg):
                 calls.append((role["id"], task))
+                progress_file = output / "pipeline-progress.json"
+                if progress_file.is_file():
+                    observed_progress.append(json.loads(progress_file.read_text(encoding="utf-8")))
                 return "# Deliverable\n\nCompleted subtask for " + role["id"]
 
             with patch.object(orchestrate, "WORKSPACE", workspace), \
@@ -313,6 +317,10 @@ class CEODelegationTests(unittest.TestCase):
             self.assertEqual(manifest["delegation_mode"], "heuristic_no_model")
             self.assertTrue((destination / "00-ceo-delegation.json").is_file())
             self.assertTrue((destination / "pipeline-status.json").is_file())
+            progress = json.loads((destination / "pipeline-progress.json").read_text(encoding="utf-8"))
+            self.assertEqual(progress["phase"], "Pipeline complete")
+            self.assertEqual(progress["completed_stages"], progress["total_stages"])
+            self.assertTrue(any(str(item.get("phase", "")).startswith("Specialist stage ") for item in observed_progress))
             self.assertGreaterEqual(len(calls), 2)
             saved_plan = json.loads((destination / "00-ceo-delegation.json").read_text(encoding="utf-8"))
             self.assertTrue(saved_plan["assignments"])
