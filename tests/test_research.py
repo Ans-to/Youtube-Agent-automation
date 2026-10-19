@@ -1,6 +1,6 @@
 import unittest
 
-from video_studio.research import PageTextParser, fetch_page, parse_results, research, safe_public_url
+from video_studio.research import PageTextParser, fetch_page, parse_results, research, safe_public_url, sanitize_research_query
 
 
 SAMPLE_HTML = """
@@ -38,6 +38,16 @@ class ResearchTests(unittest.TestCase):
         self.assertIn("Useful heading", text)
         self.assertIn("Readable evidence", text)
         self.assertNotIn("secret()", text)
+
+    def test_research_query_redacts_common_identifiers_and_secrets(self):
+        query = sanitize_research_query(
+            "Find docs for API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456 and user@example.com phone 03001234567"
+        )
+        self.assertNotIn("sk-abcdefghijklmnopqrstuvwxyz123456", query)
+        self.assertNotIn("user@example.com", query)
+        self.assertIn("[REDACTED_SECRET]", query)
+        self.assertIn("[REDACTED_EMAIL]", query)
+        self.assertIn("[REDACTED_PHONE]", query)
 
     def test_page_fetch_rejects_private_address_without_request(self):
         result = fetch_page("http://127.0.0.1/private")
