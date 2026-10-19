@@ -273,5 +273,6 @@ def main():
     out.write_text(result.rstrip()+"\n",encoding="utf-8")
     print("Role:",role["id"],role["name"]);print("Output:",out)
     print("Mode: local model" if cfg.get("model",{}).get("enabled") else "Mode: template fallback; no AI generation performed.")
-    print("Web research: attempted for this task; see the output for source leads and limitations.")\n    print("No external action was performed.")
+    print("Web research: attempted for this task; see the output for source leads and limitations.")
+    print("No external action was performed.")
 if __name__=="__main__":main()
