@@ -27,14 +27,15 @@ This requires an actual 2D/3D rig, animation curves or motion capture/retargetin
 
 ## Voice requirements
 
-Preferred target: natural adult male narrator, clear conversational delivery, not robotic, with steady but non-monotone prosody. For this project, support Urdu narration with naturally spoken English technical terms.
+Required language: English only, for every narration line and every subtitle. Target a clear conversational English voice with intelligible consonants, controlled pace, natural pauses, and non-monotone prosody. A model's language metadata is a minimum gate, not proof of naturalness.
 
-1. Select an actually available, licensed male voice model with verified Urdu (or an explicitly tested multilingual model). Do not assume English voice models pronounce Urdu correctly.
-2. Produce sentence/phrase-level clips, normalize loudness consistently, preserve natural pauses, and avoid speeding speech to fit arbitrary scene durations.
-3. Fit visuals to measured speech duration. Never trim the last phoneme to meet a fixed runtime; extend the scene or re-time visuals.
-4. If a neural TTS model is unavailable or quality fails, fail the release gate and ask for a human-approved voice asset. Do not silently fall back to eSpeak or call synthetic test speech “natural.”
-5. Run audio checks: clipping/true peak, integrated loudness, silence gaps, speech presence, and phrase duration. Automated checks can detect defects but cannot certify that a voice sounds human.
-6. Human listen-test on phone speakers and headphones. Review Urdu pronunciation, English terms, breath timing, sibilants, and emotional emphasis.
+1. Use a licensed English voice model whose adjacent config explicitly identifies an English language code. Reject non-English model configs and non-Latin-script narration before synthesis.
+2. Produce scene/phrase-level clips, normalize loudness consistently, preserve natural pauses, and never speed speech up merely to fit arbitrary scene durations.
+3. Fit visuals and subtitle timings to measured speech duration. Never trim the last phoneme to meet a fixed runtime; extend the scene or re-time visuals.
+4. If a neural TTS model is unavailable or quality fails, fail the release gate and request a human-approved English voice asset. Do not silently fall back to eSpeak or call synthetic test speech “natural.”
+5. Run audio checks: clipping/true peak, loudness, silence gaps, speech presence, and phrase duration. Automated checks can detect defects but cannot certify that a voice sounds human.
+6. Human listen-test on phone speakers and headphones. Review English pronunciation, technical terms, breath timing, sibilants, pacing, and emotional emphasis.
+7. Emit both SRT and WebVTT subtitles for every render. Keep burned-in captions identical to the spoken English narration; validate cue ordering and durations. Scene-level timing is not forced word alignment.
 
 ## Synchronization and acceptance tests
 
