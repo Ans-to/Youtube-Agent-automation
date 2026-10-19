@@ -316,15 +316,19 @@ def main():
         "duration_target_met": bool(model_enabled),
         "publishable": False,
         "source_notes_provided": bool(manual_source_notes), "web_research_performed": bool(research_metadata),
-        "research_result_count": len(research_results), "research_independently_verified": False,
+        "research_result_count": len(research_results),
+        "standalone_web_research_performed": bool(research_metadata),
+        "research_independently_verified": False,
         "human_review_required": True, "published": False,
-        "note": ("Model output is a draft; factual claims still need review." if model_enabled else "This is only a 20-second template demo. The requested full-length script was not generated."),
+        "note": ("Model output is a draft; factual claims still need review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
     }
     (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Draft package:", output_dir)
     print("Mode:", generated_by)
     print("Narration words:", actual_words, "| target minutes:", target_minutes, "| storyboard seconds:", status["storyboard_seconds"])
-    print("Web research performed: no. Verify factual claims before publishing.")
+    print("Standalone web research performed:", "yes" if research_metadata else "no")
+    print("Source notes supplied:", "yes" if manual_source_notes else "no")
+    print("Independent fact-check completed: no. Verify factual claims before publishing.")
     if args.render:
         command = [sys.executable, str(BASE / "studio.py"), "--storyboard",
                    str(output_dir / "storyboard.json"), "--output", str(output_dir / "video.mp4")]
