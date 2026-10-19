@@ -162,29 +162,34 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
     """Run only fixed, repository-owned artifact builders selected by clear task intent."""
     results = []
     text = task.strip()
+    request_match = re.search(r"(?is)USER REQUEST:\s*(.+?)(?:\n\nREQUIRED OUTCOME:|$)", text)
+    intent_text = request_match.group(1).strip() if request_match else text
     lower = text.lower()
+    intent_lower = intent_text.lower()
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
     verbs = r"\b(build|create|make|generate|produce|develop|implement|render|export)\b"
 
     # "Build a YouTube automation studio" is a software task, not a request to render a video.
-    # Only activate the media builder when the user clearly asks for a video/content artifact.
     video_intent = re.search(
         r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b",
-        lower,
+        intent_lower,
     )
-    video_requested = bool(video_intent and re.search(verbs, lower))
-    product_requested = bool(re.search(r"\b(digital product|product prototype|build (?:a )?product|create (?:a )?product|develop (?:a )?product|product idea for (?:a )?tool)\b", lower))
-    render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
-    template_demo = bool(re.search(r"\b(template demo|demo render)\b", lower)) and not model_enabled
+    video_requested = bool(video_intent and re.search(verbs, intent_lower))
+    product_requested = bool(re.search(
+        r"\b(digital product|product prototype|(?:build|create|make|develop|implement) (?:a |an |the )?(?:product|app|website|web app|software tool|utility|prototype|calculator|dashboard)|product idea for (?:a )?tool)\b",
+        intent_lower,
+    ))
+    render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", intent_lower))
+    template_demo = bool(re.search(r"\b(template demo|demo render)\b", intent_lower)) and not model_enabled
     source_path = None
     if source_context.strip() and (video_requested or product_requested):
         source_path = destination / "source-notes.md"
         source_path.write_text(source_context[:50000], encoding="utf-8")
     if video_requested:
-        topic_match = re.search(r"(?i)\\b(?:about|on|topic\\s*[:=])\\s+(.+?)(?:[.;\\n]|,\\s*(?:include|with|and also)\\b|$)", text)
-        topic = (topic_match.group(1).strip() if topic_match else text[:220]).strip(" \\t\\r\\n.,;:")
+        topic_match = re.search(r"(?i)\b(?:about|on|topic\s*[:=])\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", intent_text)
+        topic = (topic_match.group(1).strip() if topic_match else intent_text[:220]).strip(" \t\r\n.,;:")
         topic = topic[:500] or "Technology explainer"
-        fmt = "shorts" if re.search(r"\\b(shorts|short-form|vertical)\\b", lower) else "long"
+        fmt = "shorts" if re.search(r"\b(shorts|short-form|vertical)\b", intent_lower) else "long"
         output = destination / "video-production"
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
@@ -193,12 +198,12 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             command.extend(["--source-file", str(source_path)])
         else:
             command.append("--research")
-        duration_match = re.search(r"(?i)target[_ ]minutes\\s*[:=]\\s*(\\d+(?:\\.\\d+)?)", text)
+        duration_match = re.search(r"(?i)target[_ ]minutes\s*[:=]\s*(\d+(?:\.\d+)?)", intent_text)
         if duration_match:
             command.extend(["--target-minutes", duration_match.group(1)])
         if render_requested and model_enabled:
             command.append("--render")
-            if re.search(r"\\b(with voice|with local narration|piper narration)\\b", lower):
+            if re.search(r"\b(with voice|with local narration|piper narration)\b", intent_lower):
                 command.append("--with-voice")
         elif render_requested and template_demo:
             command.extend(["--render", "--render-template"])
@@ -215,10 +220,11 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         results.append(tool_result)
 
     if product_requested:
-        title_match = re.search(r"(?i)\b(?:product|prototype)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", text)
-        title = title_match.group(1).strip() if title_match else re.sub(r"[-_]+", " ", slug(text[:70])).title()
-        idea_match = re.search(r"(?is)user problem and product idea:\s*(.+?)(?:\.\s*research the user need|$)", text)
-        idea = (idea_match.group(1).strip() if idea_match else text[:1000])[:1000]
+        title_match = re.search(r"(?i)\b(?:product|prototype|app|tool|website)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", intent_text)
+        title_seed = re.sub(r"(?i)^\s*(?:please\s+)?(?:build|create|make|generate|develop|implement)\s+(?:a|an|the)?\s*", "", intent_text).strip()
+        title = title_match.group(1).strip() if title_match else re.sub(r"[-_]+", " ", slug(title_seed[:70])).title()
+        idea_match = re.search(r"(?is)user problem and product idea:\s*(.+?)(?:\.\s*research the user need|$)", intent_text)
+        idea = (idea_match.group(1).strip() if idea_match else intent_text[:1000])[:1000]
         output = destination / "product-prototype"
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "product_studio" / "build_product.py"),
