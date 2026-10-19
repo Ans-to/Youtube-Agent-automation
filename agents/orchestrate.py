@@ -196,7 +196,9 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             })
             command = []
         if command:
-            results.append(_run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400))
+            tool_result = _run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400)
+            tool_result["generation_mode"] = "local_model" if model_enabled else "explicit_template_demo"
+            results.append(tool_result)
     elif video_requested and not model_enabled:
         results.append({
             "tool": "video_studio", "status": "blocked" if render_requested else "not_run",
@@ -213,7 +215,11 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
                    "--title", title[:100], "--idea", idea, "--out", relative_out]
         if source_path is not None:
             command.extend(["--source-file", str(source_path)])
-        results.append(_run_fixed_tool("product_studio", command, destination, relative_out, timeout=900))
+        tool_result = _run_fixed_tool("product_studio", command, destination, relative_out, timeout=900)
+        tool_result["generation_mode"] = "local_model" if model_enabled else "deterministic_template"
+        if not model_enabled:
+            tool_result["note"] = "Local model disabled: this is a generic starter template, not a product-specific AI implementation."
+        results.append(tool_result)
     return results
 
 
