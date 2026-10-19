@@ -142,47 +142,105 @@ if ($LASTEXITCODE -ne 0) {
     throw "Project dependency setup failed. See the error above."
 }
 
-Write-Host ""
-$answer = Read-Host "Install optional free local AI runtime + llama3.2:3b model (large download; requires winget or a manual install) [y/N]"
-if ($answer.Trim().ToLowerInvariant() -eq "y" -or $answer.Trim().ToLowerInvariant() -eq "yes") {
+function Get-OllamaModelList {
+    # Try the existing Ollama service first. If installed but not running,
+    # start its local server and retry once instead of downloading blindly.
     if (-not (Has-Command "ollama")) {
-        Install-WingetPackage "Ollama.Ollama" "Ollama local AI runtime"
+        return @{ Available = $false; Output = ""; ExitCode = 127 }
     }
-    Refresh-Path
-    $Ollama = Get-Command "ollama" -ErrorAction SilentlyContinue
-    if (-not $Ollama) {
-        throw "Ollama was installed but is not yet available on PATH. Restart Windows or open a new terminal, then rerun START_HERE.bat."
+    $output = @(& ollama list 2>&1)
+    $code = $LASTEXITCODE
+    if ($code -ne 0) {
+        $Ollama = Get-Command "ollama" -ErrorAction SilentlyContinue
+        if ($Ollama) {
+            try {
+                Start-Process -FilePath $Ollama.Source -ArgumentList "serve" -WindowStyle Hidden -ErrorAction SilentlyContinue
+                Start-Sleep -Seconds 4
+                $output = @(& ollama list 2>&1)
+                $code = $LASTEXITCODE
+            } catch {
+                # Keep diagnostics from the failed list command.
+            }
+        }
     }
+    return @{ Available = ($code -eq 0); Output = ($output -join [Environment]::NewLine); ExitCode = $code }
+}
 
+function Test-ModelInstalled([string]$ModelListText) {
+    return [regex]::IsMatch($ModelListText, '(?im)^\s*llama3\.2:3b(?:\s|$)')
+}
+
+$ConfigPath = Join-Path $Root "config.json"
+$ModelAlreadyConfigured = $false
+if (Test-Path -LiteralPath $ConfigPath) {
     try {
-        & ollama list *> $null
-        if ($LASTEXITCODE -ne 0) { throw "Ollama server not ready" }
+        $ExistingConfig = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
+        $ModelAlreadyConfigured = ([bool]$ExistingConfig.model.enabled -and
+            ([string]$ExistingConfig.model.model -eq "llama3.2:3b") -and
+            ([string]$ExistingConfig.model.base_url -eq "http://127.0.0.1:11434/v1/chat/completions"))
     } catch {
-        Start-Process -FilePath $Ollama.Source -ArgumentList "serve" -WindowStyle Hidden
-        Start-Sleep -Seconds 4
+        Write-Warning "Could not read config.json while checking the optional local model; it will not be overwritten unless you approve setup."
     }
+}
 
-    Write-Host "Downloading local model llama3.2:3b. This may take several minutes..." -ForegroundColor Cyan
-    & ollama pull llama3.2:3b
-    if ($LASTEXITCODE -ne 0) {
-        throw "The local model download failed. Dashboard/video tools are installed, but model-based CEO and specialist work is not enabled. Rerun START_HERE.bat when internet is stable."
-    }
+$ModelReady = $false
+$OllamaStatus = @{ Available = $false; Output = ""; ExitCode = 127 }
+if ($ModelAlreadyConfigured -and (Has-Command "ollama")) {
+    $OllamaStatus = Get-OllamaModelList
+    $ModelReady = $OllamaStatus.Available -and (Test-ModelInstalled $OllamaStatus.Output)
+}
 
-    $ConfigPath = Join-Path $Root "config.json"
-    $Config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
-    if (-not $Config.model) {
-        $Config | Add-Member -NotePropertyName model -NotePropertyValue ([pscustomobject]@{})
-    }
-    $Config.model.enabled = $true
-    $Config.model.base_url = "http://127.0.0.1:11434/v1/chat/completions"
-    $Config.model.model = "llama3.2:3b"
-    if (-not $Config.model.max_output_tokens) { $Config.model.max_output_tokens = 2200 }
-    if (-not $Config.model.product_max_output_tokens) { $Config.model.product_max_output_tokens = 3500 }
-    if (-not $Config.model.timeout_seconds) { $Config.model.timeout_seconds = 180 }
-    [System.IO.File]::WriteAllText($ConfigPath, ($Config | ConvertTo-Json -Depth 20), (New-Object System.Text.UTF8Encoding($false)))
-    Write-Host "Local model configured. No paid API key was added." -ForegroundColor Green
+if ($ModelReady) {
+    Write-Host "Existing Ollama + llama3.2:3b installation and configuration detected. Skipping model setup; nothing needs to be downloaded." -ForegroundColor Green
 } else {
-    Write-Host "Skipped local AI model. The dashboard and deterministic tools work, but advanced AI output requires a compatible local model." -ForegroundColor Yellow
+    Write-Host ""
+    if ($ModelAlreadyConfigured) {
+        Write-Warning "config.json already enables llama3.2:3b, but its runtime/model could not be confirmed. The existing configuration will be preserved unless you choose to repair it."
+    }
+    $answer = Read-Host "Install or repair optional free local AI runtime + llama3.2:3b model? Only needed once [y/N]"
+    if ($answer.Trim().ToLowerInvariant() -eq "y" -or $answer.Trim().ToLowerInvariant() -eq "yes") {
+        if (-not (Has-Command "ollama")) {
+            Install-WingetPackage "Ollama.Ollama" "Ollama local AI runtime"
+        }
+        Refresh-Path
+        $Ollama = Get-Command "ollama" -ErrorAction SilentlyContinue
+        if (-not $Ollama) {
+            throw "Ollama was installed but is not yet available on PATH. Restart Windows or open a new terminal, then rerun START_HERE.bat."
+        }
+
+        $OllamaStatus = Get-OllamaModelList
+        if (-not $OllamaStatus.Available) {
+            throw "Ollama is installed but its local server is not responding. Start Ollama from the Start menu, then rerun START_HERE.bat. Details: $($OllamaStatus.Output)"
+        }
+        if (Test-ModelInstalled $OllamaStatus.Output) {
+            Write-Host "llama3.2:3b is already installed; skipping model download." -ForegroundColor Green
+        } else {
+            Write-Host "Downloading local model llama3.2:3b. This is a one-time download..." -ForegroundColor Cyan
+            & ollama pull llama3.2:3b
+            if ($LASTEXITCODE -ne 0) {
+                throw "The local model download failed. Dashboard/video tools are installed, but model-based CEO and specialist work is not enabled. Rerun START_HERE.bat when internet is stable."
+            }
+        }
+
+        $Config = Get-Content -Raw -Path $ConfigPath | ConvertFrom-Json
+        if (-not $Config.model) {
+            $Config | Add-Member -NotePropertyName model -NotePropertyValue ([pscustomobject]@{})
+        }
+        $Config.model.enabled = $true
+        $Config.model.base_url = "http://127.0.0.1:11434/v1/chat/completions"
+        $Config.model.model = "llama3.2:3b"
+        if (-not $Config.model.max_output_tokens) { $Config.model.max_output_tokens = 2200 }
+        if (-not $Config.model.product_max_output_tokens) { $Config.model.product_max_output_tokens = 3500 }
+        if (-not $Config.model.timeout_seconds) { $Config.model.timeout_seconds = 180 }
+        [System.IO.File]::WriteAllText($ConfigPath, ($Config | ConvertTo-Json -Depth 20), (New-Object System.Text.UTF8Encoding($false)))
+        Write-Host "Local model configured. No paid API key was added." -ForegroundColor Green
+    } else {
+        if ($ModelAlreadyConfigured) {
+            Write-Host "Kept your existing config.json unchanged. Model runtime readiness was not confirmed." -ForegroundColor Yellow
+        } else {
+            Write-Host "Skipped local AI model. The dashboard and deterministic tools work, but advanced AI output requires a compatible local model." -ForegroundColor Yellow
+        }
+    }
 }
 
 Write-Host ""
