@@ -225,6 +225,8 @@ def main():
         raise SystemExit("Target minutes must be between 0.25 and 16 to stay within renderer resource limits.")
     if args.with_voice and not args.render:
         raise SystemExit("--with-voice requires --render.")
+    if args.render and not args.with_voice and not args.render_template:
+        raise SystemExit("Production renders require --with-voice and a tested local Piper model. Silent output is allowed only for explicit template previews.")
     target_seconds = target_minutes * 60
     default_scenes = max(4, math.ceil(target_minutes * 3))
     scene_count = args.scenes if args.scenes is not None else default_scenes
