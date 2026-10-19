@@ -117,6 +117,30 @@ def task_state():
             "pipeline": ["CEO Coordinator", "Researching Specialists", "Assigned Workers", "Quality Reviewer"],
             "updated": datetime.now().astimezone().isoformat(timespec="seconds"), "agent_roster": load(AGENTS, {}).get("agents", [])}
 
+
+def enqueue_task(title, kind, user_input, context_file=""):
+    """Persist one validated task for the CEO-led queue runner."""
+    title = str(title or "").strip()[:160]
+    user_input = str(user_input or "").strip()[:6000]
+    if not title or not user_input or kind not in {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}:
+        raise ValueError("Invalid task title, workflow, or instructions.")
+    with task_queue_lock(TASKS):
+        tasks = load_tasks(TASKS)
+        nums = [
+            int(str(t.get("id", "TASK-0000")).split("-")[-1])
+            for t in tasks
+            if str(t.get("id", "")).startswith("TASK-")
+            and str(t.get("id", "")).split("-")[-1].isdigit()
+        ]
+        task_id = "TASK-%04d" % (max(nums, default=0) + 1)
+        item = {"id": task_id, "title": title, "kind": kind, "input": user_input,
+                "status": "pending", "error": "", "research_status": "pending"}
+        if context_file:
+            item["context_file"] = str(context_file)
+        tasks.append(item)
+        save_tasks(TASKS, tasks)
+    return task_id
+
 HTML_PAGE = r'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#09070b"><meta name="description" content="Local-first AI agent command centre for task management, video production, and digital product prototyping."><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml"><title>Offline Agent HQ // Command Deck</title>
@@ -144,8 +168,8 @@ form label{display:block;color:#ddcbd0;font-size:11px;margin:10px 0 5px;letter-s
 <div class="core"><svg viewBox="0 0 100 100" fill="none" stroke="#ffe0a0" stroke-width="2"><path d="M50 13c-13-9-28 1-26 15-14 5-13 23-3 29-5 15 5 26 18 24l11 7 11-7c13 2 23-9 18-24 10-6 11-24-3-29 2-14-13-24-26-15Z"/><path d="M50 14v72M24 30l19 10-8 15 14 10M76 30 57 40l8 15-14 10M22 57l20 4M78 57l-20 4M39 80l11-16 11 16"/></svg></div><div class="core-label">CEO COMMAND CORE</div><div class="hint">LOCAL-FIRST · HUMAN-CONTROLLED · NO CLOUD API</div></section>
 <section class="panel" id="task-intake"><div class="panel-head"><h2>Task intake</h2><span class="tag">CEO-managed queue</span></div><p style="color:var(--muted);font-size:11px">All queued tasks are routed through the CEO, who delegates research and execution to specialist roles before the result is marked complete.</p><form method="post" action="/add"><label for="title">TASK TITLE</label><input id="title" name="title" maxlength="160" required placeholder="e.g. Build a faceless video plan"><label for="kind">WORKFLOW</label><select id="kind" name="kind"><option value="youtube_package">YouTube production package (detailed)</option><option value="plan">Plan / strategy</option><option value="draft">Draft content</option><option value="summarize_workspace">Summarize local workspace</option><option value="review_output">Review local workspace</option></select><label for="input">INSTRUCTIONS</label><textarea id="input" name="input" maxlength="6000" required placeholder="Describe the result, constraints, and format you need..."></textarea><button type="submit">＋ QUEUE TASK</button></form><div class="actions"><form method="post" action="/run"><button type="submit">▶ RUN PENDING</button></form><form method="post" action="/refresh"><button class="secondary" type="submit">↻ REFRESH STATE</button></form></div><p class="error" id="runInfo"></p></section>
 </div><div>
-<section class="panel"><div class="panel-head"><h2>Specialist practice lab</h2><span class="tag">Human-reviewed improvement</span></div><p style="color:var(--muted);font-size:11px">Run a role-specific practice task. Review the artifact and score every quality gate in Termux; only human-reviewed feedback is re-used. No model weights are changed.</p><form method="post" action="/practice-agent"><label for="practiceAgent">SPECIALIST</label><select id="practiceAgent" name="agent_id"><option value="AGENT-51">AGENT-51 / Motion Graphics Creative Director</option><option value="AGENT-52">AGENT-52 / Motion Systems & Compositing Specialist</option><option value="ALL">BATCH / Practice selected number of all specialists</option></select><label for="practiceLimit">BATCH SIZE (1–51; set 51 for all executable roles)</label><input id="practiceLimit" name="limit" type="number" min="1" max="51" value="5"><label for="practiceTask">PRACTICE TASK</label><textarea id="practiceTask" name="task" maxlength="6000" required placeholder="Give the specialist a concrete assignment and expected output..."></textarea><label for="practiceContext">OPTIONAL SOURCE FILE (inside workspace)</label><input id="practiceContext" name="context_file" maxlength="500" placeholder="workspace/source-notes.md"><button type="submit">RUN SPECIALIST PRACTICE</button></form><p id="trainingInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">No practice run has started in this session.</p></section><section class="panel" id="video-studio"><div class="panel-head"><h2>Video studio</h2><span class="tag">Local render pipeline</span></div><p style="color:var(--muted);font-size:11px">Build an outline, scene-by-scene script, storyboard, optional source-search leads, and optional MP4. Review the package before release; nothing is uploaded automatically.</p><form method="post" action="/generate-video"><label for="videoTopic">VIDEO TOPIC</label><input id="videoTopic" name="topic" maxlength="500" required placeholder="e.g. How AI agents are changing software"><label for="videoFormat">FORMAT</label><select id="videoFormat" name="format"><option value="long">Long-form (default target 15 min)</option><option value="shorts">Shorts (default target 1 min)</option></select><label for="videoMinutes">TARGET MINUTES (0.25–16)</label><input id="videoMinutes" name="target_minutes" type="number" min="0.25" max="16" step="0.25" placeholder="Leave blank for format default"><label for="videoSources">SOURCE NOTES FILE (optional, inside workspace)</label><input id="videoSources" name="source_file" maxlength="500" placeholder="workspace/source-notes.md"><label><input type="checkbox" name="research" value="yes"> Collect free web-search leads (not fact-checked)</label><label for="videoMode">OUTPUT MODE</label><select id="videoMode" name="render_mode"><option value="draft">Draft package only</option><option value="render">Generate and render MP4 (requires local model)</option><option value="template">Render explicit 20-second template demo (no AI)</option></select><label><input type="checkbox" name="with_voice" value="yes"> Add local Piper narration (requires voice model; only with MP4 rendering)</label><button type="submit">BUILD VIDEO PACKAGE</button></form><p id="videoInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">No video package has run in this session.</p></section>
-<section class="panel" id="product-studio"><div class="panel-head"><h2>Digital product studio</h2><span class="tag">Local prototype</span></div><p style="color:var(--muted);font-size:11px">Generate a draft HTML utility and ZIP package. Review the code and test it before real use or selling.</p><form method="post" action="/build-product"><label for="productTitle">PRODUCT TITLE</label><input id="productTitle" name="product_title" maxlength="100" required placeholder="e.g. Invoice Helper"><label for="productIdea">PRODUCT IDEA / USER PROBLEM</label><textarea id="productIdea" name="product_idea" maxlength="1000" required placeholder="Describe the problem, target user, and core utility..."></textarea><button type="submit">BUILD PRODUCT PROTOTYPE</button></form><p id="productInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">No product package has run in this session.</p></section><section class="panel" id="specialist-pipeline"><div class="panel-head"><h2>CEO Command Deck</h2><span class="tag">CEO-led delegation</span></div><p style="color:var(--muted);font-size:11px">Give the task to the CEO. The CEO selects specialist roles, assigns distinct subtasks, and sends each specialist into its own research-before-work cycle. You may optionally override the CEO with specific role IDs. Template mode is not general-purpose AI; review every deliverable.</p><form method="post" action="/run-pipeline"><label for="pipelineTask">PIPELINE GOAL</label><textarea id="pipelineTask" name="task" maxlength="6000" required placeholder="e.g. Create a fact-checkable Urdu tech video script and scene plan"></textarea><label for="pipelineAgents">OPTIONAL SPECIALIST OVERRIDE (leave blank for CEO delegation)</label><input id="pipelineAgents" name="agents" maxlength="500" placeholder="Leave blank: CEO chooses the team; or AGENT-02,AGENT-08"><label for="pipelineContext">OPTIONAL LOCAL SOURCE FILE PATH</label><input id="pipelineContext" name="context_file" maxlength="500" placeholder="workspace/source-notes.md"><button type="submit">RUN SPECIALIST PIPELINE</button></form><p id="pipelineInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">Latest pipeline output path will appear here.</p></section><section class="panel"><div class="panel-head"><h2>Specialist roster</h2><span class="tag" id="rosterCount">52 role profiles</span></div><p style="color:var(--muted);font-size:11px;margin:0 0 10px">Configured specialist roles for the local workflow. They are profiles, not 50 separate running models.</p><details><summary style="cursor:pointer;color:var(--orange);padding:8px 0">View all specialist profiles</summary><div id="agentRoster" class="agent-list"></div></details></section><section class="panel" id="system-activity"><div class="panel-head"><h2>System activity</h2><span class="tag" id="updated">live refresh</span></div><div id="activity"><div class="empty">Loading task activity…</div></div></section>
+<section class="panel"><div class="panel-head"><h2>Specialist practice lab</h2><span class="tag">Human-reviewed improvement</span></div><p style="color:var(--muted);font-size:11px">Run a role-specific practice task. Review the artifact and score every quality gate in Termux; only human-reviewed feedback is re-used. No model weights are changed.</p><form method="post" action="/practice-agent"><label for="practiceAgent">SPECIALIST</label><select id="practiceAgent" name="agent_id"><option value="AGENT-51">AGENT-51 / Motion Graphics Creative Director</option><option value="AGENT-52">AGENT-52 / Motion Systems & Compositing Specialist</option><option value="ALL">BATCH / Practice selected number of all specialists</option></select><label for="practiceLimit">BATCH SIZE (1–51; set 51 for all executable roles)</label><input id="practiceLimit" name="limit" type="number" min="1" max="51" value="5"><label for="practiceTask">PRACTICE TASK</label><textarea id="practiceTask" name="task" maxlength="6000" required placeholder="Give the specialist a concrete assignment and expected output..."></textarea><label for="practiceContext">OPTIONAL SOURCE FILE (inside workspace)</label><input id="practiceContext" name="context_file" maxlength="500" placeholder="workspace/source-notes.md"><button type="submit">RUN SPECIALIST PRACTICE</button></form><p id="trainingInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">No practice run has started in this session.</p></section><section class="panel" id="video-studio"><div class="panel-head"><h2>Video studio</h2><span class="tag">Local render pipeline</span></div><p style="color:var(--muted);font-size:11px">Build an outline, scene-by-scene script, storyboard, optional source-search leads, and optional MP4. Review the package before release; nothing is uploaded automatically.</p><form method="post" action="/generate-video"><label for="videoTopic">VIDEO TOPIC</label><input id="videoTopic" name="topic" maxlength="500" required placeholder="e.g. How AI agents are changing software"><label for="videoFormat">FORMAT</label><select id="videoFormat" name="format"><option value="long">Long-form (default target 15 min)</option><option value="shorts">Shorts (default target 1 min)</option></select><label for="videoMinutes">TARGET MINUTES (0.25–16)</label><input id="videoMinutes" name="target_minutes" type="number" min="0.25" max="16" step="0.25" placeholder="Leave blank for format default"><label for="videoSources">SOURCE NOTES FILE (optional, inside workspace)</label><input id="videoSources" name="source_file" maxlength="500" placeholder="workspace/source-notes.md"><label><input type="checkbox" name="research" value="yes"> Collect free web-search leads (not fact-checked)</label><label for="videoMode">OUTPUT MODE</label><select id="videoMode" name="render_mode"><option value="draft">Draft package only</option><option value="render">Generate and render MP4 (requires local model)</option><option value="template">Render explicit 20-second template demo (no AI)</option></select><label><input type="checkbox" name="with_voice" value="yes"> Add local Piper narration (requires voice model; only with MP4 rendering)</label><button type="submit">QUEUE VIDEO TASK FOR CEO</button></form><p id="videoInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">No video package has run in this session.</p></section>
+<section class="panel" id="product-studio"><div class="panel-head"><h2>Digital product studio</h2><span class="tag">Local prototype</span></div><p style="color:var(--muted);font-size:11px">Generate a draft HTML utility and ZIP package. Review the code and test it before real use or selling.</p><form method="post" action="/build-product"><label for="productTitle">PRODUCT TITLE</label><input id="productTitle" name="product_title" maxlength="100" required placeholder="e.g. Invoice Helper"><label for="productIdea">PRODUCT IDEA / USER PROBLEM</label><textarea id="productIdea" name="product_idea" maxlength="1000" required placeholder="Describe the problem, target user, and core utility..."></textarea><button type="submit">QUEUE PRODUCT TASK FOR CEO</button></form><p id="productInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">No product package has run in this session.</p></section><section class="panel" id="specialist-pipeline"><div class="panel-head"><h2>CEO Command Deck</h2><span class="tag">CEO-led delegation</span></div><p style="color:var(--muted);font-size:11px">Give the task to the CEO. The CEO selects specialist roles, assigns distinct subtasks, and sends each specialist into its own research-before-work cycle. You may optionally override the CEO with specific role IDs. Template mode is not general-purpose AI; review every deliverable.</p><form method="post" action="/run-pipeline"><label for="pipelineTask">PIPELINE GOAL</label><textarea id="pipelineTask" name="task" maxlength="6000" required placeholder="e.g. Create a fact-checkable Urdu tech video script and scene plan"></textarea><label for="pipelineAgents">OPTIONAL SPECIALIST OVERRIDE (leave blank for CEO delegation)</label><input id="pipelineAgents" name="agents" maxlength="500" placeholder="Leave blank: CEO chooses the team; or AGENT-02,AGENT-08"><label for="pipelineContext">OPTIONAL LOCAL SOURCE FILE PATH</label><input id="pipelineContext" name="context_file" maxlength="500" placeholder="workspace/source-notes.md"><button type="submit">RUN SPECIALIST PIPELINE</button></form><p id="pipelineInfo" style="color:var(--muted);font-size:11px;overflow-wrap:anywhere">Latest pipeline output path will appear here.</p></section><section class="panel"><div class="panel-head"><h2>Specialist roster</h2><span class="tag" id="rosterCount">52 role profiles</span></div><p style="color:var(--muted);font-size:11px;margin:0 0 10px">Configured specialist roles for the local workflow. They are profiles, not 50 separate running models.</p><details><summary style="cursor:pointer;color:var(--orange);padding:8px 0">View all specialist profiles</summary><div id="agentRoster" class="agent-list"></div></details></section><section class="panel" id="system-activity"><div class="panel-head"><h2>System activity</h2><span class="tag" id="updated">live refresh</span></div><div id="activity"><div class="empty">Loading task activity…</div></div></section>
 <section class="panel" id="generated-outputs"><div class="panel-head"><h2>Generated outputs</h2><span class="tag">Local files</span></div><div id="outputs"><div class="empty">Outputs appear here after a task completes.</div></div></section>
 </div></div><div class="foot">OFFLINE AGENT HQ · Dashboard bound to loopback only · Keep Termux sessions open for processing</div></main><div class="toast" id="toast"></div>
 <script>
@@ -224,18 +248,10 @@ class Handler(BaseHTTPRequestHandler):
             title = form.get("title", [""])[0].strip()[:160]
             kind = form.get("kind", ["plan"])[0]
             user_input = form.get("input", [""])[0].strip()[:6000]
-            if not title or not user_input or kind not in {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}:
-                return self.send("Invalid task. Go back and check title, type, and instructions.", status=400)
             try:
-                with task_queue_lock(TASKS):
-                    tasks = load_tasks(TASKS)
-                    # Use the largest existing numeric ID to avoid reusing IDs after deletions.
-                    nums = [int(t.get("id", "TASK-0000").split("-")[-1]) for t in tasks if str(t.get("id", "")).startswith("TASK-") and str(t.get("id", "")).split("-")[-1].isdigit()]
-                    task_id = "TASK-%04d" % (max(nums, default=0) + 1)
-                    tasks.append({"id": task_id, "title": title, "kind": kind, "input": user_input, "status": "pending", "error": ""})
-                    save_tasks(TASKS, tasks)
+                enqueue_task(title, kind, user_input)
             except (TimeoutError, ValueError, OSError) as exc:
-                return self.send("Could not safely update task queue: "+esc(type(exc).__name__), status=503)
+                return self.send("Could not safely queue task: " + esc(type(exc).__name__), status=503)
             return self._redirect("/")
         if path == "/practice-agent":
             global TRAINING_RUNNING, TRAINING_LAST_OUTPUT
@@ -301,7 +317,6 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=run_practice, daemon=True).start()
             return self._redirect("/")
         if path == "/generate-video":
-            global VIDEO_RUNNING, VIDEO_LAST_OUTPUT
             topic = form.get("topic", [""])[0].strip()
             fmt = form.get("format", ["long"])[0].strip().lower()
             mode = form.get("render_mode", ["draft"])[0].strip().lower()
@@ -334,73 +349,42 @@ class Handler(BaseHTTPRequestHandler):
                 if source_path == workspace or workspace not in source_path.parents or not source_path.is_file():
                     return self.send("Source notes must be an existing file inside workspace.", status=400)
                 source_file = str(source_path)
-            claimed, active = try_claim_workflow("video studio")
-            if not claimed:
-                return self.send("Another workflow is already running: "+esc(active)+".", status=409)
-            run_id = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
-            VIDEO_LAST_OUTPUT = "workspace/video-runs/run-" + run_id
-            VIDEO_RUNNING = True
-            def run_video():
-                global VIDEO_RUNNING
-                try:
-                    LOGS.mkdir(exist_ok=True)
-                    command = [sys.executable, str(BASE / "video_studio" / "production.py"),
-                               "--topic", topic, "--format", fmt, "--out", VIDEO_LAST_OUTPUT]
-                    if target_minutes is not None:
-                        command.extend(["--target-minutes", str(target_minutes)])
-                    if source_file:
-                        command.extend(["--source-file", source_file])
-                    if do_research:
-                        command.append("--research")
-                    if mode == "render":
-                        command.append("--render")
-                    elif mode == "template":
-                        command.append("--render-template")
-                    if with_voice:
-                        command.append("--with-voice")
-                    with (LOGS / "video-studio.log").open("a", encoding="utf-8") as log_file:
-                        log_file.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] Video run started: {fmt}, mode={mode}\n")
-                        try:
-                            result = subprocess.run(command, cwd=str(BASE), stdout=log_file,
-                                                    stderr=subprocess.STDOUT, timeout=14400, check=False)
-                            log_file.write(f"Video run exit code: {result.returncode}\n")
-                        except (OSError, subprocess.TimeoutExpired) as exc:
-                            log_file.write(f"Video run error: {type(exc).__name__}\n")
-                finally:
-                    VIDEO_RUNNING = False
-                    release_workflow("video studio")
-            threading.Thread(target=run_video, daemon=True).start()
+            duration_note = ("target_minutes: " + str(target_minutes)) if target_minutes is not None else ""
+            request_parts = [
+                "Create a faceless YouTube video package about " + topic + ".",
+                "Format: " + fmt + ".",
+                duration_note,
+                "Requested mode: " + mode + ".",
+                "Collect current web research and create the actual script and storyboard deliverables.",
+            ]
+            if mode == "render":
+                request_parts.append("Render the final video to MP4.")
+            if mode == "template":
+                request_parts.append("Explicitly authorized: template demo render, not a full AI-generated video.")
+            if with_voice:
+                request_parts.append("Add local Piper narration with voice.")
+            if not do_research and mode != "template":
+                request_parts.append("Research is still required by the system; the checkbox only controls the former standalone workflow.")
+            try:
+                enqueue_task("Video: " + topic[:145], "youtube_package", " ".join(part for part in request_parts if part), source_file)
+            except (TimeoutError, ValueError, OSError) as exc:
+                return self.send("Could not queue video task for the CEO: " + esc(type(exc).__name__), status=503)
             return self._redirect("/")
         if path == "/build-product":
-            global PRODUCT_RUNNING, PRODUCT_LAST_OUTPUT
             title = form.get("product_title", [""])[0].strip()
             idea = form.get("product_idea", [""])[0].strip()
             if not title or len(title) > 100 or not idea or len(idea) > 1000:
                 return self.send("Product title must be 1–100 characters and product idea 1–1000 characters.", status=400)
-            claimed, active = try_claim_workflow("digital product studio")
-            if not claimed:
-                return self.send("Another workflow is already running: "+esc(active)+".", status=409)
-            run_id = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S-%f")
-            PRODUCT_LAST_OUTPUT = "workspace/product-runs/run-" + run_id
-            PRODUCT_RUNNING = True
-            def run_product():
-                global PRODUCT_RUNNING
-                try:
-                    LOGS.mkdir(exist_ok=True)
-                    command = [sys.executable, str(BASE / "product_studio" / "build_product.py"),
-                               "--title", title, "--idea", idea, "--out", PRODUCT_LAST_OUTPUT]
-                    with (LOGS / "product-studio.log").open("a", encoding="utf-8") as log_file:
-                        log_file.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] Product prototype started\n")
-                        try:
-                            result = subprocess.run(command, cwd=str(BASE), stdout=log_file,
-                                                    stderr=subprocess.STDOUT, timeout=900, check=False)
-                            log_file.write(f"Product prototype exit code: {result.returncode}\n")
-                        except (OSError, subprocess.TimeoutExpired) as exc:
-                            log_file.write(f"Product prototype error: {type(exc).__name__}\n")
-                finally:
-                    PRODUCT_RUNNING = False
-                    release_workflow("digital product studio")
-            threading.Thread(target=run_product, daemon=True).start()
+            task_text = (
+                "Build a digital product prototype called " + title + ". "
+                "User problem and product idea: " + idea + ". "
+                "Research the user need and similar solutions, produce a usable local HTML/ZIP prototype, "
+                "document its limitations, and do not claim market validation without evidence."
+            )
+            try:
+                enqueue_task("Digital product: " + title, "draft", task_text)
+            except (TimeoutError, ValueError, OSError) as exc:
+                return self.send("Could not queue product task for the CEO: " + esc(type(exc).__name__), status=503)
             return self._redirect("/")
         if path == "/run-pipeline":
             global PIPELINE_RUNNING, PIPELINE_LAST_OUTPUT
