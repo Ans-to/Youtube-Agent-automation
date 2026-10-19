@@ -158,7 +158,13 @@ def plan_delegation(task, context, cfg, roles_by_id):
             + json.dumps(roster, ensure_ascii=False)[:18000]
         )
         try:
-            raw = dispatch.run_role(roles_by_id["AGENT-01"], ceo_task, context[:10000], cfg)
+            # Delegation is a lightweight planning call. Specialist stages perform
+            # their own task-specific research; searching before the CEO can route work
+            # adds latency and can time out CPU-only local models.
+            raw = dispatch.run_role(
+                roles_by_id["AGENT-01"], ceo_task, context[:6000], cfg,
+                perform_research=False,
+            )
             assignments = parse_ceo_assignments(raw, roles_by_id)
             if assignments:
                 return assignments, "ceo_model_delegation"
@@ -341,16 +347,32 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             if not isinstance(result, str) or not result.strip():
                 raise ValueError("Specialist returned an empty result.")
         except Exception as exc:
+            # Persist the failure and continue. A single timed-out specialist must not
+            # prevent downstream builders or AGENT-08 from reporting a useful final gate.
+            failure_filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"] + "-failure") + ".md"
+            failure_text = (
+                "# Specialist stage failed: " + role["name"] + "\n\n"
+                + "- Agent: " + agent_id + "\n"
+                + "- Stage: " + str(index) + " of " + str(len(assignments)) + "\n"
+                + "- Error type: " + type(exc).__name__ + "\n"
+                + "- Error: " + str(exc)[:1000] + "\n\n"
+                + "No deliverable was confirmed for this stage. Downstream stages may proceed using other available context, "
+                  "but must treat this contribution and any missing evidence as unresolved.\n"
+            )
+            (destination / failure_filename).write_text(failure_text, encoding="utf-8")
             failure = {
                 "sequence": index, "agent_id": agent_id, "role": role["name"],
-                "assigned_task": specialist_task, "output_file": None, "status": "failed",
+                "assigned_task": specialist_task, "output_file": failure_filename, "status": "failed",
+                "research_status": "failure_disclosed",
                 "error_type": type(exc).__name__, "error": str(exc)[:500],
                 "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
             }
             records.append(failure)
-            manifest = build_manifest(task, records, cfg, status="failed", delegation_mode=delegation_mode, assignments=assignments, ceo_research_reports=ceo_research_reports)
-            (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            return destination, manifest
+            combined_context = (
+                combined_context + "\n\n--- " + role["name"] + " stage failure (not a deliverable) ---\n"
+                + failure_text
+            )[-24000:]
+            continue
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
         quality_gate = "unconfirmed"
         if agent_id == "AGENT-08":
@@ -419,7 +441,12 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     required_tool_blocked = any(item.get("status") == "blocked" for item in tool_runs)
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
     reviewer_gate = reviewer_record.get("quality_gate", "unconfirmed")
-    final_status = "failed" if required_tool_failed else ("blocked" if required_tool_blocked else ("review_failed" if reviewer_gate == "fail" else "draft"))
+    specialist_failed = any(item.get("status") == "failed" for item in records)
+    final_status = "failed" if (required_tool_failed or specialist_failed) else (
+        "blocked" if required_tool_blocked else (
+            "review_failed" if reviewer_gate == "fail" else "draft"
+        )
+    )
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return destination, manifest
