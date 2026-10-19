@@ -105,7 +105,7 @@ def youtube_package(title, request):
 
 def structured_plan(title, request):
     return dedent(f"""\
-    # Execution Plan: {title}
+    # {title}\n\n    ## Execution Plan
 
     ## Outcome
     {request}
