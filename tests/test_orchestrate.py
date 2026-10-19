@@ -74,6 +74,22 @@ class CEODelegationTests(unittest.TestCase):
             self.assertEqual(results[0]["status"], "completed")
             self.assertIn("build_product.py", run_tool.call_args.args[1][1])
 
+    def test_youtube_automation_software_does_not_trigger_video_builder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            destination = workspace / "run-1"
+            destination.mkdir(parents=True)
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "_run_fixed_tool") as run_tool:
+                results = orchestrate.run_builtin_tools(
+                    "Build my YouTube automation agent studio with specialist roles",
+                    destination,
+                    {"model": {"enabled": False}},
+                )
+            self.assertEqual(results, [])
+            run_tool.assert_not_called()
+
     def test_video_builder_does_not_substitute_template_for_full_video_without_model(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
