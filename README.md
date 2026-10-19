@@ -199,3 +199,30 @@ python agents/orchestrate.py --task "Prepare a fact-checkable technology video s
 The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it produces drafts but still does not independently verify facts or browse the web. Review `pipeline-status.json` and all stage outputs before using them.
 
 Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 52 role profiles: 51 specialist roles and the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
+
+## PC and mobile browser app
+
+The dashboard now exposes a web-app manifest, vector icon, service worker, and a minimal offline fallback so supported browsers can install Agent HQ as an app shortcut. The service worker deliberately does **not** cache task state, generated outputs, or form submissions.
+
+### Windows PC
+
+1. Install Python 3.10 or newer.
+2. In PowerShell, run \`.\setup_windows.ps1\` from the project folder.
+3. Start the dashboard with \`.\start_windows.bat\`.
+4. Open the loopback URL printed in the terminal (normally \`http://127.0.0.1:8765\`).
+5. In a supported browser, use its Install App / Install this site option if available.
+
+For MP4 rendering, install Node.js LTS and FFmpeg as described in \`video_studio/README.md\`. The setup script checks for these dependencies and reports when rendering cannot be used.
+
+### Android phone
+
+1. Open the project folder in Termux.
+2. Install Python if needed with \`pkg install python git\`.
+3. Run \`python dashboard.py\`.
+4. Open \`http://127.0.0.1:8765\` in the browser on that same phone.
+5. In a supported browser, choose **Add to Home screen** or **Install app**.
+
+### Important cross-device limitation
+
+This is a local-first web app, not a hosted service. If you start Agent HQ separately on the PC and phone, they have separate task queues, configuration, and output folders. The installed web app does not synchronize data between devices. The local dashboard is intentionally restricted to loopback; do not change it to \`0.0.0.0\` or expose it to the public internet. A shared multi-device deployment would need a separately designed authenticated server and encrypted data synchronization.
+
