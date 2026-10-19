@@ -294,6 +294,11 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         if "AGENT-50" in selected or "AGENT-01" in selected:
             raise ValueError("CEO and human approval roles cannot be run as ordinary specialist stages.")
         assignments = [{"agent_id": agent_id, "task": "Complete your specialist contribution to this overall goal: " + task.strip()} for agent_id in selected]
+        assignments = [item for item in assignments if item["agent_id"] != "AGENT-08"]
+        assignments.append({
+            "agent_id": "AGENT-08",
+            "task": "FINAL QUALITY GATE: Review the combined deliverables, research evidence, factual claims, contradictions, omissions, and unresolved risks. Cite source URLs and end with OVERALL QUALITY GATE: PASS, PARTIAL, or FAIL.",
+        })
         delegation_mode = "user_selected_roles"
     ceo_reports_after = set(ceo_research_dir.glob("agent-01-*.md")) if ceo_research_dir.is_dir() else set()
     ceo_research_reports = sorted(str(path.relative_to(ROOT)) for path in ceo_reports_after - ceo_reports_before)
