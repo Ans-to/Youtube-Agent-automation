@@ -175,6 +175,11 @@ jobs:
           export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx"
           python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --with-voice
           python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo-shorts.json --output outputs/motion-character-transition-shorts.mp4 --with-voice
+      - name: Run topic-to-video production pipeline with English narration
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: |
+          python video_studio/production.py --topic "How a video rendering pipeline works" --format long --target-minutes 0.25 --scenes 4 --out workspace/ci-production-package --render-template
       - name: Validate landscape and Shorts audio, subtitles, and quality
         run: |
           set -eu
@@ -196,6 +201,18 @@ jobs:
           PY
           python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-demo.mp4 --strict --report video_studio/outputs/motion-character-transition-demo.qc.json
           python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-shorts.mp4 --strict --report video_studio/outputs/motion-character-transition-shorts.qc.json
+          python video_studio/validate_render.py workspace/ci-production-package/video.mp4 --width 1920 --height 1080 --fps 30 --require-audio
+          test -s workspace/ci-production-package/video.srt
+          test -s workspace/ci-production-package/video.vtt
+          python video_studio/quality_audit.py workspace/ci-production-package/video.mp4 --strict --report workspace/ci-production-package/video.qc.json
+          python - <<'PY'
+          import json
+          with open("workspace/ci-production-package/package-status.json", encoding="utf-8") as f:
+              status = json.load(f)
+          assert status.get("voice_language") == "English", status
+          assert status.get("subtitles_required") is True, status
+          assert status.get("rendered_duration_seconds", 0) > 0, status
+          PY
       - name: Upload landscape and Shorts release candidates
         uses: actions/upload-artifact@v7
         with:
@@ -209,5 +226,12 @@ jobs:
             video_studio/outputs/motion-character-transition-shorts.srt
             video_studio/outputs/motion-character-transition-shorts.vtt
             video_studio/outputs/motion-character-transition-shorts.qc.json
+            workspace/ci-production-package/script.md
+            workspace/ci-production-package/storyboard.json
+            workspace/ci-production-package/package-status.json
+            workspace/ci-production-package/video.mp4
+            workspace/ci-production-package/video.srt
+            workspace/ci-production-package/video.vtt
+            workspace/ci-production-package/video.qc.json
           if-no-files-found: error
           retention-days: 7
