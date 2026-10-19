@@ -78,14 +78,21 @@ def scan_risks(source):
     return risks
 
 def main():
-    p=argparse.ArgumentParser(description=__doc__);p.add_argument("--idea",required=True);p.add_argument("--title",default="Offline Utility Prototype");p.add_argument("--out",default="workspace/products");a=p.parse_args()
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument("--idea",required=True);p.add_argument("--title",default="Offline Utility Prototype");p.add_argument("--out",default="workspace/products");p.add_argument("--source-file",help="Optional local research/notes file inside workspace");a=p.parse_args()
     idea=a.idea.strip();title=a.title.strip()
     if not idea or len(idea)>1000:raise SystemExit("Idea must be 1–1000 characters.")
     if not title or len(title)>100:raise SystemExit("Title must be 1–100 characters.")
     config_path=ROOT/"config.json"
     try:cfg=json.loads(config_path.read_text(encoding="utf-8"))
     except (FileNotFoundError,json.JSONDecodeError):cfg={}
-    generated=local_html(idea,title,cfg)
+    source_notes=""
+    if a.source_file:
+        notes_path=Path(a.source_file).expanduser().resolve()
+        workspace_root=(ROOT/"workspace").resolve()
+        if notes_path==workspace_root or workspace_root not in notes_path.parents or not notes_path.is_file():raise SystemExit("Source notes must be an existing file inside workspace.")
+        if notes_path.suffix.lower() not in {".txt",".md",".json"} or notes_path.stat().st_size>2_000_000:raise SystemExit("Source notes must be .txt, .md, or .json and no larger than 2 MB.")
+        source_notes=notes_path.read_text(encoding="utf-8",errors="replace")[:50000]
+    generated=local_html(idea,title,cfg,source_notes)
     source=generated or fallback_html(title,idea)
     head=re.search(r"<head\b[^>]*>",source,re.IGNORECASE)
     if not head: raise SystemExit("Product HTML rejected: a valid head element is required.")
@@ -101,7 +108,9 @@ def main():
     out.mkdir(parents=True,exist_ok=True)
     (out/"index.html").write_text(source,encoding="utf-8")
     (out/"README.md").write_text("# "+title+"\n\n## Product idea\n"+idea+"\n\n## Status\nPrototype generated locally. Review functionality, accessibility, security, and licensing before selling.\n\n## Validation notes\n"+("- Potential external/network patterns found: "+", ".join(risks) if risks else "Basic static scan found no configured external-network patterns; this is not a security audit.")+"\n",encoding="utf-8")
-    manifest={"title":title,"idea":idea,"status":"draft","generated_by":"local_model" if generated else "deterministic_template","external_patterns_found":risks,"human_review_required":True,"published":False}
+    if source_notes:
+        (out/"research-notes.md").write_text("# CEO-supplied research and specialist notes\n\nThese notes are not independently verified. Confirm source URLs, dates, and claim support before relying on them.\n\n"+source_notes[:30000]+"\n",encoding="utf-8")
+    manifest={"title":title,"idea":idea,"status":"draft","generated_by":"local_model" if generated else "deterministic_template","external_patterns_found":risks,"human_review_required":True,"published":False,"research_source_supplied":bool(source_notes)}
     (out/"product-status.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
     archive=out.with_suffix(".zip")
     with zipfile.ZipFile(archive,"w",zipfile.ZIP_DEFLATED) as z:
