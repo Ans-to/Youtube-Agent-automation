@@ -129,12 +129,24 @@ def plan_delegation(task, context, cfg, roles_by_id):
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
     ceo_error = False
     if model_enabled:
-        roster = [
-            {"id": role.get("id"), "name": role.get("name"), "department": role.get("department"),
-             "mission": role.get("mission")}
-            for role in roles_by_id.values()
-            if role.get("id") not in {"AGENT-01", "AGENT-50"}
-        ]
+        skill_profiles = {
+            profile.get("agent_id"): profile
+            for profile in dispatch.load_json(dispatch.SKILLBOOK, {}).get("profiles", [])
+        }
+        roster = []
+        for role in roles_by_id.values():
+            agent_id = role.get("id")
+            if agent_id in {"AGENT-01", "AGENT-50"}:
+                continue
+            skill = skill_profiles.get(agent_id, {})
+            roster.append({
+                "id": agent_id,
+                "name": role.get("name"),
+                "department": role.get("department"),
+                "mission": str(role.get("mission", ""))[:180],
+                "expertise": str(skill.get("expertise", ""))[:140],
+                "deliverable": str(skill.get("deliverable_contract", ""))[:120],
+            })
         ceo_task = (
             "Act as the CEO of Agent HQ. Delegate this task to the smallest sufficient set of specialists. "
             "Choose 2-7 specialist assignments, in dependency order. Include one factual quality-review role "
