@@ -182,7 +182,7 @@ def start_task_runner():
                 if not has_pending_tasks():
                     break
                 with (LOGS / "dashboard.log").open("a", encoding="utf-8") as log_file:
-                    log_file.write("[" + datetime.now().astimezone().isoformat(timespec="seconds") + "] Auto queue worker cycle " + str(cycle_number + 1) + " started\\n")
+                    log_file.write("[" + datetime.now().astimezone().isoformat(timespec="seconds") + "] Auto queue worker cycle " + str(cycle_number + 1) + " started\n")
                     try:
                         result = subprocess.run(
                             [sys.executable, str(BASE / "agent.py"), "--once"],
