@@ -30,7 +30,7 @@ jobs:
         with:
           node-version: "22"
       - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
@@ -79,7 +79,9 @@ jobs:
           PY
           python video_studio/studio.py --storyboard outputs/e2e-evidence/landscape-30s-storyboard.json --output outputs/e2e-evidence/landscape-30s.mp4 --keep-frames
           cp video_studio/outputs/e2e-evidence/landscape-30s.mp4 outputs/e2e-evidence/landscape-30s.mp4
-          python video_studio/validate_render.py outputs/e2e-evidence/landscape-30s.mp4 --width 1280 --height 720 --fps 24 > outputs/e2e-evidence/landscape-validation.json
+          python video_studio/add_test_narration.py --video outputs/e2e-evidence/landscape-30s.mp4 --storyboard outputs/e2e-evidence/landscape-30s-storyboard.json --output outputs/e2e-evidence/landscape-30s-narrated.mp4
+          mv outputs/e2e-evidence/landscape-30s-narrated.mp4 outputs/e2e-evidence/landscape-30s.mp4
+          python video_studio/validate_render.py outputs/e2e-evidence/landscape-30s.mp4 --width 1280 --height 720 --fps 24 --require-audio > outputs/e2e-evidence/landscape-validation.json
       - name: Render 15-second vertical Shorts motion-graphics test
         run: |
           python - <<'PY'
@@ -95,7 +97,9 @@ jobs:
           PY
           python video_studio/studio.py --storyboard outputs/e2e-evidence/shorts-15s-storyboard.json --output outputs/e2e-evidence/shorts-15s.mp4 --keep-frames
           cp video_studio/outputs/e2e-evidence/shorts-15s.mp4 outputs/e2e-evidence/shorts-15s.mp4
-          python video_studio/validate_render.py outputs/e2e-evidence/shorts-15s.mp4 --width 540 --height 960 --fps 24 > outputs/e2e-evidence/shorts-validation.json
+          python video_studio/add_test_narration.py --video outputs/e2e-evidence/shorts-15s.mp4 --storyboard outputs/e2e-evidence/shorts-15s-storyboard.json --output outputs/e2e-evidence/shorts-15s-narrated.mp4
+          mv outputs/e2e-evidence/shorts-15s-narrated.mp4 outputs/e2e-evidence/shorts-15s.mp4
+          python video_studio/validate_render.py outputs/e2e-evidence/shorts-15s.mp4 --width 540 --height 960 --fps 24 --require-audio > outputs/e2e-evidence/shorts-validation.json
       - name: Generate frame samples and objective evidence report
         if: always()
         run: |
