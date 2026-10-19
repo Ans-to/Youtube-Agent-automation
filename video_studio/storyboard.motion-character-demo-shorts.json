@@ -1,0 +1,88 @@
+{
+  "title": "Agent HQ — Vertical English Voice and Subtitle Test",
+  "width": 720,
+  "height": 1280,
+  "fps": 30,
+  "scenes": [
+    {
+      "duration_seconds": 5,
+      "eyebrow": "MOTION TEST / 01",
+      "headline": "Ideas need a clear visual",
+      "subhead": "A presenter layer with idle motion and an explanatory gesture",
+      "narration": "A strong visual idea should be clear enough for viewers to understand immediately.",
+      "visual_type": "hero",
+      "graphic_label": "THE CORE IDEA",
+      "transition_in": "none",
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.82,
+        "y": 0.57,
+        "scale": 0.28,
+        "walking": 0,
+        "skin": "#c58e72",
+        "hair": "#25212a",
+        "shirt": "#6479b8",
+        "trousers": "#303746"
+      },
+      "caption": "A strong visual idea should be clear enough for viewers to understand immediately."
+    },
+    {
+      "duration_seconds": 5,
+      "eyebrow": "MOTION TEST / 02",
+      "headline": "Transitions should connect",
+      "subhead": "A directional wipe bridges related information, not random scenes",
+      "narration": "Smooth transitions connect one scene to the next idea and preserve the video's flow.",
+      "visual_type": "diagram",
+      "visual_nodes": [
+        "CONTEXT",
+        "EXPLANATION",
+        "TAKEAWAY"
+      ],
+      "transition_in": "slide-left",
+      "transition_frames": 16,
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.82,
+        "y": 0.57,
+        "scale": 0.28,
+        "walking": 0,
+        "skin": "#c58e72",
+        "hair": "#25212a",
+        "shirt": "#6479b8",
+        "trousers": "#303746"
+      },
+      "caption": "Smooth transitions connect one scene to the next idea and preserve the video's flow."
+    },
+    {
+      "duration_seconds": 5,
+      "eyebrow": "MOTION TEST / 03",
+      "headline": "Review at normal speed",
+      "subhead": "Check continuity, readability, and timing before release",
+      "narration": "Review every render at normal speed, fix visual defects, and approve the final cut only after quality checks.",
+      "visual_type": "timeline",
+      "timeline_events": [
+        "PLAN",
+        "ANIMATE",
+        "REVIEW",
+        "REFINE"
+      ],
+      "transition_in": "zoom",
+      "transition_frames": 18,
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.82,
+        "y": 0.57,
+        "scale": 0.28,
+        "walking": 0,
+        "skin": "#c58e72",
+        "hair": "#25212a",
+        "shirt": "#6479b8",
+        "trousers": "#303746"
+      },
+      "caption": "Review every render at normal speed, fix visual defects, and approve the final cut only after quality checks."
+    }
+  ]
+}
