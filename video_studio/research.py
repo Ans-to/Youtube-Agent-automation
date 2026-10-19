@@ -349,7 +349,7 @@ def render_markdown(metadata, results, max_page_text=2500):
             "- Search snippet: " + (item["snippet"] or "(No snippet was returned.)"),
             "- Page fetch status: " + str(item.get("fetch_status", "not_attempted")),
             "- Page title: " + str(item.get("page_title", "")),
-            "- Extracted page text: " + (str(item.get("page_text", "")) or "(No page text extracted.)"),
+            "- Extracted page text: " + ((str(item.get("page_text", ""))[:max(0, int(max_page_text))]) or "(No page text extracted.)"),
             "",
         ])
     if metadata.get("page_errors"):
