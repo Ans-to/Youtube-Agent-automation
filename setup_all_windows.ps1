@@ -36,6 +36,9 @@ if (-not (Has-Command "py") -and -not (Has-Command "python")) {
 if (-not (Has-Command "node") -or -not (Has-Command "npm")) {
     Install-WingetPackage "OpenJS.NodeJS.LTS" "Node.js LTS and npm"
 }
+$NodeMajor = 0
+if (Has-Command "node") { $NodeMajor = [int]((& node -p "process.versions.node.split(String.fromCharCode(46))[0]").Trim()) }
+if ($NodeMajor -gt 0 -and $NodeMajor -lt 22) { Install-WingetPackage "OpenJS.NodeJS.LTS" "Node.js 22+ LTS and npm" }
 if (-not (Has-Command "ffmpeg")) {
     Install-WingetPackage "Gyan.FFmpeg" "FFmpeg video encoder"
 }
