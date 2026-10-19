@@ -11,15 +11,6 @@ AGENT_DIR = BASE / "agents"
 if str(AGENT_DIR) not in sys.path:
     sys.path.insert(0, str(AGENT_DIR))
 from orchestrate import run_pipeline as run_ceo_pipeline
-RESEARCH_DIR = BASE / "video_studio"
-if str(RESEARCH_DIR) not in sys.path:
-    sys.path.insert(0, str(RESEARCH_DIR))
-try:
-    from research import research as collect_web_research, render_markdown as render_research_markdown, sanitize_research_query
-except Exception:
-    collect_web_research = None
-    render_research_markdown = None
-    sanitize_research_query = lambda value: str(value or '')[:500]
 TASKS = BASE / "tasks.json"
 CONFIG = BASE / "config.json"
 WORKSPACE = BASE / "workspace"
