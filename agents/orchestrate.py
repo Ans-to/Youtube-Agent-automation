@@ -390,7 +390,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
     research_sections = []
-    research_budget = 22000
+    research_budget = 18000
     research_root = (ROOT / "workspace" / "research" / "agent-runs").resolve()
     for record in records:
         for report in record.get("research_reports", []):
@@ -408,11 +408,11 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         if research_budget <= 0:
             break
     tool_context = (
-        context
+        (context or "")[:10000]
         + "\n\n## Retrieved specialist research reports (unverified until reviewed)\n"
         + "".join(research_sections)
         + "\n\n## CEO specialist deliverables (unverified until reviewed)\n"
-        + combined_context[-16000:]
+        + combined_context[-10000:]
     )[:40000]
     tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
