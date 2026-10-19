@@ -27,7 +27,7 @@ Example model section for a local server on port 1234:
       "base_url": "http://127.0.0.1:1234/v1/chat/completions",
       "model": "local-model",
       "max_output_tokens": 900,
-      "timeout_seconds": 120
+      "timeout_seconds": 240
     }
 
 Replace local-model with the actual model identifier required by your server. Keep config.json out of Git; it is ignored by .gitignore.
