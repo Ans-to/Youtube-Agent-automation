@@ -74,9 +74,23 @@ function Install-PortableFfmpeg {
         if (Test-Path $FfmpegRoot) { Remove-Item $FfmpegRoot -Recurse -Force }
         $FfmpegBin = Join-Path $FfmpegRoot "bin"
         New-Item -ItemType Directory -Force -Path $FfmpegBin | Out-Null
-        Get-ChildItem -LiteralPath $SourceBin -Force | Copy-Item -Destination $FfmpegBin -Recurse -Force
+        # Copy each archive member explicitly. Pipeline-based Copy-Item can behave
+        # inconsistently with FileInfo/DirectoryInfo objects in Windows PowerShell 5.1.
+        Get-ChildItem -LiteralPath $SourceBin -Force | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $FfmpegBin -Recurse -Force
+        }
         $FfmpegExe = Join-Path $FfmpegBin "ffmpeg.exe"
         $FfprobeExe = Join-Path $FfmpegBin "ffprobe.exe"
+        # Some archive layouts put binaries in a nested bin folder; locate and flatten
+        # the required executables if the first copy did not preserve the expected layout.
+        if (-not (Test-Path -LiteralPath $FfmpegExe)) {
+            $NestedBin = Get-ChildItem -Path $FfmpegRoot -Filter ffmpeg.exe -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($NestedBin) {
+                Get-ChildItem -LiteralPath $NestedBin.Directory.FullName -Force | ForEach-Object {
+                    Copy-Item -LiteralPath $_.FullName -Destination $FfmpegBin -Recurse -Force
+                }
+            }
+        }
         if (-not (Test-Path -LiteralPath $FfmpegExe)) {
             $Copied = Get-ChildItem -Path $FfmpegRoot -Filter ffmpeg.exe -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
             $Listing = (Get-ChildItem -Path $ExtractRoot -Force | Select-Object -ExpandProperty Name) -join ", "
