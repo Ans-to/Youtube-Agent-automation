@@ -416,10 +416,10 @@ class CEODelegationTests(unittest.TestCase):
                 if role["id"] == "AGENT-08":
                     review_count += 1
                     if review_count == 1:
-                        return "# Review\\n\\nThe review omitted the required gate line.\\n"
-                    return "# Final review\\n\\nOVERALL QUALITY GATE: PASS\\n"
+                        return "# Review\n\nThe review omitted the required gate line.\n"
+                    return "# Final review\n\nOVERALL QUALITY GATE: PASS\n"
                 if "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
-                    return "# Repaired deliverable\\n\\nGate evidence added.\\n"
+                    return "# Repaired deliverable\n\nGate evidence added.\n"
                 return "# Deliverable\\n\\nDraft output."
 
             with (
