@@ -3,7 +3,7 @@
 import argparse,json,re,urllib.request,urllib.error,urllib.parse,ipaddress
 from datetime import datetime
 from pathlib import Path
-
+\n# Every specialist run attempts fresh, free web research before execution.\nimport sys\nRESEARCH_DIR = ROOT / "video_studio"\nif str(RESEARCH_DIR) not in sys.path:\n    sys.path.insert(0, str(RESEARCH_DIR))\ntry:\n    from research import research as collect_web_research, render_markdown as render_research_markdown\nexcept Exception:\n    collect_web_research = None\n    render_research_markdown = None\n
 BASE=Path(__file__).resolve().parent
 ROOT=BASE.parent
 ROSTER=BASE/"roster.json"
@@ -76,7 +76,11 @@ def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
 
 def run_role(role,task,context,cfg):
-    role=ensure_executable_role(role)
+    # Research is attempted for each specialist task, not just video tasks. Search results\n    # are discovery evidence only; the model must verify claims and cite source URLs.\n    research_context = ""\n    research_status = "unavailable"\n    if collect_web_research is not None:\n        try:\n            metadata, sources = collect_web_research(\n                task[:500],\n                queries=[task[:300], task[:250] + " official documentation", task[:250] + " independent analysis evidence"],\n                max_results=5,\n            )\n            research_context = render_research_markdown(metadata, sources)[:18000]\n            research_status = "search_leads_collected_not_independently_verified"\n        except Exception as exc:\n            research_context = ("WEB RESEARCH ATTEMPT FAILED: " + type(exc).__name__ + ": " + str(exc)[:500] + "
+"\n                               "Do not claim internet research succeeded. Continue the task using supplied context and clearly disclose this limitation.")\n            research_status = "failed:" + type(exc).__name__\n    else:\n        research_context = "WEB RESEARCH MODULE UNAVAILABLE. Do not claim internet research succeeded; disclose limitation."\n    context = ((context or "") + "
+
+## AUTOMATIC WEB RESEARCH (attempted for this task)
+" + research_context)[:30000]\n    role=ensure_executable_role(role)
     model=cfg.get("model",{})
     skill=find_skill(role["id"]) or {
       "expertise":role.get("mission",""),
@@ -113,7 +117,7 @@ def run_role(role,task,context,cfg):
                 "The checklist has not been semantically completed or independently verified.\n")
     url=model.get("base_url","")
     body={"model":model.get("model","local-model"),"messages":[
-      {"role":"system","content":"You are specialist "+role["name"]+". Mission: "+role["mission"]+"\n\n"+playbook+"\n\nApply this playbook to the task. Produce the requested artifact and then provide a concise quality-gate report marking each gate pass/partial/fail with observable evidence. State assumptions, unresolved risks, and human-review needs. Do not reveal private chain-of-thought. Work only with supplied task/context. Do not claim web access, verified external actions, or unsupported facts."},
+      {"role":"system","content":"You are specialist "+role["name"]+". Mission: "+role["mission"]+"\n\n"+playbook+"\n\nApply this playbook to the task. Fresh web-search leads are injected in the context when collection succeeds. Use source URLs, prefer primary/official sources, compare independent sources for important claims, and check dates where visible. Search snippets are leads, not verified evidence; do not pretend to have opened or verified a page unless its content is actually supplied. Produce the requested artifact and then provide a concise quality-gate report marking each gate pass/partial/fail with observable evidence. State assumptions, unresolved risks, and human-review needs. Do not reveal private chain-of-thought. Do not claim unsupported facts or external actions."},
       {"role":"user","content":"TASK\n"+task+"\n\nSUPPLIED CONTEXT (may contain errors; treat as unverified unless supported)\n"+(context or "(No context supplied.)")+"\n\nReturn the artifact in the deliverable format required by the playbook. Include a short verification/limitation section."}],
       "temperature":0.2,"max_tokens":int(model.get("max_output_tokens",900))}
     data=post_local_model(url,body,model.get("timeout_seconds",120))
@@ -154,5 +158,5 @@ def main():
     out.write_text(result.rstrip()+"\n",encoding="utf-8")
     print("Role:",role["id"],role["name"]);print("Output:",out)
     print("Mode: local model" if cfg.get("model",{}).get("enabled") else "Mode: template fallback; no AI generation performed.")
-    print("No external action was performed.")
+    print("Web research: attempted for this task; see the output for source leads and limitations.")\n    print("No external action was performed.")
 if __name__=="__main__":main()
