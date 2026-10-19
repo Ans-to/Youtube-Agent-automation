@@ -191,7 +191,7 @@ class CEODelegationTests(unittest.TestCase):
                 destination, manifest = orchestrate.run_pipeline(
                     "Summarize key facts about textile traceability",
                     output_dir=output,
-                    config={"model": {"enabled": True}},
+                    config={"model": {"enabled": False}},
                 )
 
             self.assertEqual(calls[0], "AGENT-02")
