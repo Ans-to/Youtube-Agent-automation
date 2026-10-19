@@ -28,6 +28,7 @@ class TaskModel:
     quality_passed: bool = False
     external_action: bool = False
     approval_granted: bool = False
+    external_action_executed: bool = False
     history: list[str] = field(default_factory=list)
 
     def transition(self, new_status: str) -> None:
@@ -45,9 +46,11 @@ def run_case(rng: random.Random, case_id: int) -> tuple[bool, str]:
     # A task may ask for an external side effect; this must stop at the gate.
     task.external_action = rng.random() < 0.18
     task.approval_granted = rng.random() < 0.25
+    # Model the side effect explicitly: it is possible only with approval.
+    task.external_action_executed = task.external_action and task.approval_granted
     if task.external_action and not task.approval_granted:
         task.transition("needs_human_action")
-        if task.status != "needs_human_action":
+        if task.external_action_executed or task.status != "needs_human_action":
             return False, "external_action_gate"
 
     # Simulate interruption after zero or more saved artifacts.
@@ -78,12 +81,10 @@ def run_case(rng: random.Random, case_id: int) -> tuple[bool, str]:
 
     if task.status == "completed" and not task.quality_passed:
         return False, "completion_requires_quality_gate"
-    if task.external_action and not task.approval_granted and "completed" in task.history:
-        # The model's external action is a hard gate, not a general task blocker.
-        # A task may complete its draft while the side effect remains unperformed;
-        # the state must still record the approval gate if the action itself is requested.
-        if "needs_human_action" not in task.history:
-            return False, "external_action_requires_gate"
+    if task.external_action and not task.approval_granted and task.external_action_executed:
+        return False, "external_action_requires_approval"
+    if task.external_action and not task.approval_granted and "needs_human_action" not in task.history:
+        return False, "external_action_requires_gate"
 
     return True, "interrupted" if interrupted else ("external" if task.external_action else "normal")
 
