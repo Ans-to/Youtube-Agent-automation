@@ -61,12 +61,20 @@ function Install-PortableFfmpeg {
         if (-not $Found) { throw "The downloaded archive did not contain ffmpeg.exe." }
         $SourceBin = $Found.Directory.FullName
         if (Test-Path $FfmpegRoot) { Remove-Item $FfmpegRoot -Recurse -Force }
-        New-Item -ItemType Directory -Force -Path $FfmpegRoot | Out-Null
-        Copy-Item -Path (Join-Path $SourceBin "*") -Destination (Join-Path $FfmpegRoot "bin") -Recurse -Force
-        $env:Path = "$FfmpegRoot\bin;$env:Path"
+        $FfmpegBin = Join-Path $FfmpegRoot "bin"
+        New-Item -ItemType Directory -Force -Path $FfmpegBin | Out-Null
+        Copy-Item -Path (Join-Path $SourceBin "*") -Destination $FfmpegBin -Recurse -Force
+        $FfmpegExe = Join-Path $FfmpegBin "ffmpeg.exe"
+        if (-not (Test-Path $FfmpegExe)) {
+            throw "FFmpeg archive was extracted, but ffmpeg.exe was not copied to the expected location: $FfmpegExe"
+        }
+        $env:Path = "$FfmpegBin;$env:Path"
         Remove-Item $ExtractRoot -Recurse -Force
         Remove-Item $ZipPath -Force
-        if (-not (Has-Command "ffmpeg")) { throw "FFmpeg was extracted but could not be detected." }
+        if (-not (Has-Command "ffmpeg")) {
+            & $FfmpegExe -version | Select-Object -First 1
+            if ($LASTEXITCODE -ne 0) { throw "FFmpeg executable exists but could not start." }
+        }
         Write-Host "Portable FFmpeg installed inside the project; no administrator rights or winget required." -ForegroundColor Green
     } catch {
         throw "Could not install FFmpeg automatically. Check internet access, then retry. Details: $($_.Exception.Message)"
