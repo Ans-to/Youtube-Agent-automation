@@ -95,7 +95,9 @@ def build_manifest(task, records, cfg, status):
         "pipeline": records,
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
-        "research_performed": "attempted_for_each_specialist_stage",\n        "research_method": "DuckDuckGo HTML search, no API key; snippets are unverified leads",\n        "research_pages_independently_verified": False,
+        "research_performed": "attempted_for_each_specialist_stage",
+        "research_method": "DuckDuckGo HTML search, no API key; snippets are unverified leads",
+        "research_pages_independently_verified": False,
         "external_actions_performed": False,
         "human_review_required": True,
         "note": "Sequential specialist pipeline; each specialist run attempts fresh web research and receives search leads. Search availability can fail, snippets are not independent verification, and outputs require quality review.",
@@ -120,7 +122,8 @@ def main():
     print("Pipeline output:", destination)
     print("Stages:", len(manifest["pipeline"]))
     print("Mode:", "local model" if manifest["model_enabled"] else "template fallback; no AI generation")
-    print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")\n    print("Human review required; no external action was performed.")
+    print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")
+    print("Human review required; no external action was performed.")
 
 
 if __name__ == "__main__":
