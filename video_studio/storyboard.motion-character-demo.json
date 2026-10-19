@@ -23,7 +23,8 @@
         "skin": "#c58e72",
         "hair": "#25212a",
         "shirt": "#6479b8",
-        "trousers": "#303746"
+        "trousers": "#303746",
+        "expression": "confident"
       },
       "caption": "A strong visual idea should be clear enough for viewers to understand immediately."
     },
@@ -51,7 +52,8 @@
         "skin": "#c58e72",
         "hair": "#25212a",
         "shirt": "#6479b8",
-        "trousers": "#303746"
+        "trousers": "#303746",
+        "expression": "focused"
       },
       "caption": "Smooth transitions connect one scene to the next idea and preserve the video's flow."
     },
@@ -80,7 +82,8 @@
         "skin": "#c58e72",
         "hair": "#25212a",
         "shirt": "#6479b8",
-        "trousers": "#303746"
+        "trousers": "#303746",
+        "expression": "curious"
       },
       "caption": "Review every render at normal speed, fix visual defects, and approve the final cut only after quality checks."
     }
