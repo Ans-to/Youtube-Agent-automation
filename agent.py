@@ -227,7 +227,7 @@ def process(task, cfg):
     if manifest.get("status") == "failed":
         sections.extend(["## Pipeline status", "", "The CEO pipeline or a required artifact builder failed. Review the saved pipeline manifest and tool logs before retrying.", ""])
     elif manifest.get("status") in {"blocked", "review_failed"}:
-        sections.extend(["## Pipeline status", "", "One or more requested artifact actions were blocked. Partial deliverables are available, but the requested final outcome is not complete until the blocker is resolved.", ""])
+        sections.extend(["## Pipeline status", "", "The pipeline requires human follow-up. Review pipeline-status.json, reviewer output, and artifact-tool logs before using the deliverable.", ""])
     sections.extend(["", "## Built-in artifact tools", ""])
     if manifest.get("tool_runs"):
         for tool in manifest["tool_runs"]:
