@@ -24,7 +24,8 @@ class OrchestrationTests(unittest.TestCase):
                 output_dir=Path(directory) / "pipeline",
                 config={"model": {"enabled": False}},
             )
-            self.assertEqual(len(manifest["pipeline"]), 2)
+            self.assertEqual(len(manifest["pipeline"]), 3)
+            self.assertEqual(manifest["pipeline"][-1]["agent_id"], "AGENT-08")
             self.assertFalse(manifest["research_performed"])
             self.assertTrue(manifest["human_review_required"])
             self.assertTrue((destination / "pipeline-status.json").is_file())
