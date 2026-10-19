@@ -21,7 +21,7 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
 - **Optional local model:** uses an OpenAI-compatible endpoint on loopback only. With the model disabled, the CEO uses deterministic keyword-based routing and specialists produce limited template/checklist outputs; this is not general-purpose AI.
 - **GitHub bridge:** polls approved JSON requests from `bridge/requests/`; supported actions are `status`, `self_test`, and guarded `run_task`.
 - **Sanitized result reporting:** attempts to write minimal result metadata to `bridge/results/<request-id>.json`. Task prompts, generated output, raw logs, local paths, and configuration values are not included in the GitHub report.
-- **Safety checks:** no remote shell, arbitrary Python, package installation, arbitrary URL fetch, publishing, messaging, payments, or deletion actions.
+- **Safety checks:** no remote shell, arbitrary Python, or package installation. Research only fetches bounded public text pages discovered by the search module after URL, public-address, and redirect checks; it does not accept arbitrary URLs as executable instructions. Publishing, messaging, payments, and deletion remain outside automatic execution.
 - **Automated checks:** Python syntax compilation, unit tests, and landscape/vertical MP4 smoke tests run through GitHub Actions on Python 3.11 and 3.12.
 
 ## Important limitations
