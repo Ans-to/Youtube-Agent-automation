@@ -46,6 +46,10 @@ def release_workflow(name):
     with ACTIVE_WORKFLOW_LOCK:
         if ACTIVE_WORKFLOW == name:
             ACTIVE_WORKFLOW = ""
+    # If a separate workflow temporarily owned the command core, resume any
+    # queued CEO tasks as soon as that workflow releases it.
+    if name != "task runner" and "has_pending_tasks" in globals() and has_pending_tasks():
+        start_task_runner()
 
 def load(path, default):
     try: return json.loads(path.read_text(encoding="utf-8"))
