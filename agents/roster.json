@@ -4,9 +4,9 @@
   "agents": [
     {
       "id": "AGENT-01",
-      "name": "Coordinator",
+      "name": "CEO / Coordinator",
       "department": "Orchestration",
-      "mission": "Convert the goal into a safe, ordered task plan.",
+      "mission": "Serve as the single task intake, delegate distinct work to the smallest sufficient specialist team, set dependencies and acceptance criteria, and enforce human approval boundaries.",
       "approval_required": false
     },
     {
