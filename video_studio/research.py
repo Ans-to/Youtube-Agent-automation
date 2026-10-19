@@ -256,7 +256,8 @@ def sanitize_research_query(value):
         text = re.sub(pattern, replacement, text)
     return " ".join(text.split())[:500]
 
-def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, page_fetch_fn=fetch_page):
+def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, page_fetch_fn=fetch_page,
+             search_timeout=8, page_timeout=6, max_pages=4):
     topic = sanitize_research_query(topic)
     if not topic.strip() or len(topic) > 500:
         raise ValueError("Research topic must be 1–500 characters after privacy redaction.")
@@ -270,7 +271,11 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
     errors = []
     for term in terms:
         try:
-            found = parse_results(search_fn(term), term, max_results=max_results)
+            if search_fn is fetch_search_html:
+                markup = search_fn(term, timeout=max(3, min(int(search_timeout), 15)))
+            else:
+                markup = search_fn(term)
+            found = parse_results(markup, term, max_results=max_results)
         except (OSError, ValueError, urllib.error.URLError, TimeoutError) as exc:
             errors.append({"query": term, "error_type": type(exc).__name__, "error": str(exc)[:250]})
             continue
@@ -284,7 +289,7 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
 
     # Fetch a bounded, query-diverse set of pages so research does not rely on one search query.
     page_errors = []
-    fetch_limit = max(1, min(int(max_results), 8))
+    fetch_limit = max(1, min(int(max_results), 8, max(1, int(max_pages))))
     page_targets = []
     selected_urls = set()
     selected_hosts = set()
@@ -314,7 +319,10 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
                 selected_urls.add(item["url"])
     for item in page_targets:
         try:
-            page = page_fetch_fn(item["url"])
+            if page_fetch_fn is fetch_page:
+                page = page_fetch_fn(item["url"], timeout=max(3, min(int(page_timeout), 12)))
+            else:
+                page = page_fetch_fn(item["url"])
         except Exception as exc:
             page = {"fetch_status": "failed", "page_title": "", "page_text": "",
                     "fetch_error": type(exc).__name__ + ": " + str(exc)[:180]}
@@ -334,7 +342,7 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
         "engine": "DuckDuckGo HTML (no API key)",
         "queries": terms,
         "result_count": len(all_results),
-        "pages_attempted": min(len(all_results), max(1, min(int(max_results), 8))),
+        "pages_attempted": len(page_targets),
         "pages_fetched": fetched_count,
         "search_errors": errors,
         "page_errors": page_errors,
