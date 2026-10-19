@@ -54,6 +54,7 @@ async function main(){
   });
   if(captionCheck.totalPages<2||captionCheck.firstIndex!==0||captionCheck.lastIndex!==captionCheck.totalPages-1)throw new Error("Caption pagination regression: long narration is not split across readable pages.");
   let total=0;
+  const transitionRecords=[];
   for(let si=0;si<s.scenes.length;si++){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
    if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("scene duration must be >0 and <=600 seconds");
@@ -61,6 +62,7 @@ async function main(){
    const previous=si>0?s.scenes[si-1]:null;
    const requested=Number(scene.transition_frames)||12;
    const transitionFrames=previous&&scene.transition_in!=="none"?Math.min(count,Math.max(1,Math.min(60,Math.round(requested)))):0;
+   transitionRecords.push({scene:si+1,type:scene.transition_in,frames:transitionFrames});
    const previousCount=previous?Math.max(1,Math.round(Number(previous.duration_seconds)*fps)):0;
    for(let lf=0;lf<count;lf++){
     if(transitionFrames&&lf<transitionFrames){
@@ -71,7 +73,7 @@ async function main(){
    }
    console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
   }
-  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,generated_at:new Date().toISOString()},null,2)+"\n");
+  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,generated_at:new Date().toISOString()},null,2)+"\n");
   console.log("Rendered "+total+" frames to "+dir);
  }finally{await browser.close()}
 }
