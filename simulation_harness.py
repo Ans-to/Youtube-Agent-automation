@@ -97,6 +97,11 @@ def run_case(rng: random.Random, case_id: int) -> tuple[bool, str]:
             if task.attempt != 2 or task.artifacts != previous_artifacts:
                 return False, "retry_is_new_attempt"
             task.artifacts.append("attempt-2-output")
+        else:
+            # A task awaiting human action must remain blocked until an explicit retry.
+            if task.status != "needs_human_action":
+                return False, "interrupted_task_not_blocked"
+            return True, "interrupted"
 
     task.quality_passed = rng.random() < 0.70
     task.transition("completed" if task.quality_passed else "failed")
