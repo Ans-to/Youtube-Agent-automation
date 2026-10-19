@@ -405,6 +405,7 @@ def build_manifest(task, records, cfg, status, delegation_mode="unspecified", as
         "ceo_assignments": assignments or [],
         "ceo_research_reports": ceo_research_reports or [],
         "tool_runs": tool_runs or [],
+        "quality_gate": next((item.get("quality_gate") for item in records if item.get("agent_id") == "AGENT-08"), "unconfirmed"),
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
         "research_performed": "attempted_for_each_specialist_stage",
