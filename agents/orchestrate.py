@@ -80,8 +80,8 @@ def heuristic_assignments(task):
             {"agent_id": "AGENT-52", "task": "Specify implementable motion systems, compositing, kinetic typography, and technical production details."},
             {"agent_id": "AGENT-26", "task": "Prepare accessibility captions or a caption plan aligned to the narration and timing information available."},
         ])
-        if "urdu" in text or "pakistan" in text:
-            assignments.append({"agent_id": "AGENT-13", "task": "Localize narration into natural Urdu with English technical terms where appropriate."})
+        # Video narration and subtitles are an invariant of this product: English only.
+        # Country/topic mentions must never silently switch a video into another language.
     elif software or product:
         if product:
             assignments.append({"agent_id": "AGENT-44", "task": "Research the product opportunity, customer pain points, and evidence for demand."})
