@@ -100,3 +100,35 @@ jobs:
       - name: Render and validate a 1-second vertical Shorts MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4
         working-directory: .
+
+  demo-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install renderer dependencies
+        working-directory: video_studio
+        run: npm ci
+      - name: Render motion-character transition prototype
+        run: python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4
+      - name: Validate rendered MP4
+        run: |
+          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate -show_entries format=duration -of json outputs/motion-character-transition-demo.mp4
+          test -s outputs/motion-character-transition-demo.mp4
+      - name: Upload rendered prototype
+        uses: actions/upload-artifact@v4
+        with:
+          name: motion-character-transition-prototype
+          path: outputs/motion-character-transition-demo.mp4
+          if-no-files-found: error
+          retention-days: 7
