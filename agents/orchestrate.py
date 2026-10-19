@@ -347,6 +347,11 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             return destination, manifest
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
+        quality_gate = "unconfirmed"
+        if agent_id == "AGENT-08":
+            gate_match = re.search(r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$", result)
+            if gate_match:
+                quality_gate = gate_match.group(1).lower()
         reports_after = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
         new_report_paths = reports_after - reports_before
         research_reports = sorted(str(path.relative_to(ROOT)) for path in new_report_paths)
@@ -375,6 +380,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             "assigned_task": specialist_task, "output_file": filename, "status": "draft_generated",
             "research_status": research_status, "research_reports": research_reports,
             "research_pages_attempted": pages_attempted, "research_pages_fetched": pages_fetched,
+            "quality_gate": quality_gate if agent_id == "AGENT-08" else None,
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
