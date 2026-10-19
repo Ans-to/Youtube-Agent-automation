@@ -19,6 +19,7 @@ async function main(){
   if(!visualTypes.has(kind))throw new Error("Unsupported visual_type in scene "+index+": "+kind);
   const transition=String(scene.transition_in||"none").toLowerCase();
   if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
+  scene.transition_in=transition;
   if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
   for(const key of ["headline","eyebrow","subhead","narration","caption"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
   for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
@@ -59,7 +60,7 @@ async function main(){
    const count=Math.max(1,Math.round(sec*fps));
    const previous=si>0?s.scenes[si-1]:null;
    const requested=Number(scene.transition_frames)||12;
-   const transitionFrames=previous&&scene.transition_in&&scene.transition_in!=="none"?Math.max(6,Math.min(24,Math.round(requested))):0;
+   const transitionFrames=previous&&scene.transition_in!=="none"?Math.min(count,Math.max(1,Math.min(60,Math.round(requested)))):0;
    const previousCount=previous?Math.max(1,Math.round(Number(previous.duration_seconds)*fps)):0;
    for(let lf=0;lf<count;lf++){
     if(transitionFrames&&lf<transitionFrames){
