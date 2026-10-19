@@ -287,6 +287,15 @@ def process(task, cfg):
             error="CEO pipeline or a required artifact builder failed. Partial output was saved; inspect the manifest and tool logs before retrying.",
         )
         log(f"FAILED {task.get('id')} -> partial output {path.name}")
+    elif manifest.get("status") == "blocked":
+        task.update(
+            status="needs_human_action",
+            completed_at="",
+            research_status=research_status_value,
+            output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
+            error="One or more requested artifact actions are blocked. Partial deliverables were saved; inspect pipeline-status.json and resolve the blocker.",
+        )
+        log(f"NEEDS HUMAN ACTION {task.get('id')} -> blocked artifact requirement in {path.name}")
     elif needs_action:
         task.update(
             status="needs_human_action",
