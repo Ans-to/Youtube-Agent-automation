@@ -291,15 +291,20 @@ def process(task, cfg):
             error="CEO pipeline or a required artifact builder failed. Partial output was saved; inspect the manifest and tool logs before retrying.",
         )
         log(f"FAILED {task.get('id')} -> partial output {path.name}")
-    elif manifest.get("status") in {"blocked", "review_failed"}:
+    elif manifest.get("status") in {"blocked", "review_failed", "partial"}:
         task.update(
             status="needs_human_action",
             completed_at="",
             research_status=research_status_value,
             output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
-            error="The pipeline requires human follow-up. Inspect pipeline-status.json and the reviewer output before using the deliverable.",
+            error=(
+                "A partial draft was saved, but one or more specialist stages or the final quality gate remain unresolved. "
+                "Inspect pipeline-status.json and the reviewer output before using the deliverable."
+                if manifest.get("status") == "partial"
+                else "The pipeline requires human follow-up. Inspect pipeline-status.json and the reviewer output before using the deliverable."
+            ),
         )
-        log(f"NEEDS HUMAN ACTION {task.get('id')} -> pipeline review or artifact blocker in {path.name}")
+        log(f"NEEDS HUMAN ACTION {task.get('id')} -> pipeline review, partial result, or artifact blocker in {path.name}")
     elif needs_action:
         task.update(
             status="needs_human_action",
