@@ -202,9 +202,13 @@ Run the default specialist pipeline from the repository root:
 python agents/orchestrate.py --task "Prepare a fact-checkable technology video script and storyboard" --context-file workspace/source-notes.md
 ```
 
-The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it produces drafts but still does not independently verify facts or browse the web. Review `pipeline-status.json` and all stage outputs before using them.
+The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it can use retrieved page text and source URLs supplied by the research module. Research is not automatic fact verification; important claims still require corroboration and human review. Review `pipeline-status.json` and all stage outputs before using them.
 
 Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 52 role profiles: 51 specialist roles and the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
+
+## Automatic web research
+
+Every queued task and every specialist pipeline stage attempts three free search queries (task, official documentation, and independent analysis), then attempts to fetch up to five public text pages. The research module blocks non-public IP addresses and validates redirect targets, limits response size, extracts readable text, and records page-fetch failures. No search API key is required. Results and extracted text are included in research reports and supplied to the worker. Search availability depends on internet connectivity and the search provider. Page retrieval is not the same as fact verification: compare independent sources, prioritize primary sources, check dates and context, and cite the source URLs in deliverables. If research fails, the system must disclose that failure rather than claim research was completed.
 
 ## PC and mobile browser app
 
