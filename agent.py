@@ -201,6 +201,8 @@ def process(task, cfg):
         if record.get("assigned_task"):
             sections.append("- Assigned task: " + str(record["assigned_task"]))
         sections.append("- Research status: " + str(record.get("research_status", "not recorded")))
+        if "research_pages_attempted" in record:
+            sections.append("- Source pages fetched: " + str(record.get("research_pages_fetched", 0)) + "/" + str(record.get("research_pages_attempted", 0)))
         for report in record.get("research_reports", []):
             sections.append("- Research report: " + str(report))
         output_file = record.get("output_file")
