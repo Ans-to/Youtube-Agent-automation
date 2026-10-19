@@ -115,8 +115,31 @@ class AgentDispatcherTests(unittest.TestCase):
                 perform_research=False,
             )
         self.assertIn('"assignments"', result)
-        self.assertEqual(post_model.call_args.args[2], 180)
-        self.assertLessEqual(post_model.call_args.args[1]["max_tokens"], 700)
+        self.assertEqual(post_model.call_args.args[2], 240)
+        self.assertLessEqual(post_model.call_args.args[1]["max_tokens"], 500)
+
+    def test_specialist_output_tokens_are_capped_for_small_local_models(self):
+        from unittest.mock import patch
+        role = dispatch.find_role("AGENT-09")
+        response = {"choices": [{"message": {"content": "# Script\\n\\nDraft"}}]}
+        with patch.object(dispatch, "post_local_model", return_value=response) as post_model:
+            dispatch.run_role(
+                role,
+                "Write a script",
+                "Earlier notes. " * 4000,
+                {"model": {
+                    "enabled": True,
+                    "base_url": "http://127.0.0.1:11434/v1/chat/completions",
+                    "model": "llama3.2:3b",
+                    "max_output_tokens": 2200,
+                    "timeout_seconds": 120,
+                }},
+                perform_research=False,
+            )
+        body = post_model.call_args.args[1]
+        self.assertLessEqual(body["max_tokens"], 1700)
+        self.assertEqual(post_model.call_args.args[2], 240)
+        self.assertLess(len(body["messages"][1]["content"]), 11000)
 
     def test_local_model_rejects_non_loopback_and_userinfo_urls(self):
         for url in ("http://example.com:8080/v1/chat/completions",
