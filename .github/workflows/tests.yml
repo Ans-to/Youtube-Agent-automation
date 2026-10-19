@@ -121,12 +121,18 @@ jobs:
         run: npm install
       - name: Install local Urdu TTS engine
         run: python -m pip install --upgrade pip piper-tts
-      - name: Download licensed Urdu male voice model
+      - name: Download pinned MIT-licensed Urdu male voice model
+        env:
+          PIPER_VOICE_REVISION: 7a6c333ec560f0e688371adc2fbb7bbe105028c6
         run: |
-          mkdir -p video_studio/voices/ur_PK-fasih-medium
-          curl --fail --location --retry 3 --output video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx
-          curl --fail --location --retry 3 --output video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx.json
-          test "$(stat -c%s video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx)" -gt 1000000
+          set -eu
+          voice_dir=video_studio/voices/ur_PK-fasih-medium
+          mkdir -p "$voice_dir"
+          curl --fail --location --retry 3 --output "$voice_dir/ur_PK-fasih-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx"
+          curl --fail --location --retry 3 --output "$voice_dir/ur_PK-fasih-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx.json"
+          printf '%s  %s\n' '46d590b90fbb41e4d4f2c54ded44874917f8b11b6e0500de2a89e5d3731b5917' "$voice_dir/ur_PK-fasih-medium.onnx" | sha256sum --check
+          test "$(stat -c%s "$voice_dir/ur_PK-fasih-medium.onnx")" -eq 63532015
+          python -m json.tool "$voice_dir/ur_PK-fasih-medium.onnx.json" > /dev/null
       - name: Render motion-character prototype with Urdu voice
         run: |
           export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx"
