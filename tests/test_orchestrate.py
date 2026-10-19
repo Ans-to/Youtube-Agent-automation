@@ -12,14 +12,14 @@ import orchestrate
 
 class SpecialistRetryTests(unittest.TestCase):
     def test_quality_gate_requires_exactly_one_explicit_verdict(self):
-        self.assertEqual(orchestrate.extract_quality_gate("Review\\nOVERALL QUALITY GATE: PASS\\n"), "pass")
+        self.assertEqual(orchestrate.extract_quality_gate("Review\nOVERALL QUALITY GATE: PASS\n"), "pass")
         self.assertEqual(orchestrate.extract_quality_gate("Review without a verdict"), "unconfirmed")
         self.assertEqual(
-            orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS\\nOVERALL QUALITY GATE: FAIL"),
+            orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS\nOVERALL QUALITY GATE: FAIL"),
             "unconfirmed",
         )
         self.assertEqual(
-            orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS\\nextra trailing text"),
+            orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS\nextra trailing text"),
             "pass",
         )
 
@@ -289,7 +289,7 @@ class CEODelegationTests(unittest.TestCase):
                 patch.object(orchestrate, "ROOT", root),
                 patch.object(orchestrate, "WORKSPACE", workspace),
                 patch.object(orchestrate, "run_builtin_tools", return_value=[]),
-                patch.object(orchestrate.dispatch, "run_role", side_effect=lambda role, task, context, cfg: "# Draft\\n\\n" + role["id"]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=lambda role, task, context, cfg: "# Draft\n\n" + role["id"]),
             ):
                 destination, manifest = orchestrate.run_pipeline(
                     long_task,
@@ -338,7 +338,7 @@ class CEODelegationTests(unittest.TestCase):
                     report_dir = root / "workspace" / "research" / "agent-runs"
                     report_dir.mkdir(parents=True, exist_ok=True)
                     report = report_dir / "agent-02-test.md"
-                    report.write_text("# Research saved before timeout\\n\\nPreserved source finding: verify the source date.\\n", encoding="utf-8")
+                    report.write_text("# Research saved before timeout\n\nPreserved source finding: verify the source date.\n", encoding="utf-8")
                     report.with_suffix(".json").write_text(
                         json.dumps({"metadata": {"pages_attempted": 1, "pages_fetched": 1}, "results": []}),
                         encoding="utf-8",
@@ -435,7 +435,7 @@ class CEODelegationTests(unittest.TestCase):
                     return "# Final review\n\nOVERALL QUALITY GATE: PASS\n"
                 if "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
                     return "# Repaired deliverable\n\nGate evidence added.\n"
-                return "# Deliverable\\n\\nDraft output."
+                return "# Deliverable\n\nDraft output."
 
             with (
                 patch.object(orchestrate, "ROOT", root),
