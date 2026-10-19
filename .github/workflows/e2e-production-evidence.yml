@@ -3,6 +3,8 @@ name: End-to-end production evidence
 on:
   push:
     branches: ["quality/million-simulation-gate"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
