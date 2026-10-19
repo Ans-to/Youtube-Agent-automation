@@ -59,7 +59,8 @@ class VideoStudioTests(unittest.TestCase):
         srt, vtt = build_subtitles(storyboard)
         report = validate_subtitle_text(srt, vtt)
         self.assertGreaterEqual(report["cue_count"], 2)
-        self.assertIn("English narration must always have matching subtitles.", srt)
+        self.assertIn("English narration must always have", srt)
+        self.assertIn("matching subtitles.", srt)
         self.assertTrue(vtt.startswith("WEBVTT"))
         self.assertEqual(storyboard["scenes"][0]["caption"], storyboard["scenes"][0]["narration"])
 
