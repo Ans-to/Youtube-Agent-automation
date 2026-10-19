@@ -99,7 +99,9 @@ def run_role(role,task,context,cfg):
             metadata, sources = collect_web_research(
                 query_topic,
                 queries=[query_topic[:300], query_topic[:250] + " official documentation",
-                         query_topic[:250] + " independent analysis evidence"],
+                         query_topic[:250] + " independent analysis evidence",
+                         query_topic[:250] + " limitations risks",
+                         query_topic[:250] + " recent updates"],
                 max_results=5,
             )
             research_context = render_research_markdown(metadata, sources)[:18000]
