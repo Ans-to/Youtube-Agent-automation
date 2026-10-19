@@ -503,7 +503,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
     repair_attempt = {"attempted": False, "status": "not_needed", "reason": ""}
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
-    if reviewer_record.get("quality_gate") in {"partial", "fail"}:
+    if reviewer_record and reviewer_record.get("quality_gate", "unconfirmed") in {"partial", "fail", "unconfirmed"}:
         if not cfg.get("model", {}).get("enabled"):
             repair_attempt = {
                 "attempted": False, "status": "blocked",
