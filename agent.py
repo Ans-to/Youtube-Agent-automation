@@ -187,6 +187,9 @@ def process(task, cfg):
         sections.append("- Status: " + str(record.get("status", "unknown")))
         if record.get("assigned_task"):
             sections.append("- Assigned task: " + str(record["assigned_task"]))
+        sections.append("- Research status: " + str(record.get("research_status", "not recorded")))
+        for report in record.get("research_reports", []):
+            sections.append("- Research report: " + str(report))
         output_file = record.get("output_file")
         if output_file:
             candidate = (out_dir / output_file).resolve()
