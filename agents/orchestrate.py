@@ -115,8 +115,12 @@ def parse_ceo_assignments(text, roles_by_id):
     for item in result:
         if not item["task"]:
             item["task"] = "Complete the assigned specialist contribution to this overall goal: " + str(item["agent_id"])
-    if "AGENT-08" not in seen:
-        result.append({"agent_id": "AGENT-08", "task": "Review the combined work for factual support, contradictions, omissions, and unresolved risks. Use the supplied research report and cite source URLs."})
+    reviewer = next((item for item in result if item["agent_id"] == "AGENT-08"), None)
+    result = [item for item in result if item["agent_id"] != "AGENT-08"]
+    if reviewer is None:
+        reviewer = {"agent_id": "AGENT-08", "task": "Review the combined work for factual support, contradictions, omissions, and unresolved risks. Use the supplied research report and cite source URLs."}
+    reviewer["task"] = "FINAL QUALITY GATE: " + reviewer["task"]
+    result.append(reviewer)
     return result[:8]
 
 
