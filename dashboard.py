@@ -107,6 +107,7 @@ def render_markdown_safe(source):
 def task_state():
     raw_tasks = load(TASKS, [])
     tasks = [t for t in raw_tasks if isinstance(t, dict)] if isinstance(raw_tasks, list) else []
+    attach_task_progress(tasks)
     counts = {k: sum(1 for t in tasks if str(t.get("status", "pending")).lower() == k) for k in ("running", "completed", "failed", "needs_human_action")}
     counts["pending"] = sum(1 for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"})
     cfg = load(CONFIG, {})
@@ -149,6 +150,84 @@ def enqueue_task(title, kind, user_input, context_file=""):
         save_tasks(TASKS, tasks)
     return task_id
 
+
+def has_pending_tasks():
+    """Return whether there are queued tasks waiting for the local worker."""
+    raw = load(TASKS, [])
+    tasks = raw if isinstance(raw, list) else []
+    return any(isinstance(task, dict) and str(task.get("status", "pending")).lower() in {"pending", "queued"} for task in tasks)
+
+
+def start_task_runner():
+    """Start the local task worker automatically, draining queued tasks in order."""
+    global RUNNING
+    if RUNNING:
+        return True, ""
+    claimed, active = try_claim_workflow("task runner")
+    if not claimed:
+        if active == "task runner":
+            return True, ""
+        return False, active
+    with RUN_LOCK:
+        if RUNNING:
+            release_workflow("task runner")
+            return True, ""
+        RUNNING = True
+
+    def runner():
+        global RUNNING
+        try:
+            LOGS.mkdir(exist_ok=True)
+            for cycle_number in range(100):
+                if not has_pending_tasks():
+                    break
+                with (LOGS / "dashboard.log").open("a", encoding="utf-8") as log_file:
+                    log_file.write("[" + datetime.now().astimezone().isoformat(timespec="seconds") + "] Auto queue worker cycle " + str(cycle_number + 1) + " started\\n")
+                    try:
+                        result = subprocess.run(
+                            [sys.executable, str(BASE / "agent.py"), "--once"],
+                            cwd=str(BASE), stdout=log_file, stderr=subprocess.STDOUT,
+                            timeout=3600, check=False
+                        )
+                        log_file.write("Auto queue worker exit code: " + str(result.returncode) + "\\n")
+                    except (OSError, subprocess.SubprocessError) as exc:
+                        log_file.write("Auto queue worker error: " + type(exc).__name__ + ": " + str(exc)[:300] + "\\n")
+                        break
+                if cycle_number == 99 and has_pending_tasks():
+                    with (LOGS / "dashboard.log").open("a", encoding="utf-8") as log_file:
+                        log_file.write("Auto queue worker stopped after 100 cycles; remaining tasks stay queued for safety.\\n")
+        finally:
+            with RUN_LOCK:
+                RUNNING = False
+            release_workflow("task runner")
+            if has_pending_tasks():
+                start_task_runner()
+
+    try:
+        threading.Thread(target=runner, daemon=True, name="agent-hq-queue-worker").start()
+    except RuntimeError:
+        with RUN_LOCK:
+            RUNNING = False
+        release_workflow("task runner")
+        raise
+    return True, ""
+
+
+def attach_task_progress(tasks):
+    """Attach the saved stage-progress snapshot to each task for dashboard display."""
+    for task in tasks:
+        task_id = str(task.get("id", ""))
+        if not re.fullmatch(r"TASK-[0-9]{1,8}", task_id):
+            continue
+        progress_file = BASE / "workspace" / "orchestration" / ("task-" + task_id) / "pipeline-progress.json"
+        try:
+            progress = json.loads(progress_file.read_text(encoding="utf-8"))
+            if isinstance(progress, dict):
+                task["progress"] = progress
+        except (OSError, ValueError, TypeError):
+            pass
+    return tasks
+
 HTML_PAGE = r'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#09070b"><meta name="description" content="Local-first AI agent command centre for task management, video production, and digital product prototyping."><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml"><title>Offline Agent HQ // Command Deck</title>
@@ -161,7 +240,7 @@ header{position:relative;padding:20px 16px 14px;border-bottom:1px solid #6b292a;
 main{max-width:1250px;margin:auto;padding:16px;position:relative}.metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}.metric,.panel{background:linear-gradient(145deg,#17121bdf,#0d0b11f5);border:1px solid #4b2429;border-radius:var(--radius);box-shadow:0 8px 24px #0006,inset 0 0 22px #ff462a05}.metric{padding:12px 13px;min-width:0}.eyebrow{font-size:10px;text-transform:uppercase;letter-spacing:.15em;color:var(--muted)}.num{font-size:25px;font-weight:800;margin-top:4px;color:var(--gold);text-shadow:0 0 16px #ff8a3240}.layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:14px}.panel{padding:15px;margin-bottom:14px}.panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:13px}.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.14em;margin:0}.tag{font-size:10px;color:var(--orange);border:1px solid #69312b;border-radius:6px;padding:4px 7px;text-transform:uppercase;letter-spacing:.08em}
 .deck{min-height:370px;position:relative;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(ellipse at center,#39151b44 0,transparent 63%),linear-gradient(135deg,#171019,#0b090f)}.deck:before,.deck:after{content:"";position:absolute;border:1px solid #ff4a2b65;border-radius:50%;width:240px;height:240px;box-shadow:0 0 25px #ff39241a,inset 0 0 24px #ff39241a;transform:rotateX(62deg)}.deck:after{width:320px;height:320px;border-color:#ff8a3233}.core{position:relative;z-index:2;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;background:radial-gradient(circle,#ffb15b 0,#ff502f 20%,#44121c 55%,#140b15 75%);border:1px solid #ffac60;box-shadow:0 0 18px #ff4a2a,0 0 55px #ff311d66,inset 0 0 25px #ffcf6b45;animation:pulse 3s ease-in-out infinite}.core svg{width:72px;filter:drop-shadow(0 0 7px #ffba68)}.core-label{position:relative;z-index:2;margin-top:12px;padding:7px 14px;border:1px solid #a44a34;background:#190d13;border-radius:7px;font-size:11px;letter-spacing:.16em;color:#ffd19b;box-shadow:0 0 20px #ff402233}.connections{position:absolute;inset:0;width:100%;height:100%;z-index:1;pointer-events:none}.connections line{stroke:#ff4c34;stroke-width:1;stroke-dasharray:4 7;opacity:.6;animation:dash 8s linear infinite}.nodes{position:absolute;z-index:3;inset:12px;display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;pointer-events:none}.node{align-self:start;justify-self:start;border:1px solid #8e382d;background:#150c13eF;color:#ffe0c2;padding:7px 9px;border-radius:8px;font-size:10px;box-shadow:0 0 16px #ff4c2a1c;max-width:125px}.node:nth-child(2){justify-self:end}.node:nth-child(3){align-self:end}.node:nth-child(4){align-self:end;justify-self:end}.node b{display:block;font-size:11px}.dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--green);margin-right:5px;box-shadow:0 0 8px currentColor}.hint{position:absolute;bottom:10px;left:12px;right:12px;text-align:center;color:#9d858c;font-size:10px;letter-spacing:.06em;z-index:2}
 .agent-list{display:grid;grid-template-columns:1fr 1fr;gap:8px}.agent{padding:10px;border:1px solid #3d252d;border-radius:10px;background:#100d13;display:flex;align-items:center;gap:9px}.agent-icon{width:30px;height:30px;flex-shrink:0;border:1px solid #78392d;border-radius:9px;display:grid;place-items:center;color:var(--orange);background:#251017}.agent strong{font-size:11px;display:block}.agent small{color:var(--muted);font-size:10px}.agent .state{margin-left:auto;color:var(--green);font-size:9px;text-transform:uppercase}
-form label{display:block;color:#ddcbd0;font-size:11px;margin:10px 0 5px;letter-spacing:.04em}input,select,textarea{width:100%;border:1px solid #54333e;border-radius:9px;background:#09080e;color:var(--text);padding:12px;font:inherit;outline:none}input:focus,select:focus,textarea:focus{border-color:var(--orange);box-shadow:0 0 0 2px #ff8a321b}textarea{min-height:100px;resize:vertical}button,.btn{border:1px solid #ff7542;border-radius:9px;background:linear-gradient(100deg,#ff4b31,#ff9c3e);color:#1a0908;font-weight:800;padding:12px 14px;width:100%;cursor:pointer;letter-spacing:.03em;box-shadow:0 0 18px #ff4b2a1b}button:active{transform:translateY(1px)}button.secondary{background:#171019;color:#ffbd86;border-color:#65352d;box-shadow:none}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.task{border:1px solid #38232b;background:#100d13;border-radius:11px;padding:12px;margin:8px 0}.task-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.task h3{font-size:13px;margin:0 0 5px;overflow-wrap:anywhere}.task p{font-size:12px;color:#b7a8b0;margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}.status{font-size:9px;letter-spacing:.07em;text-transform:uppercase;border-radius:99px;padding:4px 7px;border:1px solid #604c37;color:var(--gold);white-space:nowrap}.status.completed{color:var(--green);border-color:#275941}.status.failed{color:#ff777d;border-color:#793139}.status.running{color:var(--blue);border-color:#285a70}.task-links{display:flex;gap:12px;flex-wrap:wrap;font-size:11px}.task-links a{color:var(--orange);text-decoration:none}.task-links a:hover{text-decoration:underline}.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed #4a3038;border-radius:10px}.foot{text-align:center;color:#766873;font-size:10px;padding:4px 0 22px}.error{color:#ff8588;font-size:12px;white-space:pre-wrap}.toast{position:fixed;z-index:9;bottom:20px;left:50%;transform:translateX(-50%);background:#24141b;border:1px solid #a84a35;padding:10px 14px;border-radius:10px;display:none;max-width:90vw}
+form label{display:block;color:#ddcbd0;font-size:11px;margin:10px 0 5px;letter-spacing:.04em}input,select,textarea{width:100%;border:1px solid #54333e;border-radius:9px;background:#09080e;color:var(--text);padding:12px;font:inherit;outline:none}input:focus,select:focus,textarea:focus{border-color:var(--orange);box-shadow:0 0 0 2px #ff8a321b}textarea{min-height:100px;resize:vertical}button,.btn{border:1px solid #ff7542;border-radius:9px;background:linear-gradient(100deg,#ff4b31,#ff9c3e);color:#1a0908;font-weight:800;padding:12px 14px;width:100%;cursor:pointer;letter-spacing:.03em;box-shadow:0 0 18px #ff4b2a1b}button:active{transform:translateY(1px)}button.secondary{background:#171019;color:#ffbd86;border-color:#65352d;box-shadow:none}.actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:12px}.task{border:1px solid #38232b;background:#100d13;border-radius:11px;padding:12px;margin:8px 0}.task-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.task h3{font-size:13px;margin:0 0 5px;overflow-wrap:anywhere}.task p{font-size:12px;color:#b7a8b0;margin:8px 0;white-space:pre-wrap;overflow-wrap:anywhere}.status{font-size:9px;letter-spacing:.07em;text-transform:uppercase;border-radius:99px;padding:4px 7px;border:1px solid #604c37;color:var(--gold);white-space:nowrap}.status.completed{color:var(--green);border-color:#275941}.status.failed{color:#ff777d;border-color:#793139}.status.running{color:var(--blue);border-color:#285a70}.progress-block{margin:10px 0 5px;padding:9px 10px;border:1px solid #284b55;background:#0b141a;border-radius:8px}.progress-label{font-size:11px;color:#c5f2ff;font-weight:700}.progress-note{font-size:11px;color:#9db9c6;margin-top:4px;overflow-wrap:anywhere}.progress-track{height:5px;border-radius:99px;background:#1b2930;overflow:hidden;margin-top:8px}.progress-fill{height:100%;background:linear-gradient(90deg,#42bfd8,#72f6b2);transition:width .4s ease}.task-links{display:flex;gap:12px;flex-wrap:wrap;font-size:11px}.task-links a{color:var(--orange);text-decoration:none}.task-links a:hover{text-decoration:underline}.empty{padding:18px;text-align:center;color:var(--muted);border:1px dashed #4a3038;border-radius:10px}.foot{text-align:center;color:#766873;font-size:10px;padding:4px 0 22px}.error{color:#ff8588;font-size:12px;white-space:pre-wrap}.toast{position:fixed;z-index:9;bottom:20px;left:50%;transform:translateX(-50%);background:#24141b;border:1px solid #a84a35;padding:10px 14px;border-radius:10px;display:none;max-width:90vw}
 @keyframes pulse{0%,100%{transform:scale(.98);filter:brightness(.95)}50%{transform:scale(1.04);filter:brightness(1.18)}}@keyframes dash{to{stroke-dashoffset:-100}}
 .quick-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 16px;background:#0c0a10;border-bottom:1px solid #38232b;position:sticky;top:0;z-index:8;scrollbar-width:thin}.quick-nav a{flex:0 0 auto;color:#ffbd86;text-decoration:none;border:1px solid #55312e;border-radius:99px;padding:8px 12px;font-size:11px;white-space:nowrap}.quick-nav a:focus,.quick-nav a:hover{border-color:var(--orange);background:#211019}.panel{scroll-margin-top:65px}@media(min-width:850px){main{padding:22px}.deck{min-height:430px}.panel{padding:18px}}@media(max-width:720px){.layout{grid-template-columns:1fr}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.deck{min-height:350px}.brand h1{font-size:17px}header{padding:15px 13px}main{padding:12px}.agent-list{grid-template-columns:1fr 1fr}}@media(max-width:390px){.agent-list{grid-template-columns:1fr}.deck{min-height:330px}.nodes{inset:7px}.node{font-size:9px;max-width:110px}}
 </style></head><body>
@@ -184,8 +263,9 @@ form label{display:block;color:#ddcbd0;font-size:11px;margin:10px 0 5px;letter-s
 const $=id=>document.getElementById(id);let lastState='';
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function toast(s){$('toast').textContent=s;$('toast').style.display='block';setTimeout(()=>$('toast').style.display='none',2600)}
+function progressMarkup(t){const s=String(t.status||'pending').toLowerCase();const p=t.progress;if(s==='pending'||s==='queued')return '<div class="progress-block"><div class="progress-label">QUEUED · Waiting for the worker</div><div class="progress-note">The dashboard will start it automatically when no other workflow owns the worker.</div></div>';if(s==='running'){if(!p)return '<div class="progress-block"><div class="progress-label">STARTING · Preparing CEO pipeline</div><div class="progress-note">Waiting for the first saved stage update. This refreshes automatically.</div><div class="progress-track"><div class="progress-fill" style="width:7%"></div></div></div>';const total=Math.max(0,Number(p.total_stages)||0),done=Math.max(0,Number(p.completed_stages)||0);const pct=total?Math.max(4,Math.min(100,Math.round(done/total*100))):7;return '<div class="progress-block"><div class="progress-label">'+esc(p.phase||'Working')+' · '+(total?done+'/'+total+' stages complete':'planning')+'</div><div class="progress-note">'+esc(p.message||'The CEO and assigned specialists are processing the task.')+'</div><div class="progress-track"><div class="progress-fill" style="width:'+pct+'%"></div></div></div>';}if(s==='completed')return '<div class="progress-block"><div class="progress-label">COMPLETED</div><div class="progress-note">Task processing finished. Open the generated output to inspect deliverables.</div></div>';if(s==='failed')return '<div class="progress-block"><div class="progress-label">FAILED</div><div class="progress-note">Open Task details and the local logs for the recorded error.</div></div>';if(s==='needs_human_action')return '<div class="progress-block"><div class="progress-label">HUMAN REVIEW REQUIRED</div><div class="progress-note">A partial result or approval gate needs review before use.</div></div>';return '';}
 async function refresh(){try{const r=await fetch('/api/state',{cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json();$('total').textContent=d.tasks.length;$('pending').textContent=d.counts.pending+d.counts.running;$('completed').textContent=d.counts.completed;$('failed').textContent=d.counts.failed;$('needsHuman').textContent=d.counts.needs_human_action||0;$('modelTag').textContent=d.model_enabled?'MODEL CONFIGURED':'TEMPLATE MODE';$('modelTag').style.color=d.model_enabled?'var(--green)':'var(--gold)';$('liveText').textContent=d.video_running?'VIDEO STUDIO':(d.product_running?'PRODUCT STUDIO':(d.pipeline_running?'SPECIALIST PIPELINE':(d.running?'PROCESSING TASK':'LOCAL SYSTEM')));if($('pipelineInfo'))$('pipelineInfo').textContent=d.pipeline_output?'Latest output: '+d.pipeline_output:'No specialist pipeline has run in this session.';if($('videoInfo'))$('videoInfo').textContent=(d.video_running?'Video generation running. ':'')+(d.video_output?'Latest video package: '+d.video_output:'No video package has run in this session.');if($('productInfo'))$('productInfo').textContent=(d.product_running?'Product prototype running. ':'')+(d.product_output?'Latest product package: '+d.product_output:'No product package has run in this session.');$('updated').textContent=new Date(d.updated).toLocaleTimeString();
-const roles=Array.isArray(d.agent_roster)?d.agent_roster:[];$('rosterCount').textContent=roles.length+' role profiles';$('agentRoster').innerHTML=roles.map(a=>'<div class="agent"><div class="agent-icon">◈</div><div><strong>'+esc(a.id)+' / '+esc(a.name)+'</strong><small>'+esc(a.department)+' — '+esc(a.mission)+'</small></div><span class="state">'+(a.approval_required?'Approval':'Profile')+'</span></div>').join('')||'<div class="empty">Roster file not found.</div>';const practiceSelect=$('practiceAgent');if(practiceSelect){const prior=practiceSelect.value;const allowed=roles.filter(a=>!a.approval_required&&a.id!=='AGENT-50');practiceSelect.innerHTML='<option value="ALL">BATCH / Practice selected number of all specialists</option>'+allowed.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+' / '+esc(a.name)+'</option>').join('');if(allowed.some(a=>a.id===prior))practiceSelect.value=prior;else if(allowed.some(a=>a.id==='AGENT-51'))practiceSelect.value='AGENT-51';}$('trainingInfo').textContent=(d.training_running?'Practice run running. ':'')+(d.training_output?'Latest practice output root: '+d.training_output:'No practice run has started in this session.');const recent=[...d.tasks].reverse().slice(0,8);$('activity').innerHTML=recent.length?recent.map(t=>`<article class="task"><div class="task-top"><div><h3>${esc(t.title||'Untitled')}</h3><div class="eyebrow">${esc(t.id)} · ${esc(t.kind)}</div></div><span class="status ${esc(t.status||'pending')}">${esc(t.status||'pending')}</span></div>${t.error?`<p class="error">${esc(t.error)}</p>`:''}<div class="task-links">${t.output_file?`<a href="/output?id=${encodeURIComponent(t.id)}">Open generated output ↗</a>`:''}<a href="/task?id=${encodeURIComponent(t.id)}">Task details</a></div></article>`).join(''):'<div class="empty">No tasks queued yet. Create your first operation.</div>';
+const roles=Array.isArray(d.agent_roster)?d.agent_roster:[];$('rosterCount').textContent=roles.length+' role profiles';$('agentRoster').innerHTML=roles.map(a=>'<div class="agent"><div class="agent-icon">◈</div><div><strong>'+esc(a.id)+' / '+esc(a.name)+'</strong><small>'+esc(a.department)+' — '+esc(a.mission)+'</small></div><span class="state">'+(a.approval_required?'Approval':'Profile')+'</span></div>').join('')||'<div class="empty">Roster file not found.</div>';const practiceSelect=$('practiceAgent');if(practiceSelect){const prior=practiceSelect.value;const allowed=roles.filter(a=>!a.approval_required&&a.id!=='AGENT-50');practiceSelect.innerHTML='<option value="ALL">BATCH / Practice selected number of all specialists</option>'+allowed.map(a=>'<option value="'+esc(a.id)+'">'+esc(a.id)+' / '+esc(a.name)+'</option>').join('');if(allowed.some(a=>a.id===prior))practiceSelect.value=prior;else if(allowed.some(a=>a.id==='AGENT-51'))practiceSelect.value='AGENT-51';}$('trainingInfo').textContent=(d.training_running?'Practice run running. ':'')+(d.training_output?'Latest practice output root: '+d.training_output:'No practice run has started in this session.');const recent=[...d.tasks].reverse().slice(0,8);$('activity').innerHTML=recent.length?recent.map(t=>`<article class="task"><div class="task-top"><div><h3>${esc(t.title||'Untitled')}</h3><div class="eyebrow">${esc(t.id)} · ${esc(t.kind)}</div></div><span class="status ${esc(t.status||'pending')}">${esc(t.status||'pending')}</span></div>${progressMarkup(t)}${t.error?`<p class="error">${esc(t.error)}</p>`:''}<div class="task-links">${t.output_file?`<a href="/output?id=${encodeURIComponent(t.id)}">Open generated output ↗</a>`:''}<a href="/task?id=${encodeURIComponent(t.id)}">Task details</a></div></article>`).join(''):'<div class="empty">No tasks queued yet. Create your first operation.</div>';
 const done=[...d.tasks].reverse().filter(t=>t.output_file).slice(0,6);$('outputs').innerHTML=done.length?done.map(t=>`<div class="task"><div class="task-top"><div><h3>${esc(t.title||t.id)}</h3><div class="eyebrow">${esc(t.output_file)}</div></div><a class="tag" href="/output?id=${encodeURIComponent(t.id)}">OPEN</a></div></div>`).join(''):'<div class="empty">No output files recorded yet.</div>';
 }catch(e){$('liveText').textContent='DASHBOARD API ERROR';$('activity').innerHTML='<div class="empty">Could not refresh state: '+esc(e.message)+'</div>'}}
 refresh();setInterval(refresh,4000);
@@ -260,6 +340,7 @@ class Handler(BaseHTTPRequestHandler):
                 enqueue_task(title, kind, user_input)
             except (TimeoutError, ValueError, OSError) as exc:
                 return self.send("Could not safely queue task: " + esc(type(exc).__name__), status=503)
+            start_task_runner()
             return self._redirect("/")
         if path == "/practice-agent":
             global TRAINING_RUNNING, TRAINING_LAST_OUTPUT
@@ -376,6 +457,7 @@ class Handler(BaseHTTPRequestHandler):
                 enqueue_task("Video: " + topic[:145], "youtube_package", " ".join(part for part in request_parts if part), source_file)
             except (TimeoutError, ValueError, OSError) as exc:
                 return self.send("Could not queue video task for the CEO: " + esc(type(exc).__name__), status=503)
+            start_task_runner()
             return self._redirect("/")
         if path == "/build-product":
             title = form.get("product_title", [""])[0].strip()
@@ -392,6 +474,7 @@ class Handler(BaseHTTPRequestHandler):
                 enqueue_task("Digital product: " + title, "draft", task_text)
             except (TimeoutError, ValueError, OSError) as exc:
                 return self.send("Could not queue product task for the CEO: " + esc(type(exc).__name__), status=503)
+            start_task_runner()
             return self._redirect("/")
         if path == "/run-pipeline":
             global PIPELINE_RUNNING, PIPELINE_LAST_OUTPUT
@@ -448,31 +531,9 @@ class Handler(BaseHTTPRequestHandler):
             threading.Thread(target=run_pipeline, daemon=True).start()
             return self._redirect("/")
         if path == "/run":
-            claimed, active = try_claim_workflow("task runner")
-            if not claimed:
-                return self.send("Another workflow is already running: "+esc(active)+".", status=409)
-            if RUNNING:
-                release_workflow("task runner")
-                return self.send("A task cycle is already running. Wait for it to finish before starting another.", status=409)
-            RUNNING = True
-
-            def runner():
-                global RUNNING
-                try:
-                    with RUN_LOCK:
-                        subprocess.run(
-                            [sys.executable, str(BASE / "agent.py"), "--once"],
-                            cwd=str(BASE), timeout=3600, check=False
-                        )
-                except (OSError, subprocess.TimeoutExpired) as exc:
-                    LOGS.mkdir(exist_ok=True)
-                    with (LOGS / "dashboard.log").open("a", encoding="utf-8") as f:
-                        f.write(f"[{datetime.now().astimezone().isoformat(timespec='seconds')}] RUN ERROR: {type(exc).__name__}\n")
-                finally:
-                    RUNNING = False
-                    release_workflow("task runner")
-
-            threading.Thread(target=runner, daemon=True).start()
+            started, active = start_task_runner()
+            if not started:
+                return self.send("Another workflow is already running: "+esc(active)+". The task remains queued and will run after the current workflow ends.", status=409)
             return self._redirect("/")
         if path == "/refresh": return self._redirect("/")
         return self.send("Not found", status=404)
