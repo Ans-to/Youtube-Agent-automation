@@ -514,9 +514,9 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             task_lower = task.lower()
             preferred = (
                 ["AGENT-52", "AGENT-51", "AGENT-20", "AGENT-09"]
-                if re.search(r"\\b(video|youtube|shorts|motion graphics|storyboard|animation)\\b", task_lower)
+                if re.search(r"\b(video|youtube|shorts|motion graphics|storyboard|animation)\b", task_lower)
                 else (["AGENT-46", "AGENT-48", "AGENT-47"] if re.search(
-                    r"\\b(build|code|software|app|website|tool|program|automation|repository|system)\\b", task_lower
+                    r"\b(build|code|software|app|website|tool|program|automation|repository|system)\b", task_lower
                 ) else ["AGENT-12", "AGENT-09", "AGENT-20"])
             )
             repair_assignment = next(
@@ -537,34 +537,34 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 repair_role = roles_by_id.get(repair_id)
                 repair_task = (
                     "AUTOMATIC QUALITY REPAIR ATTEMPT 1/1. Overall user goal: " + task.strip()
-                    + "\\nYour original assignment: " + str(repair_assignment.get("task", ""))[:2000]
-                    + "\\nThe independent reviewer returned " + str(reviewer_record.get("quality_gate", "unconfirmed")).upper()
+                    + "\nYour original assignment: " + str(repair_assignment.get("task", ""))[:2000]
+                    + "\nThe independent reviewer returned " + str(reviewer_record.get("quality_gate", "unconfirmed")).upper()
                     + ". Address the concrete defects below, preserve supported facts, and explicitly label any issue you cannot resolve. "
-                    "Return a corrected, complete deliverable; do not merely describe recommendations.\\n\\nREVIEWER FEEDBACK:\\n"
+                    "Return a corrected, complete deliverable; do not merely describe recommendations.\n\nREVIEWER FEEDBACK:\n"
                     + reviewer_feedback
                 )
                 repair_path = destination / ("99-repair-" + slug(repair_id + "-" + repair_role.get("name", "specialist")) + ".md")
                 try:
                     repaired_output, repair_retries = run_role_with_retry(
-                        repair_role, repair_task, (combined_context + "\\n\\nREVIEWER FEEDBACK:\\n" + reviewer_feedback)[-24000:], cfg
+                        repair_role, repair_task, (combined_context + "\n\nREVIEWER FEEDBACK:\n" + reviewer_feedback)[-24000:], cfg
                     )
-                    repair_path.write_text(repaired_output.rstrip() + "\\n", encoding="utf-8")
+                    repair_path.write_text(repaired_output.rstrip() + "\n", encoding="utf-8")
                     final_review_instruction = (
                         "FINAL QUALITY RE-REVIEW after one bounded repair attempt. Overall user goal: " + task.strip()
-                        + "\\nReview the repaired deliverable against the original goal, previous evidence, and initial review feedback. "
+                        + "\nReview the repaired deliverable against the original goal, previous evidence, and initial review feedback. "
                         "Do not assume the repair succeeded. State remaining defects and evidence. End with exactly one line: "
                         "OVERALL QUALITY GATE: PASS, PARTIAL, or FAIL. PASS only if critical requirements are demonstrably met."
-                        + "\\n\\nINITIAL REVIEW:\\n" + reviewer_feedback
-                        + "\\n\\nREPAIRED DELIVERABLE:\\n" + repaired_output[:14000]
+                        + "\n\nINITIAL REVIEW:\n" + reviewer_feedback
+                        + "\n\nREPAIRED DELIVERABLE:\n" + repaired_output[:14000]
                     )
                     final_review, review_retries = run_role_with_retry(
                         roles_by_id["AGENT-08"], final_review_instruction,
-                        (combined_context + "\\n\\nREPAIRED DELIVERABLE:\\n" + repaired_output)[-30000:], cfg
+                        (combined_context + "\n\nREPAIRED DELIVERABLE:\n" + repaired_output)[-30000:], cfg
                     )
                     final_review_path = destination / "99-final-quality-review.md"
-                    final_review_path.write_text(final_review.rstrip() + "\\n", encoding="utf-8")
+                    final_review_path.write_text(final_review.rstrip() + "\n", encoding="utf-8")
                     final_gate_match = re.search(
-                        r"(?im)^\\s*OVERALL QUALITY GATE:\\s*(PASS|PARTIAL|FAIL)\\s*[.!]?\\s*$", final_review
+                        r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$", final_review
                     )
                     final_gate = final_gate_match.group(1).lower() if final_gate_match else "unconfirmed"
                     reviewer_record["initial_quality_gate"] = reviewer_record.get("quality_gate")
@@ -578,8 +578,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                         "initial_gate": reviewer_record.get("initial_quality_gate"),
                         "final_gate": final_gate,
                     }
-                    combined_context = (combined_context + "\\n\\n--- Bounded repair output ---\\n" + repaired_output
-                                        + "\\n\\n--- Final quality re-review ---\\n" + final_review)[-30000:]
+                    combined_context = (combined_context + "\n\n--- Bounded repair output ---\n" + repaired_output
+                                        + "\n\n--- Final quality re-review ---\n" + final_review)[-30000:]
                 except Exception as exc:
                     repair_attempt = {
                         "attempted": True, "status": "failed",
@@ -587,10 +587,10 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                         "error": str(exc)[:700], "trigger_gate": reviewer_record.get("quality_gate"),
                     }
                     (destination / "99-repair-failure.md").write_text(
-                        "# Automatic repair failed\\n\\n"
-                        + "- Repair specialist: " + repair_id + "\\n"
-                        + "- Error: " + type(exc).__name__ + ": " + str(exc)[:1000] + "\\n"
-                        + "The initial reviewer result remains authoritative; no repair success is claimed.\\n",
+                        "# Automatic repair failed\n\n"
+                        + "- Repair specialist: " + repair_id + "\n"
+                        + "- Error: " + type(exc).__name__ + ": " + str(exc)[:1000] + "\n"
+                        + "The initial reviewer result remains authoritative; no repair success is claimed.\n",
                         encoding="utf-8",
                     )
 
