@@ -58,7 +58,7 @@ def local_html(idea, title, cfg):
     url=model.get("base_url","")
     prompt=("Create a self-contained single-file HTML prototype for this digital product idea: "+idea+
         "\nProduct title: "+title+
-        "\nReturn only complete HTML. Requirements: functional, responsive, accessible labels, clear empty/error states, no external libraries, no remote images, no network requests, no analytics, no tracking, no eval or Function constructor. All user data must remain in the browser. Include an explicit prototype notice.")
+        "\nReturn only complete HTML. Requirements: functional, responsive, accessible labels, clear empty/error states, no external libraries, no remote images, no network requests, no analytics, no tracking, no eval or Function constructor. All user data must remain in the browser. Include an explicit prototype notice. Use supplied research context to make the prototype specific to the user problem; do not invent demand or unsupported claims.\nRESEARCH AND SPECIALIST NOTES (unverified until reviewed):\n" + (source_notes[:8000] if source_notes else "(No research context supplied.)"))
     body={"model":model.get("model","local-model"),"messages":[
         {"role":"system","content":"You generate careful offline-first HTML prototypes. Output HTML only. Never include external script/style URLs, network calls, telemetry, or claims of security certification."},
         {"role":"user","content":prompt}],"temperature":0.2,"max_tokens":int(model.get("max_output_tokens",2500))}
