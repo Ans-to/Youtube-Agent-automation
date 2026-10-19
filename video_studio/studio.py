@@ -14,9 +14,9 @@ sys.path.insert(0, str(BASE))
 from captions import build_subtitles, validate_english_text, validate_english_voice_model, validate_subtitle_text
 
 
-def run(command, cwd=BASE, **kwargs):
+def run(command, cwd=BASE, timeout=1800, **kwargs):
     print("+", " ".join(str(item) for item in command), flush=True)
-    return subprocess.run(command, cwd=str(cwd), check=True, **kwargs)
+    return subprocess.run(command, cwd=str(cwd), check=True, timeout=timeout, **kwargs)
 
 
 def probe_duration(ffprobe, path):
@@ -41,7 +41,7 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps):
         raw = voice_dir / ("raw-%03d.wav" % index)
         if narration:
             run([piper, "--model", model, "--output_file", str(raw)],
-                input=(narration + "\n").encode("utf-8"))
+                input=(narration + "\n").encode("utf-8"), timeout=300)
             spoken_duration = probe_duration(ffprobe, raw)
             scene["narration_duration_seconds"] = spoken_duration
         else:
@@ -76,7 +76,7 @@ def combine_voice(segments, ffmpeg, output):
     filter_graph = "".join(labels) + "concat=n=" + str(len(segments)) + ":v=0:a=1[outa]"
     command.extend(["-filter_complex", filter_graph, "-map", "[outa]",
                     "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(output)])
-    run(command)
+    run(command, timeout=900)
 
 
 def main():
@@ -120,7 +120,7 @@ def main():
         generated_storyboard, voice_dir, segments = prepare_voice(data, piper, model, ffmpeg, ffprobe, fps)
         render_storyboard = generated_storyboard
 
-    run([node, "render.js", str(render_storyboard)])
+    run([node, "render.js", str(render_storyboard)], timeout=3600)
     manifest_path = BASE / "render-manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     frame_check = subprocess.run(
