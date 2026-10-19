@@ -275,7 +275,7 @@ class CEODelegationTests(unittest.TestCase):
                     later_contexts[role["id"]] = context
                 if role["id"] == "AGENT-02":
                     report_dir = root / "workspace" / "research" / "agent-runs"
-                    report_dir.mkdir(parents=True)
+                    report_dir.mkdir(parents=True, exist_ok=True)
                     report = report_dir / "agent-02-test.md"
                     report.write_text("# Research saved before timeout\\n\\nPreserved source finding: verify the source date.\\n", encoding="utf-8")
                     report.with_suffix(".json").write_text(
