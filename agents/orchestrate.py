@@ -39,7 +39,14 @@ def read_context(path):
 def heuristic_assignments(task):
     """Transparent no-model routing: a small role set matched to task intent."""
     text = task.lower()
-    video = bool(re.search(r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b", text))
+    explicit_video = bool(re.search(r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b", text))
+    # Creative screenplay/fight requests often do not say "video" or "YouTube".
+    # Route them to script/storyboard/motion roles without misclassifying code scripts.
+    creative_scene_request = bool(
+        re.search(r"\b(fight|battle|screenplay|superhero|anime|animation|animated sequence|scene[- ]by[- ]scene)\b", text)
+        and re.search(r"\b(script|screenplay|scene|sequence|storyboard|create|write|draft)\b", text)
+    )
+    video = explicit_video or creative_scene_request
     software = any(word in text for word in ("build", "code", "software", "app", "website", "tool", "program", "automation", "debug", "feature", "repository", "system"))
     product = any(word in text for word in ("product", "sell", "customer", "market", "business", "monetize", "revenue", "launch"))
     assignments = [{"agent_id": "AGENT-02", "task": "Research the task requirements, authoritative sources, current constraints, and viable approaches. Return source-linked evidence and uncertainties."}]
