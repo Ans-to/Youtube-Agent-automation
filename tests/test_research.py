@@ -53,6 +53,35 @@ class ResearchTests(unittest.TestCase):
         result = fetch_page("http://127.0.0.1/private")
         self.assertEqual(result["fetch_status"], "rejected")
 
+    def test_page_fetch_selection_covers_multiple_queries(self):
+        fetched = []
+        def fake_search(query):
+            if "official" in query:
+                label = "official"
+            elif "risks" in query:
+                label = "risks"
+            else:
+                label = "primary"
+            return (
+                '<a class="result__a" href="https://example.com/' + label + '">' + label + '</a>'
+                '<div class="result__snippet">Evidence for ' + label + '</div>'
+            )
+        def fake_page(url):
+            fetched.append(url)
+            return {"fetch_status": "fetched", "page_title": "Title", "page_text": "Page evidence"}
+        metadata, results = research(
+            "topic",
+            queries=["topic", "topic official", "topic risks"],
+            max_results=3,
+            search_fn=fake_search,
+            page_fetch_fn=fake_page,
+        )
+        self.assertEqual(metadata["pages_fetched"], 3)
+        self.assertEqual(len(fetched), 3)
+        self.assertIn("https://example.com/official", fetched)
+        self.assertIn("https://example.com/risks", fetched)
+        self.assertEqual(len(results), 3)
+
     def test_research_function_is_testable_without_network(self):
         def fake_search(query):
             return SAMPLE_HTML if "sample" in query else ""
