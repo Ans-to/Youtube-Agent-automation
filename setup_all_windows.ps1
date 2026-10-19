@@ -101,8 +101,13 @@ function Install-PortableFfmpeg {
         }
         $env:Path = "$FfmpegBin;$env:Path"
         # Test the executable directly instead of relying only on PATH command discovery.
-        $VersionLine = & $FfmpegExe -version 2>&1 | Select-Object -First 1
-        if ($LASTEXITCODE -ne 0) { throw "FFmpeg executable exists but could not start. Output: $VersionLine" }
+        # Capture the complete native-process output before selecting a display line.
+        # Piping ffmpeg directly into Select-Object -First 1 can close stdout early;
+        # FFmpeg may then exit non-zero even though the executable works.
+        $VersionOutput = @(& $FfmpegExe -version 2>&1)
+        $FfmpegExitCode = $LASTEXITCODE
+        $VersionLine = if ($VersionOutput.Count -gt 0) { [string]$VersionOutput[0] } else { "(no version output)" }
+        if ($FfmpegExitCode -ne 0) { throw "FFmpeg executable exists but failed its version check (exit code $FfmpegExitCode). Output: $VersionLine" }
         Write-Host $VersionLine -ForegroundColor DarkGray
         Remove-Item $ExtractRoot -Recurse -Force
         Remove-Item $ZipPath -Force
