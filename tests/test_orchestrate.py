@@ -234,7 +234,7 @@ class CEODelegationTests(unittest.TestCase):
             self.assertIn("AGENT-03", calls)
             self.assertIn("AGENT-12", calls)
             self.assertEqual(calls[-1], "AGENT-08")
-            self.assertEqual(manifest["status"], "failed")
+            self.assertEqual(manifest["status"], "partial")
             failed = manifest["pipeline"][0]
             self.assertEqual(failed["status"], "failed")
             self.assertEqual(failed["error_type"], "TimeoutError")
