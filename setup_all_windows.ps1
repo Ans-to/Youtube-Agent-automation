@@ -6,6 +6,12 @@ function Refresh-Path {
     $machine = [Environment]::GetEnvironmentVariable("Path", "Machine")
     $user = [Environment]::GetEnvironmentVariable("Path", "User")
     $env:Path = "$machine;$user"
+
+    # Preserve project-local portable tools after refreshing the system PATH.
+    $PortableFfmpegBin = Join-Path $Root "tools\ffmpeg\bin"
+    if (Test-Path (Join-Path $PortableFfmpegBin "ffmpeg.exe")) {
+        $env:Path = "$PortableFfmpegBin;$env:Path"
+    }
 }
 
 function Has-Command([string]$Name) {
@@ -107,8 +113,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host ""
-$answer = Read-Host "Install free local AI runtime + llama3.2:3b model (about 2 GB download; recommended) [Y/n]"
-if ([string]::IsNullOrWhiteSpace($answer) -or $answer.Trim().ToLowerInvariant() -eq "y" -or $answer.Trim().ToLowerInvariant() -eq "yes") {
+$answer = Read-Host "Install optional free local AI runtime + llama3.2:3b model (large download; requires winget or a manual install) [y/N]"
+if ($answer.Trim().ToLowerInvariant() -eq "y" -or $answer.Trim().ToLowerInvariant() -eq "yes") {
     if (-not (Has-Command "ollama")) {
         Install-WingetPackage "Ollama.Ollama" "Ollama local AI runtime"
     }
