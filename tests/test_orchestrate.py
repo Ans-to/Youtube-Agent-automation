@@ -167,6 +167,27 @@ class CEODelegationTests(unittest.TestCase):
             self.assertTrue(any(item.get("tool") == "video_render" and item.get("status") == "blocked"
                                 for item in manifest["tool_runs"]))
 
+    def test_explicit_reviewer_failure_is_preserved_in_pipeline_status(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-review"
+            def fake_role(role, task, context, cfg):
+                if role["id"] == "AGENT-08":
+                    return "# Review\n\nOVERALL QUALITY GATE: FAIL\n"
+                return "# Deliverable\n\nDraft output for " + role["id"]
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "WORKSPACE", workspace), \
+                 patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role):
+                _, manifest = orchestrate.run_pipeline(
+                    "Summarize the key facts and uncertainties about textile traceability",
+                    output_dir=output,
+                    config={"model": {"enabled": False}},
+                )
+            self.assertEqual(manifest["quality_gate"], "fail")
+            self.assertEqual(manifest["status"], "review_failed")
+
     def test_pipeline_persists_ceo_plan_and_individual_deliverables(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"
