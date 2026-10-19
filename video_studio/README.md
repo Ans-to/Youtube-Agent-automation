@@ -18,14 +18,21 @@ Open PowerShell in this directory and run:
 
 Puppeteer downloads a compatible Chromium build during npm install. If your network blocks this, install a supported Chrome/Chromium build and configure Puppeteer to use it.
 
-## Optional local narration
-Install Piper and a compatible voice model, then set the environment variable:
+## Urdu male narration (local, no paid API)
 
-    $env:PIPER_MODEL = "C:\path\to\voice.onnx"
-    python studio.py --storyboard storyboard.example.json --output outputs\offline-agent-hq-demo.mp4 --with-voice
+A tested candidate is the MIT-licensed Piper `ur_PK-fasih-medium` voice. The model is medium quality, and its model card warns that mixed Urdu/English pronunciation may vary; listen-test the actual script before publishing.
 
-Voice models must be legally obtained. Test Urdu pronunciation before publishing. Without Piper, the output is silent.
+1. Install Piper TTS in your active Python environment: `python -m pip install piper-tts`.
+2. Download both the `.onnx` model and its matching `.onnx.json` config from the [Piper Urdu voice files](https://huggingface.co/rhasspy/piper-voices/tree/main/ur/ur_PK/fasih/medium).
+3. Set `PIPER_MODEL` to the absolute model path, then render with `--with-voice`.
 
+PowerShell example:
+
+    $env:PIPER_MODEL = "C:\\path\\to\\ur_PK-fasih-medium.onnx"
+    python studio.py --storyboard storyboard.example.json --output outputs\\offline-agent-hq-demo.mp4 --with-voice
+    python validate_render.py outputs\\offline-agent-hq-demo.mp4 --require-audio
+
+The render validator now rejects a requested audio track that is missing, silent, or below the default mean loudness floor (-35 dBFS), and rejects peaks above -0.1 dBFS. This is a technical signal check, not a judgement of naturalness, pronunciation, intelligibility, or lip-sync. Without `--with-voice`, the output remains silent by design.
 ## Generate a topic package
 From the repository root, run:
 
