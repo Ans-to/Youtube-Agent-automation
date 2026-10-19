@@ -140,6 +140,7 @@ def process(task, cfg):
         raise ValueError("Unsupported task type.")
 
     # Every queued task is sent to the CEO, who delegates distinct subtasks to specialists.
+    research_status_value = "attempted_by_ceo_and_specialists" if cfg.get("model", {}).get("enabled") else "attempted_by_specialists"
     title = str(task.get("title", "Untitled")).strip()
     user_request = str(task.get("input", "")).strip()
     goal = (
@@ -182,7 +183,7 @@ def process(task, cfg):
         "- Delegation mode: " + str(manifest.get("delegation_mode", "unknown")),
         "- Model enabled: " + str(bool(manifest.get("model_enabled"))),
         "- Specialist stages: " + str(len(manifest.get("pipeline", []))),
-        "- Research: attempted by the CEO when model-enabled and by each specialist stage",
+        "- Research: CEO planning when model-enabled; each selected specialist stage attempts its own research",
         "- Independent fact verification: not guaranteed; review source reports and claims",
         "",
         "## CEO delegation plan",
@@ -275,7 +276,7 @@ def process(task, cfg):
         task.update(
             status="failed",
             completed_at=stamp(),
-            research_status="attempted_by_ceo_and_specialists",
+            research_status=research_status_value,
             output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
             error="CEO pipeline or a required artifact builder failed. Partial output was saved; inspect the manifest and tool logs before retrying.",
         )
