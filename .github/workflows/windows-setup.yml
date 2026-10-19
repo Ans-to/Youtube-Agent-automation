@@ -24,6 +24,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Validate PowerShell setup script and Python syntax
+      - name: Parse both PowerShell setup scripts
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ./setup_windows.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ./setup_all_windows.ps1), [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
+      - name: Validate project setup and Python syntax
         shell: pwsh
         run: ./setup_windows.ps1
