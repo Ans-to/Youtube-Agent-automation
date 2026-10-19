@@ -182,6 +182,7 @@ def process(task, cfg):
         "- Task type: " + kind,
         "- Delegation mode: " + str(manifest.get("delegation_mode", "unknown")),
         "- Model enabled: " + str(bool(manifest.get("model_enabled"))),
+        "- Pipeline status: " + str(manifest.get("status", "unknown")),
         "- Specialist stages: " + str(len(manifest.get("pipeline", []))),
         "- Research: CEO planning when model-enabled; each selected specialist stage attempts its own research",
         "- Independent fact verification: not guaranteed; review source reports and claims",
@@ -224,6 +225,8 @@ def process(task, cfg):
             break
     if manifest.get("status") == "failed":
         sections.extend(["## Pipeline status", "", "The CEO pipeline or a required artifact builder failed. Review the saved pipeline manifest and tool logs before retrying.", ""])
+    elif manifest.get("status") == "blocked":
+        sections.extend(["## Pipeline status", "", "One or more requested artifact actions were blocked. Partial deliverables are available, but the requested final outcome is not complete until the blocker is resolved.", ""])
     sections.extend(["", "## Built-in artifact tools", ""])
     if manifest.get("tool_runs"):
         for tool in manifest["tool_runs"]:
