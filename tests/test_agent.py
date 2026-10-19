@@ -8,6 +8,21 @@ import agent
 
 
 class AgentTests(unittest.TestCase):
+    def fake_ceo_pipeline(self, task, context="", agent_ids=None, output_dir=None, config=None):
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "01-result.md").write_text("CEO specialist deliverable", encoding="utf-8")
+        manifest = {
+            "delegation_mode": "heuristic_no_model",
+            "model_enabled": False,
+            "status": "draft",
+            "ceo_assignments": [{"agent_id": "AGENT-02", "task": "Research the request"}],
+            "pipeline": [{
+                "sequence": 1, "agent_id": "AGENT-02", "role": "Research Lead",
+                "assigned_task": "Research the request", "output_file": "01-result.md", "status": "draft_generated"
+            }],
+        }
+        return output_dir, manifest
+
     def test_safe_id_removes_path_separators(self):
         self.assertEqual(agent.safe_id("../../TASK-0007"), "TASK-0007")
 
@@ -37,7 +52,8 @@ class AgentTests(unittest.TestCase):
                 {"id": "TASK-2", "title": "Second", "kind": "plan", "input": "Make another plan", "status": "pending"},
             ]), encoding="utf-8")
             with patch.object(agent, "TASKS", tasks_path), patch.object(agent, "CONFIG", root / "config.json"), \
-                 patch.object(agent, "OUTPUTS", root / "outputs"), patch.object(agent, "LOGS", root / "logs"):
+                 patch.object(agent, "OUTPUTS", root / "outputs"), patch.object(agent, "LOGS", root / "logs"), \
+                 patch.object(agent, "WORKSPACE", root / "workspace"), patch.object(agent, "run_ceo_pipeline", side_effect=self.fake_ceo_pipeline):
                 self.assertEqual(agent.cycle("TASK-2"), 1)
             tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
             statuses = {task["id"]: task["status"] for task in tasks}
@@ -52,7 +68,8 @@ class AgentTests(unittest.TestCase):
                 {"id": "TASK-2", "title": "Second", "kind": "plan", "input": "Make another plan", "status": "queued"},
             ]), encoding="utf-8")
             with patch.object(agent, "TASKS", tasks_path), patch.object(agent, "CONFIG", root / "config.json"), \
-                 patch.object(agent, "OUTPUTS", root / "outputs"), patch.object(agent, "LOGS", root / "logs"):
+                 patch.object(agent, "OUTPUTS", root / "outputs"), patch.object(agent, "LOGS", root / "logs"), \
+                 patch.object(agent, "WORKSPACE", root / "workspace"), patch.object(agent, "run_ceo_pipeline", side_effect=self.fake_ceo_pipeline):
                 self.assertEqual(agent.cycle(), 2)
             tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
             self.assertTrue(all(task["status"] == "completed" for task in tasks))
