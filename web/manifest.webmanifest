@@ -1,0 +1,20 @@
+{
+  "id": "/",
+  "name": "Offline Agent HQ",
+  "short_name": "Agent HQ",
+  "description": "Local-first AI agent command centre for task management, video production, and digital product prototyping.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#08070b",
+  "theme_color": "#09070b",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
