@@ -153,6 +153,16 @@ def process(task, cfg):
         "Do not claim an artifact was executed, rendered, uploaded, published, or externally verified unless the available tools and evidence confirm it."
     )
     context = workspace_text(cfg) if kind in {"summarize_workspace", "review_output"} else ""
+    source_file = str(task.get("context_file", "")).strip()
+    if source_file:
+        supplied = Path(source_file).expanduser().resolve()
+        workspace_root = WORKSPACE.resolve()
+        if supplied == workspace_root or workspace_root not in supplied.parents or not supplied.is_file():
+            raise ValueError("Task source file must be an existing file inside the local workspace.")
+        if supplied.suffix.lower() not in {".txt", ".md", ".json"} or supplied.stat().st_size > 2_000_000:
+            raise ValueError("Task source file must be a .txt, .md, or .json file no larger than 2 MB.")
+        source_text = supplied.read_text(encoding="utf-8", errors="replace")[:50000]
+        context = (context + "\n\n## USER-SUPPLIED SOURCE NOTES\n" + source_text)[:60000]
     destination = (WORKSPACE / "orchestration" / ("task-" + safe_id(task.get("id")))).resolve()
     destination.mkdir(parents=True, exist_ok=True)
     out_dir, manifest = run_ceo_pipeline(
