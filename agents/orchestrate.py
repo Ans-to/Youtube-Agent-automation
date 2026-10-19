@@ -160,11 +160,13 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         and re.search(verbs, lower)
     )
     product_requested = bool(re.search(r"\b(digital product|product prototype|build (?:a )?product|create (?:a )?product|develop (?:a )?product|product idea for (?:a )?tool)\b", lower))
+    render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
+    template_demo = bool(re.search(r"\b(template demo|demo render)\b", lower)) and not model_enabled
     source_path = None
     if source_context.strip() and (video_requested or product_requested):
         source_path = destination / "source-notes.md"
         source_path.write_text(source_context[:50000], encoding="utf-8")
-    if video_requested and (model_enabled or re.search(r"\b(template demo|demo render)\b", lower)):
+    if video_requested and (model_enabled or template_demo):
         topic_match = re.search(r"(?i)\b(?:about|on|topic\s*[:=])\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", text)
         topic = (topic_match.group(1).strip() if topic_match else text[:220]).strip(" \t\r\n.,;:")
         topic = topic[:500] or "Technology explainer"
@@ -178,8 +180,6 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             command.extend(["--target-minutes", duration_match.group(1)])
         if source_path is not None:
             command.extend(["--source-file", str(source_path)])
-        render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
-        template_demo = bool(re.search(r"\b(template demo|demo render)\b", lower)) and not model_enabled
         if render_requested and model_enabled:
             command.append("--render")
             if re.search(r"\b(with voice|with local narration|piper narration)\b", lower):
@@ -197,8 +197,8 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             results.append(_run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400))
     elif video_requested and not model_enabled:
         results.append({
-            "tool": "video_studio", "status": "not_run",
-            "reason": "No local model is enabled. Avoid generating a misleading 20-second template in place of the requested video; use the CEO's specialist deliverables and research reports.",
+            "tool": "video_studio", "status": "blocked" if render_requested else "not_run",
+            "reason": "A full MP4 render requires an enabled local model. No misleading template was substituted; use the CEO's specialist deliverables and research reports, or explicitly request a template demo.",
         })
 
     if product_requested:
