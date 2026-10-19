@@ -9,7 +9,7 @@
       "eyebrow": "MOTION TEST / 01",
       "headline": "Ideas need a clear visual",
       "subhead": "A presenter layer with idle motion and an explanatory gesture",
-      "narration": "A visual idea should be introduced clearly.",
+      "narration": "ایک اچھا visual idea واضح ہونا چاہیے، تاکہ viewer فوراً اصل بات سمجھ سکے۔",
       "visual_type": "hero",
       "graphic_label": "THE CORE IDEA",
       "transition_in": "none",
@@ -23,37 +23,16 @@
         "skin": "#c58e72",
         "hair": "#25212a",
         "shirt": "#6479b8",
-        "trousers": "#303746",
-        "visemes": [
-          {
-            "t": 0,
-            "shape": "closed"
-          },
-          {
-            "t": 0.15,
-            "shape": "open"
-          },
-          {
-            "t": 0.33,
-            "shape": "wide"
-          },
-          {
-            "t": 0.52,
-            "shape": "round"
-          },
-          {
-            "t": 0.75,
-            "shape": "closed"
-          }
-        ]
-      }
+        "trousers": "#303746"
+      },
+      "caption": "ایک اچھا visual idea واضح ہونا چاہیے، تاکہ viewer فوراً اصل بات سمجھ سکے۔"
     },
     {
       "duration_seconds": 5,
       "eyebrow": "MOTION TEST / 02",
       "headline": "Transitions should connect",
       "subhead": "A directional wipe bridges related information, not random scenes",
-      "narration": "Transitions should connect the outgoing shot with the next idea.",
+      "narration": "Smooth transitions ایک scene کو اگلے خیال سے جوڑتی ہیں، اور video کی flow برقرار رکھتی ہیں۔",
       "visual_type": "diagram",
       "visual_nodes": [
         "CONTEXT",
@@ -72,37 +51,16 @@
         "skin": "#c58e72",
         "hair": "#25212a",
         "shirt": "#6479b8",
-        "trousers": "#303746",
-        "visemes": [
-          {
-            "t": 0,
-            "shape": "closed"
-          },
-          {
-            "t": 0.2,
-            "shape": "open"
-          },
-          {
-            "t": 0.45,
-            "shape": "wide"
-          },
-          {
-            "t": 0.65,
-            "shape": "round"
-          },
-          {
-            "t": 0.85,
-            "shape": "closed"
-          }
-        ]
-      }
+        "trousers": "#303746"
+      },
+      "caption": "Smooth transitions ایک scene کو اگلے خیال سے جوڑتی ہیں، اور video کی flow برقرار رکھتی ہیں۔"
     },
     {
       "duration_seconds": 5,
       "eyebrow": "MOTION TEST / 03",
       "headline": "Review at normal speed",
       "subhead": "Check continuity, readability, and timing before release",
-      "narration": "Every boundary should be inspected before publishing.",
+      "narration": "ہر render کو normal speed پر review کریں، glitches درست کریں، پھر ہی final video approve کریں۔",
       "visual_type": "timeline",
       "timeline_events": [
         "PLAN",
@@ -122,26 +80,9 @@
         "skin": "#c58e72",
         "hair": "#25212a",
         "shirt": "#6479b8",
-        "trousers": "#303746",
-        "visemes": [
-          {
-            "t": 0,
-            "shape": "closed"
-          },
-          {
-            "t": 0.25,
-            "shape": "open"
-          },
-          {
-            "t": 0.5,
-            "shape": "wide"
-          },
-          {
-            "t": 0.75,
-            "shape": "round"
-          }
-        ]
-      }
+        "trousers": "#303746"
+      },
+      "caption": "ہر render کو normal speed پر review کریں، glitches درست کریں، پھر ہی final video approve کریں۔"
     }
   ]
 }
