@@ -186,10 +186,7 @@ def run_builtin_tools(task, destination, cfg):
             "reason": "No local model is enabled. Avoid generating a misleading 20-second template in place of the requested video; use the CEO's specialist deliverables and research reports.",
         })
 
-    product_requested = (
-        bool(re.search(r"\b(product|prototype)\b", lower))
-        and bool(re.search(verbs, lower))
-    )
+    product_requested = bool(re.search(r"\b(digital product|product prototype|build (?:a )?product|create (?:a )?product|develop (?:a )?product|product idea for (?:a )?tool)\b", lower))
     if product_requested:
         title_match = re.search(r"(?i)\b(?:product|prototype)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", text)
         title = title_match.group(1).strip() if title_match else re.sub(r"[-_]+", " ", slug(text[:70])).title()
@@ -292,7 +289,9 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
     tool_runs = run_builtin_tools(task, destination, cfg)
-    manifest = build_manifest(task, records, cfg, status="draft", delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs)
+    required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
+    final_status = "failed" if required_tool_failed else "draft"
+    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return destination, manifest
 
