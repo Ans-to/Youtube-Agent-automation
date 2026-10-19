@@ -266,6 +266,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             + "Return your concrete deliverable, validation status, and explicit unresolved issues."
         )
         filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
+        research_dir = ROOT / "workspace" / "research" / "agent-runs"
+        reports_before = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
         try:
             result = dispatch.run_role(role, instruction, combined_context, cfg)
             if not isinstance(result, str) or not result.strip():
@@ -282,9 +284,13 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             return destination, manifest
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
+        reports_after = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
+        research_reports = sorted(str(path.relative_to(ROOT)) for path in reports_after - reports_before)
+        research_status = "report_saved" if research_reports else ("failure_disclosed" if "WEB RESEARCH ATTEMPT FAILED" in result else "not_confirmed")
         records.append({
             "sequence": index, "agent_id": agent_id, "role": role["name"],
             "assigned_task": specialist_task, "output_file": filename, "status": "draft_generated",
+            "research_status": research_status, "research_reports": research_reports,
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
