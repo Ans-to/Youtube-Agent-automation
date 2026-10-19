@@ -128,8 +128,9 @@ Request IDs must contain only letters, digits, hyphens, or underscores and must 
 - `draft`
 - `summarize_workspace`
 - `review_output`
+- `youtube_package`
 
-Put non-sensitive `.txt`, `.md`, or `.json` reference files in `workspace/`. Inspect all outputs before relying on them.
+All supported queued task kinds run through the CEO-led pipeline. Put non-sensitive `.txt`, `.md`, or `.json` reference files in `workspace/`. Inspect all outputs before relying on them.
 
 ## Tests
 
