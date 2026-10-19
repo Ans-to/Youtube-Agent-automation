@@ -25,6 +25,22 @@ class CEODelegationTests(unittest.TestCase):
         self.assertNotIn("AGENT-50", ids)
         self.assertLessEqual(len(ids), 8)
 
+    def test_enabled_ceo_model_plan_is_used_when_json_is_valid(self):
+        roles = {item.get("id"): item for item in orchestrate.dispatch.load_json(
+            orchestrate.dispatch.ROSTER, {}
+        ).get("agents", [])}
+        planned = '{"assignments":[{"agent_id":"AGENT-09","task":"Write the script"}]}'
+        with patch.object(orchestrate.dispatch, "run_role", return_value=planned) as run_role:
+            assignments, mode = orchestrate.plan_delegation(
+                "Create a YouTube script",
+                "",
+                {"model": {"enabled": True}},
+                roles,
+            )
+        self.assertEqual(mode, "ceo_model_delegation")
+        self.assertEqual([item["agent_id"] for item in assignments], ["AGENT-09", "AGENT-08"])
+        self.assertEqual(run_role.call_args.args[0]["id"], "AGENT-01")
+
     def test_ceo_json_parser_filters_approval_and_duplicate_roles(self):
         roles = {item["id"]: item for item in orchestrate.dispatch.load_json(
             orchestrate.dispatch.ROSTER, {}
