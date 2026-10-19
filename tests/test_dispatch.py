@@ -96,6 +96,28 @@ class AgentDispatcherTests(unittest.TestCase):
 
 
 
+    def test_ceo_planning_skips_research_and_uses_cpu_friendly_budget(self):
+        from unittest.mock import patch
+        role = dispatch.find_role("AGENT-01")
+        response = {"choices": [{"message": {"content": '{"assignments":[{"agent_id":"AGENT-02","task":"Research"}]}'}}]}
+        with patch.object(dispatch, "post_local_model", return_value=response) as post_model:
+            result = dispatch.run_role(
+                role,
+                "Plan the specialist delegation",
+                "",
+                {"model": {
+                    "enabled": True,
+                    "base_url": "http://127.0.0.1:11434/v1/chat/completions",
+                    "model": "llama3.2:3b",
+                    "max_output_tokens": 2200,
+                    "timeout_seconds": 120,
+                }},
+                perform_research=False,
+            )
+        self.assertIn('"assignments"', result)
+        self.assertEqual(post_model.call_args.args[2], 180)
+        self.assertLessEqual(post_model.call_args.args[1]["max_tokens"], 700)
+
     def test_local_model_rejects_non_loopback_and_userinfo_urls(self):
         for url in ("http://example.com:8080/v1/chat/completions",
                     "http://127.0.0.1:123@example.com:80/v1/chat/completions",
