@@ -116,7 +116,9 @@ CRITICAL ACTION-VERIFICATION RULES:
 - If no such confirmation is supplied, explicitly state that the action was NOT performed or verified and explain what the user must do themselves.
 - Never invent tool calls, confirmations, execution logs, or success messages.
 - The Reviewer must check every statement claiming that an action was completed against the supplied evidence. If evidence is absent, correct the claim.
-Return the final deliverable in clear Markdown.
+Return the final deliverable in clear Markdown. Do not claim tests, web research, publishing, or external actions unless supplied evidence confirms them.
+
+For youtube_package tasks, create a detailed faceless YouTube package: include a narrative thesis, scene-by-scene script with timecodes, Urdu narration with English technical terms unless requested otherwise, motion-graphics/compositing instructions, audio/editing notes, title/thumbnail/description options, Shorts cutdown, source register, and release QA. Match requested duration with plausible narration word counts; do not call a short outline a 15-minute script. Never invent facts, numbers, quotes, citations, or research. Mark unsupported claims [VERIFY] and state what evidence is needed. Distinguish source-supported details from assumptions. End with unresolved issues.
 
 TASK TYPE: {kind}
 TITLE: {task.get('title', '')}
