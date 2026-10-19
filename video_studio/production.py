@@ -301,6 +301,10 @@ def main():
         generated_by = "deterministic_template"
         actual_target_seconds = sum(float(scene["duration_seconds"]) for scene in scenes)
 
+    for scene_index, scene in enumerate(scenes, 1):
+        scene["narration"] = validate_english_text(scene.get("narration", ""), "Scene " + str(scene_index) + " narration")
+        scene["caption"] = scene["narration"]
+
     workspace_root = (ROOT / "workspace").resolve()
     output_dir = (ROOT / args.out).resolve()
     if output_dir == workspace_root or workspace_root not in output_dir.parents:
