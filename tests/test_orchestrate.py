@@ -376,11 +376,11 @@ class CEODelegationTests(unittest.TestCase):
                 if agent_id == "AGENT-08":
                     review_count += 1
                     if review_count == 1:
-                        return "# Review\\n\\nMissing required evidence.\\n\\nOVERALL QUALITY GATE: PARTIAL\\n"
-                    return "# Final review\\n\\nRepair fixed the critical gap.\\n\\nOVERALL QUALITY GATE: PASS\\n"
+                        return "# Review\n\nMissing required evidence.\n\nOVERALL QUALITY GATE: PARTIAL\n"
+                    return "# Final review\n\nRepair fixed the critical gap.\n\nOVERALL QUALITY GATE: PASS\n"
                 if agent_id == "AGENT-52" and "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
-                    return "# Corrected motion specification\\n\\nEvidence and acceptance checks added.\\n"
-                return "# Deliverable\\n\\nDraft output from " + agent_id
+                    return "# Corrected motion specification\n\nEvidence and acceptance checks added.\n"
+                return "# Deliverable\n\nDraft output from " + agent_id
 
             with patch.object(orchestrate, "ROOT", root), \\
                  patch.object(orchestrate, "WORKSPACE", workspace), \\
