@@ -294,6 +294,27 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
     roles_by_id = {role.get("id"): role for role in roles}
     cfg = config if config is not None else dispatch.load_json(ROOT / "config.json", {})
+    destination = Path(output_dir).resolve() if output_dir else WORKSPACE / "orchestration" / slug(task[:80])
+    if destination == WORKSPACE or WORKSPACE not in destination.parents:
+        raise ValueError("Pipeline output must remain inside the project workspace.")
+    destination.mkdir(parents=True, exist_ok=True)
+    progress_path = destination / "pipeline-progress.json"
+
+    def save_progress(status, phase, message, completed_stages=0, total_stages=0, agent_id=None, role_name=None):
+        snapshot = {
+            "status": status, "phase": phase, "message": message,
+            "completed_stages": completed_stages, "total_stages": total_stages,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }
+        if agent_id:
+            snapshot["agent_id"] = agent_id
+        if role_name:
+            snapshot["role"] = role_name
+        temporary = progress_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(snapshot, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+        temporary.replace(progress_path)
+
+    save_progress("running", "CEO delegation", "CEO is planning the task and selecting specialist responsibilities.")
     ceo_research_dir = ROOT / "workspace" / "research" / "agent-runs"
     ceo_reports_before = set(ceo_research_dir.glob("agent-01-*.md")) if ceo_research_dir.is_dir() else set()
     if agent_ids is None:
@@ -316,10 +337,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     ceo_reports_after = set(ceo_research_dir.glob("agent-01-*.md")) if ceo_research_dir.is_dir() else set()
     ceo_research_reports = sorted(str(path.relative_to(ROOT)) for path in ceo_reports_after - ceo_reports_before)
     selected = [item["agent_id"] for item in assignments]
-    destination = Path(output_dir).resolve() if output_dir else WORKSPACE / "orchestration" / slug(task[:80])
-    if destination == WORKSPACE or WORKSPACE not in destination.parents:
-        raise ValueError("Pipeline output must remain inside the project workspace.")
-    destination.mkdir(parents=True, exist_ok=True)
+    save_progress("running", "Specialist work", "CEO assigned " + str(len(assignments)) + " stages; starting specialist execution.", 0, len(assignments))
     combined_context = context[:20000]
     (destination / "00-ceo-delegation.json").write_text(
         json.dumps({"task": task.strip(), "delegation_mode": delegation_mode,
@@ -330,6 +348,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         agent_id = assignment["agent_id"]
         role = roles_by_id[agent_id]
         specialist_task = assignment.get("task") or ("Complete your specialist contribution to: " + task.strip())
+        save_progress("running", "Specialist stage " + str(index) + "/" + str(len(assignments)), agent_id + " / " + role["name"] + " is researching and producing its assigned deliverable.", index - 1, len(assignments), agent_id, role["name"])
         instruction = (
             "OVERALL USER GOAL:\n" + task.strip()
             + "\n\nYOUR CEO-ASSIGNED SUBTASK:\n" + specialist_task
@@ -415,6 +434,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
             }
             records.append(failure)
+            save_progress("running", "Recovering from specialist failure", agent_id + " failed; the failure and available research were saved, and later stages will continue.", index, len(assignments), agent_id, role["name"])
             combined_context = (
                 combined_context + "\n\n--- " + role["name"] + " stage failure and preserved research ---\n"
                 + failure_text
@@ -458,6 +478,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
+    save_progress("running", "Specialist stage complete", "All specialist stages have returned; assembling research evidence and preparing artifact tools.", len(assignments), len(assignments))
     research_sections = []
     research_budget = 18000
     research_root = (ROOT / "workspace" / "research" / "agent-runs").resolve()
@@ -483,6 +504,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         + "\n\n## CEO specialist deliverables (unverified until reviewed)\n"
         + combined_context[-10000:]
     )[:40000]
+    save_progress("running", "Artifact generation", "Specialist stages finished; building selected artifacts and preparing the final quality status.", len(assignments), len(assignments))
     tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     required_tool_blocked = any(item.get("status") == "blocked" for item in tool_runs)
@@ -498,6 +520,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     )
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
+    save_progress(progress_status, "Pipeline complete", "Pipeline ended with status: " + final_status + "; final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")) + ".", len(assignments), len(assignments))
     return destination, manifest
 
 
