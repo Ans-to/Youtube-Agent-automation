@@ -30,6 +30,8 @@ def read_context(path):
     source = Path(path).expanduser().resolve()
     if not source.is_file() or source.suffix.lower() not in {".txt", ".md", ".json"}:
         raise ValueError("Context must be an existing .txt, .md, or .json file.")
+    if source.stat().st_size > 2_000_000:
+        raise ValueError("Context file must not exceed 2 MB.")
     return source.read_text(encoding="utf-8", errors="replace")[:50000]
 
 
