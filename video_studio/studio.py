@@ -147,6 +147,15 @@ def main():
     validation = subprocess.run(validation_args, cwd=str(BASE), check=True,
                                 capture_output=True, text=True, timeout=120)
     print(validation.stdout.strip())
+    # Fail closed: every candidate render must be reviewed against professional references.
+    review = subprocess.run(
+        [sys.executable, str(BASE / "quality_review_agent.py"), "--video", str(output)],
+        cwd=str(BASE), capture_output=True, text=True, timeout=900)
+    print(review.stdout.strip())
+    if review.returncode != 0:
+        if review.stderr:
+            print(review.stderr.strip(), file=sys.stderr)
+        raise SystemExit("Editor-review gate rejected or could not review this render; output is not release-approved.")
     if generated_storyboard:
         aligned_copy = output.with_suffix(".storyboard.json")
         shutil.copy2(generated_storyboard, aligned_copy)
