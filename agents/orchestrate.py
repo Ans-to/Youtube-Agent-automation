@@ -166,10 +166,13 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
     verbs = r"\b(build|create|make|generate|produce|develop|implement|render|export)\b"
 
-    video_requested = (
-        re.search(r"\b(youtube|video|shorts|short-form)\b", lower)
-        and re.search(verbs, lower)
+    # "Build a YouTube automation studio" is a software task, not a request to render a video.
+    # Only activate the media builder when the user clearly asks for a video/content artifact.
+    video_intent = re.search(
+        r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b",
+        lower,
     )
+    video_requested = bool(video_intent and re.search(verbs, lower))
     product_requested = bool(re.search(r"\b(digital product|product prototype|build (?:a )?product|create (?:a )?product|develop (?:a )?product|product idea for (?:a )?tool)\b", lower))
     render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
     template_demo = bool(re.search(r"\b(template demo|demo render)\b", lower)) and not model_enabled
