@@ -57,8 +57,15 @@ async function main(){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
    if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("scene duration must be >0 and <=600 seconds");
    const count=Math.max(1,Math.round(sec*fps));
+   const previous=si>0?s.scenes[si-1]:null;
+   const requested=Number(scene.transition_frames)||12;
+   const transitionFrames=previous&&scene.transition_in&&scene.transition_in!=="none"?Math.max(6,Math.min(24,Math.round(requested))):0;
+   const previousCount=previous?Math.max(1,Math.round(Number(previous.duration_seconds)*fps)):0;
    for(let lf=0;lf<count;lf++){
-    await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,total);
+    if(transitionFrames&&lf<transitionFrames){
+     const t=transitionFrames<=1?1:lf/(transitionFrames-1);
+     await page.evaluate((prev,pf,pc,pg,cur,cf,cc,cg,kind,progress)=>window.drawTransitionFrame(prev,pf,pc,pg,cur,cf,cc,cg,kind,progress),previous,previousCount-1,previousCount,Math.max(0,total-count),scene,lf,count,total,String(scene.transition_in),t);
+    }else{ await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,total); }
     await page.screenshot({path:path.join(dir,"frame-"+String(total).padStart(6,"0")+".png"),type:"png"});total++;
    }
    console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
