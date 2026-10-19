@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -10,6 +11,11 @@ import dispatch
 class AgentDispatcherTests(unittest.TestCase):
     def setUp(self):
         from unittest.mock import patch
+        self.tempdir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tempdir.cleanup)
+        self.root_patch = patch.object(dispatch, "ROOT", Path(self.tempdir.name))
+        self.root_patch.start()
+        self.addCleanup(self.root_patch.stop)
         self.research_patch = patch.object(dispatch, "collect_web_research", None)
         self.research_patch.start()
         self.addCleanup(self.research_patch.stop)
@@ -35,6 +41,18 @@ class AgentDispatcherTests(unittest.TestCase):
         topic = dispatch.research_topic_from_task(task)
         self.assertIn("free tools for making professional motion graphics", topic)
         self.assertNotIn("AVAILABLE SPECIALISTS", topic)
+
+    def test_research_report_saves_markdown_and_structured_status(self):
+        import json
+        metadata = {"topic": "test topic", "pages_attempted": 1, "pages_fetched": 1}
+        markdown = "# Research report\n\nSource evidence."
+        md_path, json_path = dispatch.save_research_report("AGENT-02", markdown, metadata, [{"url": "https://example.com"}])
+        root = Path(self.tempdir.name)
+        self.assertTrue((root / md_path).is_file())
+        self.assertTrue((root / json_path).is_file())
+        saved = json.loads((root / json_path).read_text(encoding="utf-8"))
+        self.assertEqual(saved["metadata"]["pages_fetched"], 1)
+        self.assertEqual(saved["results"][0]["url"], "https://example.com")
 
     def test_finds_specialist_role(self):
         role = dispatch.find_role("AGENT-09")
