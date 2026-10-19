@@ -147,7 +147,7 @@ def plan_delegation(task, context, cfg, roles_by_id):
     return heuristic_assignments(task)
 
 
-def run_builtin_tools(task, destination, cfg):
+def run_builtin_tools(task, destination, cfg, source_context=""):
     """Run only fixed, repository-owned artifact builders selected by clear task intent."""
     results = []
     text = task.strip()
@@ -168,10 +168,19 @@ def run_builtin_tools(task, destination, cfg):
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
                    "--topic", topic, "--format", fmt, "--out", relative_out, "--research"]
+        duration_match = re.search(r"(?i)target[_ ]minutes\s*[:=]\s*(\d+(?:\.\d+)?)", text)
+        if duration_match:
+            command.extend(["--target-minutes", duration_match.group(1)])
+        if source_context.strip():
+            source_path = destination / "source-notes.md"
+            source_path.write_text(source_context[:50000], encoding="utf-8")
+            command.extend(["--source-file", str(source_path)])
         render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
         template_demo = bool(re.search(r"\b(template demo|demo render)\b", lower)) and not model_enabled
         if render_requested and model_enabled:
             command.append("--render")
+            if re.search(r"\b(with voice|with local narration|piper narration)\b", lower):
+                command.append("--with-voice")
         elif render_requested and template_demo:
             command.extend(["--render", "--render-template"])
         elif render_requested:
@@ -297,7 +306,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
-    tool_runs = run_builtin_tools(task, destination, cfg)
+    tool_runs = run_builtin_tools(task, destination, cfg, source_context=context)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     final_status = "failed" if required_tool_failed else "draft"
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs)
