@@ -3,7 +3,8 @@
     "enabled": false,
     "base_url": "http://127.0.0.1:8080/v1/chat/completions",
     "model": "local-model",
-    "max_output_tokens": 900,
+    "max_output_tokens": 2200,
+    "product_max_output_tokens": 3500,
     "timeout_seconds": 120
   },
   "runner": {
