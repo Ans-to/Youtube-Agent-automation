@@ -114,6 +114,7 @@ class CEODelegationTests(unittest.TestCase):
         self.assertIn("AGENT-51", ids)
         self.assertIn("AGENT-52", ids)
         self.assertIn("AGENT-08", ids)
+        self.assertNotIn("AGENT-13", ids, "Video production must never auto-switch narration to Urdu.")
         self.assertNotIn("AGENT-01", ids)
         self.assertNotIn("AGENT-50", ids)
         self.assertLessEqual(len(ids), 8)
