@@ -60,7 +60,7 @@ class EndToEndSimulationTests(unittest.TestCase):
                 }]
                 return metadata, sources
 
-            def simulated_model_response(body, timeout):
+            def simulated_model_response(url, body, timeout):
                 messages = body.get("messages", [])
                 system_text = messages[0].get("content", "") if messages else ""
                 user_text = messages[1].get("content", "") if len(messages) > 1 else ""
