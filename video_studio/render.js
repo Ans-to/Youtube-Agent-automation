@@ -19,7 +19,7 @@ async function main(){
   if(!visualTypes.has(kind))throw new Error("Unsupported visual_type in scene "+index+": "+kind);
   const transition=String(scene.transition_in||"none").toLowerCase();
   if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
-  if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
+  if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");\n  if(scene.transition_frames!==undefined&&Number(scene.transition_frames)<15)throw new Error("transition_frames below 15 are disallowed: micro-transitions look like flashes.");
   for(const key of ["headline","eyebrow","subhead","narration","caption"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
   for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
   const arrayLimits={visual_nodes:4,timeline_events:4,comparison_left:3,comparison_right:3,code_lines:6,chart_labels:6};
@@ -58,7 +58,7 @@ async function main(){
    if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("scene duration must be >0 and <=600 seconds");
    const count=Math.max(1,Math.round(sec*fps));
    const transition=String(scene.transition_in||"none").toLowerCase();
-   const transitionFrames=Math.min(count,Math.max(1,Number(scene.transition_frames)||12));
+   const transitionFrames=Math.min(count,Math.max(15,Math.min(24,Number(scene.transition_frames)||18)));
    for(let lf=0;lf<count;lf++){
     await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,total);
     if(si>0&&previousFrameUrl&&transition!=="none"&&lf<transitionFrames){
