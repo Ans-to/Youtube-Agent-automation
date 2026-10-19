@@ -168,6 +168,43 @@ class CEODelegationTests(unittest.TestCase):
             self.assertTrue(any(item.get("tool") == "video_render" and item.get("status") == "blocked"
                                 for item in manifest["tool_runs"]))
 
+    def test_pipeline_continues_after_specialist_timeout_and_runs_final_reviewer(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-timeout"
+            calls = []
+
+            def fake_role(role, task, context, cfg):
+                calls.append(role["id"])
+                if role["id"] == "AGENT-02":
+                    raise TimeoutError("local model timed out")
+                if role["id"] == "AGENT-08":
+                    return "# Final Review\\n\\nThe research stage timed out; claims remain unverified.\\n\\nOVERALL QUALITY GATE: PARTIAL\\n"
+                return "# Deliverable\\n\\nDraft contribution from " + role["id"]
+
+            with patch.object(orchestrate, "ROOT", root), \\
+                 patch.object(orchestrate, "WORKSPACE", workspace), \\
+                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \\
+                 patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role):
+                destination, manifest = orchestrate.run_pipeline(
+                    "Summarize key facts about textile traceability",
+                    output_dir=output,
+                    config={"model": {"enabled": True}},
+                )
+
+            self.assertEqual(calls[0], "AGENT-02")
+            self.assertIn("AGENT-03", calls)
+            self.assertIn("AGENT-12", calls)
+            self.assertEqual(calls[-1], "AGENT-08")
+            self.assertEqual(manifest["status"], "failed")
+            failed = manifest["pipeline"][0]
+            self.assertEqual(failed["status"], "failed")
+            self.assertEqual(failed["error_type"], "TimeoutError")
+            self.assertTrue((destination / failed["output_file"]).is_file())
+            self.assertEqual(manifest["pipeline"][-1]["quality_gate"], "partial")
+
     def test_explicit_reviewer_failure_is_preserved_in_pipeline_status(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
