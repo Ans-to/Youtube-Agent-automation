@@ -65,7 +65,7 @@ def model_json(prompt, cfg, max_tokens):
             {"role": "user", "content": prompt},
         ],
         "temperature": 0.25,
-        "max_tokens": min(int(model.get("max_output_tokens", 1800)), max_tokens),
+        "max_tokens": min(max(int(model.get("max_output_tokens", 2200)), 1800), max_tokens),
     }
     response = post_local_model(model.get("base_url", ""), body, model.get("timeout_seconds", 120))
     try:
