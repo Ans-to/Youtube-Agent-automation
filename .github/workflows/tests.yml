@@ -118,7 +118,7 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Install renderer dependencies
         working-directory: video_studio
-        run: npm ci
+        run: npm install
       - name: Render motion-character transition prototype
         run: python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4
       - name: Validate rendered MP4
