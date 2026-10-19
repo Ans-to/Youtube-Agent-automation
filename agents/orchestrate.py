@@ -180,11 +180,11 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
     if source_context.strip() and (video_requested or product_requested):
         source_path = destination / "source-notes.md"
         source_path.write_text(source_context[:50000], encoding="utf-8")
-    if video_requested and (model_enabled or template_demo):
-        topic_match = re.search(r"(?i)\b(?:about|on|topic\s*[:=])\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", text)
-        topic = (topic_match.group(1).strip() if topic_match else text[:220]).strip(" \t\r\n.,;:")
+    if video_requested:
+        topic_match = re.search(r"(?i)\\b(?:about|on|topic\\s*[:=])\\s+(.+?)(?:[.;\\n]|,\\s*(?:include|with|and also)\\b|$)", text)
+        topic = (topic_match.group(1).strip() if topic_match else text[:220]).strip(" \\t\\r\\n.,;:")
         topic = topic[:500] or "Technology explainer"
-        fmt = "shorts" if re.search(r"\b(shorts|short-form|vertical)\b", lower) else "long"
+        fmt = "shorts" if re.search(r"\\b(shorts|short-form|vertical)\\b", lower) else "long"
         output = destination / "video-production"
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
@@ -193,31 +193,26 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             command.extend(["--source-file", str(source_path)])
         else:
             command.append("--research")
-        duration_match = re.search(r"(?i)target[_ ]minutes\s*[:=]\s*(\d+(?:\.\d+)?)", text)
+        duration_match = re.search(r"(?i)target[_ ]minutes\\s*[:=]\\s*(\\d+(?:\\.\\d+)?)", text)
         if duration_match:
             command.extend(["--target-minutes", duration_match.group(1)])
         if render_requested and model_enabled:
             command.append("--render")
-            if re.search(r"\b(with voice|with local narration|piper narration)\b", lower):
+            if re.search(r"\\b(with voice|with local narration|piper narration)\\b", lower):
                 command.append("--with-voice")
         elif render_requested and template_demo:
             command.extend(["--render", "--render-template"])
-        elif render_requested:
+        elif render_requested and not model_enabled:
             results.append({
-                "tool": "video_studio", "status": "blocked",
+                "tool": "video_render", "status": "blocked",
                 "artifact_dir": relative_out,
-                "reason": "Full rendering needs an enabled local model. The CEO pipeline deliverables and research reports are still available.",
+                "reason": "Full-length MP4 rendering is blocked because no local model is enabled. A separate deterministic template package will be generated and clearly labelled; it is not a substitute for the requested final video.",
             })
-            command = []
-        if command:
-            tool_result = _run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400)
-            tool_result["generation_mode"] = "local_model" if model_enabled else "explicit_template_demo"
-            results.append(tool_result)
-    elif video_requested and not model_enabled:
-        results.append({
-            "tool": "video_studio", "status": "blocked" if render_requested else "not_run",
-            "reason": "A full MP4 render requires an enabled local model. No misleading template was substituted; use the CEO's specialist deliverables and research reports, or explicitly request a template demo.",
-        })
+        tool_result = _run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400)
+        tool_result["generation_mode"] = "local_model" if model_enabled else ("explicit_template_demo" if template_demo and render_requested else "deterministic_template")
+        if not model_enabled:
+            tool_result["note"] = "No local model is enabled: script and storyboard are deterministic scaffolding, not a researched or AI-written final video."
+        results.append(tool_result)
 
     if product_requested:
         title_match = re.search(r"(?i)\b(?:product|prototype)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", text)
