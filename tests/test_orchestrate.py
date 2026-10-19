@@ -41,6 +41,39 @@ class CEODelegationTests(unittest.TestCase):
         self.assertEqual(ids, ["AGENT-09", "AGENT-08"])
         self.assertEqual(assignments[0]["task"], "Write the script")
 
+    def test_product_request_routes_to_fixed_product_builder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            destination = workspace / "run-1"
+            destination.mkdir(parents=True)
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "_run_fixed_tool", return_value={"tool": "product_studio", "status": "completed"}) as run_tool:
+                results = orchestrate.run_builtin_tools(
+                    "Build a digital product prototype for textile invoice reconciliation",
+                    destination,
+                    {"model": {"enabled": False}},
+                )
+            self.assertEqual(results[0]["tool"], "product_studio")
+            self.assertEqual(results[0]["status"], "completed")
+            self.assertIn("build_product.py", run_tool.call_args.args[1][1])
+
+    def test_video_builder_does_not_substitute_template_for_full_video_without_model(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            destination = workspace / "run-1"
+            destination.mkdir(parents=True)
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "_run_fixed_tool") as run_tool:
+                results = orchestrate.run_builtin_tools(
+                    "Create and render a full YouTube video about AI agents to MP4",
+                    destination,
+                    {"model": {"enabled": False}},
+                )
+            self.assertEqual(results[0]["status"], "blocked")
+            run_tool.assert_not_called()
+
     def test_pipeline_persists_ceo_plan_and_individual_deliverables(self):
         with tempfile.TemporaryDirectory() as directory:
             workspace = Path(directory) / "workspace"
