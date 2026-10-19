@@ -221,7 +221,7 @@ def process(task, cfg):
             sections.append("[Output aggregation truncated to the configured size limit.]")
             break
     if manifest.get("status") == "failed":
-        sections.extend(["## Pipeline status", "", "The CEO pipeline stopped after a specialist failure. Review the saved pipeline manifest and logs before retrying.", ""])
+        sections.extend(["## Pipeline status", "", "The CEO pipeline or a required artifact builder failed. Review the saved pipeline manifest and tool logs before retrying.", ""])
     sections.extend(["", "## Built-in artifact tools", ""])
     if manifest.get("tool_runs"):
         for tool in manifest["tool_runs"]:
