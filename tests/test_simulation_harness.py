@@ -35,6 +35,21 @@ class SimulationHarnessTests(unittest.TestCase):
         self.assertEqual(status, "running")
         self.assertFalse(may_execute)
 
+    def test_blocked_action_does_not_continue_to_terminal_state(self):
+        class ControlledRandom:
+            def __init__(self):
+                self.values = iter([0.01, 0.99])
+
+            def random(self):
+                return next(self.values)
+
+            def randrange(self, *args):
+                raise AssertionError("blocked task must stop before later lifecycle steps")
+
+        ok, label = simulation_harness.run_case(ControlledRandom(), 7)
+        self.assertTrue(ok)
+        self.assertEqual(label, "external_blocked")
+
     def test_illegal_terminal_transition_is_rejected(self):
         task = simulation_harness.TaskModel()
         task.transition("queued")
