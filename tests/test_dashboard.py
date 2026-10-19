@@ -24,6 +24,31 @@ class DashboardWorkflowTests(unittest.TestCase):
             self.assertEqual(tasks[0]["research_status"], "pending")
             self.assertEqual(tasks[0]["kind"], "youtube_package")
 
+    def test_enqueue_task_preserves_long_script_input_without_truncation(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            queue = Path(directory) / "tasks.json"
+            long_script = "Scene direction. " * 700
+            with patch.object(dashboard, "TASKS", queue):
+                task_id = dashboard.enqueue_task("Long script", "youtube_package", long_script)
+            tasks = json.loads(queue.read_text(encoding="utf-8"))
+            self.assertEqual(tasks[0]["id"], task_id)
+            self.assertEqual(tasks[0]["input"], long_script.strip())
+            self.assertGreater(len(tasks[0]["input"]), 6000)
+
+    def test_enqueue_task_rejects_inputs_over_safety_limit(self):
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            queue = Path(directory) / "tasks.json"
+            with patch.object(dashboard, "TASKS", queue):
+                with self.assertRaisesRegex(ValueError, "16,000"):
+                    dashboard.enqueue_task("Too long", "youtube_package", "x" * 16001)
+
     def test_workflow_gate_allows_only_one_active_workflow(self):
         claimed, active = dashboard.try_claim_workflow("test workflow")
         self.assertTrue(claimed)
