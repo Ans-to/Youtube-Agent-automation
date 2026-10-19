@@ -35,7 +35,7 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertIn("training_output", state)
 
     def test_output_markdown_renderer_formats_headings_and_lists(self):
-        rendered = dashboard.render_markdown_safe("# Heading\\n\\n- first\\n- second")
+        rendered = dashboard.render_markdown_safe("# Heading\n\n- first\n- second")
         self.assertIn("<h1>Heading</h1>", rendered)
         self.assertIn("<ul>", rendered)
         self.assertIn("<li>first</li>", rendered)
