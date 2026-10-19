@@ -177,10 +177,12 @@ class CEODelegationTests(unittest.TestCase):
             workspace.mkdir()
             output = workspace / "run-long-input"
             long_task = "Scene direction and dialogue. " * 260
-            with patch.object(orchestrate, "ROOT", root), \\
-                 patch.object(orchestrate, "WORKSPACE", workspace), \\
-                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \\
-                 patch.object(orchestrate.dispatch, "run_role", side_effect=lambda role, task, context, cfg: "# Draft\\n\\n" + role["id"]):
+            with (
+                patch.object(orchestrate, "ROOT", root),
+                patch.object(orchestrate, "WORKSPACE", workspace),
+                patch.object(orchestrate, "run_builtin_tools", return_value=[]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=lambda role, task, context, cfg: "# Draft\\n\\n" + role["id"]),
+            ):
                 destination, manifest = orchestrate.run_pipeline(
                     long_task,
                     output_dir=output,
