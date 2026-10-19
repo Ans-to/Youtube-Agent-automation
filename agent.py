@@ -291,7 +291,7 @@ def process(task, cfg):
             error="CEO pipeline or a required artifact builder failed. Partial output was saved; inspect the manifest and tool logs before retrying.",
         )
         log(f"FAILED {task.get('id')} -> partial output {path.name}")
-    elif manifest.get("status") == "blocked":
+    elif manifest.get("status") in {"blocked", "review_failed"}:
         task.update(
             status="needs_human_action",
             completed_at="",
