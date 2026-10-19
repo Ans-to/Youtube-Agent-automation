@@ -344,7 +344,7 @@ class Handler(BaseHTTPRequestHandler):
             if mode == "render" and not load(CONFIG, {}).get("model", {}).get("enabled"):
                 return self.send("A local model is disabled. Enable a compatible local model to render a full-length video, or choose the explicit template-demo mode.", status=400)
             if mode == "template" and (source_file or with_voice):
-                return self.send("Template demo mode cannot be combined with research, source files, or voice.", status=400)
+                return self.send("Template demo mode cannot be combined with source files or voice.", status=400)
             if source_file:
                 if len(source_file) > 500 or Path(source_file).suffix.lower() not in {".txt", ".md", ".json"}:
                     return self.send("Source notes must be a .txt, .md, or .json file inside workspace.", status=400)
