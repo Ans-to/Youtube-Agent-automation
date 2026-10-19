@@ -306,7 +306,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
-    tool_runs = run_builtin_tools(task, destination, cfg, source_context=context)
+    tool_context = (context + "\n\n## CEO specialist research and deliverables (unverified until reviewed)\n" + combined_context[-24000:])[:40000]
+    tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     final_status = "failed" if required_tool_failed else "draft"
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs)
