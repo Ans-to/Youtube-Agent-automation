@@ -74,6 +74,29 @@ class CEODelegationTests(unittest.TestCase):
             self.assertEqual(results[0]["status"], "completed")
             self.assertIn("build_product.py", run_tool.call_args.args[1][1])
 
+    def test_small_web_app_request_routes_clean_user_request_to_product_builder(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            destination = workspace / "run-1"
+            destination.mkdir(parents=True)
+            request = "Build a small web app for matching textile invoices."
+            wrapped = (
+                "TASK TYPE: draft\nTASK TITLE: Invoice matcher\nUSER REQUEST:\n" + request
+                + "\n\nREQUIRED OUTCOME: produce the requested usable deliverable, not just advice."
+            )
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "_run_fixed_tool", return_value={"tool": "product_studio", "status": "completed"}) as run_tool:
+                results = orchestrate.run_builtin_tools(
+                    wrapped,
+                    destination,
+                    {"model": {"enabled": False}},
+                )
+            self.assertEqual(results[0]["tool"], "product_studio")
+            command = run_tool.call_args.args[1]
+            self.assertEqual(command[command.index("--idea") + 1], request)
+            self.assertNotIn("TASK TYPE", command[command.index("--idea") + 1])
+
     def test_youtube_automation_software_does_not_trigger_video_builder(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
