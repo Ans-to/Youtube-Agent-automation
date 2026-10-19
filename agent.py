@@ -82,7 +82,7 @@ def ask_local_model(prompt, cfg, kind=''):
     body = {
         "model": m.get("model", "local-model"),
         "messages": [
-            {"role": "system", "content": "You are Offline Agent HQ. Work only with the supplied prompt and local context. Never claim to browse or access other apps. State uncertainty and give a useful, checked result."},
+            {"role": "system", "content": "You are Offline Agent HQ. Use only the supplied prompt, retrieved research report, and local context. Do not claim to access other apps or pages beyond the supplied report. Cite source URLs when supported by retrieved page text; distinguish evidence from inference and state uncertainty."},
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.25,
@@ -111,6 +111,7 @@ Template mode cannot perform semantic summarization. The text above is an invent
 
 def build_prompt(task, kind, context, cfg):
     max_chars = int(cfg.get("runner", {}).get("max_input_chars", 6000))
+    context_limit = max(max_chars, 18000)
     return f"""Perform the task using the supplied request, local workspace context, and any AUTOMATED WEB RESEARCH section included below.
 Use these stages internally:
 Coordinator: identify goal and constraints.
