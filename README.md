@@ -6,7 +6,7 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
 
 ## Start on Windows PC or Android
 
-- **Windows:** run `setup_windows.ps1` in PowerShell, then launch `start_windows.bat`.
+- **Windows (recommended):** extract the ZIP, then double-click `START_HERE.bat`. It installs missing prerequisites with winget, installs renderer dependencies, optionally installs Ollama plus the free `llama3.2:3b` local model, configures the local model, and starts the dashboard. Windows deliberately does not auto-run programs just because a ZIP was extracted. If App Installer/winget is missing, install/update App Installer from Microsoft Store. For manual setup, run `setup_windows.ps1`, then `start_windows.bat`.
 - **Android:** use the Termux steps below.
 - **Mobile/PC behavior and limitations:** read [MOBILE_PC_GUIDE.md](MOBILE_PC_GUIDE.md). The dashboard is responsive, but separate local installs do not automatically synchronize, and the loopback-only dashboard is not remotely exposed.
 
