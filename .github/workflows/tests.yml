@@ -119,10 +119,21 @@ jobs:
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
-      - name: Render motion-character transition prototype
-        run: python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4
-      - name: Validate rendered MP4
+      - name: Install local Urdu TTS engine
+        run: python -m pip install --upgrade pip piper-tts
+      - name: Download licensed Urdu male voice model
         run: |
+          mkdir -p video_studio/voices/ur_PK-fasih-medium
+          curl --fail --location --retry 3 --output video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx https://huggingface.co/rhasspy/piper-voices/resolve/main/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx
+          curl --fail --location --retry 3 --output video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx.json https://huggingface.co/rhasspy/piper-voices/resolve/main/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx.json
+          test "$(stat -c%s video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx)" -gt 1000000
+      - name: Render motion-character prototype with Urdu voice
+        run: |
+          export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx"
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --with-voice
+      - name: Validate rendered MP4 and audible narration
+        run: |
+          python video_studio/validate_render.py video_studio/outputs/motion-character-transition-demo.mp4 --width 1280 --height 720 --fps 30 --require-audio
           ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate -show_entries format=duration -of json video_studio/outputs/motion-character-transition-demo.mp4
           test -s video_studio/outputs/motion-character-transition-demo.mp4
       - name: Upload rendered prototype
