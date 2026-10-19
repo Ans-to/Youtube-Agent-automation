@@ -18,7 +18,7 @@ class AgentTests(unittest.TestCase):
         task = {"id": "TEST-1", "title": "Checklist", "input": "Make a small checklist"}
         output = agent.fallback(task, "plan", "")
         self.assertIn("# Checklist", output)
-        self.assertIn("Template mode only", output)
+        self.assertIn("offline structured plan", output.lower())
 
     def test_prompt_contains_action_verification_guard(self):
         task = {"id": "TEST-2", "title": "Alarm", "input": "Set an alarm"}
