@@ -32,7 +32,7 @@ jobs:
         with:
           node-version: "22"
       - name: Compile Python modules
-        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/production.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
       - name: Validate storyboard JSON
@@ -128,36 +128,63 @@ jobs:
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
-      - name: Install local Urdu TTS engine
+      - name: Install local English TTS engine
         run: python -m pip install --upgrade pip piper-tts
-      - name: Download pinned MIT-licensed Urdu male voice model
+      - name: Download pinned MIT-licensed English voice model
         env:
-          PIPER_VOICE_REVISION: 7a6c333ec560f0e688371adc2fbb7bbe105028c6
+          PIPER_VOICE_REVISION: b145f2ac26522d6a2ccde0164b7b0e48b1e3199c
         run: |
           set -eu
-          voice_dir=video_studio/voices/ur_PK-fasih-medium
+          voice_dir=video_studio/voices/en_US-lessac-medium
           mkdir -p "$voice_dir"
-          curl --fail --location --retry 3 --output "$voice_dir/ur_PK-fasih-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx"
-          curl --fail --location --retry 3 --output "$voice_dir/ur_PK-fasih-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/ur/ur_PK/fasih/medium/ur_PK-fasih-medium.onnx.json"
-          printf '%s  %s\n' '46d590b90fbb41e4d4f2c54ded44874917f8b11b6e0500de2a89e5d3731b5917' "$voice_dir/ur_PK-fasih-medium.onnx" | sha256sum --check
-          test "$(stat -c%s "$voice_dir/ur_PK-fasih-medium.onnx")" -eq 63532015
-          python -m json.tool "$voice_dir/ur_PK-fasih-medium.onnx.json" > /dev/null
-      - name: Render motion-character prototype with Urdu voice
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+          printf '%s  %s\n' '5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f' "$voice_dir/en_US-lessac-medium.onnx" | sha256sum --check
+          python -m json.tool "$voice_dir/en_US-lessac-medium.onnx.json" > /dev/null
+          python - "$voice_dir/en_US-lessac-medium.onnx.json" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as f:
+              config = json.load(f)
+          assert config.get("language", {}).get("code", "").startswith("en"), config.get("language")
+          PY
+      - name: Render voiced landscape prototype with English subtitles
         run: |
-          export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/ur_PK-fasih-medium/ur_PK-fasih-medium.onnx"
+          export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx"
           python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --with-voice
-      - name: Validate rendered MP4 and audible narration
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo-shorts.json --output outputs/motion-character-transition-shorts.mp4 --with-voice
+      - name: Validate landscape and Shorts audio, subtitles, and quality
         run: |
+          set -eu
           python video_studio/validate_render.py video_studio/outputs/motion-character-transition-demo.mp4 --width 1280 --height 720 --fps 30 --require-audio
-          ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate -show_entries format=duration -of json video_studio/outputs/motion-character-transition-demo.mp4
-          test -s video_studio/outputs/motion-character-transition-demo.mp4
+          python video_studio/validate_render.py video_studio/outputs/motion-character-transition-shorts.mp4 --width 720 --height 1280 --fps 30 --require-audio
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "video_studio")
+          from captions import validate_subtitle_text
+          for stem in ("motion-character-transition-demo", "motion-character-transition-shorts"):
+              base = Path("video_studio/outputs") / stem
+              srt, vtt = base.with_suffix(".srt"), base.with_suffix(".vtt")
+              assert srt.is_file() and srt.stat().st_size > 0, srt
+              assert vtt.is_file() and vtt.stat().st_size > 0, vtt
+              report = validate_subtitle_text(srt.read_text(encoding="utf-8"), vtt.read_text(encoding="utf-8"))
+              assert report["cue_count"] >= 3, report
+              print(stem, report)
+          PY
           python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-demo.mp4 --strict --report video_studio/outputs/motion-character-transition-demo.qc.json
-      - name: Upload rendered prototype
+          python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-shorts.mp4 --strict --report video_studio/outputs/motion-character-transition-shorts.qc.json
+      - name: Upload landscape and Shorts release candidates
         uses: actions/upload-artifact@v7
         with:
-          name: motion-character-transition-prototype
+          name: english-voice-subtitled-motion-prototypes
           path: |
             video_studio/outputs/motion-character-transition-demo.mp4
+            video_studio/outputs/motion-character-transition-demo.srt
+            video_studio/outputs/motion-character-transition-demo.vtt
             video_studio/outputs/motion-character-transition-demo.qc.json
+            video_studio/outputs/motion-character-transition-shorts.mp4
+            video_studio/outputs/motion-character-transition-shorts.srt
+            video_studio/outputs/motion-character-transition-shorts.vtt
+            video_studio/outputs/motion-character-transition-shorts.qc.json
           if-no-files-found: error
           retention-days: 7
