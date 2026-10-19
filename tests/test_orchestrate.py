@@ -170,6 +170,26 @@ class CEODelegationTests(unittest.TestCase):
             self.assertNotIn("--render", command)
             self.assertIn("--research", command)
 
+    def test_orchestrator_accepts_script_text_over_6000_characters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-long-input"
+            long_task = "Scene direction and dialogue. " * 260
+            with patch.object(orchestrate, "ROOT", root), \\
+                 patch.object(orchestrate, "WORKSPACE", workspace), \\
+                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \\
+                 patch.object(orchestrate.dispatch, "run_role", side_effect=lambda role, task, context, cfg: "# Draft\\n\\n" + role["id"]):
+                destination, manifest = orchestrate.run_pipeline(
+                    long_task,
+                    output_dir=output,
+                    config={"model": {"enabled": False}},
+                )
+            self.assertGreater(len(manifest["task"]), 6000)
+            self.assertEqual(manifest["task"], long_task)
+            self.assertTrue((destination / "pipeline-status.json").is_file())
+
     def test_pipeline_status_is_blocked_when_full_render_is_unavailable(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
