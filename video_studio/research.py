@@ -257,14 +257,15 @@ def sanitize_research_query(value):
     return " ".join(text.split())[:500]
 
 def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, page_fetch_fn=fetch_page):
-    if not isinstance(topic, str) or not topic.strip() or len(topic) > 500:
-        raise ValueError("Research topic must be 1–500 characters.")
+    topic = sanitize_research_query(topic)
+    if not topic.strip() or len(topic) > 500:
+        raise ValueError("Research topic must be 1–500 characters after privacy redaction.")
     terms = queries or [
         topic.strip(),
         topic.strip() + " official documentation",
         topic.strip() + " research data independent analysis",
     ]
-    terms = [str(q).strip()[:400] for q in terms if str(q).strip()][:5]
+    terms = [sanitize_research_query(q)[:400] for q in terms if sanitize_research_query(q)][:5]
     all_results, seen = [], set()
     errors = []
     for term in terms:
