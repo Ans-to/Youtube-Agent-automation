@@ -208,7 +208,8 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
     if product_requested:
         title_match = re.search(r"(?i)\b(?:product|prototype)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", text)
         title = title_match.group(1).strip() if title_match else re.sub(r"[-_]+", " ", slug(text[:70])).title()
-        idea = text[:1000]
+        idea_match = re.search(r"(?is)user problem and product idea:\s*(.+?)(?:\.\s*research the user need|$)", text)
+        idea = (idea_match.group(1).strip() if idea_match else text[:1000])[:1000]
         output = destination / "product-prototype"
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "product_studio" / "build_product.py"),
