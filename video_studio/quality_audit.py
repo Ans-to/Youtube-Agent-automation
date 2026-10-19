@@ -91,6 +91,13 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         # A silence continuing to EOF may have no silence_end marker.
         silence_events = [{"start": s, "end": e, "duration": round(e-s, 3)}
                           for s, e in zip(starts, ends) if e >= s]
+        # FFmpeg omits silence_end when silence persists to EOF. Do not silently pass it.
+        if starts and (not ends or starts[-1] > ends[-1]):
+            tail_start = starts[-1]
+            if duration >= tail_start:
+                silence_events.append({"start": tail_start, "end": duration,
+                                       "duration": round(duration-tail_start, 3),
+                                       "continues_to_eof": True})
         report["checks"]["audio_silence"] = {"count": len(silence_events),
             "events": silence_events, "threshold_seconds": max_silence_seconds}
         if silence_events:
@@ -103,6 +110,8 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         if strict:
             report["passed"] = False
             report["warnings"].append("Strict audit requires an audio stream.")
+    if report["warnings"] and strict:
+        report["passed"] = False
     report["scope_note"] = ("Technical heuristics only. Does not judge artistic quality, Urdu pronunciation, "
                             "factual accuracy, subtitle-to-speech alignment, or phoneme-level lip-sync.")
     return report
