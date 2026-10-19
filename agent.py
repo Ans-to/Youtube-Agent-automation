@@ -3,7 +3,8 @@
 import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress
 from pathlib import Path
 from datetime import datetime
-from queue_store import task_queue_lock, load_tasks, save_tasks\nfrom quality_outputs import youtube_package, structured_plan, structured_draft, structured_review
+from queue_store import task_queue_lock, load_tasks, save_tasks
+from quality_outputs import youtube_package, structured_plan, structured_draft, structured_review
 
 BASE = Path(__file__).resolve().parent
 TASKS = BASE / "tasks.json"
