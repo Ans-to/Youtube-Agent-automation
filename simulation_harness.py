@@ -2,9 +2,8 @@
 """Deterministic property-style simulation of Agent HQ safety invariants.
 
 This is a fast state-machine model, not a claim that one million full AI tasks,
-network calls, or video renders were executed. It explores one million synthetic
-task lifecycle cases with reproducible seeds and checks the safety rules that
-the real application must preserve.
+network calls, or video renders were executed. It explores synthetic task
+lifecycle cases with reproducible seeds and checks safety rules.
 """
 from __future__ import annotations
 
@@ -14,9 +13,7 @@ import random
 import sys
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Optional
 
-STATUSES = ("pending", "queued", "running", "completed", "failed", "needs_human_action")
 SEED_DEFAULT = 20261019
 
 
@@ -32,26 +29,55 @@ class TaskModel:
     history: list[str] = field(default_factory=list)
 
     def transition(self, new_status: str) -> None:
+        allowed = {
+            "pending": {"queued"},
+            "queued": {"running"},
+            "running": {"needs_human_action", "completed", "failed"},
+            "needs_human_action": {"running"},
+            "completed": set(),
+            "failed": set(),
+        }
+        if new_status not in allowed.get(self.status, set()):
+            raise ValueError(f"illegal task transition: {self.status} -> {new_status}")
         self.status = new_status
         self.history.append(new_status)
 
 
+def action_gate(requested: bool, approved: bool) -> tuple[str, bool]:
+    """Return the safe next status and whether the side effect may execute."""
+    if not requested:
+        return "running", False
+    if not approved:
+        return "needs_human_action", False
+    return "running", True
+
+
 def run_case(rng: random.Random, case_id: int) -> tuple[bool, str]:
     """Exercise a randomized lifecycle and return (passed, scenario label)."""
+    del case_id  # reserved for richer failure reports without changing the API
     task = TaskModel()
     task.transition("queued")
     task.attempt = 1
     task.transition("running")
 
-    # A task may ask for an external side effect; this must stop at the gate.
     task.external_action = rng.random() < 0.18
     task.approval_granted = rng.random() < 0.25
-    # Model the side effect explicitly: it is possible only with approval.
-    task.external_action_executed = task.external_action and task.approval_granted
+    next_status, may_execute = action_gate(
+        task.external_action, task.approval_granted
+    )
+    task.external_action_executed = task.external_action and may_execute
+
     if task.external_action and not task.approval_granted:
-        task.transition("needs_human_action")
+        task.transition(next_status)
         if task.external_action_executed or task.status != "needs_human_action":
             return False, "external_action_gate"
+        # An action-dependent task cannot proceed to completion while blocked.
+        if task.status in {"completed", "failed"}:
+            return False, "blocked_action_terminal_state"
+        return True, "external_blocked"
+
+    if task.external_action and not task.external_action_executed:
+        return False, "approved_action_execution"
 
     # Simulate interruption after zero or more saved artifacts.
     saved = rng.randrange(0, 4)
@@ -60,12 +86,11 @@ def run_case(rng: random.Random, case_id: int) -> tuple[bool, str]:
     if interrupted:
         previous_artifacts = list(task.artifacts)
         task.transition("needs_human_action")
-        # Recovery must preserve progress and must not silently replay.
         if task.artifacts != previous_artifacts or task.attempt != 1:
             return False, "recovery_preserves_state"
         if task.status == "running":
             return False, "interrupted_task_not_recovered"
-        # Manual retry is a distinct attempt and cannot erase prior artifacts.
+        # Retry is explicit, increments attempt, and preserves earlier outputs.
         if rng.random() < 0.60:
             task.attempt += 1
             task.transition("running")
@@ -74,18 +99,12 @@ def run_case(rng: random.Random, case_id: int) -> tuple[bool, str]:
             task.artifacts.append("attempt-2-output")
 
     task.quality_passed = rng.random() < 0.70
-    if task.quality_passed:
-        task.transition("completed")
-    else:
-        task.transition("failed")
+    task.transition("completed" if task.quality_passed else "failed")
 
     if task.status == "completed" and not task.quality_passed:
         return False, "completion_requires_quality_gate"
     if task.external_action and not task.approval_granted and task.external_action_executed:
         return False, "external_action_requires_approval"
-    if task.external_action and not task.approval_granted and "needs_human_action" not in task.history:
-        return False, "external_action_requires_gate"
-
     return True, "interrupted" if interrupted else ("external" if task.external_action else "normal")
 
 
@@ -95,7 +114,19 @@ def run_simulations(trials: int, seed: int) -> dict:
     rng = random.Random(seed)
     counts: Counter[str] = Counter()
     for case_id in range(trials):
-        ok, label = run_case(rng, case_id)
+        try:
+            ok, label = run_case(rng, case_id)
+        except ValueError as exc:
+            return {
+                "ok": False,
+                "seed": seed,
+                "trials_requested": trials,
+                "trials_completed": case_id + 1,
+                "failure_case": case_id,
+                "failure_invariant": "illegal_transition",
+                "failure_detail": str(exc),
+                "scenario_counts": dict(sorted(counts.items())),
+            }
         counts[label] += 1
         if not ok:
             return {
