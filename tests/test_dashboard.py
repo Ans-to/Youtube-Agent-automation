@@ -9,6 +9,21 @@ class DashboardWorkflowTests(unittest.TestCase):
         if active:
             dashboard.release_workflow(active)
 
+    def test_enqueue_task_creates_ceo_managed_pending_task(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            queue = Path(directory) / "tasks.json"
+            with patch.object(dashboard, "TASKS", queue):
+                task_id = dashboard.enqueue_task("Video: AI agents", "youtube_package", "Create a video")
+            tasks = json.loads(queue.read_text(encoding="utf-8"))
+            self.assertEqual(task_id, "TASK-0001")
+            self.assertEqual(tasks[0]["status"], "pending")
+            self.assertEqual(tasks[0]["research_status"], "pending")
+            self.assertEqual(tasks[0]["kind"], "youtube_package")
+
     def test_workflow_gate_allows_only_one_active_workflow(self):
         claimed, active = dashboard.try_claim_workflow("test workflow")
         self.assertTrue(claimed)
