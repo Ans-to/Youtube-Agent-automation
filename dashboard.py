@@ -127,6 +127,7 @@ class Handler(BaseHTTPRequestHandler):
             "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json; charset=utf-8"),
             "/service-worker.js": ("service-worker.js", "text/javascript; charset=utf-8"),
             "/icon.svg": ("icon.svg", "image/svg+xml; charset=utf-8"),
+            "/offline.html": ("offline.html", "text/html; charset=utf-8"),
         }
         if path in static_assets:
             file_name, content_type = static_assets[path]
