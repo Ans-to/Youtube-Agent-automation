@@ -20,6 +20,37 @@ class SimulationHarnessTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             simulation_harness.run_simulations(0, 1)
 
+    def test_unapproved_external_action_is_blocked(self):
+        status, may_execute = simulation_harness.action_gate(True, False)
+        self.assertEqual(status, "needs_human_action")
+        self.assertFalse(may_execute)
+
+    def test_approved_external_action_can_execute(self):
+        status, may_execute = simulation_harness.action_gate(True, True)
+        self.assertEqual(status, "running")
+        self.assertTrue(may_execute)
+
+    def test_no_requested_action_does_not_execute(self):
+        status, may_execute = simulation_harness.action_gate(False, False)
+        self.assertEqual(status, "running")
+        self.assertFalse(may_execute)
+
+    def test_illegal_terminal_transition_is_rejected(self):
+        task = simulation_harness.TaskModel()
+        task.transition("queued")
+        task.transition("running")
+        task.transition("needs_human_action")
+        with self.assertRaises(ValueError):
+            task.transition("completed")
+
+    def test_completed_task_cannot_be_reopened(self):
+        task = simulation_harness.TaskModel()
+        task.transition("queued")
+        task.transition("running")
+        task.transition("completed")
+        with self.assertRaises(ValueError):
+            task.transition("running")
+
 
 if __name__ == "__main__":
     unittest.main()
