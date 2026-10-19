@@ -156,7 +156,7 @@ class CEODelegationTests(unittest.TestCase):
             roles = orchestrate.dispatch.load_json(orchestrate.dispatch.ROSTER, {}).get("agents", [])
             with patch.object(orchestrate, "ROOT", root), \
                  patch.object(orchestrate, "WORKSPACE", workspace), \
-                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \
+                 patch.object(orchestrate, "run_builtin_tools", return_value=[{"tool": "video_render", "status": "blocked"}]), \
                  patch.object(orchestrate.dispatch, "run_role", return_value="# Draft\n\nTemplate-only stage output"), \
                  patch.object(orchestrate, "_run_fixed_tool", return_value={"tool": "video_studio", "status": "completed"}):
                 _, manifest = orchestrate.run_pipeline(
