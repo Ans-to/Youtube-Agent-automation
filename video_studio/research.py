@@ -248,7 +248,7 @@ def sanitize_research_query(value):
     patterns = [
         (r"(?i)\b(?:api[_ -]?key|access[_ -]?token|secret|password|passwd|authorization)\b\s*[:=]\s*['\"]?[^\s,'\";]+", "[REDACTED_SECRET]"),
         (r"\b(?:ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|xox[baprs]-[A-Za-z0-9-]{10,})\b", "[REDACTED_TOKEN]"),
-        (r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[REDACTED_EMAIL]"),
+        (r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", "[REDACTED_EMAIL]"),
         (r"(?<!\w)(?:\+?92|0)?3\d{2}[- ]?\d{7}(?!\w)", "[REDACTED_PHONE]"),
         (r"\b\d{5}-\d{7}-\d\b", "[REDACTED_ID_NUMBER]"),
     ]
