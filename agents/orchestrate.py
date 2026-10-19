@@ -153,16 +153,17 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
     text = task.strip()
     lower = text.lower()
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
-    source_path = None
-    if source_context.strip():
-        source_path = destination / "source-notes.md"
-        source_path.write_text(source_context[:50000], encoding="utf-8")
     verbs = r"\b(build|create|make|generate|produce|develop|implement|render|export)\b"
 
     video_requested = (
         re.search(r"\b(youtube|video|shorts|short-form)\b", lower)
         and re.search(verbs, lower)
     )
+    product_requested = bool(re.search(r"\b(digital product|product prototype|build (?:a )?product|create (?:a )?product|develop (?:a )?product|product idea for (?:a )?tool)\b", lower))
+    source_path = None
+    if source_context.strip() and (video_requested or product_requested):
+        source_path = destination / "source-notes.md"
+        source_path.write_text(source_context[:50000], encoding="utf-8")
     if video_requested and (model_enabled or re.search(r"\b(template demo|demo render)\b", lower)):
         topic_match = re.search(r"(?i)\b(?:about|on|topic\s*[:=])\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", text)
         topic = (topic_match.group(1).strip() if topic_match else text[:220]).strip(" \t\r\n.,;:")
@@ -200,7 +201,6 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             "reason": "No local model is enabled. Avoid generating a misleading 20-second template in place of the requested video; use the CEO's specialist deliverables and research reports.",
         })
 
-    product_requested = bool(re.search(r"\b(digital product|product prototype|build (?:a )?product|create (?:a )?product|develop (?:a )?product|product idea for (?:a )?tool)\b", lower))
     if product_requested:
         title_match = re.search(r"(?i)\b(?:product|prototype)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", text)
         title = title_match.group(1).strip() if title_match else re.sub(r"[-_]+", " ", slug(text[:70])).title()
