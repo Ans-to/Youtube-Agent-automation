@@ -3,7 +3,19 @@
 import argparse,json,re,urllib.request,urllib.error,urllib.parse,ipaddress
 from datetime import datetime
 from pathlib import Path
-\n# Every specialist run attempts fresh, free web research before execution.\nimport sys\nRESEARCH_DIR = ROOT / "video_studio"\nif str(RESEARCH_DIR) not in sys.path:\n    sys.path.insert(0, str(RESEARCH_DIR))\ntry:\n    from research import research as collect_web_research, render_markdown as render_research_markdown\nexcept Exception:\n    collect_web_research = None\n    render_research_markdown = None\n
+
+# Every specialist run attempts fresh, free web research before execution.
+import sys
+BASE = Path(__file__).resolve().parent
+ROOT = BASE.parent
+RESEARCH_DIR = ROOT / "video_studio"
+if str(RESEARCH_DIR) not in sys.path:
+    sys.path.insert(0, str(RESEARCH_DIR))
+try:
+    from research import research as collect_web_research, render_markdown as render_research_markdown
+except Exception:
+    collect_web_research = None
+    render_research_markdown = None
 BASE=Path(__file__).resolve().parent
 ROOT=BASE.parent
 ROSTER=BASE/"roster.json"
@@ -76,11 +88,28 @@ def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
 
 def run_role(role,task,context,cfg):
-    # Research is attempted for each specialist task, not just video tasks. Search results\n    # are discovery evidence only; the model must verify claims and cite source URLs.\n    research_context = ""\n    research_status = "unavailable"\n    if collect_web_research is not None:\n        try:\n            metadata, sources = collect_web_research(\n                task[:500],\n                queries=[task[:300], task[:250] + " official documentation", task[:250] + " independent analysis evidence"],\n                max_results=5,\n            )\n            research_context = render_research_markdown(metadata, sources)[:18000]\n            research_status = "search_leads_collected_not_independently_verified"\n        except Exception as exc:\n            research_context = ("WEB RESEARCH ATTEMPT FAILED: " + type(exc).__name__ + ": " + str(exc)[:500] + "
-"\n                               "Do not claim internet research succeeded. Continue the task using supplied context and clearly disclose this limitation.")\n            research_status = "failed:" + type(exc).__name__\n    else:\n        research_context = "WEB RESEARCH MODULE UNAVAILABLE. Do not claim internet research succeeded; disclose limitation."\n    context = ((context or "") + "
-
-## AUTOMATIC WEB RESEARCH (attempted for this task)
-" + research_context)[:30000]\n    role=ensure_executable_role(role)
+    # Research is attempted for each specialist task, not just video tasks.
+    # Search results are discovery evidence only; they are not independently verified.
+    research_context = ""
+    if collect_web_research is not None:
+        try:
+            metadata, sources = collect_web_research(
+                task[:500],
+                queries=[task[:300], task[:250] + " official documentation",
+                         task[:250] + " independent analysis evidence"],
+                max_results=5,
+            )
+            research_context = render_research_markdown(metadata, sources)[:18000]
+        except Exception as exc:
+            research_context = (
+                "WEB RESEARCH ATTEMPT FAILED: " + type(exc).__name__ + ": " + str(exc)[:500] + "\n"
+                "Do not claim internet research succeeded. Continue using supplied context and disclose this limitation."
+            )
+    else:
+        research_context = "WEB RESEARCH MODULE UNAVAILABLE. Do not claim internet research succeeded; disclose limitation."
+    context = ((context or "") + "\n\n## AUTOMATIC WEB RESEARCH (attempted for this task)\n"
+               + research_context)[:30000]
+    role=ensure_executable_role(role)
     model=cfg.get("model",{})
     skill=find_skill(role["id"]) or {
       "expertise":role.get("mission",""),
