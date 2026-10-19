@@ -223,13 +223,15 @@ def process(task, cfg):
     sections.extend(["", "## Built-in artifact tools", ""])
     if manifest.get("tool_runs"):
         for tool in manifest["tool_runs"]:
-            sections.append("- " + str(tool.get("tool", "tool")) + ": " + str(tool.get("status", "unknown")))
+            sections.append("- " + str(tool.get("tool", "tool")) + ": " + str(tool.get("status", "unknown")) + " (" + str(tool.get("generation_mode", "mode not recorded")) + ")")
             if tool.get("artifact_dir"):
                 sections.append("  - Artifact directory: " + str(tool["artifact_dir"]))
             if tool.get("log_file"):
                 sections.append("  - Tool log: " + str(tool["log_file"]))
             if tool.get("reason"):
                 sections.append("  - Note: " + str(tool["reason"]))
+            if tool.get("note"):
+                sections.append("  - Note: " + str(tool["note"]))
             if tool.get("error"):
                 sections.append("  - Error: " + str(tool["error"]))
     else:
