@@ -88,6 +88,28 @@ def load_human_lessons(agent_id, limit=3):
 def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
 
+def research_topic_from_task(task):
+    """Strip orchestration boilerplate so web queries target the real goal and subtask."""
+    text = str(task or "")
+    goal = ""
+    subtask = ""
+    match = re.search(r"(?is)OVERALL USER GOAL:\s*(.+?)(?=\n\s*YOUR CEO-ASSIGNED SUBTASK:|\n\s*Pipeline stage\b|$)", text)
+    if match:
+        goal = match.group(1).strip()
+        sub = re.search(r"(?is)YOUR CEO-ASSIGNED SUBTASK:\s*(.+?)(?=\n\s*Pipeline stage\b|$)", text)
+        subtask = sub.group(1).strip() if sub else ""
+    else:
+        match = re.search(r"(?is)USER GOAL:\s*(.+?)(?=\n\s*AVAILABLE SPECIALISTS:|$)", text)
+        if match:
+            goal = match.group(1).strip()
+    if not goal:
+        goal = text
+    combined = goal[:300]
+    if subtask and subtask.lower() not in goal.lower():
+        combined += " | specialist focus: " + subtask[:180]
+    return sanitize_research_query(combined)[:500]
+
+
 def run_role(role,task,context,cfg):
     role = ensure_executable_role(role)
     # Research is attempted for each specialist task, not just video tasks.
@@ -95,7 +117,7 @@ def run_role(role,task,context,cfg):
     research_context = ""
     if collect_web_research is not None:
         try:
-            query_topic = sanitize_research_query(task)
+            query_topic = research_topic_from_task(task)
             metadata, sources = collect_web_research(
                 query_topic,
                 queries=[query_topic[:300], query_topic[:250] + " official documentation",
