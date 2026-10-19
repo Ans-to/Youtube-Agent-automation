@@ -77,8 +77,22 @@ class VideoStudioTests(unittest.TestCase):
                 validate_english_voice_model(model)
 
     def test_subtitle_validation_rejects_overlapping_cues(self):
-        srt = "1\\n00:00:00,000 --> 00:00:02,000\\nFirst caption.\\n\\n2\\n00:00:01,000 --> 00:00:03,000\\nSecond caption.\\n"
-        vtt = "WEBVTT\\n\\n00:00:00.000 --> 00:00:02.000\\nFirst caption.\\n\\n00:00:01.000 --> 00:00:03.000\\nSecond caption.\\n"
+        srt = """1
+00:00:00,000 --> 00:00:02,000
+First caption.
+
+2
+00:00:01,000 --> 00:00:03,000
+Second caption.
+"""
+        vtt = """WEBVTT
+
+00:00:00.000 --> 00:00:02.000
+First caption.
+
+00:00:01.000 --> 00:00:03.000
+Second caption.
+"""
         with self.assertRaisesRegex(ValueError, "overlap"):
             validate_subtitle_text(srt, vtt)
 
