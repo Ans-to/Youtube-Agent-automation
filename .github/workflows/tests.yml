@@ -136,7 +136,7 @@ jobs:
           python video_studio/validate_render.py video_studio/outputs/motion-character-transition-demo.mp4 --width 1280 --height 720 --fps 30 --require-audio
           ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate -show_entries format=duration -of json video_studio/outputs/motion-character-transition-demo.mp4
           test -s video_studio/outputs/motion-character-transition-demo.mp4
-          python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-demo.mp4 --report video_studio/outputs/motion-character-transition-demo.qc.json
+          python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-demo.mp4 --strict --report video_studio/outputs/motion-character-transition-demo.qc.json
       - name: Upload rendered prototype
         uses: actions/upload-artifact@v4
         with:
