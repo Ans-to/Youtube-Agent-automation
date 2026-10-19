@@ -111,18 +111,45 @@
   ctx.fillStyle="#171821";ctx.beginPath();ctx.ellipse(-scale*.20+walk,scale*.67,scale*.12,scale*.045,0,0,Math.PI*2);ctx.fill();
   ctx.beginPath();ctx.ellipse(scale*.21-walk,scale*.67,scale*.12,scale*.045,0,0,Math.PI*2);ctx.fill();
   // Arms with an eased explanatory gesture.
-  limb(-scale*.22,-scale*.18,-scale*.35,scale*.02,-scale*.31-gesture*scale*.20,scale*.18-gesture*scale*.24,scale*.065,shirt);
-  limb(scale*.22,-scale*.18,scale*.34+gesture*scale*.10,scale*.02-gesture*scale*.17,scale*.37+gesture*scale*.16,scale*.15-gesture*scale*.26,scale*.065,shirt);
+  const leftHandX=-scale*.31-gesture*scale*.20,leftHandY=scale*.18-gesture*scale*.24;
+  const rightHandX=scale*.37+gesture*scale*.16,rightHandY=scale*.15-gesture*scale*.26;
+  limb(-scale*.22,-scale*.18,-scale*.35,scale*.02,leftHandX,leftHandY,scale*.065,shirt);
+  limb(scale*.22,-scale*.18,scale*.34+gesture*scale*.10,scale*.02-gesture*scale*.17,rightHandX,rightHandY,scale*.065,shirt);
+  // Hands and fingertips are separate shapes, keeping the gesture silhouette readable.
+  for(const [hx,hy,rotation] of [[leftHandX,leftHandY,-.25],[rightHandX,rightHandY,.20]]){
+   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.012;
+   ctx.beginPath();ctx.ellipse(hx,hy,scale*.055,scale*.043,rotation,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.strokeStyle=skin;ctx.lineWidth=scale*.012;
+   for(let finger=0;finger<3;finger++){
+    const fx=hx+(finger-1)*scale*.022;
+    ctx.beginPath();ctx.moveTo(fx,hy+scale*.012);ctx.lineTo(fx+rotation*scale*.025,hy+scale*.033);ctx.stroke();
+   }
+  }
   // Torso and neck.
   ctx.fillStyle=shirt;ctx.strokeStyle=line;ctx.lineWidth=scale*.018;ctx.beginPath();ctx.moveTo(-scale*.21,-scale*.23);ctx.quadraticCurveTo(0,-scale*.31,scale*.21,-scale*.23);ctx.lineTo(scale*.19,scale*.20);ctx.quadraticCurveTo(0,scale*.27,-scale*.19,scale*.20);ctx.closePath();ctx.fill();ctx.stroke();
+  // Collar, seam, pocket, buttons, and restrained fabric highlights add readable clothing structure.
+  ctx.strokeStyle="rgba(244,242,236,0.72)";ctx.lineWidth=scale*.012;ctx.beginPath();ctx.moveTo(-scale*.075,-scale*.255);ctx.lineTo(0,-scale*.19);ctx.lineTo(scale*.075,-scale*.255);ctx.stroke();
+  ctx.strokeStyle="rgba(21,21,29,0.55)";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,-scale*.18);ctx.lineTo(0,scale*.19);ctx.stroke();
+  ctx.strokeStyle="rgba(244,242,236,0.50)";ctx.lineWidth=scale*.010;ctx.strokeRect(-scale*.135,-scale*.075,scale*.07,scale*.075);
+  for(const by of [-scale*.075,scale*.005,scale*.085]){ctx.fillStyle=p.accent;ctx.beginPath();ctx.arc(scale*.025,by,scale*.008,0,Math.PI*2);ctx.fill()}
   ctx.fillStyle=skin;ctx.fillRect(-scale*.055,-scale*.34+breath,scale*.11,scale*.12);
   // Head and hair.
-  const headY=-scale*.48+breath,headW=scale*.18,headH=scale*.22;
+  const headY=-scale*.48+breath+Math.sin(progress*Math.PI*2)*scale*.004,headW=scale*.18,headH=scale*.22;
   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.ellipse(0,headY,headW,headH,0,0,Math.PI*2);ctx.fill();ctx.stroke();
   ctx.fillStyle=hair;ctx.beginPath();ctx.moveTo(-headW*1.02,headY);ctx.quadraticCurveTo(-headW*1.1,headY-headH*1.3,0,headY-headH*1.12);ctx.quadraticCurveTo(headW*1.12,headY-headH*1.1,headW,headY-headH*.2);ctx.lineTo(headW*.55,headY-headH*.36);ctx.lineTo(headW*.18,headY-headH*.13);ctx.lineTo(-headW*.25,headY-headH*.33);ctx.lineTo(-headW*.7,headY-headH*.16);ctx.closePath();ctx.fill();
-  // Blink and gaze.
+  ctx.strokeStyle="rgba(244,242,236,0.24)";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(-headW*.62,headY-headH*.68);ctx.quadraticCurveTo(-headW*.18,headY-headH*1.02,headW*.43,headY-headH*.76);ctx.stroke();
+  // Ears, gaze saccades, expression-aware brows, and a subtle nose line.
   const blink=(frame%173>168&&frame%173<172)?0.15:1;
-  for(const ex of [-1,1]){ctx.fillStyle="#f4f2ec";ctx.beginPath();ctx.ellipse(ex*headW*.39,headY,headW*.19,headH*.13*blink,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#292b39";ctx.beginPath();ctx.arc(ex*headW*.39,headY,headW*.07,0,Math.PI*2);ctx.fill()}
+  const gazeX=Math.sin(frame*.031)*headW*.05,gazeY=Math.sin(frame*.019)*headH*.035;
+  const expression=String(c.expression||"confident").toLowerCase();
+  const browLift=expression==="curious"?-headH*.07:(expression==="concerned"?headH*.055:(expression==="focused"?headH*.025:0));
+  for(const ex of [-1,1]){
+   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.010;ctx.beginPath();ctx.ellipse(ex*headW*.98,headY+headH*.10,headW*.11,headH*.15,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.fillStyle="#f4f2ec";ctx.beginPath();ctx.ellipse(ex*headW*.39,headY,headW*.19,headH*.13*blink,0,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle="#292b39";ctx.beginPath();ctx.arc(ex*headW*.39+gazeX,headY+gazeY,headW*.07,0,Math.PI*2);ctx.fill();
+   ctx.strokeStyle=hair;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.moveTo(ex*headW*.57,headY-headH*.23+browLift);ctx.quadraticCurveTo(ex*headW*.39,headY-headH*.34+browLift,ex*headW*.20,headY-headH*.26+browLift);ctx.stroke();
+  }
+  ctx.strokeStyle="#8f5f50";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,headY+headH*.03);ctx.lineTo(scale*.008,headY+headH*.20);ctx.stroke()
   // Smoothly blend viseme geometry between timestamped cues; never snap the mouth shape frame-to-frame.
   const vis=(Array.isArray(c.visemes)?c.visemes:[]).filter(v=>Number.isFinite(Number(v.t))&&Number(v.t)>=0&&Number(v.t)<=1&&["closed","open","wide","round"].includes(String(v.shape))).slice().sort((a,b)=>Number(a.t)-Number(b.t));
   const geometry={closed:[.22,.006],open:[.30,.023],wide:[.48,.018],round:[.24,.025]};
