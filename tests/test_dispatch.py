@@ -14,6 +14,28 @@ class AgentDispatcherTests(unittest.TestCase):
         self.research_patch.start()
         self.addCleanup(self.research_patch.stop)
 
+    def test_research_topic_extracts_user_goal_and_specialist_focus(self):
+        task = (
+            "OVERALL USER GOAL:\nBuild a textile dyeing reconciliation tool for factories.\n\n"
+            "YOUR CEO-ASSIGNED SUBTASK:\nResearch authoritative textile traceability sources and current compliance risks.\n\n"
+            "Pipeline stage 1 of 4. Work on your assigned responsibility."
+        )
+        topic = dispatch.research_topic_from_task(task)
+        self.assertIn("textile dyeing reconciliation tool", topic)
+        self.assertIn("textile traceability sources", topic)
+        self.assertNotIn("OVERALL USER GOAL", topic)
+        self.assertNotIn("Pipeline stage", topic)
+
+    def test_ceo_research_topic_extracts_goal_not_delegation_boilerplate(self):
+        task = (
+            "Act as the CEO of Agent HQ.\nReturn ONLY valid JSON.\n\n"
+            "USER GOAL:\nFind current free tools for making professional motion graphics.\n\n"
+            "AVAILABLE SPECIALISTS:\n" + ("AGENT roster " * 50)
+        )
+        topic = dispatch.research_topic_from_task(task)
+        self.assertIn("free tools for making professional motion graphics", topic)
+        self.assertNotIn("AVAILABLE SPECIALISTS", topic)
+
     def test_finds_specialist_role(self):
         role = dispatch.find_role("AGENT-09")
         self.assertIsNotNone(role)
