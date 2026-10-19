@@ -4,6 +4,7 @@ import argparse
 import json
 import re
 import sys
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -145,6 +146,86 @@ def plan_delegation(task, context, cfg, roles_by_id):
             pass
     return heuristic_assignments(task)
 
+
+def run_builtin_tools(task, destination, cfg):
+    """Run only fixed, repository-owned artifact builders selected by clear task intent."""
+    results = []
+    text = task.strip()
+    lower = text.lower()
+    model_enabled = bool(cfg.get("model", {}).get("enabled"))
+    verbs = r"\b(build|create|make|generate|produce|develop|implement|render|export)\b"
+
+    video_requested = (
+        re.search(r"\b(youtube|video|shorts|short-form)\b", lower)
+        and re.search(verbs, lower)
+    )
+    if video_requested and (model_enabled or re.search(r"\b(template demo|demo render)\b", lower)):
+        topic_match = re.search(r"(?i)\b(?:about|on|topic\s*[:=])\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", text)
+        topic = (topic_match.group(1).strip() if topic_match else text[:220]).strip(" \t\r\n.,;:")
+        topic = topic[:500] or "Technology explainer"
+        fmt = "shorts" if re.search(r"\b(shorts|short-form|vertical)\b", lower) else "long"
+        output = destination / "video-production"
+        relative_out = output.resolve().relative_to(ROOT).as_posix()
+        command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
+                   "--topic", topic, "--format", fmt, "--out", relative_out, "--research"]
+        render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
+        if render_requested and model_enabled:
+            command.append("--render")
+        elif render_requested:
+            results.append({
+                "tool": "video_studio", "status": "blocked",
+                "artifact_dir": relative_out,
+                "reason": "Full rendering needs an enabled local model. The CEO pipeline deliverables and research reports are still available.",
+            })
+            command = []
+        if command:
+            results.append(_run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400))
+    elif video_requested and not model_enabled:
+        results.append({
+            "tool": "video_studio", "status": "not_run",
+            "reason": "No local model is enabled. Avoid generating a misleading 20-second template in place of the requested video; use the CEO's specialist deliverables and research reports.",
+        })
+
+    product_requested = (
+        bool(re.search(r"\b(product|prototype)\b", lower))
+        and bool(re.search(verbs, lower))
+    )
+    if product_requested:
+        title_match = re.search(r"(?i)\b(?:product|prototype)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", text)
+        title = title_match.group(1).strip() if title_match else re.sub(r"[-_]+", " ", slug(text[:70])).title()
+        idea = text[:1000]
+        output = destination / "product-prototype"
+        relative_out = output.resolve().relative_to(ROOT).as_posix()
+        command = [sys.executable, str(ROOT / "product_studio" / "build_product.py"),
+                   "--title", title[:100], "--idea", idea, "--out", relative_out]
+        results.append(_run_fixed_tool("product_studio", command, destination, relative_out, timeout=900))
+    return results
+
+
+def _run_fixed_tool(name, command, destination, relative_out, timeout):
+    """Execute a fixed in-repository builder and persist bounded diagnostics."""
+    log_path = destination / (name.replace("_", "-") + "-tool.log")
+    try:
+        result = subprocess.run(command, cwd=str(ROOT), capture_output=True, text=True,
+                                timeout=timeout, check=False)
+        output = (result.stdout or "")[-12000:]
+        errors = (result.stderr or "")[-12000:]
+        log_path.write_text("STDOUT\n" + output + "\nSTDERR\n" + errors + "\n", encoding="utf-8")
+        return {
+            "tool": name, "status": "completed" if result.returncode == 0 else "failed",
+            "exit_code": result.returncode, "artifact_dir": relative_out,
+            "log_file": str(log_path.relative_to(ROOT)),
+            "summary": output[-2000:] if output else errors[-2000:],
+        }
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        log_path.write_text(type(exc).__name__ + ": " + str(exc)[:1000] + "\n", encoding="utf-8")
+        return {
+            "tool": name, "status": "failed", "artifact_dir": relative_out,
+            "log_file": str(log_path.relative_to(ROOT)),
+            "error": type(exc).__name__ + ": " + str(exc)[:500],
+        }
+
+
 def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None):
     if not isinstance(task, str) or not task.strip() or len(task) > 6000:
         raise ValueError("Task must be 1–6000 characters.")
@@ -210,18 +291,20 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
-    manifest = build_manifest(task, records, cfg, status="draft", delegation_mode=delegation_mode, assignments=assignments)
+    tool_runs = run_builtin_tools(task, destination, cfg)
+    manifest = build_manifest(task, records, cfg, status="draft", delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return destination, manifest
 
 
-def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None):
+def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None):
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task.strip(),
         "pipeline": records,
         "delegation_mode": delegation_mode,
         "ceo_assignments": assignments or [],
+        "tool_runs": tool_runs or [],
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
         "research_performed": "attempted_for_each_specialist_stage",
