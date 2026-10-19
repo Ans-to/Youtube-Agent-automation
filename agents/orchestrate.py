@@ -289,8 +289,8 @@ def _run_fixed_tool(name, command, destination, relative_out, timeout):
 
 
 def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None):
-    if not isinstance(task, str) or not task.strip() or len(task) > 6000:
-        raise ValueError("Task must be 1–6000 characters.")
+    if not isinstance(task, str) or not task.strip() or len(task) > 20000:
+        raise ValueError("Task must be 1–20,000 characters.")
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
     roles_by_id = {role.get("id"): role for role in roles}
     cfg = config if config is not None else dispatch.load_json(ROOT / "config.json", {})
