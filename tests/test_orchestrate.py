@@ -10,6 +10,53 @@ sys.path.insert(0, str(ROOT / "agents"))
 import orchestrate
 
 
+class SpecialistRetryTests(unittest.TestCase):
+    def test_transient_failure_is_retried_once_and_recorded(self):
+        calls = []
+
+        def flaky_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            if len(calls) == 1:
+                raise TimeoutError("local model timed out")
+            return "Recovered deliverable"
+
+        result, retries = orchestrate.run_role_with_retry(
+            {"id": "AGENT-09"}, "Write the script", "", {}, runner=flaky_runner
+        )
+        self.assertEqual(result, "Recovered deliverable")
+        self.assertEqual(retries, 1)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("AUTOMATIC RECOVERY ATTEMPT 2/2", calls[1])
+        self.assertIn("local model timed out", calls[1])
+
+    def test_persistent_failure_stops_after_two_attempts(self):
+        calls = []
+
+        def broken_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            raise TimeoutError("model unavailable")
+
+        with self.assertRaisesRegex(TimeoutError, "model unavailable"):
+            orchestrate.run_role_with_retry(
+                {"id": "AGENT-09"}, "Write the script", "", {}, runner=broken_runner
+            )
+        self.assertEqual(len(calls), 2)
+
+    def test_empty_output_is_retried_and_never_counted_as_success(self):
+        calls = []
+
+        def empty_then_success(role, instruction, context, cfg):
+            calls.append(instruction)
+            return "" if len(calls) == 1 else "Concrete deliverable"
+
+        result, retries = orchestrate.run_role_with_retry(
+            {"id": "AGENT-09"}, "Write the script", "", {}, runner=empty_then_success
+        )
+        self.assertEqual(result, "Concrete deliverable")
+        self.assertEqual(retries, 1)
+        self.assertEqual(len(calls), 2)
+
+
 class CEODelegationTests(unittest.TestCase):
     def test_heuristic_delegation_is_task_specific_and_has_quality_gate(self):
         assignments, mode = orchestrate.heuristic_assignments(
