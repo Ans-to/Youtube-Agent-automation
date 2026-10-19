@@ -96,10 +96,10 @@ def render_markdown_safe(source):
         else:
             close_list()
             safe = esc(line)
-            safe = re.sub(r"\\*\\*(.+?)\\*\\*", r"<strong>\1</strong>", safe)
+            safe = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", safe)
             output.append("<p>" + safe + "</p>")
     close_list()
-    return "\\n".join(output)
+    return "\n".join(output)
 
 
 def task_state():
