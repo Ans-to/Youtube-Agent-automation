@@ -24,6 +24,15 @@ def slug(value):
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")[:48] or "project"
 
 
+def extract_quality_gate(text):
+    """Accept a quality verdict only when exactly one explicit gate line is present."""
+    matches = re.findall(
+        r"(?im)^\\s*OVERALL QUALITY GATE:\\s*(PASS|PARTIAL|FAIL)\\s*[.!]?\\s*$",
+        str(text or ""),
+    )
+    return matches[0].lower() if len(matches) == 1 else "unconfirmed"
+
+
 def run_role_with_retry(role, instruction, context, cfg, runner=None):
     """Run a specialist at most twice, preserving the first error in the retry prompt."""
     execute = runner or dispatch.run_role
