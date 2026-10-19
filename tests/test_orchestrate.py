@@ -57,6 +57,52 @@ class SpecialistRetryTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
 
 
+class MillionCaseRetrySimulationTests(unittest.TestCase):
+    def test_one_million_deterministic_retry_scenarios(self):
+        # Deterministically exercise the real retry wrapper across success, transient
+        # errors, empty outputs, and persistent errors without network/model calls.
+        cases = 1_000_000
+        recovered = 0
+        clean = 0
+        bounded_failures = 0
+        role = {"id": "AGENT-09"}
+        for index in range(cases):
+            mode = index % 4
+            attempts = [0]
+
+            def simulated_runner(_role, _instruction, _context, _cfg):
+                attempts[0] += 1
+                if mode == 0:
+                    if attempts[0] == 1:
+                        raise TimeoutError("simulated transient failure")
+                    return "recovered"
+                if mode == 1:
+                    return "clean"
+                if mode == 2:
+                    raise TimeoutError("simulated persistent failure")
+                return "" if attempts[0] == 1 else "recovered-empty-output"
+
+            try:
+                result, retries = orchestrate.run_role_with_retry(
+                    role, "simulated task", "", {}, runner=simulated_runner
+                )
+                self.assertTrue(result)
+                self.assertLessEqual(attempts[0], 2)
+                self.assertEqual(retries, attempts[0] - 1)
+                if retries:
+                    recovered += 1
+                else:
+                    clean += 1
+            except TimeoutError:
+                self.assertEqual(attempts[0], 2)
+                bounded_failures += 1
+
+        self.assertEqual(cases, 1_000_000)
+        self.assertEqual(recovered, 500_000)
+        self.assertEqual(clean, 250_000)
+        self.assertEqual(bounded_failures, 250_000)
+
+
 class CEODelegationTests(unittest.TestCase):
     def test_heuristic_delegation_is_task_specific_and_has_quality_gate(self):
         assignments, mode = orchestrate.heuristic_assignments(
