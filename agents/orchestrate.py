@@ -287,8 +287,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         assignments, delegation_mode = plan_delegation(task.strip(), context, cfg, roles_by_id)
     else:
         selected = [str(agent_id).strip().upper() for agent_id in agent_ids]
-        if not selected or len(selected) > 51 or len(set(selected)) != len(selected):
-            raise ValueError("Choose 1–51 unique specialist IDs; AGENT-50 is reserved for human approval.")
+        if not selected or len(selected) > 50 or len(set(selected)) != len(selected):
+            raise ValueError("Choose 1–50 unique worker IDs; AGENT-01 is the CEO and AGENT-50 is reserved for human approval.")
         if any(agent_id not in roles_by_id for agent_id in selected):
             raise ValueError("Unknown specialist ID in pipeline.")
         if "AGENT-50" in selected or "AGENT-01" in selected:
