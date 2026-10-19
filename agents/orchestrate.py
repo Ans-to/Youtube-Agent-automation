@@ -153,6 +153,10 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
     text = task.strip()
     lower = text.lower()
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
+    source_path = None
+    if source_context.strip():
+        source_path = destination / "source-notes.md"
+        source_path.write_text(source_context[:50000], encoding="utf-8")
     verbs = r"\b(build|create|make|generate|produce|develop|implement|render|export)\b"
 
     video_requested = (
@@ -171,9 +175,7 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         duration_match = re.search(r"(?i)target[_ ]minutes\s*[:=]\s*(\d+(?:\.\d+)?)", text)
         if duration_match:
             command.extend(["--target-minutes", duration_match.group(1)])
-        if source_context.strip():
-            source_path = destination / "source-notes.md"
-            source_path.write_text(source_context[:50000], encoding="utf-8")
+        if source_path is not None:
             command.extend(["--source-file", str(source_path)])
         render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", lower))
         template_demo = bool(re.search(r"\b(template demo|demo render)\b", lower)) and not model_enabled
@@ -207,6 +209,8 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "product_studio" / "build_product.py"),
                    "--title", title[:100], "--idea", idea, "--out", relative_out]
+        if source_path is not None:
+            command.extend(["--source-file", str(source_path)])
         results.append(_run_fixed_tool("product_studio", command, destination, relative_out, timeout=900))
     return results
 
