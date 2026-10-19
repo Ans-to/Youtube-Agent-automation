@@ -123,20 +123,30 @@
   // Blink and gaze.
   const blink=(frame%173>168&&frame%173<172)?0.15:1;
   for(const ex of [-1,1]){ctx.fillStyle="#f4f2ec";ctx.beginPath();ctx.ellipse(ex*headW*.39,headY,headW*.19,headH*.13*blink,0,0,Math.PI*2);ctx.fill();ctx.fillStyle="#292b39";ctx.beginPath();ctx.arc(ex*headW*.39,headY,headW*.07,0,Math.PI*2);ctx.fill()}
-  // Speech-driven mouth shape. Provide visemes [{t:0..1,shape:"closed|open|wide|round"}] for aligned mouth cues.
-  let shape="rest";const vis=Array.isArray(c.visemes)?c.visemes:[];let last=null;
-  for(const v of vis){if(Number(v.t)<=progress)last=v}
-  if(last)shape=String(last.shape||"open");else if(c.speaking===true)shape=(Math.floor(progress*18)%4===0?"closed":(["open","wide","round"][Math.floor(progress*18)%3]));
-  const my=headY+headH*.55,mw=headW*(shape==="wide"?.48:.27),mh=shape==="closed"?scale*.006:(shape==="round"?scale*.025:shape==="wide"?scale*.018:scale*.023);
+  // Smoothly blend viseme geometry between timestamped cues; never snap the mouth shape frame-to-frame.
+  const vis=(Array.isArray(c.visemes)?c.visemes:[]).filter(v=>Number.isFinite(Number(v.t))&&Number(v.t)>=0&&Number(v.t)<=1&&["closed","open","wide","round"].includes(String(v.shape))).slice().sort((a,b)=>Number(a.t)-Number(b.t));
+  const geometry={closed:[.22,.006],open:[.30,.023],wide:[.48,.018],round:[.24,.025]};
+  let mouthW=.27,mouthH=.018;
+  if(vis.length){
+   let before=vis[0],after=vis[vis.length-1];
+   for(let i=0;i<vis.length;i++){if(Number(vis[i].t)<=progress)before=vis[i];if(Number(vis[i].t)>=progress){after=vis[i];break}}
+   const a=geometry[String(before.shape)],b=geometry[String(after.shape)],span=Number(after.t)-Number(before.t);
+   const raw=span>0?Math.max(0,Math.min(1,(progress-Number(before.t))/span)):1,q=raw*raw*(3-2*raw);
+   mouthW=a[0]+(b[0]-a[0])*q;mouthH=a[1]+(b[1]-a[1])*q;
+  }else if(c.speaking===true){
+   const jaw=(.5-.5*Math.cos(2*Math.PI*3.2*progress));
+   mouthW=.23+.06*jaw;mouthH=.006+.017*jaw;
+  }
+  const my=headY+headH*.55,mw=headW*mouthW,mh=scale*mouthH;
   ctx.fillStyle="#562e32";ctx.beginPath();ctx.ellipse(0,my,mw,mh,0,0,Math.PI*2);ctx.fill();
-  if(shape==="wide"||shape==="open"){ctx.fillStyle="#f3e8de";ctx.fillRect(-mw*.65,my-mh*.22,mw*1.3,mh*.28)}
+  if(mouthH>.019){ctx.fillStyle="#f3e8de";ctx.fillRect(-mw*.65,my-mh*.22,mw*1.3,mh*.28)}
   ctx.restore();
  }
  window.drawCharacterForTest=drawCharacter;
  async function drawTransitionFrame(previous,previousFrame,previousCount,previousGlobal,current,currentFrame,currentCount,currentGlobal,kind,t){
-  window.drawFrame(previous,previousFrame,previousCount,previousGlobal);
+  window.drawFrame(previous,previousFrame,previousCount,previousGlobal,true);
   const outgoing=new Image();outgoing.src=canvas.toDataURL("image/png");await outgoing.decode();
-  window.drawFrame(current,currentFrame,currentCount,currentGlobal);
+  window.drawFrame(current,currentFrame,currentCount,currentGlobal,true);
   const q=easeSmooth(t);ctx.save();
   if(kind==="fade"){ctx.globalAlpha=1-q;ctx.drawImage(outgoing,0,0,canvas.width,canvas.height);}
   else if(kind==="wipe-left"||kind==="wipe-right"){const width=canvas.width*(1-q);ctx.beginPath();ctx.rect(kind==="wipe-left"?canvas.width-width:0,0,width,canvas.height);ctx.clip();ctx.drawImage(outgoing,0,0,canvas.width,canvas.height);}
@@ -146,7 +156,7 @@
  window.drawTransitionFrame=drawTransitionFrame;
 
  window.setCanvasSize=function(width,height){if(!Number.isInteger(width)||!Number.isInteger(height)||width<320||height<180||width>3840||height>2160)throw new Error("Invalid canvas dimensions");canvas.width=width;canvas.height=height;};
-  window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame){
+  window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame,suppressTransition){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
    const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?w*.66:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
   ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
@@ -178,7 +188,7 @@
   ctx.textAlign="right";ctx.fillText("LOCAL RENDER / "+String(Math.round(progress*100)).padStart(3," ")+"%",w-left,footerY);ctx.textAlign="left";
   ctx.fillStyle=p.fg;ctx.font="600 "+Math.max(12,w*.0094)+"px monospace";ctx.fillText("OFFLINE AGENT HQ",left,Math.min(h-24,footerY+Math.max(30,w*.035)));
    const trans=String(scene.transition_in||"none").toLowerCase(),transFrames=Math.max(1,Math.min(60,Number(scene.transition_frames)||12));
-   if(trans!=="none"&&localFrame<transFrames){
+   if(!suppressTransition&&trans!=="none"&&localFrame<transFrames){
     const t=Math.max(0,Math.min(1,localFrame/Math.max(1,transFrames-1))),ease=1-Math.pow(1-t,3);
     if(trans==="fade"){ctx.globalAlpha=1-ease;ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.globalAlpha=1;}
     else if(trans==="wipe-left"||trans==="wipe-right"){const covered=w*(1-ease);ctx.fillStyle=p.bg;ctx.fillRect(trans==="wipe-left"?w-covered:0,0,covered,h);}
