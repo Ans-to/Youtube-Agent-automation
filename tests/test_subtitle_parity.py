@@ -17,6 +17,11 @@ class SubtitleParityTests(unittest.TestCase):
         changed = self.vtt.replace('00:00:00.000 --> 00:00:04.000', '00:00:00.100 --> 00:00:04.000', 1)
         with self.assertRaisesRegex(ValueError, 'timings differ'):
             validate_subtitle_text(self.srt, changed)
+    def test_accepts_windows_line_endings_and_bom(self):
+        srt = '\\ufeff' + self.srt.replace('\\n', '\\r\\n')
+        vtt = '\\ufeff' + self.vtt.replace('\\n', '\\r\\n')
+        self.assertGreater(validate_subtitle_text(srt, vtt)['cue_count'], 0)
+
     def test_rejects_missing_cue(self):
         blocks = self.vtt.split('\n\n')
         with self.assertRaisesRegex(ValueError, 'cue counts'):
