@@ -344,10 +344,12 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 continue
         if pages_fetched:
             research_status = "pages_fetched"
-        elif research_reports:
+        elif pages_attempted:
             research_status = "search_leads_only"
+        elif research_reports:
+            research_status = "failure_disclosed"
         else:
-            research_status = "failure_disclosed" if "WEB RESEARCH ATTEMPT FAILED" in result else "not_confirmed"
+            research_status = "failure_disclosed" if ("WEB RESEARCH ATTEMPT FAILED" in result or "WEB RESEARCH MODULE UNAVAILABLE" in result) else "not_confirmed"
         records.append({
             "sequence": index, "agent_id": agent_id, "role": role["name"],
             "assigned_task": specialist_task, "output_file": filename, "status": "draft_generated",
