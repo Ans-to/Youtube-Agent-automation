@@ -179,7 +179,7 @@ class CEODelegationTests(unittest.TestCase):
                 return "# Deliverable\n\nDraft output for " + role["id"]
             with patch.object(orchestrate, "ROOT", root), \
                  patch.object(orchestrate, "WORKSPACE", workspace), \
-                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \\
+                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \
                  patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role):
                 _, manifest = orchestrate.run_pipeline(
                     "Summarize the key facts and uncertainties about textile traceability",
