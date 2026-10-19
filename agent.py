@@ -4,6 +4,7 @@ import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddre
 from pathlib import Path
 from datetime import datetime
 from queue_store import task_queue_lock, load_tasks, save_tasks
+from quality_outputs import youtube_package, structured_plan, structured_draft, structured_review
 
 BASE = Path(__file__).resolve().parent
 TASKS = BASE / "tasks.json"
@@ -65,7 +66,7 @@ def workspace_text(cfg):
                 pass
     return "\n".join(chunks)[:10000] or "(Workspace has no readable text files.)"
 
-def ask_local_model(prompt, cfg):
+def ask_local_model(prompt, cfg, kind=''):
     m = cfg.get("model", {})
     if not m.get("enabled"):
         return None
@@ -77,38 +78,19 @@ def ask_local_model(prompt, cfg):
             {"role": "user", "content": prompt}
         ],
         "temperature": 0.25,
-        "max_tokens": int(m.get("max_output_tokens", 900))
+        "max_tokens": min(max(int(m.get("max_output_tokens", 900)), 4500), 7000) if kind == "youtube_package" else int(m.get("max_output_tokens", 900))
     }
     data = post_local_model(url, body, m.get("timeout_seconds", 120))
     return data["choices"][0]["message"]["content"].strip()
 
 def fallback(task, kind, context):
     title, user_input = task.get("title", "Untitled"), task.get("input", "")
+    if kind == "youtube_package":
+        return youtube_package(title, user_input)
     if kind == "plan":
-        return f"""# {title}
-
-## Goal
-{user_input}
-
-## Work plan
-1. Define the required final result and constraints.
-2. Break the work into small, checkable steps.
-3. Use only the supplied local information and available offline tools.
-4. Check the result against the original requirements.
-5. Record unresolved questions and anything that needs human approval.
-
-## Review status
-Template mode only: no language model was enabled, so this is a structured starting plan rather than AI-generated research.
-"""
+        return structured_plan(title, user_input)
     if kind == "draft":
-        return f"""# Draft: {title}
-
-## Source request
-{user_input}
-
-## Draft status
-Template mode only: no local language model is enabled. Enable a compatible local model to generate the requested content.
-"""
+        return structured_draft(title, user_input)
     if kind == "summarize_workspace":
         return f"""# Workspace inventory
 
@@ -117,17 +99,7 @@ Template mode only: no local language model is enabled. Enable a compatible loca
 ## Limitation
 Template mode cannot perform semantic summarization. The text above is an inventory of readable local workspace content.
 """
-    return f"""# Review checklist: {title}
-
-- Does the output answer the task?
-- Are factual claims supported by supplied local files?
-- Are assumptions and missing inputs stated?
-- Are there contradictions or incomplete steps?
-- Does the result avoid unsafe external actions?
-
-## Limitation
-No semantic review was performed because a local language model is not enabled.
-"""
+    return structured_review(title, context)
 
 def build_prompt(task, kind, context, cfg):
     max_chars = int(cfg.get("runner", {}).get("max_input_chars", 6000))
@@ -144,7 +116,9 @@ CRITICAL ACTION-VERIFICATION RULES:
 - If no such confirmation is supplied, explicitly state that the action was NOT performed or verified and explain what the user must do themselves.
 - Never invent tool calls, confirmations, execution logs, or success messages.
 - The Reviewer must check every statement claiming that an action was completed against the supplied evidence. If evidence is absent, correct the claim.
-Return the final deliverable in clear Markdown.
+Return the final deliverable in clear Markdown. Do not claim tests, web research, publishing, or external actions unless supplied evidence confirms them.
+
+For youtube_package tasks, create a detailed faceless YouTube package: include a narrative thesis, scene-by-scene script with timecodes, Urdu narration with English technical terms unless requested otherwise, motion-graphics/compositing instructions, audio/editing notes, title/thumbnail/description options, Shorts cutdown, source register, and release QA. Match requested duration with plausible narration word counts; do not call a short outline a 15-minute script. Never invent facts, numbers, quotes, citations, or research. Mark unsupported claims [VERIFY] and state what evidence is needed. Distinguish source-supported details from assumptions. End with unresolved issues.
 
 TASK TYPE: {kind}
 TITLE: {task.get('title', '')}
@@ -157,10 +131,10 @@ LOCAL WORKSPACE:
 
 def process(task, cfg):
     kind = task.get("kind", "")
-    if kind not in {"plan", "draft", "summarize_workspace", "review_output"}:
+    if kind not in {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}:
         raise ValueError("Unsupported task type.")
     context = workspace_text(cfg) if kind in {"summarize_workspace", "review_output"} else ""
-    result = ask_local_model(build_prompt(task, kind, context, cfg), cfg)
+    result = ask_local_model(build_prompt(task, kind, context, cfg), cfg, kind)
     if not result:
         result = fallback(task, kind, context)
     OUTPUTS.mkdir(exist_ok=True)

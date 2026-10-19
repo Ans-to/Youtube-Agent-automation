@@ -13,7 +13,7 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
 ## What is implemented
 
 - **Local dashboard:** mobile-friendly command deck at `http://127.0.0.1:8765`.
-- **Task queue:** stores tasks in local `tasks.json`; writes Markdown results to `outputs/` and operational logs to `logs/`.
+- **Task queue:** stores tasks in local `tasks.json`; writes Markdown results to `outputs/` and operational logs to `logs/`. The dashboard includes a detailed YouTube production-package task type.\n- **Better offline deliverables:** when no model is configured, plans, drafts, reviews, and YouTube packages use structured templates with acceptance criteria, scene plans, motion direction, fact-check gates, metadata, and release QA. Template output is never labelled as researched or fact-checked.
 - **Four workflow stages:** Coordinator, Planner, Worker, Reviewer are logical stages in one Python process, not separate autonomous processes.
 - **Optional local model:** uses an OpenAI-compatible endpoint on loopback only. With the model disabled, fallback templates are intentionally limited and are not general-purpose AI.
 - **GitHub bridge:** polls approved JSON requests from `bridge/requests/`; supported actions are `status`, `self_test`, and guarded `run_task`.
