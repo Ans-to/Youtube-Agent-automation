@@ -5,7 +5,7 @@ on:
     branches: ["**"]
   pull_request:
   schedule:
-    - cron: "17 3 * * 1"
+    - cron: "0 19 * * 1"
   workflow_dispatch:
     inputs:
       trials:
