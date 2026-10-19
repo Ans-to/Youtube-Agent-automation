@@ -24,6 +24,28 @@ def slug(value):
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")[:48] or "project"
 
 
+def run_role_with_retry(role, instruction, context, cfg, runner=None):
+    """Run a specialist at most twice, preserving the first error in the retry prompt."""
+    execute = runner or dispatch.run_role
+    try:
+        result = execute(role, instruction, context, cfg)
+        if not isinstance(result, str) or not result.strip():
+            raise ValueError("Specialist returned an empty result.")
+        return result, 0
+    except Exception as first_error:
+        retry_instruction = (
+            instruction
+            + "\n\nAUTOMATIC RECOVERY ATTEMPT 2/2. The previous attempt failed with "
+            + type(first_error).__name__ + ": " + str(first_error)[:700]
+            + ". Re-read the task and supplied evidence, correct the cause, and return the complete deliverable. "
+              "Do not claim work succeeded unless you actually produce it. This is the final automatic retry."
+        )
+        result = execute(role, retry_instruction, context, cfg)
+        if not isinstance(result, str) or not result.strip():
+            raise ValueError("Specialist returned an empty result on automatic retry.")
+        return result, 1
+
+
 def read_context(path):
     if not path:
         return ""
@@ -368,10 +390,9 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
         research_dir = ROOT / "workspace" / "research" / "agent-runs"
         reports_before = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
+        retry_count = 0
         try:
-            result = dispatch.run_role(role, instruction, combined_context, cfg)
-            if not isinstance(result, str) or not result.strip():
-                raise ValueError("Specialist returned an empty result.")
+            result, retry_count = run_role_with_retry(role, instruction, combined_context, cfg)
         except Exception as exc:
             # Preserve research files created before a model timeout, then continue to
             # downstream specialists and the final quality gate.
@@ -426,6 +447,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             failure = {
                 "sequence": index, "agent_id": agent_id, "role": role["name"],
                 "assigned_task": specialist_task, "output_file": failure_filename, "status": "failed",
+                "retry_count": 1,
                 "research_status": failure_research_status,
                 "research_reports": failed_stage_report_names,
                 "research_pages_attempted": research_pages_attempted,
@@ -472,6 +494,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         records.append({
             "sequence": index, "agent_id": agent_id, "role": role["name"],
             "assigned_task": specialist_task, "output_file": filename, "status": "draft_generated",
+            "retry_count": retry_count,
             "research_status": research_status, "research_reports": research_reports,
             "research_pages_attempted": pages_attempted, "research_pages_fetched": pages_fetched,
             "quality_gate": quality_gate if agent_id == "AGENT-08" else None,
