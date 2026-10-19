@@ -12,7 +12,7 @@ permissions:
 
 concurrency:
   group: e2e-production-evidence-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   full-test-and-video:
