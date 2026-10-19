@@ -103,8 +103,13 @@ class CEODelegationTests(unittest.TestCase):
                     destination,
                     {"model": {"enabled": False}},
                 )
+            self.assertEqual(results[0]["tool"], "video_render")
             self.assertEqual(results[0]["status"], "blocked")
-            run_tool.assert_not_called()
+            run_tool.assert_called_once()
+            command = run_tool.call_args.args[1]
+            self.assertIn("production.py", command[1])
+            self.assertNotIn("--render", command)
+            self.assertIn("--research", command)
 
     def test_pipeline_persists_ceo_plan_and_individual_deliverables(self):
         with tempfile.TemporaryDirectory() as directory:
