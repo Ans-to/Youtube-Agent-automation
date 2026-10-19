@@ -181,13 +181,15 @@ class CEODelegationTests(unittest.TestCase):
                 if role["id"] == "AGENT-02":
                     raise TimeoutError("local model timed out")
                 if role["id"] == "AGENT-08":
-                    return "# Final Review\\n\\nThe research stage timed out; claims remain unverified.\\n\\nOVERALL QUALITY GATE: PARTIAL\\n"
-                return "# Deliverable\\n\\nDraft contribution from " + role["id"]
+                    return "# Final Review\n\nThe research stage timed out; claims remain unverified.\n\nOVERALL QUALITY GATE: PARTIAL\n"
+                return "# Deliverable\n\nDraft contribution from " + role["id"]
 
-            with patch.object(orchestrate, "ROOT", root), \\
-                 patch.object(orchestrate, "WORKSPACE", workspace), \\
-                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \\
-                 patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role):
+            with (
+                patch.object(orchestrate, "ROOT", root),
+                patch.object(orchestrate, "WORKSPACE", workspace),
+                patch.object(orchestrate, "run_builtin_tools", return_value=[]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role),
+            ):
                 destination, manifest = orchestrate.run_pipeline(
                     "Summarize key facts about textile traceability",
                     output_dir=output,
