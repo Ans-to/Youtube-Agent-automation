@@ -189,7 +189,7 @@ The dashboard includes a Specialist practice lab. Choose a role and submit a con
     python agents/practice.py practice --agent AGENT-51 --task "Create an art-direction brief for a 60-second technology explainer"
     python agents/practice.py assess --report "workspace/training/runs/AGENT-51/<run-id>/assessment.json"
 
-To create practice artifacts for all 51 executable specialist roles, run python agents/practice.py practice --all. On a phone, start with --all --limit 5 to avoid a large queue of model work. With model.enabled=false, the output is template-only playbook material, not AI-generated practice work. Enable a compatible local model before expecting generated artifacts.
+To create practice artifacts for all 51 executable roles (CEO plus 50 specialists), run python agents/practice.py practice --all. On a phone, start with --all --limit 5 to avoid a large queue of model work. With model.enabled=false, the output is template-only playbook material, not AI-generated practice work. Enable a compatible local model before expecting generated artifacts.
 
 Only human-reviewed notes from actual local-model outputs are injected into later runs. Template-only reviews are marked as template reviews and are excluded from the model-feedback loop. These assessments measure a particular practice attempt; they do not certify universal mastery or update model weights. AGENT-50 is reserved for human approval and cannot be run automatically. See agents/TRAINING.md for the review loop and agents/MOTION_DESIGN_SYSTEM.md for visual scene and transition rules.
 
@@ -208,7 +208,7 @@ python agents/orchestrate.py --task "Prepare a fact-checkable technology video s
 
 The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it can use retrieved page text and source URLs supplied by the research module. Research is not automatic fact verification; important claims still require corroboration and human review. Review `pipeline-status.json` and all stage outputs before using them.
 
-Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 52 role profiles: 51 specialist roles and the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
+Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 52 role profiles: AGENT-01 is the CEO, 50 are specialist workers, and AGENT-50 is the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
 
 ## CEO-led execution and research reports
 
