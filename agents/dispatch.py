@@ -89,6 +89,7 @@ def safe_slug(value):
     return re.sub(r"[^A-Za-z0-9_-]+","-",value).strip("-")[:60] or "task"
 
 def run_role(role,task,context,cfg):
+    role = ensure_executable_role(role)
     # Research is attempted for each specialist task, not just video tasks.
     # Search results are discovery evidence only; they are not independently verified.
     research_context = ""
@@ -121,7 +122,6 @@ def run_role(role,task,context,cfg):
         research_context = "WEB RESEARCH MODULE UNAVAILABLE. Do not claim internet research succeeded; disclose limitation."
     context = ((context or "") + "\n\n## AUTOMATIC WEB RESEARCH (attempted for this task)\n"
                + research_context)[:30000]
-    role=ensure_executable_role(role)
     model=cfg.get("model",{})
     skill=find_skill(role["id"]) or {
       "expertise":role.get("mission",""),
