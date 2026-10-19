@@ -120,7 +120,7 @@ jobs:
         working-directory: video_studio
         run: npm install
       - name: Render motion-character transition prototype
-        run: python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output video_studio/outputs/motion-character-transition-demo.mp4
+        run: python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4
       - name: Validate rendered MP4
         run: |
           ffprobe -v error -show_entries stream=codec_type,codec_name,width,height,r_frame_rate -show_entries format=duration -of json video_studio/outputs/motion-character-transition-demo.mp4
