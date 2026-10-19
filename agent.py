@@ -264,7 +264,7 @@ def process(task, cfg):
             completed_at=stamp(),
             research_status="attempted_by_ceo_and_specialists",
             output_file=str(path.relative_to(BASE)),
-            error="CEO pipeline stopped after a specialist failure. Partial output was saved; inspect the manifest before retrying.",
+            error="CEO pipeline or a required artifact builder failed. Partial output was saved; inspect the manifest and tool logs before retrying.",
         )
         log(f"FAILED {task.get('id')} -> partial output {path.name}")
     elif needs_action:
