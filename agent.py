@@ -226,7 +226,7 @@ def process(task, cfg):
             break
     if manifest.get("status") == "failed":
         sections.extend(["## Pipeline status", "", "The CEO pipeline or a required artifact builder failed. Review the saved pipeline manifest and tool logs before retrying.", ""])
-    elif manifest.get("status") == "blocked":
+    elif manifest.get("status") in {"blocked", "review_failed"}:
         sections.extend(["## Pipeline status", "", "One or more requested artifact actions were blocked. Partial deliverables are available, but the requested final outcome is not complete until the blocker is resolved.", ""])
     sections.extend(["", "## Built-in artifact tools", ""])
     if manifest.get("tool_runs"):
@@ -297,9 +297,9 @@ def process(task, cfg):
             completed_at="",
             research_status=research_status_value,
             output_file=str(path.relative_to(BASE)) if path.is_relative_to(BASE) else str(path),
-            error="One or more requested artifact actions are blocked. Partial deliverables were saved; inspect pipeline-status.json and resolve the blocker.",
+            error="The pipeline requires human follow-up. Inspect pipeline-status.json and the reviewer output before using the deliverable.",
         )
-        log(f"NEEDS HUMAN ACTION {task.get('id')} -> blocked artifact requirement in {path.name}")
+        log(f"NEEDS HUMAN ACTION {task.get('id')} -> pipeline review or artifact blocker in {path.name}")
     elif needs_action:
         task.update(
             status="needs_human_action",
