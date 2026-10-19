@@ -397,8 +397,8 @@ class Handler(BaseHTTPRequestHandler):
             agents = form.get("agents", [""])[0].strip().upper()
             context_file = form.get("context_file", [""])[0].strip()
             ids = [item.strip() for item in agents.split(",") if item.strip()]
-            if not task or len(task) > 6000 or len(ids) > 51 or len(set(ids)) != len(ids):
-                return self.send("Invalid CEO request. Provide a goal and, only if overriding delegation, 1–51 unique specialist IDs.", status=400)
+            if not task or len(task) > 6000 or len(ids) > 50 or len(set(ids)) != len(ids):
+                return self.send("Invalid CEO request. Provide a goal and, only if overriding delegation, 1–50 unique worker IDs.", status=400)
             if any(not re.fullmatch(r"AGENT-[0-9]{2}", item) for item in ids) or "AGENT-50" in ids or "AGENT-01" in ids:
                 return self.send("Invalid specialist ID. AGENT-01 is the CEO and AGENT-50 is the human approval gate; neither can run as an ordinary worker.", status=400)
             if context_file:
