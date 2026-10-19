@@ -203,6 +203,7 @@ class CEODelegationTests(unittest.TestCase):
                 return "# Deliverable\n\nCompleted subtask for " + role["id"]
 
             with patch.object(orchestrate, "WORKSPACE", workspace), \
+                 patch.object(orchestrate, "run_builtin_tools", return_value=[]), \
                  patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role):
                 destination, manifest = orchestrate.run_pipeline(
                     "Build a small software tool with documentation and quality checks",
