@@ -59,7 +59,12 @@ function Install-PortableFfmpeg {
     $DownloadUrl = "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip"
     Write-Host "winget is unavailable. Downloading a portable FFmpeg build directly..." -ForegroundColor Cyan
     try {
-        Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing
+        # Windows PowerShell 5.1 may otherwise negotiate an obsolete TLS version.
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+        Invoke-WebRequest -Uri $DownloadUrl -OutFile $ZipPath -UseBasicParsing -TimeoutSec 180
+        if (-not (Test-Path $ZipPath) -or (Get-Item $ZipPath).Length -lt 1000000) {
+            throw "The FFmpeg download is missing or unexpectedly small; check internet access or proxy filtering."
+        }
         $ExtractRoot = Join-Path $ToolsRoot "ffmpeg-extract"
         if (Test-Path $ExtractRoot) { Remove-Item $ExtractRoot -Recurse -Force }
         Expand-Archive -LiteralPath $ZipPath -DestinationPath $ExtractRoot -Force
@@ -69,18 +74,24 @@ function Install-PortableFfmpeg {
         if (Test-Path $FfmpegRoot) { Remove-Item $FfmpegRoot -Recurse -Force }
         $FfmpegBin = Join-Path $FfmpegRoot "bin"
         New-Item -ItemType Directory -Force -Path $FfmpegBin | Out-Null
-        Copy-Item -Path (Join-Path $SourceBin "*") -Destination $FfmpegBin -Recurse -Force
+        Get-ChildItem -LiteralPath $SourceBin -Force | Copy-Item -Destination $FfmpegBin -Recurse -Force
         $FfmpegExe = Join-Path $FfmpegBin "ffmpeg.exe"
-        if (-not (Test-Path $FfmpegExe)) {
-            throw "FFmpeg archive was extracted, but ffmpeg.exe was not copied to the expected location: $FfmpegExe"
+        $FfprobeExe = Join-Path $FfmpegBin "ffprobe.exe"
+        if (-not (Test-Path -LiteralPath $FfmpegExe)) {
+            $Copied = Get-ChildItem -Path $FfmpegRoot -Filter ffmpeg.exe -Recurse -File -ErrorAction SilentlyContinue | Select-Object -First 1
+            $Listing = (Get-ChildItem -Path $ExtractRoot -Force | Select-Object -ExpandProperty Name) -join ", "
+            throw "FFmpeg archive was extracted, but ffmpeg.exe was not copied to the expected location. Extracted folders: $Listing. Expected: $FfmpegExe"
+        }
+        if (-not (Test-Path -LiteralPath $FfprobeExe)) {
+            Write-Warning "ffprobe.exe was not found beside ffmpeg.exe; video validation may be unavailable."
         }
         $env:Path = "$FfmpegBin;$env:Path"
+        # Test the executable directly instead of relying only on PATH command discovery.
+        $VersionLine = & $FfmpegExe -version 2>&1 | Select-Object -First 1
+        if ($LASTEXITCODE -ne 0) { throw "FFmpeg executable exists but could not start. Output: $VersionLine" }
+        Write-Host $VersionLine -ForegroundColor DarkGray
         Remove-Item $ExtractRoot -Recurse -Force
         Remove-Item $ZipPath -Force
-        if (-not (Has-Command "ffmpeg")) {
-            & $FfmpegExe -version | Select-Object -First 1
-            if ($LASTEXITCODE -ne 0) { throw "FFmpeg executable exists but could not start." }
-        }
         Write-Host "Portable FFmpeg installed inside the project; no administrator rights or winget required." -ForegroundColor Green
     } catch {
         throw "Could not install FFmpeg automatically. Check internet access, then retry. Details: $($_.Exception.Message)"
