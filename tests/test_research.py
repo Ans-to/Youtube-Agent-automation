@@ -1,6 +1,6 @@
 import unittest
 
-from video_studio.research import parse_results, research, safe_public_url
+from video_studio.research import PageTextParser, fetch_page, parse_results, research, safe_public_url
 
 
 SAMPLE_HTML = """
@@ -30,12 +30,30 @@ class ResearchTests(unittest.TestCase):
         self.assertIsNone(safe_public_url("file:///etc/passwd"))
         self.assertEqual(safe_public_url("https://example.com/page#section"), "https://example.com/page")
 
+    def test_extracts_page_text_and_ignores_scripts(self):
+        parser = PageTextParser()
+        parser.feed("<html><title>Example title</title><body><main><h1>Useful heading</h1><p>Readable evidence.</p><script>secret()</script></main></body></html>")
+        title, text = parser.result()
+        self.assertEqual(title, "Example title")
+        self.assertIn("Useful heading", text)
+        self.assertIn("Readable evidence", text)
+        self.assertNotIn("secret()", text)
+
+    def test_page_fetch_rejects_private_address_without_request(self):
+        result = fetch_page("http://127.0.0.1/private")
+        self.assertEqual(result["fetch_status"], "rejected")
+
     def test_research_function_is_testable_without_network(self):
         def fake_search(query):
             return SAMPLE_HTML if "sample" in query else ""
-        metadata, results = research("sample topic", queries=["sample topic"], max_results=2, search_fn=fake_search)
+        def fake_page(url):
+            return {"fetch_status": "fetched", "page_title": "Sample page", "page_text": "Evidence text from a test fixture."}
+        metadata, results = research("sample topic", queries=["sample topic"], max_results=2,
+                                     search_fn=fake_search, page_fetch_fn=fake_page)
         self.assertEqual(metadata["engine"], "DuckDuckGo HTML (no API key)")
         self.assertFalse(metadata["verified"])
+        self.assertEqual(metadata["pages_fetched"], 2)
+        self.assertEqual(results[0]["page_text"], "Evidence text from a test fixture.")
         self.assertEqual(metadata["result_count"], 2)
         self.assertEqual(len(results), 2)
 
