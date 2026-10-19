@@ -110,6 +110,23 @@ def research_topic_from_task(task):
     return sanitize_research_query(combined)[:500]
 
 
+def save_research_report(agent_id, markdown, metadata=None, sources=None):
+    """Persist a bounded Markdown report and structured JSON for both success and failure."""
+    research_dir = (ROOT / "workspace" / "research" / "agent-runs").resolve()
+    research_dir.mkdir(parents=True, exist_ok=True)
+    report_name = str(agent_id).lower() + "-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".md"
+    report_path = research_dir / report_name
+    if research_dir not in report_path.parents:
+        raise ValueError("Research report path escaped the workspace.")
+    report_path.write_text(str(markdown).rstrip() + "\n", encoding="utf-8")
+    json_path = report_path.with_suffix(".json")
+    json_path.write_text(json.dumps({
+        "metadata": metadata or {},
+        "results": sources or [],
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return str(report_path.relative_to(ROOT)), str(json_path.relative_to(ROOT))
+
+
 def run_role(role,task,context,cfg):
     role = ensure_executable_role(role)
     # Research is attempted for each specialist task, not just video tasks.
@@ -127,23 +144,50 @@ def run_role(role,task,context,cfg):
                 max_results=5,
             )
             research_context = render_research_markdown(metadata, sources)[:18000]
-            research_dir = (ROOT / "workspace" / "research" / "agent-runs").resolve()
-            research_dir.mkdir(parents=True, exist_ok=True)
-            report_name = role["id"].lower() + "-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".md"
-            report_path = research_dir / report_name
-            if research_dir not in report_path.parents:
-                raise ValueError("Research report path escaped the workspace.")
-            report_path.write_text(research_context.rstrip() + "\n", encoding="utf-8")
-            json_path = report_path.with_suffix(".json")
-            json_path.write_text(json.dumps({"metadata": metadata, "results": sources}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-            research_context += "\n\nSaved research report: " + str(report_path.relative_to(ROOT)) + "\nSaved structured sources: " + str(json_path.relative_to(ROOT))
+            report_md, report_json = save_research_report(role["id"], research_context, metadata, sources)
+            research_context += "\n\nSaved research report: " + report_md + "\nSaved structured sources: " + report_json
         except Exception as exc:
+            failure_text = type(exc).__name__ + ": " + str(exc)[:500]
+            metadata = {
+                "topic": locals().get("query_topic", ""),
+                "collected_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "engine": "DuckDuckGo HTML (no API key)",
+                "queries": [],
+                "result_count": 0,
+                "pages_attempted": 0,
+                "pages_fetched": 0,
+                "search_errors": [{"error_type": type(exc).__name__, "error": str(exc)[:500]}],
+                "page_errors": [],
+                "verified": False,
+                "note": "The research attempt failed. No successful source collection is claimed.",
+            }
             research_context = (
-                "WEB RESEARCH ATTEMPT FAILED: " + type(exc).__name__ + ": " + str(exc)[:500] + "\n"
-                "Do not claim internet research succeeded. Continue using supplied context and disclose this limitation."
+                "# Web research attempt failed\n\n"
+                "- Agent: " + str(role.get("id", "unknown")) + "\n"
+                "- Error: " + failure_text + "\n"
+                "- Research succeeded: no\n\n"
+                "Continue using supplied context only, disclose this limitation, and do not invent citations."
             )
+            try:
+                report_md, report_json = save_research_report(role["id"], research_context, metadata, [])
+                research_context += "\n\nSaved research failure report: " + report_md + "\nSaved structured status: " + report_json
+            except Exception:
+                pass
     else:
         research_context = "WEB RESEARCH MODULE UNAVAILABLE. Do not claim internet research succeeded; disclose limitation."
+        try:
+            metadata = {
+                "topic": "", "collected_at": datetime.now().astimezone().isoformat(timespec="seconds"),
+                "engine": "unavailable", "queries": [], "result_count": 0,
+                "pages_attempted": 0, "pages_fetched": 0,
+                "search_errors": [{"error_type": "ImportError", "error": "Research module unavailable"}],
+                "page_errors": [], "verified": False,
+                "note": "Research module unavailable; no successful source collection is claimed.",
+            }
+            report_md, report_json = save_research_report(role["id"], research_context, metadata, [])
+            research_context += "\n\nSaved research failure report: " + report_md + "\nSaved structured status: " + report_json
+        except Exception:
+            pass
     prior_context = context or ""
     if len(prior_context) > 12000:
         prior_context = prior_context[:5000] + "\n\n[Middle context omitted for prompt budget]\n\n" + prior_context[-6500:]
