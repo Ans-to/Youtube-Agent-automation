@@ -14,8 +14,8 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
 
 - **Local dashboard:** mobile-friendly command deck at `http://127.0.0.1:8765`.
 - **Task queue:** stores tasks in local `tasks.json`; writes Markdown results to `outputs/` and operational logs to `logs/`. The dashboard includes a detailed YouTube production-package task type.\n- **Better offline deliverables:** when no model is configured, plans, drafts, reviews, and YouTube packages use structured templates with acceptance criteria, scene plans, motion direction, fact-check gates, metadata, and release QA. Template output is never labelled as researched or fact-checked.
-- **Four workflow stages:** Coordinator, Planner, Worker, Reviewer are logical stages in one Python process, not separate autonomous processes.
-- **Optional local model:** uses an OpenAI-compatible endpoint on loopback only. With the model disabled, fallback templates are intentionally limited and are not general-purpose AI.
+- **Specialist execution:** 52 configured role profiles (51 executable specialists plus AGENT-50 human approval) share one configured local model. Role profiles guide delegation; they are not separate model processes.
+- **Optional local model:** uses an OpenAI-compatible endpoint on loopback only. With the model disabled, the CEO uses deterministic keyword-based routing and specialists produce limited template/checklist outputs; this is not general-purpose AI.
 - **GitHub bridge:** polls approved JSON requests from `bridge/requests/`; supported actions are `status`, `self_test`, and guarded `run_task`.
 - **Sanitized result reporting:** attempts to write minimal result metadata to `bridge/results/<request-id>.json`. Task prompts, generated output, raw logs, local paths, and configuration values are not included in the GitHub report.
 - **Safety checks:** no remote shell, arbitrary Python, package installation, arbitrary URL fetch, publishing, messaging, payments, or deletion actions.
@@ -49,7 +49,7 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
    ```sh
    python dashboard.py
    ```
-6. Open `http://127.0.0.1:8765` in the browser on the same phone. Queue a harmless task and choose **Run pending**.
+6. Open `http://127.0.0.1:8765` in the browser on the same phone. Submit a task; **Run pending** sends queued tasks through the CEO-led delegation pipeline.
 
 Run one queued task from Termux with:
 ```sh
@@ -205,6 +205,10 @@ python agents/orchestrate.py --task "Prepare a fact-checkable technology video s
 The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it can use retrieved page text and source URLs supplied by the research module. Research is not automatic fact verification; important claims still require corroboration and human review. Review `pipeline-status.json` and all stage outputs before using them.
 
 Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 52 role profiles: 51 specialist roles and the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
+
+## CEO-led execution and research reports
+
+The primary queue runner and the CEO Command Deck both use `agents/orchestrate.py`. AGENT-01 (CEO/Coordinator) selects distinct role-specific assignments when the local model is enabled. Without a model, a transparent keyword router chooses a small team and marks the mode `heuristic_no_model`; it does not pretend to be AI planning. Every specialist stage attempts research before producing its deliverable. Research attempts are saved to `workspace/research/agent-runs/`, and the final queue output aggregates the CEO plan and specialist deliverables. `workspace/orchestration/` contains the assignment plan and per-stage artifacts. The final fact-check role reviews evidence, but the system does not guarantee correctness or independently validate every claim.
 
 ## Automatic web research
 
