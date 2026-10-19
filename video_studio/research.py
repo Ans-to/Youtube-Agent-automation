@@ -282,9 +282,23 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
         raise RuntimeError("No search results were collected. Check connectivity or try supplied source notes. " +
                            ("Last error: " + errors[-1]["error"] if errors else "The search engine returned no parseable results."))
 
-    # Fetch a bounded number of result pages so agents receive source content, not just snippets.
+    # Fetch a bounded, query-diverse set of pages so research does not rely on one search query.
     page_errors = []
-    for item in all_results[:max(1, min(int(max_results), 8))]:
+    fetch_limit = max(1, min(int(max_results), 8))
+    page_targets = []
+    selected_urls = set()
+    for term in terms:
+        match = next((item for item in all_results if item.get("query") == term and item["url"] not in selected_urls), None)
+        if match is not None and len(page_targets) < fetch_limit:
+            page_targets.append(match)
+            selected_urls.add(match["url"])
+    for item in all_results:
+        if len(page_targets) >= fetch_limit:
+            break
+        if item["url"] not in selected_urls:
+            page_targets.append(item)
+            selected_urls.add(item["url"])
+    for item in page_targets:
         try:
             page = page_fetch_fn(item["url"])
         except Exception as exc:
@@ -297,6 +311,7 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
         elif item.get("page_title"):
             item["page_title"] = item["page_title"][:300]
         item["page_text"] = str(item.get("page_text", ""))[:MAX_PAGE_TEXT]
+    all_results = page_targets + [item for item in all_results if item["url"] not in selected_urls]
 
     fetched_count = sum(1 for item in all_results if item.get("fetch_status") == "fetched")
     metadata = {
