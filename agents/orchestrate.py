@@ -174,12 +174,14 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         output = destination / "video-production"
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
-                   "--topic", topic, "--format", fmt, "--out", relative_out, "--research"]
+                   "--topic", topic, "--format", fmt, "--out", relative_out]
+        if source_path is not None:
+            command.extend(["--source-file", str(source_path)])
+        else:
+            command.append("--research")
         duration_match = re.search(r"(?i)target[_ ]minutes\s*[:=]\s*(\d+(?:\.\d+)?)", text)
         if duration_match:
             command.extend(["--target-minutes", duration_match.group(1)])
-        if source_path is not None:
-            command.extend(["--source-file", str(source_path)])
         if render_requested and model_enabled:
             command.append("--render")
             if re.search(r"\b(with voice|with local narration|piper narration)\b", lower):
