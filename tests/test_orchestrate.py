@@ -403,6 +403,43 @@ class CEODelegationTests(unittest.TestCase):
             self.assertTrue((destination / "99-final-quality-review.md").is_file())
             self.assertTrue((destination / manifest["repair_attempt"]["repair_file"]).is_file())
 
+    def test_missing_reviewer_verdict_triggers_repair_instead_of_silent_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-unconfirmed"
+            review_count = 0
+
+            def fake_role(role, task, context, cfg):
+                nonlocal review_count
+                if role["id"] == "AGENT-08":
+                    review_count += 1
+                    if review_count == 1:
+                        return "# Review\\n\\nThe review omitted the required gate line.\\n"
+                    return "# Final review\\n\\nOVERALL QUALITY GATE: PASS\\n"
+                if "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
+                    return "# Repaired deliverable\\n\\nGate evidence added.\\n"
+                return "# Deliverable\\n\\nDraft output."
+
+            with (
+                patch.object(orchestrate, "ROOT", root),
+                patch.object(orchestrate, "WORKSPACE", workspace),
+                patch.object(orchestrate, "run_builtin_tools", return_value=[]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role),
+            ):
+                destination, manifest = orchestrate.run_pipeline(
+                    "Create a YouTube video with professional motion graphics",
+                    output_dir=output,
+                    config={"model": {"enabled": True, "max_output_tokens": 500}},
+                )
+
+            self.assertEqual(review_count, 2)
+            self.assertEqual(manifest["quality_gate"], "pass")
+            self.assertEqual(manifest["repair_attempt"]["initial_gate"], "unconfirmed")
+            self.assertEqual(manifest["repair_attempt"]["final_gate"], "pass")
+            self.assertTrue((destination / "99-final-quality-review.md").is_file())
+
     def test_explicit_reviewer_failure_is_preserved_in_pipeline_status(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
