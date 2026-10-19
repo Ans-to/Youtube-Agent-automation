@@ -41,11 +41,11 @@ Scene narration captions are paginated into readable two-line cards over the sce
 
 ## Free source discovery (optional)
 
-Add `--research` to collect public DuckDuckGo search-result titles, links, and snippets without an API key:
+Add `--research` to collect public DuckDuckGo search-result titles, links, snippets, and bounded extracted text from public webpages without an API key:
 
     python video_studio/production.py --topic "How AI agents work" --format long --research
 
-The package includes `research.md` and `research.json`. Search snippets are **discovery leads, not verified evidence**: open the linked pages, check publication dates, prefer primary sources, and confirm every factual claim before publishing. The collector does not download full articles or guarantee that the search provider will always be available. You may also provide curated local notes using `--source-file workspace/source-notes.md`.
+The package includes `research.md` and `research.json`. The collector attempts to fetch up to the requested number of public text pages, extracts a bounded amount of readable content, validates public IP addresses and redirect targets, and records fetch failures. Search snippets and extracted page text are **not automatic verification**: check publication dates, prefer primary sources, corroborate important claims, and confirm that sources actually support the statements before publishing. Common secrets and direct identifiers are redacted from search queries. The collector does not guarantee that the search provider or target websites will always be available. You may also provide curated local notes using `--source-file workspace/source-notes.md`.
 
 ## Explicit release approval and YouTube upload
 Review the script, storyboard, and rendered video. From the repository root:
