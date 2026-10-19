@@ -12,10 +12,11 @@ RESEARCH_DIR = ROOT / "video_studio"
 if str(RESEARCH_DIR) not in sys.path:
     sys.path.insert(0, str(RESEARCH_DIR))
 try:
-    from research import research as collect_web_research, render_markdown as render_research_markdown
+    from research import research as collect_web_research, render_markdown as render_research_markdown, sanitize_research_query
 except Exception:
     collect_web_research = None
     render_research_markdown = None
+    sanitize_research_query = lambda value: str(value or '')[:500]
 BASE=Path(__file__).resolve().parent
 ROOT=BASE.parent
 ROSTER=BASE/"roster.json"
@@ -93,13 +94,22 @@ def run_role(role,task,context,cfg):
     research_context = ""
     if collect_web_research is not None:
         try:
+            query_topic = sanitize_research_query(task)
             metadata, sources = collect_web_research(
-                task[:500],
-                queries=[task[:300], task[:250] + " official documentation",
-                         task[:250] + " independent analysis evidence"],
+                query_topic,
+                queries=[query_topic[:300], query_topic[:250] + " official documentation",
+                         query_topic[:250] + " independent analysis evidence"],
                 max_results=5,
             )
             research_context = render_research_markdown(metadata, sources)[:18000]
+            research_dir = (ROOT / "workspace" / "research" / "agent-runs").resolve()
+            research_dir.mkdir(parents=True, exist_ok=True)
+            report_name = role["id"].lower() + "-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".md"
+            report_path = research_dir / report_name
+            if research_dir not in report_path.parents:
+                raise ValueError("Research report path escaped the workspace.")
+            report_path.write_text(research_context.rstrip() + "\n", encoding="utf-8")
+            research_context += "\n\nSaved research report: " + str(report_path.relative_to(ROOT))
         except Exception as exc:
             research_context = (
                 "WEB RESEARCH ATTEMPT FAILED: " + type(exc).__name__ + ": " + str(exc)[:500] + "\n"
