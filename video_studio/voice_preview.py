@@ -217,30 +217,52 @@ def generate_voice_preview(text, output, overwrite=False):
     return destination
 
 
-def approve_existing_preview(path):
-    """Interactively approve a WAV only when its sidecar and voice fingerprint still match."""
-    destination = resolve_preview_output(path)
-    sidecar = sidecar_path_for(destination)
-    if not destination.is_file() or not sidecar.is_file():
-        raise ValueError("Preview WAV and its .preview.json sidecar are both required. Generate a fresh preview first.")
 
+def validate_preview_artifact(destination, config, workspace=WORKSPACE):
+    """Validate that a WAV sidecar and current configured voice profile still match."""
+    root = Path(workspace).expanduser().resolve()
+    preview = Path(destination).expanduser().resolve()
+    try:
+        relative_path = preview.relative_to(root).as_posix()
+    except ValueError as exc:
+        raise ValueError("Voice preview must remain inside the project workspace.") from exc
+
+    sidecar = sidecar_path_for(preview)
+    if not preview.is_file() or not sidecar.is_file():
+        raise ValueError("Preview WAV and its .preview.json sidecar are both required. Generate a fresh preview first.")
     try:
         metadata = json.loads(sidecar.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         raise ValueError("Voice preview sidecar is invalid JSON. Generate a fresh preview.") from exc
     if not isinstance(metadata, dict) or metadata.get("schema_version") != 1:
         raise ValueError("Voice preview sidecar schema is unsupported. Generate a fresh preview.")
-    relative_path = destination.relative_to(WORKSPACE).as_posix()
     if metadata.get("preview_relative_path") != relative_path:
         raise ValueError("The preview file path no longer matches its sidecar. Generate a fresh preview.")
-    if metadata.get("audio_sha256") != file_sha256(destination):
+    if metadata.get("audio_sha256") != file_sha256(preview):
         raise ValueError("The preview WAV changed after synthesis. Generate and listen to a fresh preview.")
-    inspect_wav(destination)
+    audio_report = inspect_wav(preview)
 
-    config = load_local_config(require_existing=True)
     current_fingerprint = urdu_voice_profile_sha256(config)
     if metadata.get("voice_profile_sha256") != current_fingerprint:
         raise ValueError("The configured voice/model/speaker profile changed after this preview. Generate and listen to a fresh preview.")
+    return {
+        "preview_path": preview,
+        "sidecar_path": sidecar,
+        "metadata": metadata,
+        "voice_profile_sha256": current_fingerprint,
+        "audio_report": audio_report,
+    }
+
+
+
+def approve_existing_preview(path):
+    """Interactively approve a WAV only when its sidecar and voice fingerprint still match."""
+    destination = resolve_preview_output(path)
+    config = load_local_config(require_existing=True)
+    validated = validate_preview_artifact(destination, config)
+    metadata = validated["metadata"]
+    current_fingerprint = validated["voice_profile_sha256"]
+    sidecar = validated["sidecar_path"]
 
     print("Preview WAV:", destination)
     print("Voice profile SHA-256:", current_fingerprint)
