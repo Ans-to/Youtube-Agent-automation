@@ -48,19 +48,24 @@ def release_workflow(name):
         if ACTIVE_WORKFLOW == name:
             ACTIVE_WORKFLOW = ""
             released = True
-    # A task submitted during another exclusive workflow must be picked up as
-    # soon as that workflow releases the gate; otherwise it could sit pending.
-    if released and name != "task runner" and not RUNNING and has_pending_tasks():
+    # Resume the queue once when an exclusive workflow releases the command
+    # core. Keeping this in one guarded path avoids duplicate worker starts.
+    if not released or name == "task runner" or RUNNING or not has_pending_tasks():
+        return
+    try:
+        start_task_runner()
+    except Exception as exc:
         try:
-            start_task_runner()
-        except Exception as exc:
             LOGS.mkdir(exist_ok=True)
             with (LOGS / "dashboard.log").open("a", encoding="utf-8") as log_file:
-                log_file.write("Could not resume pending queue after workflow release: " + type(exc).__name__ + "\\n")
-    # If a separate workflow temporarily owned the command core, resume any
-    # queued CEO tasks as soon as that workflow releases it.
-    if name != "task runner" and "has_pending_tasks" in globals() and has_pending_tasks():
-        start_task_runner()
+                log_file.write(
+                    "Could not resume pending queue after workflow release: "
+                    + type(exc).__name__ + "\n"
+                )
+        except OSError:
+            # Queue resumption was already best-effort; a logging failure must
+            # not mask the workflow's original completion path.
+            pass
 
 def load(path, default):
     try: return json.loads(path.read_text(encoding="utf-8"))

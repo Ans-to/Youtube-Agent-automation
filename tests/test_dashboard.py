@@ -87,6 +87,23 @@ class DashboardWorkflowTests(unittest.TestCase):
             self.assertEqual(tasks[0]["progress"]["phase"], "Specialist stage 2/4")
             self.assertNotIn("progress", tasks[1])
 
+    def test_release_workflow_resumes_pending_queue_exactly_once(self):
+        from unittest.mock import patch
+        dashboard.ACTIVE_WORKFLOW = "video workflow"
+        with patch.object(dashboard, "RUNNING", False), patch.object(dashboard, "has_pending_tasks", return_value=True), patch.object(dashboard, "start_task_runner", return_value=(True, "")) as start:
+            dashboard.release_workflow("video workflow")
+        start.assert_called_once_with()
+        self.assertEqual(dashboard.ACTIVE_WORKFLOW, "")
+
+    def test_release_workflow_does_not_resume_when_name_does_not_own_gate(self):
+        from unittest.mock import patch
+        dashboard.ACTIVE_WORKFLOW = "different workflow"
+        with patch.object(dashboard, "RUNNING", False), patch.object(dashboard, "has_pending_tasks", return_value=True), patch.object(dashboard, "start_task_runner") as start:
+            dashboard.release_workflow("video workflow")
+        start.assert_not_called()
+        self.assertEqual(dashboard.ACTIVE_WORKFLOW, "different workflow")
+        dashboard.ACTIVE_WORKFLOW = ""
+
     def test_workflow_gate_allows_only_one_active_workflow(self):
         claimed, active = dashboard.try_claim_workflow("test workflow")
         self.assertTrue(claimed)
