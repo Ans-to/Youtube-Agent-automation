@@ -1,0 +1,7 @@
+# Optional local Urdu voice runtime. Install PyTorch from its CPU-only wheel index first
+# on Windows so setup does not pull a CUDA build onto an 8 GB CPU-constrained PC.
+torch>=2.6.0,<3.0
+transformers>=4.57.1,<5.0
+huggingface_hub>=0.35.0,<2.0
+safetensors>=0.6.2,<1.0
+numpy>=1.26.0,<3.0
