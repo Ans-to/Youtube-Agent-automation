@@ -31,7 +31,7 @@ def requested_narration_language(text):
     explicit narration, voice-over, subtitle, caption, or 'language: ...' instructions.
     """
     match = re.search(
-        r"(?i)(?:\\b(?:narration|voice(?:[\\s-]?over)?|subtitles?|captions?)\\s+(?:language\\s*[:=]\\s*|in\\s+)|\\blanguage\\s*[:=]\\s*)(english|en|urdu(?:\\s*[-+&]\\s*english)?|ur(?:\\s*[-+&]\\s*en)?)\\b",
+        r"(?i)(?:\b(?:narration|voice(?:[\s-]?over)?|subtitles?|captions?)\s+(?:language\s*[:=]\s*|in\s+)|\blanguage\s*[:=]\s*)(english|en|urdu(?:\s*[-+&]\s*english)?|ur(?:\s*[-+&]\s*en)?)\b",
         str(text or ""),
     )
     if not match:
