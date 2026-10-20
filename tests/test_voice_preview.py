@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 import wave
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +51,59 @@ class VoicePreviewPathTests(unittest.TestCase):
                 "urdu_voice_approved_profile_sha256": "",
             }
         }
+
+    def test_voice_approval_decline_does_not_modify_local_config(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            workspace = project / "workspace"
+            workspace.mkdir()
+            config = self._custom_profile()
+            config_path = project / "config.json"
+            config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+            preview = workspace / "preview.wav"
+            self._write_preview_wav(preview)
+            self._write_sidecar(preview, workspace, config)
+
+            with patch("builtins.input", return_value="NO"):
+                approved = voice_preview.approve_existing_preview(
+                    "workspace/preview.wav", workspace=workspace, project_root=project
+                )
+            self.assertFalse(approved)
+            saved = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertFalse(saved["video_studio"]["urdu_voice_human_approved"])
+            self.assertEqual(saved["video_studio"]["urdu_voice_approved_profile_sha256"], "")
+            sidecar = json.loads(voice_preview.sidecar_path_for(preview).read_text(encoding="utf-8"))
+            self.assertFalse(sidecar["human_approved"])
+            self.assertEqual(sidecar["status"], "awaiting_human_review")
+
+    def test_voice_approval_requires_exact_confirmation_and_records_profile_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            workspace = project / "workspace"
+            workspace.mkdir()
+            config = self._custom_profile()
+            config_path = project / "config.json"
+            config_path.write_text(json.dumps(config, ensure_ascii=False), encoding="utf-8")
+            preview = workspace / "preview.wav"
+            self._write_preview_wav(preview)
+            self._write_sidecar(preview, workspace, config)
+            fingerprint = voice_preview.urdu_voice_profile_sha256(config)
+
+            with patch("builtins.input", return_value="APPROVE"):
+                approved = voice_preview.approve_existing_preview(
+                    "workspace/preview.wav", workspace=workspace, project_root=project
+                )
+
+            self.assertTrue(approved)
+            saved = json.loads(config_path.read_text(encoding="utf-8"))
+            self.assertTrue(voice_preview.urdu_voice_human_approved(saved))
+            self.assertEqual(
+                saved["video_studio"]["urdu_voice_approved_profile_sha256"],
+                fingerprint,
+            )
+            sidecar = json.loads(voice_preview.sidecar_path_for(preview).read_text(encoding="utf-8"))
+            self.assertTrue(sidecar["human_approved"])
+            self.assertEqual(sidecar["status"], "human_approved_for_current_profile")
 
     def test_preview_sidecar_and_voice_fingerprint_validate_when_unchanged(self):
         with tempfile.TemporaryDirectory() as tmp:
