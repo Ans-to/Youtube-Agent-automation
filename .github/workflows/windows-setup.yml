@@ -1,10 +1,8 @@
 name: Windows setup smoke test
 
+# Windows validation consumes separate hosted-runner minutes. Keep this check
+# available on demand so routine pushes use the consolidated Linux pipeline only.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -13,6 +11,7 @@ permissions:
 jobs:
   windows-setup:
     runs-on: windows-latest
+    timeout-minutes: 15
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
