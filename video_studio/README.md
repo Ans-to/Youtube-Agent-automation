@@ -62,6 +62,18 @@ The custom adapter path above is a contract example, not the default engine. The
 
 Speaker identity is deliberately not inferred. The default Kani adapter does not force an unverified speaker label. You may set `video_studio.kani_speaker_prefix` in your local config only to a prefix documented or tested for this exact fine-tuned model; that value is passed to the bundled adapter as a text prefix. No adult-male speaker prefix is currently verified by this repository. Human-listen-test the actual rendered sample before treating the adult-male voice requirement as met.
 
+## Urdu voice source ledger
+
+Implementation references inspected on **2026-10-20**:
+
+- [KaniTTS upstream basic example](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/README.md): documents the Python 3.10–3.12 setup range, model/codec pairing, Transformers 4.57.1, and first-run model downloads. Decision: pin the documented API/dependency family and isolate it from the main Agent HQ interpreter.
+- [Kani token generator](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/generation/generator.py): supplies the causal-model token-generation pattern, generation parameters, and human/text prompt format. Decision: use the model's speech-code output rather than a generic Transformers TTS pipeline.
+- [Kani NanoCodec decoder](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/audio/player.py) and [token constants](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/config.py): document the four-codebook offsets, special token IDs, 22.05 kHz output, and `AudioCodecModel.decode(tokens=..., tokens_len=...)`. Decision: implement the decoder path and add dependency-free tests for token interval validation and codebook offsets.
+- [NeMo NanoCodec model](https://huggingface.co/nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps): the decoder selected by the upstream example. Decision: load it once per batch and reject malformed or effectively silent WAV output.
+- [Pinned Urdu fine-tune](https://huggingface.co/mahwizzzz/kani-tts-400m-ur): used by the bundled adapter at revision `6f758dcedff6f33d74dacebab2876b3e536b8c89`. Its speaker identity, adult-male quality, and Urdu-English pronunciation are **not verified by code or model metadata alone**. Decision: expose a local speaker-prefix option, provide an audio-only preview, and require human approval fingerprinted to the selected adapter/model/prefix before production rendering.
+
+These are implementation references, not proof that the selected Urdu fine-tune is a suitable adult-male voice on Windows/CPU. If the isolated dependency install or human audio review fails, keep the voice approval flag false and do not release an Urdu-English production video.
+
 Subtitles are derived from narration text and timed within measured scene durations. The current subtitle timing is scene/phrase-level rather than forced word alignment. RTL layout improves Urdu text presentation but does not prove accurate punctuation, pronunciation, or natural voice quality.
 
 ## Device-aware rendering
