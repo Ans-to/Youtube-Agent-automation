@@ -34,6 +34,18 @@ def urdu_voice_human_approved(config):
     return value
 
 
+
+def require_urdu_voice_human_approval(config):
+    """Raise until a human has approved the actual local Urdu voice sample."""
+    if not urdu_voice_human_approved(config):
+        raise ValueError(
+            "Urdu-English production render is blocked pending human voice approval. "
+            "Listen to a real rendered sample and review adult-male voice identity, Urdu pronunciation, "
+            "and English technical terms; then set video_studio.urdu_voice_human_approved=true in config.json. "
+            "This setting is a human gate, not an automated proof of voice quality."
+        )
+
+
 def builtin_urdu_tts_command():
     """Run the bundled CPU adapter using this exact Python interpreter."""
     adapter = Path(__file__).resolve().with_name("urdu_tts_adapter.py")
