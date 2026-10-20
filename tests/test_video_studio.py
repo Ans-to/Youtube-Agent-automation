@@ -365,10 +365,14 @@ class VideoStudioTests(unittest.TestCase):
 
     def test_fallback_is_explicitly_not_researched(self):
         result = production.fallback("Test topic")
-        self.assertEqual(len(result["scenes"]), 4)
+        self.assertEqual(len(result["scenes"]), 6)
         self.assertIn("no web research was performed", result["script"])
         self.assertTrue(all(scene["duration_seconds"] > 0 for scene in result["scenes"]))
-        self.assertTrue(all(scene.get("visual_type") in {"hero", "diagram", "code", "timeline"} for scene in result["scenes"]))
+        self.assertAlmostEqual(sum(scene["duration_seconds"] for scene in result["scenes"]), 20.0)
+        self.assertEqual(
+            [scene["visual_type"] for scene in result["scenes"]],
+            ["hero", "diagram", "comparison", "code", "waveform", "timeline"],
+        )
 
 
 
