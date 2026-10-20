@@ -141,13 +141,19 @@ Before a render, `video_studio/studio.py` detects available RAM, CPU count, disk
 
 ## Tests
 
-Run locally:
+Run the portable quality gate from the repository root in Windows PowerShell, Command Prompt, Linux, or macOS:
+
 ```sh
-python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
-python -m unittest discover -s tests -v
+python tools/run_quality_gate.py
 ```
 
-GitHub Actions runs these checks on pushes and pull requests to `main`.
+That compiles project Python, runs the full unit-test suite, checks renderer JavaScript syntax when Node.js is installed, and prints the device-capability profile. For actual landscape and vertical MP4 renders, use the stricter end-to-end mode after installing Node.js, FFmpeg/FFprobe, and the renderer's Puppeteer dependency:
+
+```sh
+python tools/run_quality_gate.py --render-smoke --report workspace/local-quality-gate-report.json
+```
+
+The script exits non-zero if a required check fails and can save a JSON report. GitHub Actions checks run for pull requests to `main`, pushes to `main`, and manual runs from the Actions tab. If Actions usage limits block hosted runs, execute the local gate in the imported repository workspace.
 
 ## Privacy and security
 
