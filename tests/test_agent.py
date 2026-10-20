@@ -90,6 +90,29 @@ class AgentTests(unittest.TestCase):
         self.assertNotIn("worker_pid", task)
         self.assertIn("explicit retry", task["error"].lower())
 
+    def test_cycle_persists_orphan_recovery_without_replaying_task(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            queue = root / "tasks.json"
+            task = {
+                "id": "TASK-12", "title": "Interrupted task", "kind": "plan",
+                "input": "Do not replay me automatically.", "status": "running",
+                "worker_pid": 24682, "started_at": datetime.now().astimezone().isoformat(),
+                "output_file": "workspace/orchestration/task-TASK-12/existing-result.md"
+            }
+            queue.write_text(json.dumps([task]), encoding="utf-8")
+            with patch.object(agent, "TASKS", queue), patch.object(agent, "CONFIG", root / "config.json"), \\
+                 patch.object(agent, "LOGS", root / "logs"), patch.object(agent, "process_is_alive", return_value=False), \\
+                 patch.object(agent, "run_ceo_pipeline", side_effect=AssertionError("Interrupted work must not be replayed")):
+                self.assertEqual(agent.cycle(), 0)
+            saved = json.loads(queue.read_text(encoding="utf-8"))[0]
+            self.assertEqual(saved["status"], "needs_human_action")
+            self.assertEqual(saved["output_file"], "workspace/orchestration/task-TASK-12/existing-result.md")
+            self.assertEqual(saved["interrupted_worker_pid"], 24682)
+            self.assertIn("Progress and existing outputs were preserved", saved["error"])
+
     def test_interrupted_task_with_live_worker_is_not_touched(self):
         from datetime import datetime
         now = datetime.now().astimezone()
