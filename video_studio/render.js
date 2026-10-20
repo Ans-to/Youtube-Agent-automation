@@ -50,6 +50,10 @@ async function main(){
    english:window.textDirectionForTest("English API")
   }));
   if(directionCheck.urdu!=="rtl"||directionCheck.english!=="ltr")throw new Error("Script-direction regression: Urdu must be RTL and English LTR. "+JSON.stringify(directionCheck));
+  const rigCheck=await page.evaluate(()=>window.characterRigCapabilitiesForTest());
+  const requiredJoints=["shoulder","elbow","wrist","hip","knee","ankle","neck","head"];
+  const requiredVisemes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
+  if(!rigCheck||rigCheck.version!==2||!requiredJoints.every(x=>rigCheck.joints.includes(x))||!requiredVisemes.every(x=>rigCheck.visemeShapes.includes(x)))throw new Error("Character-rig capability regression: "+JSON.stringify(rigCheck));
   const captionCheck=await page.evaluate(()=>{
    const text=Array.from({length:80},(_,i)=>"captionword"+i).join(" ");
    const info=window.captionPageForTest(text,180,"16px Arial",0.5);
