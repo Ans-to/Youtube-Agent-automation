@@ -85,11 +85,20 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertTrue(claimed_after_release)
 
     def test_dashboard_exposes_ceo_intake_and_disables_manual_specialist_selection(self):
-        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'AGENT-01 (CEO) chooses the specialists', 'progressMarkup(t)'):
+        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'CEO Command Deck', 'CEO-managed queue', 'AGENT-01 (CEO) chooses the specialists', 'Direct specialist runs and manual role selection are disabled', 'progressMarkup(t)'):
             with self.subTest(action=action):
                 self.assertIn(action, dashboard.HTML_PAGE)
         self.assertNotIn('name="agents"', dashboard.HTML_PAGE)
         self.assertNotIn('OPTIONAL SPECIALIST OVERRIDE', dashboard.HTML_PAGE)
+        self.assertNotIn('action="/practice-agent"', dashboard.HTML_PAGE)
+        self.assertNotIn('Specialist practice lab', dashboard.HTML_PAGE)
+
+    def test_direct_specialist_route_is_blocked(self):
+        import inspect
+        source = inspect.getsource(dashboard.Handler.do_POST)
+        self.assertIn('if path == "/practice-agent":', source)
+        self.assertIn('Direct specialist execution is disabled', source)
+        self.assertNotIn('agents" / "practice.py', source)
 
     def test_video_and_product_outputs_are_reported_in_state(self):
         state = dashboard.task_state()
