@@ -54,6 +54,14 @@ async function main(){
   const requiredJoints=["shoulder","elbow","wrist","hip","knee","ankle","neck","head"];
   const requiredVisemes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
   if(!rigCheck||rigCheck.version!==2||!requiredJoints.every(x=>rigCheck.joints.includes(x))||!requiredVisemes.every(x=>rigCheck.visemeShapes.includes(x)))throw new Error("Character-rig capability regression: "+JSON.stringify(rigCheck));
+  const rigDrawCheck=await page.evaluate(()=>{
+   const shapes=window.characterRigCapabilitiesForTest().visemeShapes;
+   for(const shape of shapes){
+    window.drawCharacterForTest({enabled:true,x:0.5,y:0.5,scale:0.2,expression:"curious",pose:"explain",visemes:[{t:0,shape},{t:1,shape}]},0.5,42);
+   }
+   return {shapes_drawn:shapes.length,canvas_width:canvas.width,canvas_height:canvas.height};
+  });
+  if(!rigDrawCheck||rigDrawCheck.shapes_drawn!==requiredVisemes.length||rigDrawCheck.canvas_width!==w||rigDrawCheck.canvas_height!==h)throw new Error("Character-rig draw smoke check failed: "+JSON.stringify(rigDrawCheck));
   const captionCheck=await page.evaluate(()=>{
    const text=Array.from({length:80},(_,i)=>"captionword"+i).join(" ");
    const info=window.captionPageForTest(text,180,"16px Arial",0.5);
