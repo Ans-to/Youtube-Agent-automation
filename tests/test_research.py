@@ -1,6 +1,6 @@
 import unittest
 
-from video_studio.research import PageTextParser, fetch_page, parse_results, research, safe_public_url, sanitize_research_query
+from video_studio.research import PageTextParser, fetch_page, parse_results, render_markdown, research, safe_public_url, sanitize_research_query
 
 
 SAMPLE_HTML = """
@@ -38,6 +38,47 @@ class ResearchTests(unittest.TestCase):
         self.assertIn("Useful heading", text)
         self.assertIn("Readable evidence", text)
         self.assertNotIn("secret()", text)
+
+    def test_extracts_published_and_modified_dates_without_conflating_them(self):
+        parser = PageTextParser()
+        parser.feed(
+            '<html><head>'
+            '<meta property="article:published_time" content="2026-10-12T09:30:00Z">'
+            '<meta property="article:modified_time" content="2026-10-18T10:00:00Z">'
+            '</head><body><p>Source content.</p></body></html>'
+        )
+        self.assertEqual(parser.published_date, "2026-10-12T09:30:00Z")
+        self.assertEqual(parser.date_source, "article:published_time")
+        self.assertEqual(parser.modified_date, "2026-10-18T10:00:00Z")
+
+    def test_research_report_displays_source_dates_as_unverified_metadata(self):
+        report = render_markdown(
+            {
+                "topic": "date metadata",
+                "collected_at": "2026-10-20T00:00:00+00:00",
+                "engine": "test search",
+                "result_count": 1,
+                "pages_fetched": 1,
+                "pages_attempted": 1,
+                "search_errors": [],
+                "page_errors": [],
+            },
+            [{
+                "source_id": "S1",
+                "title": "Example source",
+                "url": "https://example.com/article",
+                "query": "date metadata",
+                "snippet": "Example snippet",
+                "fetch_status": "fetched",
+                "page_title": "Example",
+                "page_text": "Evidence",
+                "published_date": "2026-10-12",
+                "published_date_source": "article:published_time",
+                "modified_date": "2026-10-18",
+            }],
+        )
+        self.assertIn("Publication date (page metadata; not independently verified): 2026-10-12", report)
+        self.assertIn("Modified date (page metadata; not independently verified): 2026-10-18", report)
 
     def test_research_query_redacts_common_identifiers_and_secrets(self):
         query = sanitize_research_query(
