@@ -344,6 +344,9 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
             if item.get("fetch_status") == "fetched" else None
         )
     all_results = page_targets + [item for item in all_results if item["url"] not in selected_urls]
+    # Stable, per-report source IDs make scene-level evidence references auditable.
+    for source_index, item in enumerate(all_results, start=1):
+        item["source_id"] = "S" + str(source_index)
 
     fetched_count = sum(1 for item in all_results if item.get("fetch_status") == "fetched")
     metadata = {
@@ -375,8 +378,9 @@ def render_markdown(metadata, results, max_page_text=2500):
         "",
     ]
     for index, item in enumerate(results, start=1):
+        source_id = str(item.get("source_id") or ("S" + str(index)))
         lines.extend([
-            "## [S" + str(index) + "] " + item["title"],
+            "## [" + source_id + "] " + item["title"],
             "- URL: " + item["url"],
             "- Requested domain: " + str(item.get("requested_domain", "")),
             "- Final domain: " + str(item.get("final_domain", item.get("requested_domain", ""))),
