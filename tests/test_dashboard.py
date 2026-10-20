@@ -84,10 +84,12 @@ class DashboardWorkflowTests(unittest.TestCase):
         claimed_after_release, _ = dashboard.try_claim_workflow("another workflow")
         self.assertTrue(claimed_after_release)
 
-    def test_dashboard_exposes_video_product_and_specialist_forms(self):
-        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'Leave blank: CEO chooses the team', 'progressMarkup(t)'):
+    def test_dashboard_exposes_ceo_intake_and_disables_manual_specialist_selection(self):
+        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'AGENT-01 (CEO) chooses the specialists', 'progressMarkup(t)'):
             with self.subTest(action=action):
                 self.assertIn(action, dashboard.HTML_PAGE)
+        self.assertNotIn('name="agents"', dashboard.HTML_PAGE)
+        self.assertNotIn('OPTIONAL SPECIALIST OVERRIDE', dashboard.HTML_PAGE)
 
     def test_video_and_product_outputs_are_reported_in_state(self):
         state = dashboard.task_state()
