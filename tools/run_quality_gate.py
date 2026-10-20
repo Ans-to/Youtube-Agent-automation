@@ -139,35 +139,50 @@ def main() -> int:
     ))
 
     if args.render_smoke:
-        missing = [tool for tool in ("node", "ffmpeg", "ffprobe") if not shutil.which(tool)]
-        if not (ROOT / "video_studio" / "node_modules" / "puppeteer").exists():
-            missing.append("video_studio/node_modules/puppeteer (run npm install in video_studio)")
-        if missing:
+        # These tiny smoke videos validate rendering, not the local TTS model.
+        # Explicit English allows the renderer smoke test to stay offline and
+        # avoids accidentally requiring an Urdu TTS model just to test visuals.
+        free_bytes = shutil.disk_usage(ROOT).free
+        minimum_free_bytes = 1024 * 1024 * 1024
+        if free_bytes < minimum_free_bytes:
             results.append({
                 "name": "Actual MP4 render smoke tests",
                 "status": "FAIL",
-                "reason": "Missing required renderer dependencies: " + ", ".join(missing),
+                "reason": (
+                    "At least 1 GiB free disk space is required before rendering; "
+                    f"only {free_bytes // (1024 * 1024)} MiB is free. Free disk space and retry."
+                ),
             })
         else:
-            results.append(run_step(
-                "Landscape MP4 render smoke",
-                [sys.executable, "video_studio/studio.py", "--storyboard", "storyboard.smoke.json", "--output", "outputs/ci-smoke.mp4"],
-                timeout=1200,
-            ))
-            results.append(run_step(
-                "Vertical Shorts MP4 render smoke",
-                [sys.executable, "video_studio/studio.py", "--storyboard", "storyboard.smoke-shorts.json", "--output", "outputs/ci-smoke-shorts.mp4"],
-                timeout=1200,
-            ))
-            output_dir = ROOT / "video_studio" / "outputs"
-            for stem in ("ci-smoke", "ci-smoke-shorts"):
-                for suffix in (".mp4", ".srt", ".vtt", ".capabilities.json"):
-                    artifact = output_dir / (stem + suffix)
-                    results.append({
-                        "name": f"Output integrity: {artifact.relative_to(ROOT)}",
-                        "status": "PASS" if artifact.is_file() and artifact.stat().st_size > 0 else "FAIL",
-                        "path": str(artifact.relative_to(ROOT)),
-                    })
+            missing = [tool for tool in ("node", "ffmpeg", "ffprobe") if not shutil.which(tool)]
+            if not (ROOT / "video_studio" / "node_modules" / "puppeteer").exists():
+                missing.append("video_studio/node_modules/puppeteer (run npm install in video_studio)")
+            if missing:
+                results.append({
+                    "name": "Actual MP4 render smoke tests",
+                    "status": "FAIL",
+                    "reason": "Missing required renderer dependencies: " + ", ".join(missing),
+                })
+            else:
+                results.append(run_step(
+                    "Landscape MP4 render smoke",
+                    [sys.executable, "video_studio/studio.py", "--storyboard", "storyboard.smoke.json", "--output", "outputs/ci-smoke.mp4", "--language", "en"],
+                    timeout=1200,
+                ))
+                results.append(run_step(
+                    "Vertical Shorts MP4 render smoke",
+                    [sys.executable, "video_studio/studio.py", "--storyboard", "storyboard.smoke-shorts.json", "--output", "outputs/ci-smoke-shorts.mp4", "--language", "en"],
+                    timeout=1200,
+                ))
+                output_dir = ROOT / "video_studio" / "outputs"
+                for stem in ("ci-smoke", "ci-smoke-shorts"):
+                    for suffix in (".mp4", ".srt", ".vtt", ".capabilities.json"):
+                        artifact = output_dir / (stem + suffix)
+                        results.append({
+                            "name": f"Output integrity: {artifact.relative_to(ROOT)}",
+                            "status": "PASS" if artifact.is_file() and artifact.stat().st_size > 0 else "FAIL",
+                            "path": str(artifact.relative_to(ROOT)),
+                        })
 
     failures = [result for result in results if result["status"] == "FAIL"]
     report = {
