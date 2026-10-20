@@ -117,12 +117,28 @@ def main() -> int:
         [sys.executable, "-m", "compileall", "-q", "dashboard.py", "agent.py", "queue_store.py", "bridge", "agents", "video_studio", "product_studio", "tools"],
         timeout=180,
     ))
-    results.append(run_step(
-        "Full unit test suite",
-        [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"],
-        timeout=900,
-        stream_output=True,
-    ))
+    test_files = sorted((ROOT / "tests").glob("test_*.py"))
+    if not test_files:
+        results.append({
+            "name": "Full unit test suite",
+            "status": "FAIL",
+            "reason": "No tests/test_*.py modules were found.",
+        })
+    else:
+        for test_file in test_files:
+            result = run_step(
+                "Unit tests: " + test_file.name,
+                [
+                    sys.executable, "-m", "unittest", "discover",
+                    "-s", "tests", "-p", test_file.name, "-v",
+                ],
+                timeout=900,
+                stream_output=True,
+            )
+            results.append(result)
+            if result.get("error") == "interrupted by user":
+                # Do not launch more test processes after an explicit interruption.
+                break
 
     node = shutil.which("node")
     if node:
