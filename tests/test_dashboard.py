@@ -90,8 +90,8 @@ class DashboardWorkflowTests(unittest.TestCase):
     def test_release_workflow_resumes_pending_queue_exactly_once(self):
         from unittest.mock import patch
         dashboard.ACTIVE_WORKFLOW = "video workflow"
-        with patch.object(dashboard, "RUNNING", False), \\
-             patch.object(dashboard, "has_pending_tasks", return_value=True), \\
+        with patch.object(dashboard, "RUNNING", False), \
+             patch.object(dashboard, "has_pending_tasks", return_value=True), \
              patch.object(dashboard, "start_task_runner", return_value=(True, "")) as start:
             dashboard.release_workflow("video workflow")
         start.assert_called_once_with()
@@ -100,8 +100,8 @@ class DashboardWorkflowTests(unittest.TestCase):
     def test_release_workflow_does_not_resume_when_name_does_not_own_gate(self):
         from unittest.mock import patch
         dashboard.ACTIVE_WORKFLOW = "different workflow"
-        with patch.object(dashboard, "RUNNING", False), \\
-             patch.object(dashboard, "has_pending_tasks", return_value=True), \\
+        with patch.object(dashboard, "RUNNING", False), \
+             patch.object(dashboard, "has_pending_tasks", return_value=True), \
              patch.object(dashboard, "start_task_runner") as start:
             dashboard.release_workflow("video workflow")
         start.assert_not_called()
