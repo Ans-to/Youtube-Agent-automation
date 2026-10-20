@@ -6,5 +6,5 @@ services:
     branch: render-ci-test-runner
     dockerfilePath: ./ci/render/Dockerfile
     dockerContext: .
-    autoDeploy: false
+    autoDeployTrigger: off
     healthCheckPath: /health
