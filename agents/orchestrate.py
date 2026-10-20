@@ -497,6 +497,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                     errors.append("Package-status JSON could not be validated: " + str(exc)[:250])
 
             check["checks"].append("script_storyboard_package_status")
+            traceable_source_ids = set()
             if package_status and package_status.get("web_research_performed") is True:
                 research_md = require_file(target, "research.md", errors)
                 research_json_path = require_file(target, "research.json", errors)
@@ -536,8 +537,13 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                             if not isinstance(domain, str) or not domain.strip():
                                 errors.append("Fetched research source is missing its final domain.")
                                 continue
+                            source_id = source.get("source_id")
+                            if not isinstance(source_id, str) or not re.fullmatch(r"S[1-9][0-9]*", source_id):
+                                errors.append("Fetched research source is missing a valid stable source ID.")
+                                continue
                             fetched_count += 1
                             fetched_domains.add(domain.lower().rstrip("."))
+                            traceable_source_ids.add(source_id)
                         if fetched_count < 1:
                             errors.append("Research was marked complete without any fetched, traceable source-page text.")
                         summary = package_status.get("research_evidence")
@@ -551,6 +557,27 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                     except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
                         errors.append("Research JSON could not be validated: " + str(exc)[:250])
                 check["checks"].append("research_source_text_provenance_and_manifest_parity")
+            if package_status and package_status.get("generated_by") == "local_model_multi_pass" and isinstance(storyboard, dict):
+                for scene_index, scene in enumerate(storyboard.get("scenes", []), start=1):
+                    if not isinstance(scene, dict):
+                        errors.append("Scene " + str(scene_index) + " must be an object before evidence can be validated.")
+                        continue
+                    refs = scene.get("source_refs")
+                    if not isinstance(refs, list) or not all(isinstance(ref, str) for ref in refs):
+                        errors.append("Scene " + str(scene_index) + " must contain a source_refs array.")
+                        continue
+                    unknown_refs = [ref for ref in refs if ref not in traceable_source_ids]
+                    if unknown_refs:
+                        errors.append("Scene " + str(scene_index) + " cites unavailable or unfetched source IDs: " + ", ".join(unknown_refs))
+                    evidence_status = scene.get("evidence_status")
+                    unresolved = scene.get("unresolved_notes")
+                    if refs and evidence_status != "source_linked_requires_review":
+                        errors.append("Scene " + str(scene_index) + " has source references but lacks the correct review status.")
+                    if not refs and evidence_status != "needs_human_verification":
+                        errors.append("Scene " + str(scene_index) + " without source references must be marked for human verification.")
+                    if not refs and (not isinstance(unresolved, list) or not unresolved):
+                        errors.append("Scene " + str(scene_index) + " without source references must record unresolved verification notes.")
+                check["checks"].append("scene_level_source_reference_validation")
             if result.get("render_expected") is True:
                 video = require_file(target, "video.mp4", errors)
                 srt = require_file(target, "video.srt", errors)
