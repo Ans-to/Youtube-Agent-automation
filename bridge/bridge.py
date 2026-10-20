@@ -101,7 +101,7 @@ def public_result(response: dict) -> dict:
     if action == "self_test":
         public["result"]["syntax_checked"] = [
             name for name in result.get("syntax_checked", [])
-            if name in {"agent.py", "dashboard.py", "queue_store.py", "dispatch.py", "orchestrate.py", "skillbooks.json", "practice.py", "bridge.py", "studio.py", "production.py", "research.py", "validate_render.py", "validate_frames.py", "release_gate.py", "publish_youtube.py", "build_product.py"}
+            if name in {"agent.py", "dashboard.py", "queue_store.py", "dispatch.py", "orchestrate.py", "skillbooks.json", "practice.py", "bridge.py", "studio.py", "capabilities.py", "render_lock.py", "production.py", "voice_backends.py", "piper_urdu_tts_adapter.py", "urdu_tts_adapter.py", "voice_preview.py", "captions.py", "research.py", "validate_render.py", "validate_frames.py", "quality_audit.py", "release_gate.py", "publish_youtube.py", "build_product.py", "run_quality_gate.py", "config.example.json"}
         ]
     elif action in {"create_task", "run_task"}:
         public["result"]["task_id"] = result.get("task_id")
@@ -163,12 +163,17 @@ def run_self_test() -> dict:
         PROJECT / "agent.py", PROJECT / "dashboard.py", PROJECT / "queue_store.py",
         PROJECT / "agents" / "dispatch.py", PROJECT / "agents" / "orchestrate.py", PROJECT / "agents" / "practice.py",
         PROJECT / "bridge" / "bridge.py",
-        PROJECT / "video_studio" / "studio.py", PROJECT / "video_studio" / "production.py",
-        PROJECT / "video_studio" / "research.py", PROJECT / "video_studio" / "validate_render.py",
-        PROJECT / "video_studio" / "validate_frames.py", PROJECT / "video_studio" / "release_gate.py",
+        PROJECT / "video_studio" / "studio.py", PROJECT / "video_studio" / "capabilities.py",
+        PROJECT / "video_studio" / "render_lock.py", PROJECT / "video_studio" / "production.py",
+        PROJECT / "video_studio" / "voice_backends.py", PROJECT / "video_studio" / "piper_urdu_tts_adapter.py",
+        PROJECT / "video_studio" / "urdu_tts_adapter.py", PROJECT / "video_studio" / "voice_preview.py",
+        PROJECT / "video_studio" / "captions.py", PROJECT / "video_studio" / "research.py",
+        PROJECT / "video_studio" / "validate_render.py", PROJECT / "video_studio" / "validate_frames.py",
+        PROJECT / "video_studio" / "quality_audit.py", PROJECT / "video_studio" / "release_gate.py",
         PROJECT / "video_studio" / "publish_youtube.py", PROJECT / "product_studio" / "build_product.py",
+        PROJECT / "tools" / "run_quality_gate.py",
     ]
-    json_files = [PROJECT / "agents" / "roster.json", PROJECT / "agents" / "skillbooks.json"]
+    json_files = [PROJECT / "agents" / "roster.json", PROJECT / "agents" / "skillbooks.json", PROJECT / "config.example.json"]
     documentation_files = [PROJECT / "agents" / "MOTION_DESIGN_SYSTEM.md", PROJECT / "agents" / "TRAINING.md"]
     required = python_files + json_files + documentation_files
     missing = [str(path.relative_to(PROJECT)) for path in required if not path.is_file()]
