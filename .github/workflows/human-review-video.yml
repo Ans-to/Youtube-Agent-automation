@@ -60,23 +60,23 @@ jobs:
           voice_dir=video_studio/voices/en_US-lessac-medium
           mkdir -p "$voice_dir"
           curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
-          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
           test -s "$voice_dir/en_US-lessac-medium.onnx"
           test -s "$voice_dir/en_US-lessac-medium.onnx.json"
 
       - name: Render landscape visual review video
         env:
           PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+          TOPIC: ${{ inputs.topic || 'Every frame is code — faceless video studio preview' }}
         run: |
-          topic="${{ github.event.inputs.topic || 'Every frame is code — faceless video studio preview' }}"
-          python video_studio/production.py --topic "$topic" --out workspace/human-review/landscape --format long --language en --render-template
+          python video_studio/production.py --topic "$TOPIC" --out workspace/human-review/landscape --format long --language en --render-template
 
       - name: Render vertical Shorts visual review video
         env:
           PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+          TOPIC: ${{ inputs.topic || 'Every frame is code — faceless video studio preview' }}
         run: |
-          topic="${{ github.event.inputs.topic || 'Every frame is code — faceless video studio preview' }}"
-          python video_studio/production.py --topic "$topic" --out workspace/human-review/shorts --format shorts --language en --render-template
+          python video_studio/production.py --topic "$TOPIC" --out workspace/human-review/shorts --format shorts --language en --render-template
 
       - name: Verify review package completeness and video streams
         run: |
