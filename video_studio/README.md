@@ -41,6 +41,12 @@ Urdu-English voice setup:
 
 The bundled KaniTTS adapter is selected automatically when video_studio.urdu_tts_command is left as an empty array in config.json; this is the default in config.example.json. Run START_HERE.bat and approve the optional CPU-only Urdu TTS dependency install. The adapter loads the pinned KaniTTS Urdu snapshot once per video and synthesizes scenes sequentially to limit memory use. The first render needs internet access and enough disk space for the Urdu model and codec caches (roughly 1.5 GB per upstream setup guidance). CPU generation can be slow on an 8 GB machine.
 
+Before enabling production renders, audition an isolated WAV preview (this does not create an MP4 and does not approve the voice):
+
+    python video_studio/voice_preview.py --text "آج ہم Python API کو step by step سمجھیں گے۔" --output workspace/urdu-voice-preview.wav
+
+The first preview downloads the configured model and codec if they are not cached. Change `video_studio.kani_speaker_prefix` in your local `config.json` only to try a documented/testable speaker prefix, rerun the preview to a different WAV filename, and listen to each result. Keep the approval flag false if none meets the requirement.
+
 **Human voice approval is required before any Urdu-English production render.** The default configuration sets `video_studio.urdu_voice_human_approved` to `false`. First generate/listen to a real sample using your local setup; check that it is intelligible Pakistani Urdu, preserves English technical terms, and uses the required adult-male voice. Only after that review set `"urdu_voice_human_approved": true` in your local `config.json`. This is a user attestation, not an automated quality measurement. If the current model or speaker prefix is unsuitable, leave it false and do not release the video. Never commit the local config or tokens.
 
 A custom adapter may be configured in config.json (never commit this file). Its command is an argument array, not a shell string, and must contain either {manifest_file} for a batch adapter or both {text_file} and {output_file} for a per-scene adapter. For example:
