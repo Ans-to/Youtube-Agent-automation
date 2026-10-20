@@ -19,6 +19,57 @@ class BridgeTests(unittest.TestCase):
         self.assertIn("MOTION_DESIGN_SYSTEM.md", checked)
         self.assertIn("TRAINING.md", checked)
 
+
+    def test_create_local_task_adds_approved_bounded_task_atomically(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            project.mkdir(exist_ok=True)
+            (project / "tasks.json").write_text(
+                json.dumps([{"id": "TASK-0004", "status": "completed"}]),
+                encoding="utf-8",
+            )
+            with patch.object(bridge, "PROJECT", project):
+                result = bridge.create_local_task(
+                    "Mobile task", "youtube_package", "Make a researched Urdu-English video draft."
+                )
+            self.assertTrue(result["ok"], result)
+            self.assertEqual(result["task_id"], "TASK-0005")
+            self.assertEqual(result["status"], "queued")
+            tasks = json.loads((project / "tasks.json").read_text(encoding="utf-8"))
+            self.assertEqual(tasks[-1]["kind"], "youtube_package")
+            self.assertEqual(tasks[-1]["status"], "pending")
+            self.assertEqual(tasks[-1]["created_via"], "approved_github_mobile_bridge")
+
+    def test_create_local_task_rejects_invalid_kind_and_oversized_input(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            project = Path(directory)
+            with patch.object(bridge, "PROJECT", project):
+                bad_kind = bridge.create_local_task("Mobile task", "shell", "do anything")
+                too_long = bridge.create_local_task("Mobile task", "draft", "x" * 16001)
+            self.assertFalse(bad_kind["ok"])
+            self.assertFalse(too_long["ok"])
+            self.assertFalse((project / "tasks.json").exists())
+
+    def test_mobile_task_result_exposes_only_task_id_and_status(self):
+        public = bridge.public_result({
+            "id": "create-task-1",
+            "action": "create_task",
+            "completed_at": "now",
+            "result": {
+                "ok": True, "task_id": "TASK-0005", "status": "queued",
+                "input": "PRIVATE PROMPT", "project_path": "/private/path",
+            },
+        })
+        self.assertEqual(public["result"]["task_id"], "TASK-0005")
+        self.assertEqual(public["result"]["status"], "queued")
+        self.assertNotIn("PRIVATE PROMPT", str(public))
+        self.assertNotIn("/private/path", str(public))
+
     def test_valid_request_ids_are_path_safe(self):
         self.assertTrue(bridge.valid_request_id("self-test-004"))
         self.assertTrue(bridge.valid_request_id("run_task_12"))
