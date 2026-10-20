@@ -58,6 +58,28 @@ def parse_json_response(content, label):
     return value
 
 
+
+def run_strict_quality_audit(output_dir):
+    """Run strict technical QA and fail closed if the final MP4 is not release-ready."""
+    video_path = output_dir / "video.mp4"
+    report_path = output_dir / "video.qc.json"
+    command = [
+        sys.executable, str(BASE / "quality_audit.py"), str(video_path),
+        "--strict", "--report", str(report_path),
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, timeout=900)
+    if result.stdout:
+        print(result.stdout.rstrip())
+    if result.stderr:
+        print(result.stderr.rstrip(), file=sys.stderr)
+    if result.returncode != 0:
+        raise RuntimeError("strict quality audit returned exit code " + str(result.returncode))
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    if report.get("strict") is not True or report.get("passed") is not True or report.get("warnings") != []:
+        raise RuntimeError("strict quality report is missing, non-passing, or contains warnings")
+    return report
+
+
 def should_collect_research(*, research_requested, model_enabled, render_template):
     """Require web research for model-generated packages; keep offline demos deterministic."""
     return bool(research_requested or (model_enabled and not render_template))
