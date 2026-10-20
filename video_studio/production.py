@@ -328,8 +328,8 @@ def fallback(topic):
     # Fallback previews must exercise the integrated character/graphics composition.
     for index, scene in enumerate(scenes):
         scene["character"] = {
-            "enabled": True, "speaking": True, "x": 0.91, "y": 0.63,
-            "scale": 0.205, "walking": 0,
+            "enabled": True, "speaking": True, "x": 0.92, "y": 0.63,
+            "scale": 0.33, "walking": 0,
             "expression": ("curious", "confident", "focused", "concerned")[index % 4],
             "pose": ("explain", "point", "think", "explain")[index % 4],
             "skin": "#c58e72", "hair": "#25212a", "shirt": "#6479b8",
