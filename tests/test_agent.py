@@ -103,8 +103,8 @@ class AgentTests(unittest.TestCase):
                 "output_file": "workspace/orchestration/task-TASK-12/existing-result.md"
             }
             queue.write_text(json.dumps([task]), encoding="utf-8")
-            with patch.object(agent, "TASKS", queue), patch.object(agent, "CONFIG", root / "config.json"), \\
-                 patch.object(agent, "LOGS", root / "logs"), patch.object(agent, "process_is_alive", return_value=False), \\
+            with patch.object(agent, "TASKS", queue), patch.object(agent, "CONFIG", root / "config.json"), \
+                 patch.object(agent, "LOGS", root / "logs"), patch.object(agent, "process_is_alive", return_value=False), \
                  patch.object(agent, "run_ceo_pipeline", side_effect=AssertionError("Interrupted work must not be replayed")):
                 self.assertEqual(agent.cycle(), 0)
             saved = json.loads(queue.read_text(encoding="utf-8"))[0]
