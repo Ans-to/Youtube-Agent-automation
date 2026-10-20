@@ -12,6 +12,7 @@ from pathlib import Path
 BASE = Path(__file__).resolve().parent
 sys.path.insert(0, str(BASE))
 from captions import build_subtitles, validate_english_text, validate_english_voice_model, validate_subtitle_text
+from capabilities import profile_device
 
 
 def run(command, cwd=BASE, timeout=1800, **kwargs):
@@ -85,7 +86,14 @@ def main():
     parser.add_argument("--output", default="outputs/offline-agent-hq-demo.mp4")
     parser.add_argument("--with-voice", action="store_true", help="Use local Piper CLI and PIPER_MODEL path")
     parser.add_argument("--keep-frames", action="store_true", help="Keep PNG frames after a successful MP4 render")
+    parser.add_argument("--print-capabilities", action="store_true", help="Print detected device profile and exit")
     args = parser.parse_args()
+    profile = profile_device(BASE)
+    if args.print_capabilities:
+        print(json.dumps(profile, indent=2))
+        return
+    print("Device profile:", json.dumps({key: profile[key] for key in ("tier", "ram_gib", "render_threads", "max_parallel_heavy_jobs", "reason")}, ensure_ascii=False))
+    print("Quality policy: requested dimensions and frame rate are preserved; the renderer will not silently downgrade output quality.")
     node, ffmpeg, ffprobe = shutil.which("node"), shutil.which("ffmpeg"), shutil.which("ffprobe")
     if not node:
         raise SystemExit("Node.js was not found. Install Node.js LTS first.")
@@ -132,6 +140,8 @@ def main():
     output_arg = Path(args.output).expanduser()
     output = output_arg.resolve() if output_arg.is_absolute() else (BASE / output_arg).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
+    profile_path = output.with_suffix(".capabilities.json")
+    profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
     silent = output.with_name(output.stem + ".silent.mp4")
     srt_path, vtt_path = output.with_suffix(".srt"), output.with_suffix(".vtt")
     srt_text, vtt_text = build_subtitles(data)
@@ -142,7 +152,7 @@ def main():
     frames = BASE / "frames" / "frame-%06d.png"
     run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-framerate", str(fps),
          "-i", str(frames), "-frames:v", str(manifest["frame_count"]),
-         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "20",
+         "-c:v", "libx264", "-threads", str(profile["render_threads"]), "-pix_fmt", "yuv420p", "-crf", "20",
          "-movflags", "+faststart", str(silent)])
     if args.with_voice:
         combined = voice_dir / "combined.wav"
