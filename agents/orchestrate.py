@@ -499,7 +499,11 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                         if qc_report.get("strict") is not True or qc_report.get("passed") is not True:
                             errors.append("Technical QA report is not a strict passing report.")
                         if nonempty_file(video):
-                            actual_hash = hashlib.sha256(video.read_bytes()).hexdigest()
+                            digest = hashlib.sha256()
+                            with video.open("rb") as video_stream:
+                                for chunk in iter(lambda: video_stream.read(1024 * 1024), b""):
+                                    digest.update(chunk)
+                            actual_hash = digest.hexdigest()
                             if qc_report.get("video_sha256") != actual_hash:
                                 errors.append("Technical QA report hash does not match the rendered MP4.")
                             if package_status and package_status.get("quality_report_video_sha256") != actual_hash:
