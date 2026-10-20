@@ -109,6 +109,34 @@ class UrduTtsAdapterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "duplicate output"):
                 adapter.read_manifest(manifest)
 
+    def test_manifest_rejects_text_input_outside_job_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            job = root / "job"
+            job.mkdir()
+            external_text = root / "private.txt"
+            external_text.write_text("یہ external text ہے۔", encoding="utf-8")
+            manifest = job / "manifest.json"
+            manifest.write_text(json.dumps({"items": [
+                {"text_file": str(external_text), "output_file": str(job / "out.wav")}
+            ]}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "inside the manifest job directory"):
+                adapter.read_manifest(manifest)
+
+    def test_manifest_rejects_audio_output_outside_job_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            job = root / "job"
+            job.mkdir()
+            text_path = job / "voice.txt"
+            text_path.write_text("یہ Python API ہے۔", encoding="utf-8")
+            manifest = job / "manifest.json"
+            manifest.write_text(json.dumps({"items": [
+                {"text_file": str(text_path), "output_file": str(root / "outside.wav")}
+            ]}), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "inside the manifest job directory"):
+                adapter.read_manifest(manifest)
+
     def test_manifest_rejects_empty_text_before_model_load(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
