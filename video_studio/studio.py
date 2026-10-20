@@ -210,9 +210,17 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
             command = resolve_urdu_tts_command(command_template, manifest_file=manifest)
             timeout = max(900, min(7200, len(voice_items) * 120))
             print("+", " ".join(command), flush=True)
+            adapter_env = os.environ.copy()
+            if any(Path(part).name == "urdu_tts_adapter.py" for part in command_template):
+                video_config = config.get("video_studio", {}) if isinstance(config.get("video_studio", {}), dict) else {}
+                if "kani_speaker_prefix" in video_config:
+                    prefix = video_config.get("kani_speaker_prefix")
+                    if not isinstance(prefix, str):
+                        raise ValueError("config.json video_studio.kani_speaker_prefix must be text.")
+                    adapter_env["AGENTHQ_KANI_SPEAKER_PREFIX"] = prefix.strip()
             result = subprocess.run(
                 command, cwd=str(ROOT), capture_output=True, text=True,
-                timeout=timeout, check=False,
+                timeout=timeout, check=False, env=adapter_env,
             )
             if result.stdout:
                 print(result.stdout.rstrip(), flush=True)
