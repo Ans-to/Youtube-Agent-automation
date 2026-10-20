@@ -56,7 +56,6 @@ class UrduTtsAdapterTests(unittest.TestCase):
                     self.assertEqual(audio.getnframes(), 6000)
 
     def test_kani_speech_token_section_decodes_four_codebook_offsets(self):
-        base = adapter.DEFAULT_MODEL_REVISION
         tokenizer_length = 64400
         audio_start = tokenizer_length + 10
         codebook_size = 4032
