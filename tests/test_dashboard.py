@@ -92,6 +92,8 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertNotIn('OPTIONAL SPECIALIST OVERRIDE', dashboard.HTML_PAGE)
         self.assertNotIn('action="/practice-agent"', dashboard.HTML_PAGE)
         self.assertNotIn('Specialist practice lab', dashboard.HTML_PAGE)
+        self.assertNotIn('practiceAgent', dashboard.HTML_PAGE)
+        self.assertNotIn('trainingInfo', dashboard.HTML_PAGE)
 
     def test_direct_specialist_route_is_blocked(self):
         import inspect
