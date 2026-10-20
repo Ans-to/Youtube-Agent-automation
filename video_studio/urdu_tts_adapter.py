@@ -22,15 +22,20 @@ MAX_TEXT_CHARS = 6000
 
 
 def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
-    """Load the documented KaniTTS API from a pinned Hugging Face snapshot."""
+    """Load the documented Kani LFM2 text-to-speech model and NeMo audio codec on CPU.
+
+    KaniTTS emits audio-codec token IDs from a causal language model. It is not a
+    generic Transformers text-to-speech pipeline; token IDs must be decoded by the
+    matching NeMo NanoCodec model before a WAV can be written.
+    """
     try:
         import torch
-        from huggingface_hub import snapshot_download
-        from kani_tts import KaniTTS
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+        from nemo.collections.tts.models import AudioCodecModel
     except ImportError as exc:
         raise RuntimeError(
-            "Urdu TTS dependencies are missing. Run START_HERE.bat and choose local Urdu TTS setup, "
-            "or install video_studio/requirements-urdu-tts.txt using its documented CPU-only steps."
+            "Kani Urdu TTS dependencies are missing. Run START_HERE.bat and choose the "
+            "optional CPU-only Urdu voice setup, or follow video_studio/README.md."
         ) from exc
 
     raw_threads = os.environ.get("AGENTHQ_URDU_TTS_THREADS", "").strip()
@@ -39,19 +44,106 @@ def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
     except ValueError:
         threads = max(1, min(4, os.cpu_count() or 1))
     torch.set_num_threads(threads)
-    print("Downloading/verifying pinned Urdu TTS model " + model_id + " at " + revision, flush=True)
-    print("CPU threads: " + str(threads) + "; first use downloads and caches the model (~740 MB).", flush=True)
+    print("Loading Kani Urdu causal speech model " + model_id + " at revision " + revision, flush=True)
+    print("CPU thread limit: " + str(threads) + "; first use downloads model and codec weights.", flush=True)
+
+    # These token IDs and codebook offsets follow the upstream KaniTTS basic CPU/GPU
+    # inference example. Keep them here rather than importing example-only files.
+    tokenizer_length = 64400
+    end_of_text = 2
+    start_of_speech = tokenizer_length + 1
+    end_of_speech = tokenizer_length + 2
+    start_of_human = tokenizer_length + 3
+    end_of_human = tokenizer_length + 4
+    end_of_ai = tokenizer_length + 6
+    pad_token = tokenizer_length + 7
+    audio_tokens_start = tokenizer_length + 10
+    codebook_size = 4032
+    sample_rate = 22050
+
     try:
-        snapshot_path = snapshot_download(repo_id=model_id, revision=revision)
-        print("Loading KaniTTS from local model snapshot.", flush=True)
-        return KaniTTS(str(snapshot_path))
+        tokenizer = AutoTokenizer.from_pretrained(model_id, revision=revision)
+        model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            revision=revision,
+            torch_dtype=torch.float32,
+            low_cpu_mem_usage=True,
+        )
+        model.to("cpu")
+        model.eval()
+        codec = AudioCodecModel.from_pretrained(
+            "nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps"
+        ).eval()
+        codec.to("cpu")
     except Exception as exc:
         raise RuntimeError(
-            "Could not load the pinned KaniTTS Urdu model on CPU. Check internet access, disk space, "
-            "Python dependency versions, the model revision, and upstream KaniTTS requirements. "
-            "Original error: " + type(exc).__name__ + ": " + str(exc)[:500]
+            "Could not load Kani Urdu TTS and its required NeMo NanoCodec on CPU. "
+            "This integration uses the upstream Kani token-generation + codec path, not a "
+            "generic text-to-speech pipeline. Check model/cache disk space, Python 3.10–3.12, "
+            "PyTorch/NeMo compatibility, and model access. Original error: "
+            + type(exc).__name__ + ": " + str(exc)[:500]
         ) from exc
 
+    class KaniUrduPipeline:
+        """Generate one speech waveform per text with a single resident model+codec."""
+
+        def __call__(self, text):
+            prompt = "katie: " + str(text).strip()
+            encoded = tokenizer(prompt, return_tensors="pt")
+            text_ids = encoded["input_ids"].to("cpu")
+            prefix = torch.tensor([[start_of_human]], dtype=torch.long)
+            suffix = torch.tensor([[end_of_text, end_of_human]], dtype=torch.long)
+            input_ids = torch.cat([prefix, text_ids, suffix], dim=1)
+            attention_mask = torch.ones_like(input_ids)
+            try:
+                with torch.inference_mode():
+                    generated = model.generate(
+                        input_ids=input_ids,
+                        attention_mask=attention_mask,
+                        max_new_tokens=1200,
+                        do_sample=True,
+                        temperature=0.6,
+                        top_p=0.95,
+                        repetition_penalty=1.1,
+                        num_return_sequences=1,
+                        eos_token_id=end_of_ai,
+                        pad_token_id=pad_token,
+                    )
+            except Exception as exc:
+                raise RuntimeError(
+                    "Kani Urdu speech-token generation failed: "
+                    + type(exc).__name__ + ": " + str(exc)[:400]
+                ) from exc
+            output_ids = generated[0].to("cpu")
+            starts = (output_ids == start_of_speech).nonzero(as_tuple=True)[0]
+            ends = (output_ids == end_of_speech).nonzero(as_tuple=True)[0]
+            if len(starts) != 1 or len(ends) != 1 or int(starts[0]) >= int(ends[0]):
+                raise ValueError("Kani TTS did not return exactly one valid speech-token section.")
+            audio_codes = output_ids[int(starts[0]) + 1:int(ends[0])]
+            if audio_codes.numel() == 0 or audio_codes.numel() % 4:
+                raise ValueError("Kani TTS speech-token count is empty or not divisible by four codebooks.")
+            audio_codes = audio_codes.reshape(-1, 4)
+            offsets = torch.tensor([codebook_size * i for i in range(4)], dtype=torch.long)
+            audio_codes = audio_codes - offsets
+            audio_codes = audio_codes - audio_tokens_start
+            if bool((audio_codes < 0).any()):
+                raise ValueError("Kani TTS generated invalid audio-codebook token IDs.")
+            audio_codes = audio_codes.T.unsqueeze(0).to("cpu")
+            tokens_len = torch.tensor([audio_codes.shape[-1]], dtype=torch.long)
+            try:
+                with torch.inference_mode():
+                    waveform, _ = codec.decode(tokens=audio_codes, tokens_len=tokens_len)
+            except Exception as exc:
+                raise RuntimeError(
+                    "NeMo NanoCodec failed to decode Kani speech tokens: "
+                    + type(exc).__name__ + ": " + str(exc)[:400]
+                ) from exc
+            if waveform is None:
+                raise ValueError("NeMo NanoCodec returned no waveform.")
+            waveform = waveform.detach().cpu().squeeze()
+            return {"audio": waveform, "sampling_rate": sample_rate}
+
+    return KaniUrduPipeline()
 
 def read_manifest(path):
     """Validate an internal batch manifest before loading a large model."""
