@@ -8,6 +8,7 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "agents"))
 import orchestrate
+import practice
 
 
 class SpecialistRetryTests(unittest.TestCase):
@@ -121,6 +122,11 @@ class CEODelegationTests(unittest.TestCase):
     def test_direct_specialist_cli_is_disabled(self):
         with self.assertRaisesRegex(SystemExit, "Direct specialist execution is disabled"):
             orchestrate.dispatch.main()
+
+    def test_direct_specialist_practice_cli_is_disabled(self):
+        with patch("sys.argv", ["practice.py", "practice", "--agent", "AGENT-51"]):
+            with self.assertRaisesRegex(SystemExit, "Direct specialist practice is disabled"):
+                practice.main()
 
     def test_heuristic_delegation_is_task_specific_and_has_quality_gate(self):
         assignments, mode = orchestrate.heuristic_assignments(
