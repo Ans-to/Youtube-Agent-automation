@@ -157,7 +157,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "Scene " + str(index) + " of " + str(total) + "\n"
         "Section: " + json.dumps(section, ensure_ascii=False) + "\n"
         "Target narration length: approximately " + str(target_words) + " whitespace-separated words. "
-        narration_language_instruction(language) + "Keep headline compact and subhead informative. "
+        + narration_language_instruction(language) + "Keep headline compact and subhead informative. "
         "Narration should move the argument forward, not repeat prior scenes. Use pauses and plain language, not stage directions. "
         "Do not invent citations, dates, measurements, attributed quotations, or claims of web research. "
         "If evidence is missing, explicitly say what needs verification within narration or unresolved_notes. "
