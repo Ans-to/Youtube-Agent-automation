@@ -107,8 +107,8 @@ def _atomic_copy(source, destination):
             Path(temporary_name).unlink()
 
 
-def load_local_config(require_existing=False):
-    config_path = ROOT / "config.json"
+def load_local_config(require_existing=False, project_root=ROOT):
+    config_path = Path(project_root).expanduser().resolve() / "config.json"
     try:
         raw = config_path.read_text(encoding="utf-8")
     except FileNotFoundError:
@@ -255,11 +255,11 @@ def validate_preview_artifact(destination, config, workspace=WORKSPACE):
 
 
 
-def approve_existing_preview(path):
+def approve_existing_preview(path, workspace=WORKSPACE, project_root=ROOT):
     """Interactively approve a WAV only when its sidecar and voice fingerprint still match."""
-    destination = resolve_preview_output(path)
-    config = load_local_config(require_existing=True)
-    validated = validate_preview_artifact(destination, config)
+    destination = resolve_preview_output(path, workspace=workspace, project_root=project_root)
+    config = load_local_config(require_existing=True, project_root=project_root)
+    validated = validate_preview_artifact(destination, config, workspace=workspace)
     metadata = validated["metadata"]
     current_fingerprint = validated["voice_profile_sha256"]
     sidecar = validated["sidecar_path"]
@@ -276,19 +276,19 @@ def approve_existing_preview(path):
 
     # Re-check after the interactive pause so replacing the WAV or changing settings
     # while the user is listening cannot approve a different artifact/profile.
-    validated = validate_preview_artifact(destination, load_local_config(require_existing=True))
+    validated = validate_preview_artifact(destination, load_local_config(require_existing=True, project_root=project_root), workspace=workspace)
     metadata = validated["metadata"]
     current_fingerprint = validated["voice_profile_sha256"]
     sidecar = validated["sidecar_path"]
-    config = load_local_config(require_existing=True)
+    config = load_local_config(require_existing=True, project_root=project_root)
 
     video_config = config.setdefault("video_studio", {})
     if not isinstance(video_config, dict):
         raise ValueError("config.json video_studio settings must be an object.")
     video_config["urdu_voice_human_approved"] = True
     video_config["urdu_voice_approved_profile_sha256"] = current_fingerprint
-    _atomic_write_json(ROOT / "config.json", config)
-    if not urdu_voice_human_approved(load_local_config(require_existing=True)):
+    _atomic_write_json(Path(project_root).expanduser().resolve() / "config.json", config)
+    if not urdu_voice_human_approved(load_local_config(require_existing=True, project_root=project_root)):
         raise RuntimeError("Saved voice approval did not pass its fingerprint check. Leave production rendering blocked.")
     metadata["status"] = "human_approved_for_current_profile"
     metadata["human_approved"] = True
