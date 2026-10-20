@@ -519,8 +519,20 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                         fetched_count = 0
                         fetched_domains = set()
                         fetched_hashes = set()
+                        seen_fetched_source_ids = set()
                         for source in research_results:
-                            if not isinstance(source, dict) or source.get("fetch_status") != "fetched":
+                            if not isinstance(source, dict):
+                                errors.append("Research results must contain only JSON objects.")
+                                continue
+                            # Publication dates are untrusted page metadata. Validate their shape
+                            # without treating them as proof that a claim is current or true.
+                            for date_key in ("published_date", "published_date_source", "modified_date"):
+                                date_value = source.get(date_key)
+                                if date_value is not None and (
+                                    not isinstance(date_value, str) or not date_value.strip() or len(date_value) > 100
+                                ):
+                                    errors.append("Research source has invalid " + date_key + " metadata.")
+                            if source.get("fetch_status") != "fetched":
                                 continue
                             page_text = source.get("page_text")
                             digest_value = source.get("page_text_sha256")
@@ -542,10 +554,16 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                             if not isinstance(source_id, str) or not re.fullmatch(r"S[1-9][0-9]*", source_id):
                                 errors.append("Fetched research source is missing a valid stable source ID.")
                                 continue
+                            if source_id in seen_fetched_source_ids:
+                                errors.append("Research report contains duplicate fetched source ID: " + source_id)
+                                continue
+                            seen_fetched_source_ids.add(source_id)
                             fetched_count += 1
                             fetched_domains.add(domain.lower().rstrip("."))
                             fetched_hashes.add(digest_value)
                             traceable_source_ids.add(source_id)
+                        if research_metadata.get("pages_fetched") != fetched_count:
+                            errors.append("Research metadata fetched-page count does not match traceable fetched sources.")
                         if fetched_count < 1:
                             errors.append("Research was marked complete without any fetched, traceable source-page text.")
                         summary = package_status.get("research_evidence")
