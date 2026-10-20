@@ -9,7 +9,7 @@ This module renders MP4s from JSON storyboards using Canvas2D in headless Chromi
 - FFmpeg and ffprobe on PATH
 - A Windows PC is recommended; PNG-frame rendering is CPU- and storage-intensive.
 - For English voice: Piper CLI plus a verified English model and matching .onnx.json config.
-- For Urdu-English voice: the repository includes a KaniTTS adapter and pins the Urdu fine-tuned model revision. Choose the optional CPU-only Urdu voice dependency setup in START_HERE.bat; the model weights are downloaded on first render (about 740 MB), not committed to Git.
+- For Urdu-English voice: the repository includes a KaniTTS adapter and pins the Urdu fine-tuned model revision. Choose the optional CPU-only Urdu voice dependency setup in START_HERE.bat; the model and codec weights are downloaded on first render (roughly 1.5 GB per upstream setup guidance), not committed to Git.
 - The model card labels the fine-tuned model Apache-2.0, but the upstream/base model and dependencies must also be reviewed before commercial redistribution or use. A technically generated WAV is not proof of natural pronunciation. Missing dependencies, invalid audio, or silence block the render; English Piper is never substituted.
 - Rendering writes matching SRT/WebVTT sidecars and uses script-aware RTL layout for Urdu captions. This does not guarantee natural pronunciation, voice quality, or phoneme-accurate lip-sync.
 - Optional YouTube upload: Google OAuth desktop client JSON and the dependencies in requirements-publish.txt.
@@ -39,7 +39,7 @@ PowerShell example for an explicitly English render:
 
 Urdu-English voice setup:
 
-The bundled KaniTTS adapter is selected automatically when video_studio.urdu_tts_command is left as an empty array in config.json; this is the default in config.example.json. Run START_HERE.bat and approve the optional CPU-only Urdu TTS dependency install. The adapter loads the pinned KaniTTS Urdu snapshot once per video and synthesizes scenes sequentially to limit memory use. The first render needs internet access and roughly 740 MB for the model cache.
+The bundled KaniTTS adapter is selected automatically when video_studio.urdu_tts_command is left as an empty array in config.json; this is the default in config.example.json. Run START_HERE.bat and approve the optional CPU-only Urdu TTS dependency install. The adapter loads the pinned KaniTTS Urdu snapshot once per video and synthesizes scenes sequentially to limit memory use. The first render needs internet access and enough disk space for the Urdu model and codec caches (roughly 1.5 GB per upstream setup guidance). CPU generation can be slow on an 8 GB machine.
 
 A custom adapter may be configured in config.json (never commit this file). Its command is an argument array, not a shell string, and must contain either {manifest_file} for a batch adapter or both {text_file} and {output_file} for a per-scene adapter. For example:
 
@@ -50,7 +50,7 @@ A custom adapter may be configured in config.json (never commit this file). Its 
       }
     }
 
-The custom adapter path above is a contract example, not a bundled engine. The default bundled adapter uses KaniTTS from the pinned model revision. The model card labels the fine-tune Apache-2.0; review the base-model and dependency licenses before commercial use. Final rendering is blocked when the selected backend fails or produces invalid/silent WAV output. Human listening review remains mandatory; this integration does **not** prove production-quality Urdu narration.
+The custom adapter path above is a contract example, not the default engine. The bundled adapter follows the upstream Kani inference path: a causal model generates speech-code tokens, then NeMo NanoCodec decodes them to audio. The fine-tuned Urdu model card labels the model Apache-2.0; review the base-model, NVIDIA codec, and dependency licenses before commercial use. Final rendering is blocked when the backend fails or produces invalid/silent WAV output. Human listening review remains mandatory; this integration does **not** prove production-quality Urdu narration.
 
 Subtitles are derived from narration text and timed within measured scene durations. The current subtitle timing is scene/phrase-level rather than forced word alignment. RTL layout improves Urdu text presentation but does not prove accurate punctuation, pronunciation, or natural voice quality.
 
