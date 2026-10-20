@@ -136,6 +136,17 @@ class ArtifactVerificationTests(unittest.TestCase):
         self.assertEqual(checks[0]["status"], "failed")
         self.assertTrue(any("S99" in error for error in checks[0]["errors"]))
 
+        result["status"] = "completed"
+        storyboard["scenes"][0]["source_refs"] = ["S1"]
+        storyboard_path.write_text(json.dumps(storyboard), encoding="utf-8")
+        research_path = package / "research.json"
+        research_data = json.loads(research_path.read_text(encoding="utf-8"))
+        research_data["results"][0]["page_text"] = "Tampered text with the original digest."
+        research_path.write_text(json.dumps(research_data), encoding="utf-8")
+        checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
+        self.assertEqual(checks[0]["status"], "failed")
+        self.assertTrue(any("SHA-256 does not match" in error for error in checks[0]["errors"]))
+
     def test_render_is_failed_when_mp4_subtitles_or_quality_report_are_missing(self):
         result, _ = self.write_video_package(rendered=True)
         package = self.root / result["artifact_dir"]
