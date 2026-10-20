@@ -244,6 +244,19 @@ def process(task, cfg):
                 sections.append("  - Error: " + str(tool["error"]))
     else:
         sections.append("- No additional built-in artifact tool was selected for this task.")
+    sections.extend(["", "## Post-build artifact validation", ""])
+    artifact_checks = manifest.get("artifact_checks", [])
+    if artifact_checks:
+        for check in artifact_checks:
+            sections.append("- " + str(check.get("tool", "artifact")) + ": " + str(check.get("status", "unknown")))
+            for error in check.get("errors", [])[:8]:
+                sections.append("  - " + str(error)[:500])
+            if check.get("reason"):
+                sections.append("  - " + str(check["reason"])[:500])
+    else:
+        sections.append("- No built-in video/product artifact validation was required for this task.")
+    sections.append("")
+
     sections.extend([
         "## Review requirements",
         "",
