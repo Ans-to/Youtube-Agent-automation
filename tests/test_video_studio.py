@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "video_studio"))
 import production
 import studio
+import voice_backends
 from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text
 from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_voice_human_approved, require_urdu_voice_human_approval
 
@@ -27,6 +28,35 @@ class VideoStudioTests(unittest.TestCase):
         require_urdu_voice_human_approval(approved)
         with self.assertRaisesRegex(ValueError, "must be true or false"):
             urdu_voice_human_approved({"video_studio": {"urdu_voice_human_approved": "yes"}})
+
+    def test_builtin_urdu_adapter_prefers_isolated_interpreter_when_present(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            module_dir = project / "video_studio"
+            module_dir.mkdir()
+            module_file = module_dir / "voice_backends.py"
+            module_file.write_text("", encoding="utf-8")
+            if sys.platform == "win32":
+                python_path = project / ".venv-urdu-tts" / "Scripts" / "python.exe"
+            else:
+                python_path = project / ".venv-urdu-tts" / "bin" / "python"
+            python_path.parent.mkdir(parents=True)
+            python_path.write_text("", encoding="utf-8")
+            with patch.object(voice_backends, "__file__", str(module_file)):
+                command = voice_backends.builtin_urdu_tts_command()
+            self.assertEqual(command[0], str(python_path))
+            self.assertEqual(Path(command[1]), module_dir / "urdu_tts_adapter.py")
+
+    def test_builtin_urdu_adapter_falls_back_to_current_interpreter_without_venv(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            module_dir = project / "video_studio"
+            module_dir.mkdir()
+            module_file = module_dir / "voice_backends.py"
+            module_file.write_text("", encoding="utf-8")
+            with patch.object(voice_backends, "__file__", str(module_file)):
+                command = voice_backends.builtin_urdu_tts_command()
+            self.assertEqual(command[0], sys.executable)
 
     def test_kani_speaker_prefix_is_optional_explicit_and_type_checked(self):
         self.assertIsNone(studio.configured_kani_speaker_prefix({}))
