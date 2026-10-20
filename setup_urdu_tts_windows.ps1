@@ -58,5 +58,5 @@ if ($LASTEXITCODE -ne 0) { throw "Piper runtime import verification failed. Insp
 
 Write-Host ""
 Write-Host "Urdu voice runtime installed and import-checked." -ForegroundColor Green
-Write-Host "Next, run: python video_studio/voice_preview.py --text ""آج ہم Python API کو step by step سمجھیں گے۔"" --output workspace/urdu-voice-preview.wav" -ForegroundColor Cyan
+Write-Host "Next, generate an audio-only preview using the command documented in video_studio\README.md." -ForegroundColor Cyan
 Write-Host "The first preview downloads and checksum-verifies the pinned Urdu voice model (~64 MB)."
