@@ -113,7 +113,10 @@ def research_topic_from_task(task):
 
 def save_research_report(agent_id, markdown, metadata=None, sources=None):
     """Persist a bounded Markdown report and structured JSON for both success and failure."""
-    research_dir = (ROOT / "workspace" / "research" / "agent-runs").resolve()
+    # Resolve the project root once so Windows short-path aliases and
+    # non-canonical test paths compare consistently with resolved output paths.
+    root = Path(ROOT).resolve()
+    research_dir = (root / "workspace" / "research" / "agent-runs").resolve()
     research_dir.mkdir(parents=True, exist_ok=True)
     report_name = str(agent_id).lower() + "-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".md"
     report_path = research_dir / report_name
@@ -125,7 +128,7 @@ def save_research_report(agent_id, markdown, metadata=None, sources=None):
         "metadata": metadata or {},
         "results": sources or [],
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return str(report_path.relative_to(ROOT)), str(json_path.relative_to(ROOT))
+    return str(report_path.relative_to(root)), str(json_path.relative_to(root))
 
 
 def run_role(role,task,context,cfg,perform_research=True):
