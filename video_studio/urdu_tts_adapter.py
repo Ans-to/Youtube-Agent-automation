@@ -197,11 +197,20 @@ def read_manifest(path):
         raise ValueError("Urdu TTS manifest must contain 1 to " + str(MAX_ITEMS) + " scenes.")
     validated = []
     seen = set()
+    manifest_root = manifest_path.parent.resolve()
     for index, item in enumerate(items, 1):
         if not isinstance(item, dict) or not item.get("text_file") or not item.get("output_file"):
             raise ValueError("Urdu TTS manifest item " + str(index) + " needs text_file and output_file.")
         text_path = Path(item["text_file"]).expanduser().resolve()
         output_path = Path(item["output_file"]).expanduser().resolve()
+        try:
+            text_path.relative_to(manifest_root)
+            output_path.relative_to(manifest_root)
+        except ValueError as exc:
+            raise ValueError(
+                "Urdu TTS manifest paths must remain inside the manifest job directory; "
+                "external paths and traversal are rejected."
+            ) from exc
         if not text_path.is_file():
             raise ValueError("Urdu TTS text file for scene " + str(index) + " is missing.")
         text = text_path.read_text(encoding="utf-8").strip()
