@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from video_studio.production import run_strict_quality_audit, should_collect_research, validate_research_evidence
+from video_studio.production import create_scene, run_strict_quality_audit, should_collect_research, validate_research_evidence
 from video_studio.quality_audit import file_sha256
 
 
@@ -28,6 +28,34 @@ class ResearchPolicyTests(unittest.TestCase):
         ]
         with self.assertRaisesRegex(ValueError, "Search snippets alone"):
             validate_research_evidence(metadata, results)
+
+    def test_scene_rejects_unknown_source_ids_and_marks_supported_refs(self):
+        base_scene = {
+            "eyebrow": "Evidence",
+            "headline": "A supported claim",
+            "subhead": "A short explanation",
+            "narration": "This system records source evidence for review.",
+            "visual_type": "hero",
+            "source_refs": ["S1"],
+            "unresolved_notes": [],
+        }
+        with patch("video_studio.production.model_json", return_value=dict(base_scene)):
+            scene = create_scene(
+                "Research pipeline", {"thesis": "Evidence matters"},
+                {"name": "Evidence", "purpose": "Explain provenance"},
+                "Source notes", {"model": {}}, 1, 1, 12, {}, "en", ["S1"],
+            )
+        self.assertEqual(scene["source_refs"], ["S1"])
+        self.assertEqual(scene["evidence_status"], "source_linked_requires_review")
+
+        invalid_scene = dict(base_scene, source_refs=["S99"])
+        with patch("video_studio.production.model_json", return_value=invalid_scene):
+            with self.assertRaisesRegex(ValueError, "unavailable or unfetched source IDs"):
+                create_scene(
+                    "Research pipeline", {"thesis": "Evidence matters"},
+                    {"name": "Evidence", "purpose": "Explain provenance"},
+                    "Source notes", {"model": {}}, 1, 1, 12, {}, "en", ["S1"],
+                )
 
     def test_research_gate_records_fetched_domains_and_text_digests(self):
         page_text = "Fetched primary-source text"
