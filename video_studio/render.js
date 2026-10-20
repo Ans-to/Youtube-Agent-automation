@@ -59,7 +59,7 @@ async function main(){
    for(const shape of shapes){
     window.drawCharacterForTest({enabled:true,x:0.5,y:0.5,scale:0.2,expression:"curious",pose:"explain",visemes:[{t:0,shape},{t:1,shape}]},0.5,42);
    }
-   return {shapes_drawn:shapes.length,canvas_width:canvas.width,canvas_height:canvas.height};
+   const canvas=document.getElementById("frame");return {shapes_drawn:shapes.length,canvas_width:canvas.width,canvas_height:canvas.height};
   });
   if(!rigDrawCheck||rigDrawCheck.shapes_drawn!==requiredVisemes.length||rigDrawCheck.canvas_width!==w||rigDrawCheck.canvas_height!==h)throw new Error("Character-rig draw smoke check failed: "+JSON.stringify(rigDrawCheck));
   const captionCheck=await page.evaluate(()=>{
