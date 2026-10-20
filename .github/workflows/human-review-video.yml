@@ -125,3 +125,13 @@ jobs:
           path: workspace/human-review/
           if-no-files-found: error
           retention-days: 14
+
+      - name: Preserve draft videos and QC reports when review gate fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-review-video-diagnostics
+          path: |
+            workspace/human-review/
+          if-no-files-found: warn
+          retention-days: 7
