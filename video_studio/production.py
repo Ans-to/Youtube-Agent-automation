@@ -152,7 +152,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
         "Choose transition_in intentionally: none for a clean hard cut; fade for a temporal bridge; wipe-left/right for a directional reveal; slide-left/right for spatial movement; zoom for a motivated scale transition. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
-        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional visemes [{t:0..1,shape:closed|open|wide|round}]. Keep appearance consistent across scenes. These approximate cues are not forced-aligned to speech.\\n"
+        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional expression (confident, focused, curious, or concerned). Keep appearance consistent across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
         "Section: " + json.dumps(section, ensure_ascii=False) + "\n"
@@ -241,12 +241,15 @@ def fallback(topic):
 
 
 def character_alignment_summary(storyboard):
-    """Report the character/viseme evidence present in an aligned storyboard without overstating quality."""
+    """Report character/viseme evidence without confusing authored cues with audio timing."""
     scenes = storyboard.get("scenes", []) if isinstance(storyboard, dict) else []
     if not isinstance(scenes, list):
         scenes = []
     enabled_characters = []
-    aligned_characters = []
+    audio_energy_cued = []
+    unverified_cued = []
+    audio_energy_label = "audio-energy-gated grapheme approximation; not forced phoneme alignment"
+    unverified_label = "preauthored/model-supplied cues not validated against final audio; not forced phoneme alignment"
     for scene in scenes:
         if not isinstance(scene, dict):
             continue
@@ -255,17 +258,32 @@ def character_alignment_summary(storyboard):
             continue
         enabled_characters.append(character)
         visemes = character.get("visemes")
-        if isinstance(visemes, list) and visemes:
-            aligned_characters.append(character)
+        if not isinstance(visemes, list) or not visemes:
+            continue
+        if character.get("viseme_alignment") == audio_energy_label:
+            audio_energy_cued.append(character)
+        else:
+            unverified_cued.append(character)
+
+    total_cued = len(audio_energy_cued) + len(unverified_cued)
+    if audio_energy_cued and unverified_cued:
+        method = "mixed audio-energy approximations and preauthored/unverified cues; not forced phoneme alignment"
+    elif audio_energy_cued:
+        method = audio_energy_label
+    elif unverified_cued:
+        method = unverified_label
+    else:
+        method = "no generated character viseme cues"
+
     return {
         "character_scenes": len(enabled_characters),
-        "viseme_cued_character_scenes": len(aligned_characters),
+        "viseme_cued_character_scenes": total_cued,
+        "audio_energy_gated_viseme_scenes": len(audio_energy_cued),
+        "preauthored_or_unverified_viseme_scenes": len(unverified_cued),
         "phoneme_aligned": False,
-        "viseme_alignment_method": (
-            "audio-energy-gated grapheme approximation; not forced phoneme alignment"
-            if aligned_characters else "no generated character viseme cues"
-        ),
+        "viseme_alignment_method": method,
     }
+
 
 
 def main():
