@@ -439,11 +439,11 @@ def main():
                 "quality_audit_error": str(exc),
             })
             (output_dir / "package-status.json").write_text(
-                json.dumps(status, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+                json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
             raise SystemExit("Strict technical QA failed; release is blocked: " + str(exc))
         (output_dir / "package-status.json").write_text(
-            json.dumps(status, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+            json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
 
 
