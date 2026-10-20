@@ -142,7 +142,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Project dependency setup failed. See the error above."
 }
 
-$UrduTtsAnswer = Read-Host "Install optional CPU-only Urdu voice dependencies into isolated .venv-urdu-tts? Piper plus ONNX Runtime and a ~64 MB Pakistani Urdu male voice [y/N]"
+$UrduTtsAnswer = Read-Host "Install optional CPU-only Urdu voice dependencies into isolated .venv-piper-urdu? Piper plus ONNX Runtime and a ~64 MB Pakistani Urdu male voice [y/N]"
 if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
     & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "setup_urdu_tts_windows.ps1")
     if ($LASTEXITCODE -ne 0) {
