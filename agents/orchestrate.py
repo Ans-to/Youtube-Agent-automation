@@ -293,9 +293,6 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         language_override = requested_narration_language(intent_text)
         if language_override:
             command.extend(["--language", language_override])
-        if explicit_language:
-            language_token = explicit_language.group(1).lower()
-            command.extend(["--language", "en" if language_token in {"english", "en"} else "ur-en"])
         if source_path is not None:
             command.extend(["--source-file", str(source_path)])
         else:
