@@ -37,6 +37,8 @@ jobs:
         run: node --check video_studio/render.js
       - name: Validate storyboard JSON
         run: python -m json.tool video_studio/storyboard.example.json
+      - name: Validate example configuration JSON
+        run: python -m json.tool config.example.json > /dev/null
       - name: Validate specialist roster and skillbooks JSON
         run: |
           python -m json.tool agents/roster.json > /dev/null
