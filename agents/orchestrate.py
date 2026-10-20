@@ -32,12 +32,12 @@ def requested_narration_language(text):
     instruction.
     """
     value = str(text or "")
-    language_token = r"(english|en|urdu(?:\\s*[-+&]\\s*english)?|ur(?:\\s*[-+&]\\s*en)?)"
+    language_token = r"(english|en|urdu(?:\s*[-+&]\s*english)?|ur(?:\s*[-+&]\s*en)?)"
     patterns = (
-        r"(?i)\\b(?:narration|voice(?:[\\s-]?over)?|subtitles?|captions?)\\s+(?:language\\s*[:=]\\s*|in\\s+)" + language_token + r"\\b",
-        r"(?i)\\blanguage\\s*[:=]\\s*" + language_token + r"\\b",
-        r"(?i)\\b" + language_token + r"\\s+(?:narration|voice[\\s-]?over|subtitles?|captions?)\\b",
-        r"(?i)\\b(?:speak|narrate|read|use)\\s+(?:it\\s+)?in\\s+" + language_token + r"\\b",
+        r"(?i)\b(?:narration|voice(?:[\s-]?over)?|subtitles?|captions?)\s+(?:language\s*[:=]\s*|in\s+)" + language_token + r"\b",
+        r"(?i)\blanguage\s*[:=]\s*" + language_token + r"\b",
+        r"(?i)\b" + language_token + r"\s+(?:narration|voice[\s-]?over|subtitles?|captions?)\b",
+        r"(?i)\b(?:speak|narrate|read|use)\s+(?:it\s+)?in\s+" + language_token + r"\b",
     )
     selected = None
     for pattern in patterns:
