@@ -190,6 +190,71 @@ class MillionCaseRetrySimulationTests(unittest.TestCase):
 
 
 class CEODelegationTests(unittest.TestCase):
+    def _prepare_video_artifacts(self, root, package_status):
+        package_dir = Path(root) / "workspace" / "task-TST" / "video-production"
+        package_dir.mkdir(parents=True)
+        (package_dir / "script.md").write_text("# Test video script\nA reviewed sample.\n", encoding="utf-8")
+        (package_dir / "storyboard.json").write_text(json.dumps({
+            "width": 1920, "height": 1080, "fps": 30,
+            "scenes": [{"headline": "Test", "duration_seconds": 1.0}],
+        }), encoding="utf-8")
+        (package_dir / "package-status.json").write_text(
+            json.dumps(package_status), encoding="utf-8"
+        )
+        return package_dir
+
+    def test_urdu_video_artifact_fails_if_human_voice_approval_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status = {
+                "publishable": False,
+                "published": False,
+                "human_review_required": True,
+                "narration_language": "Urdu + English technical terms",
+                "human_voice_review_status": "pending_or_stale",
+                "voice_naturalness_verified": False,
+                "target_adult_male_voice_verified": False,
+                "speaker_identity_human_reviewed": False,
+                "approved_voice_profile_sha256": None,
+            }
+            self._prepare_video_artifacts(tmp, status)
+            result = {
+                "tool": "video_studio",
+                "status": "completed",
+                "artifact_dir": "workspace/task-TST/video-production",
+                "render_expected": False,
+            }
+            checks = orchestrate.verify_artifact_tool_runs([result], project_root=tmp)
+            self.assertEqual(checks[0]["status"], "failed")
+            self.assertEqual(result["status"], "failed")
+            errors = " ".join(checks[0]["errors"])
+            self.assertIn("human voice approval", errors)
+            self.assertIn("adult-male voice", errors)
+            self.assertIn("voice-profile SHA-256", errors)
+
+    def test_urdu_video_artifact_requires_all_voice_review_flags_and_profile_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status = {
+                "publishable": False,
+                "published": False,
+                "human_review_required": True,
+                "narration_language": "Urdu + English technical terms",
+                "human_voice_review_status": "approved_for_current_profile",
+                "voice_naturalness_verified": True,
+                "target_adult_male_voice_verified": True,
+                "speaker_identity_human_reviewed": True,
+                "approved_voice_profile_sha256": "a" * 64,
+            }
+            self._prepare_video_artifacts(tmp, status)
+            result = {
+                "tool": "video_studio",
+                "status": "completed",
+                "artifact_dir": "workspace/task-TST/video-production",
+                "render_expected": False,
+            }
+            checks = orchestrate.verify_artifact_tool_runs([result], project_root=tmp)
+            self.assertEqual(checks[0]["status"], "passed")
+            self.assertEqual(result["status"], "completed")
+
     def test_direct_specialist_cli_is_disabled(self):
         with self.assertRaisesRegex(SystemExit, "Direct specialist execution is disabled"):
             orchestrate.dispatch.main()
