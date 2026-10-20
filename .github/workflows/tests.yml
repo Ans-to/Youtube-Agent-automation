@@ -234,3 +234,26 @@ jobs:
 
       - name: Render and validate a 1-second vertical Shorts MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
+
+      # Keep generated smoke-test outputs available for human inspection.
+      # The test content is synthetic and must never be used for publication.
+      - name: Upload rendered QA artifacts for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-hq-qa-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            workspace/ci-outputs/CI-VIDEO-E2E.md
+            workspace/orchestration/task-CI-VIDEO-E2E/pipeline-status.json
+            workspace/orchestration/task-CI-VIDEO-E2E/video-studio-tool.log
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/script.md
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/storyboard.json
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/package-status.json
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.mp4
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.srt
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.vtt
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.qc.json
+            outputs/ci-smoke.mp4
+            outputs/ci-smoke-shorts.mp4
+          if-no-files-found: warn
+          retention-days: 7
