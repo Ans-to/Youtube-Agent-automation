@@ -120,6 +120,7 @@
   const scale=Math.min(w,h)*(Number(c.scale)||0.22),cx=w*(Number(c.x)|| (portrait?0.5:0.82)),cy=h*(Number(c.y)||(portrait?0.70:0.56));
   const bob=Math.sin(frame*0.10)*scale*.012,breath=Math.sin(frame*.055)*scale*.009;
   const gesture=easeSmooth((progress-.12)/.22)*(1-easeSmooth((progress-.68)/.18));
+  const secondaryMotion=Math.sin(frame*.16-0.65)*scale*.012*gesture;
   const skin=c.skin||"#c58e72",hair=c.hair||"#25212a",shirt=c.shirt||"#6479b8",trousers=c.trousers||"#303746",line=c.outline||"#15151d";
   const expression=String(c.expression||"confident").toLowerCase();
   const pose=String(c.pose||"explain").toLowerCase();
@@ -132,6 +133,10 @@
   const joint=(p,r)=>{ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.012;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke()};
   const shoe=(p,rotation)=>{ctx.save();ctx.translate(p.x,p.y);ctx.rotate(rotation);ctx.fillStyle="#171821";ctx.strokeStyle=line;ctx.lineWidth=scale*.012;ctx.beginPath();ctx.ellipse(0,0,scale*.105,scale*.038,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore()};
   ctx.save();ctx.translate(cx,cy+bob);
+  // Soft contact shadow grounds the rig and makes foot placement readable on the grid.
+  ctx.save();ctx.globalAlpha=.15;ctx.fillStyle="#000000";ctx.beginPath();
+  ctx.ellipse(0,scale*.69+0,scale*.255,scale*.042,0,0,Math.PI*2);
+  ctx.fill();ctx.restore();
   // Legs are separate upper/lower bones joined at knee pivots; gait is eased and bounded.
   const walk=Number(c.walking)===1?Math.sin(frame*.12)*.28:Math.sin(frame*.045)*.025;
   const hipL={x:-scale*.105,y:scale*.17},hipR={x:scale*.105,y:scale*.17};
@@ -149,7 +154,7 @@
   const elbowL=endpoint(shoulderL,scale*.205,leftUpperAngle);
   const elbowR=endpoint(shoulderR,scale*.205,rightUpperAngle);
   const leftForeAngle=2.05+gesture*.28;
-  const rightForeAngle=1.18-gesture*.68+(pose==="think" ? .38 : 0);
+  const rightForeAngle=1.18-gesture*.68+secondaryMotion/Math.max(1,scale)+(pose==="think" ? .38 : 0);
   const wristL=endpoint(elbowL,scale*.185,leftForeAngle);
   const wristR=endpoint(elbowR,scale*.185,rightForeAngle);
   bone(shoulderL,elbowL,scale*.052,shirt);bone(elbowL,wristL,scale*.046,shirt);
