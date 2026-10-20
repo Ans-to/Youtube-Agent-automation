@@ -43,7 +43,7 @@ The local dashboard itself is not a hosted website, so a phone browser cannot di
 
 1. Open [mobile inbox instructions](https://github.com/Ans-to/Youtube-Agent-automation/blob/mobile-agent-inbox/bridge/requests/README.md) and make sure the branch selector shows `mobile-agent-inbox`.
 2. In `bridge/requests`, create a **new JSON file** with a unique request ID, `approved: true`, `action: "create_task"`, a title, an allowed task kind, and the task instructions. The exact template is in the linked README.
-3. To have the Android device process the request locally, update the existing Termux clone to the separate `mobile-bridge-runtime` branch after reviewing/backing up any local changes. That branch is an older runnable snapshot and may not include later fixes from `main`. Then set `AGENT_HQ_BRANCH=mobile-agent-inbox` in the shell before running `python bridge/bridge.py --watch --interval=30`. If your project directory differs from the bridge's default path, also set `AGENT_HQ_PROJECT` to the actual local project directory. The GitHub token must remain in the local token file described in the main README.
+3. To have the Android device process the request locally, use the current `main` branch in your Termux clone (back up local changes before updating). Set `AGENT_HQ_BRANCH=mobile-agent-inbox` in the shell before running `python bridge/bridge.py --watch --interval=30`. If your project directory differs from the bridge's default path, also set `AGENT_HQ_PROJECT` to the actual local project directory. The GitHub token must remain in the local token file described in the main README. The older `mobile-bridge-runtime` branch is a point-in-time snapshot and may lag behind `main`.
 4. The bridge polls the separate inbox branch, creates a local pending task, and uploads a sanitized status file to that same branch. Task creation is not task execution.
 5. For later Windows processing, run the bridge from the Windows project checkout with the same branch setting, or enter the task in the PC dashboard. **The phone and PC queues are separate**; no background synchronization is claimed.
 
@@ -51,7 +51,7 @@ Important limits:
 - This works without GitHub Actions and without a paid hosted worker, but the bridge only runs while Termux is active and connected. Android may suspend it.
 - A phone can create drafts and smaller local-model tasks if a compatible model is configured. Long narrated MP4 rendering is likely to be slow or unreliable on a phone; keep it queued for the PC when available.
 - **This repository is public.** Request JSON and sanitized result files committed to `mobile-agent-inbox` are publicly visible and remain in Git history; the branch is separate, not private. Use this inbox only for non-sensitive task instructions. Never include secrets, tokens, passwords, confidential material, personal data, or private work details. For confidential tasks, use a private repository or enter the task directly into your local dashboard.
-- Keep the inbox branch separate. Do not merge `mobile-agent-inbox` into `main`, and keep `mobile-agent-inbox` separate from `main`.
+- Keep the inbox branch separate. Do not merge `mobile-agent-inbox` into `main`.
 
 ## Ready-to-use vs. external setup
 
