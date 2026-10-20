@@ -1,8 +1,8 @@
-import unittest
-from unittest.mock import patch
 import tempfile
+import unittest
 from pathlib import Path
 import sys
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "agents"))
@@ -20,9 +20,7 @@ class ADHDStyleIntegrationTests(unittest.TestCase):
 
     def test_specialist_model_prompt_receives_runtime_rules(self):
         with tempfile.TemporaryDirectory() as tempdir:
-            with patch.object(dispatch, "ROOT", Path(tempdir)), \\
-                 patch.object(dispatch, "collect_web_research", None), \\
-                 patch.object(dispatch, "post_local_model", return_value={"choices": [{"message": {"content": "ok"}}]}) as call:
+            with patch.object(dispatch, "ROOT", Path(tempdir)), patch.object(dispatch, "collect_web_research", None), patch.object(dispatch, "post_local_model", return_value={"choices": [{"message": {"content": "ok"}}]}) as call:
                 result = dispatch.run_role(
                     {"id": "AGENT-02", "name": "Test specialist", "mission": "Test mission"},
                     "Give a concise task status.", "",
