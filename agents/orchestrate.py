@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Run a sequential, local-model specialist pipeline with a persistent audit trail."""
 import argparse
+import hashlib
 import json
 import re
 import sys
 import subprocess
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -388,6 +390,184 @@ def _run_fixed_tool(name, command, destination, relative_out, timeout):
         }
 
 
+
+def verify_artifact_tool_runs(tool_runs, project_root=None):
+    """Independently verify files emitted by the built-in video and product builders.
+
+    A zero exit code is necessary but not sufficient: missing, malformed, or
+    unsafe artifacts convert a nominally successful builder run to a failure.
+    All artifact paths must remain beneath this project's workspace directory.
+    """
+    root = Path(project_root or ROOT).expanduser().resolve()
+    workspace_root = (root / "workspace").resolve()
+    checks = []
+
+    def nonempty_file(path):
+        return path.is_file() and path.stat().st_size > 0
+
+    def require_file(directory, name, errors):
+        path = directory / name
+        if not nonempty_file(path):
+            errors.append("Missing or empty artifact: " + name)
+        return path
+
+    for result in tool_runs or []:
+        tool = str(result.get("tool", ""))
+        if tool not in {"video_studio", "product_studio"}:
+            continue
+
+        check = {
+            "tool": tool,
+            "artifact_dir": str(result.get("artifact_dir", "")),
+            "status": "skipped",
+            "checks": [],
+            "errors": [],
+        }
+        if result.get("status") != "completed":
+            check["reason"] = "Builder did not report success; its failure or blocked status is preserved."
+            checks.append(check)
+            continue
+
+        artifact_value = str(result.get("artifact_dir", "")).strip()
+        target = (root / artifact_value).resolve() if artifact_value else root
+        errors = check["errors"]
+
+        if target == workspace_root or workspace_root not in target.parents:
+            errors.append("Artifact path is missing or escapes the project workspace.")
+        elif not target.is_dir():
+            errors.append("Artifact output directory does not exist.")
+        elif tool == "video_studio":
+            script = require_file(target, "script.md", errors)
+            storyboard_path = require_file(target, "storyboard.json", errors)
+            status_path = require_file(target, "package-status.json", errors)
+
+            if nonempty_file(script) and not script.read_text(encoding="utf-8", errors="replace").strip():
+                errors.append("Video script contains no usable text.")
+
+            storyboard = None
+            if nonempty_file(storyboard_path):
+                try:
+                    storyboard = json.loads(storyboard_path.read_text(encoding="utf-8"))
+                    if not isinstance(storyboard, dict):
+                        raise ValueError("Storyboard must be a JSON object.")
+                    width, height, fps = storyboard.get("width"), storyboard.get("height"), storyboard.get("fps")
+                    if not isinstance(storyboard.get("scenes"), list) or not 1 <= len(storyboard["scenes"]) <= 100:
+                        errors.append("Storyboard must contain 1–100 scenes.")
+                    if not isinstance(width, int) or isinstance(width, bool) or not 320 <= width <= 3840:
+                        errors.append("Storyboard width is missing or outside renderer limits.")
+                    if not isinstance(height, int) or isinstance(height, bool) or not 180 <= height <= 2160:
+                        errors.append("Storyboard height is missing or outside renderer limits.")
+                    if not isinstance(fps, int) or isinstance(fps, bool) or not 1 <= fps <= 60:
+                        errors.append("Storyboard frame rate is missing or outside renderer limits.")
+                except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                    errors.append("Storyboard JSON could not be validated: " + str(exc)[:250])
+
+            package_status = None
+            if nonempty_file(status_path):
+                try:
+                    package_status = json.loads(status_path.read_text(encoding="utf-8"))
+                    if not isinstance(package_status, dict):
+                        raise ValueError("Package status must be a JSON object.")
+                    if package_status.get("publishable") is not False:
+                        errors.append("Video package must remain non-publishable pending human approval.")
+                    if package_status.get("published") is not False:
+                        errors.append("Video package must not claim that it has been published.")
+                    if package_status.get("human_review_required") is not True:
+                        errors.append("Video package must explicitly require human review.")
+                except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                    errors.append("Package-status JSON could not be validated: " + str(exc)[:250])
+
+            check["checks"].append("script_storyboard_package_status")
+            if result.get("render_expected") is True:
+                video = require_file(target, "video.mp4", errors)
+                srt = require_file(target, "video.srt", errors)
+                vtt = require_file(target, "video.vtt", errors)
+                qc_path = require_file(target, "video.qc.json", errors)
+                if nonempty_file(video) and video.stat().st_size < 1024:
+                    errors.append("Rendered MP4 is too small to be a valid release candidate.")
+                if package_status and package_status.get("quality_audit_passed") is not True:
+                    errors.append("Rendered video does not have a passing strict technical quality audit.")
+                if package_status and package_status.get("status") != "technical_qa_passed_waiting_for_human_review":
+                    errors.append("Rendered video package is not in the expected post-QA review state.")
+                if nonempty_file(qc_path):
+                    try:
+                        qc_report = json.loads(qc_path.read_text(encoding="utf-8"))
+                        if not isinstance(qc_report, dict):
+                            raise ValueError("Quality report must be a JSON object.")
+                        if qc_report.get("strict") is not True or qc_report.get("passed") is not True:
+                            errors.append("Technical QA report is not a strict passing report.")
+                        if nonempty_file(video):
+                            actual_hash = hashlib.sha256(video.read_bytes()).hexdigest()
+                            if qc_report.get("video_sha256") != actual_hash:
+                                errors.append("Technical QA report hash does not match the rendered MP4.")
+                            if package_status and package_status.get("quality_report_video_sha256") != actual_hash:
+                                errors.append("Package status hash does not match the rendered MP4.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Technical QA JSON could not be validated: " + str(exc)[:250])
+                if nonempty_file(srt) and not srt.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("SRT subtitle file is empty.")
+                if nonempty_file(vtt) and not vtt.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("WebVTT subtitle file is empty.")
+                check["checks"].append("mp4_subtitles_strict_qc_and_hash")
+            check["checks"].append("release_safety_flags")
+        elif tool == "product_studio":
+            candidates = sorted(
+                child for child in target.iterdir()
+                if child.is_dir() and (child / "product-status.json").is_file()
+            )
+            if len(candidates) != 1:
+                errors.append("Expected exactly one generated product directory with product-status.json.")
+            else:
+                product_dir = candidates[0]
+                index_path = require_file(product_dir, "index.html", errors)
+                readme_path = require_file(product_dir, "README.md", errors)
+                status_path = require_file(product_dir, "product-status.json", errors)
+                if nonempty_file(index_path):
+                    html_text = index_path.read_text(encoding="utf-8", errors="replace")
+                    if "<html" not in html_text.lower() or "<head" not in html_text.lower():
+                        errors.append("Product prototype is not a complete HTML document.")
+                if nonempty_file(status_path):
+                    try:
+                        package_status = json.loads(status_path.read_text(encoding="utf-8"))
+                        if not isinstance(package_status, dict):
+                            raise ValueError("Product status must be a JSON object.")
+                        if package_status.get("status") != "draft":
+                            errors.append("Product prototype must be marked as a draft.")
+                        if package_status.get("published") is not False:
+                            errors.append("Product prototype must not claim publication.")
+                        if package_status.get("human_review_required") is not True:
+                            errors.append("Product prototype must explicitly require human review.")
+                        risks = package_status.get("external_patterns_found")
+                        if not isinstance(risks, list) or risks:
+                            errors.append("Product prototype static safety scan did not pass cleanly.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Product-status JSON could not be validated: " + str(exc)[:250])
+                archive_path = target / (product_dir.name + ".zip")
+                require_file(target, archive_path.name, errors)
+                if nonempty_file(archive_path):
+                    try:
+                        with zipfile.ZipFile(archive_path) as archive:
+                            if archive.testzip() is not None:
+                                errors.append("Product ZIP archive failed its CRC integrity check.")
+                            if not any(name.endswith("/index.html") for name in archive.namelist()):
+                                errors.append("Product ZIP archive does not contain index.html.")
+                    except (OSError, zipfile.BadZipFile) as exc:
+                        errors.append("Product ZIP archive could not be validated: " + str(exc)[:250])
+                if nonempty_file(readme_path) and not readme_path.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("Product README is empty.")
+                check["checks"].append("html_readme_product_status_and_archive")
+                check["product_directory"] = product_dir.relative_to(root).as_posix()
+
+        if errors:
+            check["status"] = "failed"
+            result["status"] = "failed"
+            result["artifact_validation_errors"] = list(errors)
+            result["error"] = "Post-build artifact validation failed: " + "; ".join(errors[:8])
+        else:
+            check["status"] = "passed"
+        checks.append(check)
+    return checks
+
 def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None):
     if not isinstance(task, str) or not task.strip() or len(task) > 20000:
         raise ValueError("Task must be 1–20,000 characters.")
@@ -693,6 +873,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     )[:40000]
     save_progress("running", "Artifact generation", "Specialist stages finished; building selected artifacts and preparing the final quality status.", len(assignments), len(assignments))
     tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
+    save_progress("running", "Post-build artifact validation", "Verifying generated files, media, strict QA reports, and release-safety metadata.")
+    artifact_checks = verify_artifact_tool_runs(tool_runs, project_root=ROOT)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     required_tool_blocked = any(item.get("status") == "blocked" for item in tool_runs)
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
@@ -705,7 +887,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             )
         )
     )
-    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports)
+    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks)
     manifest["repair_attempt"] = repair_attempt
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
@@ -713,7 +895,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     return destination, manifest
 
 
-def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None):
+def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None, artifact_checks=None):
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task.strip(),
@@ -722,6 +904,7 @@ def build_manifest(task, records, cfg, status, delegation_mode="unspecified", as
         "ceo_assignments": assignments or [],
         "ceo_research_reports": ceo_research_reports or [],
         "tool_runs": tool_runs or [],
+        "artifact_checks": artifact_checks or [],
         "quality_gate": next((item.get("quality_gate") or "unconfirmed" for item in records if item.get("agent_id") == "AGENT-08"), "unconfirmed"),
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
