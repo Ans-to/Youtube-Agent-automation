@@ -114,9 +114,11 @@ def _build_fasih_v2_config(source_config):
         raise ValueError("Pinned source voice config is not the expected Pakistani Urdu voice.")
     if not isinstance(audio, dict) or audio.get("sample_rate") != 22050:
         raise ValueError("Pinned source voice config has an unexpected sample rate.")
-    phoneme_map = source_config.get("phoneme_id_map")
-    if not isinstance(phoneme_map, dict):
+    source_phoneme_map = source_config.get("phoneme_id_map")
+    if not isinstance(source_phoneme_map, dict):
         raise ValueError("Pinned source voice config is missing phoneme_id_map.")
+    # Never mutate the verified source object while deriving the v2 sidecar.
+    phoneme_map = dict(source_phoneme_map)
     used_ids = {
         item_id
         for values in phoneme_map.values()
