@@ -212,8 +212,8 @@ jobs:
               raise SystemExit("Smoke test package must never be marked publishable or published")
           if (storyboard.get("width"), storyboard.get("height")) != (1920, 1080):
               raise SystemExit("End-to-end landscape storyboard has unexpected dimensions")
-          if len(storyboard.get("scenes", [])) != 4:
-              raise SystemExit("End-to-end template storyboard should contain four scenes")
+          if len(storyboard.get("scenes", [])) != 6:
+              raise SystemExit("End-to-end template storyboard should contain six scenes")
           if manifest.get("external_actions_performed") is not False:
               raise SystemExit("Synthetic end-to-end test must not report external actions")
           # CI is intentionally running without an AI model. Treat that as a
