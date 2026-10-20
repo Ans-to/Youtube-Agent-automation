@@ -1,10 +1,4 @@
-# Optional Kani Urdu TTS runtime. Requires Python 3.10–3.12.
-# setup_all_windows.ps1 installs CPU-only PyTorch first, then this dependency set.
-# The upstream Kani example pins NeMo 2.4.0 and Transformers 4.57.1 for model compatibility.
-nemo_toolkit[tts]==2.4.0
-transformers==4.57.1
-accelerate>=0.26.0,<2.0
-huggingface_hub>=0.35.0,<2.0
-safetensors>=0.6.2,<1.0
-numpy<2.0
-scipy>=1.10,<2.0
+# Optional Windows/CPU Urdu-English TTS runtime. Isolated in .venv-urdu-tts.
+# Piper uses ONNX Runtime and avoids the unsupported-on-Windows NeMo/Kani dependency stack.
+# Urdu model: Pakistani male voice Fasih (medium), downloaded with pinned revision/checksum on first preview.
+piper-tts==1.8.0
