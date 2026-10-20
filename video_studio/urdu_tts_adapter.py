@@ -88,7 +88,8 @@ def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
         """Generate one speech waveform per text with a single resident model+codec."""
 
         def __call__(self, text):
-            prompt = "katie: " + str(text).strip()
+            speaker_prefix = os.environ.get("AGENTHQ_KANI_SPEAKER_PREFIX", "").strip()
+            prompt = ((speaker_prefix + ": ") if speaker_prefix else "") + str(text).strip()
             encoded = tokenizer(prompt, return_tensors="pt")
             text_ids = encoded["input_ids"].to("cpu")
             prefix = torch.tensor([[start_of_human]], dtype=torch.long)
