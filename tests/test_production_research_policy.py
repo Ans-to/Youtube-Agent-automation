@@ -1,4 +1,5 @@
 """Regression tests for the content pipeline's research-first policy."""
+import hashlib
 import json
 import subprocess
 import tempfile
@@ -6,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from video_studio.production import run_strict_quality_audit, should_collect_research
+from video_studio.production import run_strict_quality_audit, should_collect_research, validate_research_evidence
 from video_studio.quality_audit import file_sha256
 
 
@@ -19,6 +20,29 @@ class ResearchPolicyTests(unittest.TestCase):
 
     def test_explicit_research_is_honored_for_any_mode(self):
         self.assertTrue(should_collect_research(research_requested=True, render_template=True))
+
+    def test_research_gate_rejects_snippets_without_fetched_page_text(self):
+        metadata = {"pages_attempted": 3, "pages_fetched": 0, "verified": False}
+        results = [
+            {"url": "https://example.com", "snippet": "Search snippet only", "fetch_status": "failed", "page_text": ""}
+        ]
+        with self.assertRaisesRegex(ValueError, "Search snippets alone"):
+            validate_research_evidence(metadata, results)
+
+    def test_research_gate_records_fetched_domains_and_text_digests(self):
+        page_text = "Fetched primary-source text"
+        digest = hashlib.sha256(page_text.encode("utf-8")).hexdigest()
+        metadata = {"pages_attempted": 2, "pages_fetched": 2, "verified": False}
+        results = [
+            {"fetch_status": "fetched", "page_text": page_text, "page_text_sha256": digest, "final_domain": "docs.example.com"},
+            {"fetch_status": "fetched", "page_text": page_text, "page_text_sha256": digest, "final_domain": "research.example.org"},
+        ]
+        summary = validate_research_evidence(metadata, results)
+        self.assertEqual(summary["status"], "multiple_domains_fetched")
+        self.assertEqual(summary["fetched_page_count"], 2)
+        self.assertEqual(summary["independent_domain_count"], 2)
+        self.assertFalse(summary["independently_verified"])
+        self.assertEqual(summary["page_text_sha256"], [digest])
 
 
     def test_automatic_quality_audit_accepts_a_strict_report_bound_to_video(self):
