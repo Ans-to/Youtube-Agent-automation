@@ -1,10 +1,7 @@
-"""Small, shell-free adapter contract for an explicitly configured local Urdu TTS engine.
-
-No voice model is bundled or assumed to be licensed. A configured adapter must accept a
-UTF-8 text file and write a non-empty WAV file to the provided output path.
-"""
+"""Safe command selection for bundled and explicitly configured local Urdu TTS backends."""
 import json
 from pathlib import Path
+import sys
 
 
 def load_project_config(project_root):
@@ -21,39 +18,56 @@ def load_project_config(project_root):
     return data
 
 
-def get_urdu_tts_command(config):
-    """Return a validated argument-array template, or None when Urdu TTS is not configured.
+def builtin_urdu_tts_command():
+    """Run the bundled CPU adapter using this exact Python interpreter."""
+    adapter = Path(__file__).resolve().with_name("urdu_tts_adapter.py")
+    return [sys.executable, str(adapter), "--manifest", "{manifest_file}"]
 
-    The command is an argv list, never a shell string. It must include {text_file} and
-    {output_file} placeholders so the renderer can control input/output paths.
+
+def get_urdu_tts_command(config):
+    """Return a validated argv template; empty config selects the bundled local adapter.
+
+    The built-in adapter accepts a manifest so the model is loaded once for every scene
+    in a video. A custom adapter may instead expose a manifest interface or the legacy
+    one-scene {text_file}/{output_file} interface. Commands are never shell strings.
     """
     root = config.get("video_studio", {}) if isinstance(config, dict) else {}
     if not isinstance(root, dict):
         raise ValueError("config.json video_studio settings must be an object.")
     command = root.get("urdu_tts_command", [])
     if command is None or command == []:
-        return None
+        return builtin_urdu_tts_command()
     if not isinstance(command, list) or not command or any(
         not isinstance(part, str) or not part.strip() for part in command
     ):
         raise ValueError("video_studio.urdu_tts_command must be a non-empty array of command arguments.")
-    if not any("{text_file}" in part for part in command):
-        raise ValueError("Urdu TTS adapter command must include a {text_file} argument placeholder.")
-    if not any("{output_file}" in part for part in command):
-        raise ValueError("Urdu TTS adapter command must include an {output_file} argument placeholder.")
+    has_manifest = any("{manifest_file}" in part for part in command)
+    has_text = any("{text_file}" in part for part in command)
+    has_output = any("{output_file}" in part for part in command)
+    if has_manifest and (has_text or has_output):
+        raise ValueError("Urdu TTS command must use either {manifest_file} or the text/output placeholders, not both.")
+    if not has_manifest and not (has_text and has_output):
+        raise ValueError("Urdu TTS command must include {manifest_file}, or both {text_file} and {output_file}.")
     return list(command)
 
 
-def resolve_urdu_tts_command(template, text_file, output_file):
-    """Substitute only the two documented placeholders; never invoke a shell."""
+def resolve_urdu_tts_command(template, text_file=None, output_file=None, manifest_file=None):
+    """Substitute only documented absolute-path placeholders; never invoke a shell."""
     if not isinstance(template, list) or not template:
         raise ValueError("Urdu TTS adapter command is not configured.")
-    text_path = str(Path(text_file).expanduser().resolve())
-    output_path = str(Path(output_file).expanduser().resolve())
-    resolved = [
-        part.replace("{text_file}", text_path).replace("{output_file}", output_path)
-        for part in template
-    ]
-    if any("{" in part or "}" in part for part in resolved):
-        raise ValueError("Urdu TTS adapter command contains an unsupported template placeholder.")
+    replacements = {}
+    if text_file is not None:
+        replacements["{text_file}"] = str(Path(text_file).expanduser().resolve())
+    if output_file is not None:
+        replacements["{output_file}"] = str(Path(output_file).expanduser().resolve())
+    if manifest_file is not None:
+        replacements["{manifest_file}"] = str(Path(manifest_file).expanduser().resolve())
+    resolved = []
+    for part in template:
+        value = part
+        for token, path in replacements.items():
+            value = value.replace(token, path)
+        if "{" in value or "}" in value:
+            raise ValueError("Urdu TTS adapter command contains an unsupported or unresolved template placeholder.")
+        resolved.append(value)
     return resolved
