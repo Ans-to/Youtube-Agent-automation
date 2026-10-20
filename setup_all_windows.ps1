@@ -142,6 +142,27 @@ if ($LASTEXITCODE -ne 0) {
     throw "Project dependency setup failed. See the error above."
 }
 
+$UrduTtsAnswer = Read-Host "Install optional CPU-only Urdu voice dependencies now? The first Urdu render also downloads about 740 MB of model weights [y/N]"
+if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
+    if (Has-Command "py") {
+        & py -3 -m pip install --upgrade pip
+        if ($LASTEXITCODE -ne 0) { throw "Could not update pip before Urdu TTS installation." }
+        & py -3 -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        if ($LASTEXITCODE -ne 0) { throw "CPU-only PyTorch install failed. Urdu voice was not enabled; see video_studio/README.md." }
+        & py -3 -m pip install -r (Join-Path $Root "video_studio\requirements-urdu-tts.txt")
+    } else {
+        & python -m pip install --upgrade pip
+        if ($LASTEXITCODE -ne 0) { throw "Could not update pip before Urdu TTS installation." }
+        & python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+        if ($LASTEXITCODE -ne 0) { throw "CPU-only PyTorch install failed. Urdu voice was not enabled; see video_studio/README.md." }
+        & python -m pip install -r (Join-Path $Root "video_studio\requirements-urdu-tts.txt")
+    }
+    if ($LASTEXITCODE -ne 0) { throw "Urdu TTS dependencies did not finish installing. Do not treat Urdu video generation as ready yet." }
+    Write-Host "Local Urdu voice dependencies installed. The pinned ~740 MB model will download on its first Urdu render." -ForegroundColor Green
+} else {
+    Write-Warning "Skipped Urdu voice dependencies. Urdu-English final renders will stop safely until these dependencies are installed."
+}
+
 function Get-OllamaModelList {
     # Try the existing Ollama service first. If installed but not running,
     # start its local server and retry once instead of downloading blindly.
