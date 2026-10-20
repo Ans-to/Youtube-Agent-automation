@@ -80,9 +80,9 @@ def run_strict_quality_audit(output_dir):
     return report
 
 
-def should_collect_research(*, research_requested, model_enabled, render_template):
-    """Require web research for model-generated packages; keep offline demos deterministic."""
-    return bool(research_requested or (model_enabled and not render_template))
+def should_collect_research(*, research_requested, render_template):
+    """Require web research for every non-template package; keep offline demos deterministic."""
+    return bool(research_requested or not render_template)
 
 
 def model_json(prompt, cfg, max_tokens):
@@ -283,7 +283,6 @@ def main():
     research_metadata, research_results, research_markdown = None, [], ""
     if should_collect_research(
         research_requested=args.research,
-        model_enabled=model_enabled,
         render_template=args.render_template,
     ):
         try:
