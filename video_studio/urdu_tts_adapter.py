@@ -378,12 +378,18 @@ def synthesize_manifest(manifest_path, pipeline_instance=None):
         report["output_file"] = str(item["output_file"])
         reports.append(report)
         print("Created scene audio " + str(item["index"]) + ": " + str(report["duration_seconds"]) + " s", flush=True)
-    print(json.dumps({
+    adapter_report = {
         "status": "completed",
-        "model": os.environ.get("AGENTHQ_URDU_TTS_MODEL", DEFAULT_MODEL_ID),
-        "revision": os.environ.get("AGENTHQ_URDU_TTS_REVISION", DEFAULT_MODEL_REVISION),
+        "model": getattr(tts, "model_id", os.environ.get("AGENTHQ_URDU_TTS_MODEL", DEFAULT_MODEL_ID)),
+        "revision": getattr(tts, "model_revision", os.environ.get("AGENTHQ_URDU_TTS_REVISION", DEFAULT_MODEL_REVISION)),
+        "codec_model": getattr(tts, "resolved_codec_model", None),
+        "codec_revision": getattr(tts, "resolved_codec_revision", None),
         "items": reports,
-    }, ensure_ascii=False, indent=2), flush=True)
+    }
+    print(json.dumps(adapter_report, ensure_ascii=False, indent=2), flush=True)
+    # Stable one-line marker lets the preview tool capture the resolved immutable
+    # codec revision without scraping human-readable progress messages.
+    print("KANI_TTS_REPORT_JSON=" + json.dumps(adapter_report, ensure_ascii=False, separators=(",", ":")), flush=True)
     return reports
 
 
