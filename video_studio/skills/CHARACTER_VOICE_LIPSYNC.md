@@ -27,19 +27,20 @@ This requires an actual 2D/3D rig, animation curves or motion capture/retargetin
 
 ## Voice requirements
 
-Required language: English only, for every narration line and every subtitle. Target a clear conversational English voice with intelligible consonants, controlled pace, natural pauses, and non-monotone prosody. A model's language metadata is a minimum gate, not proof of naturalness.
+The default channel profile is **natural Pakistani Urdu in Urdu/Arabic script, preserving common English technical terms**. English narration/subtitles are allowed when explicitly selected via the task, storyboard, CLI, or channel configuration. Topic mentions alone must never switch narration language.
 
-1. Use a licensed English voice model whose adjacent config explicitly identifies an English language code. Reject non-English model configs and non-Latin-script narration before synthesis.
-2. Produce scene/phrase-level clips, normalize loudness consistently, preserve natural pauses, and never speed speech up merely to fit arbitrary scene durations.
-3. Fit visuals and subtitle timings to measured speech duration. Never trim the last phoneme to meet a fixed runtime; extend the scene or re-time visuals.
-4. If a neural TTS model is unavailable or quality fails, fail the release gate and request a human-approved English voice asset. Do not silently fall back to eSpeak or call synthetic test speech “natural.”
-5. Run audio checks: clipping/true peak, loudness, silence gaps, speech presence, and phrase duration. Automated checks can detect defects but cannot certify that a voice sounds human.
-6. Human listen-test on phone speakers and headphones. Review English pronunciation, technical terms, breath timing, sibilants, pacing, and emotional emphasis.
-7. Emit both SRT and WebVTT subtitles for every render. Keep burned-in captions identical to the spoken English narration; validate cue ordering and durations. Scene-level timing is not forced word alignment.
+1. For Urdu-English production, use the pinned local Kani causal speech model plus its matching NeMo NanoCodec adapter. Do not assume language support or speaker gender from a model name: verify the exact model card/license and listen to generated samples before accepting it.
+2. The current adapter runs CPU-only, loads the model and codec once per video batch, creates a WAV for each scene, and fails closed when a scene output is missing, malformed, or effectively silent. The initial model/codec downloads and CPU runtime can be substantial on an 8 GB PC.
+3. Do not claim a natural adult male voice until a human reviewer verifies that the chosen model actually produces the target voice, pronunciation, and accent. The present integration does not establish that requirement automatically. If the model's speaker identity/gender or Urdu-English pronunciation is unsuitable, stop release and select a compatible, licensed local voice.
+4. English-only narration remains a separate explicit profile. Verify the English voice's adjacent model config and require English text before synthesis. Never silently substitute English Piper, eSpeak, or silence for Urdu-English narration.
+5. Produce scene/phrase-level clips, normalize loudness consistently, preserve natural pauses, and never speed speech up merely to fit arbitrary scene durations. Fit visuals to measured speech duration and extend scenes rather than trimming final phonemes.
+6. Run audio checks for clipping/true peak, loudness, silence gaps, speech presence, and phrase duration. Automated checks can detect defects but cannot certify naturalness, accurate pronunciation, accent, or speaker gender.
+7. Emit both SRT and WebVTT subtitles for every voiced render. Keep burned-in captions identical to narration text; validate cue order/duration and selected script. Scene-level cue timing is not forced word alignment.
+8. Human listen-test on phone speakers and headphones. Review Urdu pronunciation, English technical terms, breath timing, sibilants, pacing, and emotional emphasis.
 
 ## Synchronization and acceptance tests
 
-- Generate forced phoneme/word timestamps for the final audio and align captions/visemes to those timestamps.
+- Prefer forced phoneme/word timestamps from a compatible aligner and map the final audio to visemes. The current fallback derives approximate mouth cues from short-window audio energy plus grapheme classes; it is explicitly marked **not forced phoneme alignment** and does not satisfy this acceptance item.
 - Compare video-mouth motion to speech at 1x speed and frame-by-frame around plosives and vowels.
 - Use an objective audio-visual synchronization metric (e.g. SyncNet-derived score where a compatible model is licensed and available), but do not trust one metric alone.
 - Check identity consistency, facial texture stability, no mouth/teeth warping, no jitter, no frozen head, no repeating blink pattern, and no body-part popping.
