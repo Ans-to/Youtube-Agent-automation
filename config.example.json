@@ -20,6 +20,7 @@
   "video_studio": {
     "narration_language": "ur-en",
     "urdu_tts_command": [],
-    "kani_speaker_prefix": ""
+    "kani_speaker_prefix": "",
+    "urdu_voice_human_approved": false
   }
 }
