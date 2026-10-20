@@ -33,17 +33,23 @@ def urdu_voice_profile_sha256(config):
         command = []
     if not isinstance(command, list) or any(not isinstance(part, str) for part in command):
         raise ValueError("config.json video_studio.urdu_tts_command must be an array of strings.")
+    codec_revision = root.get("kani_codec_revision", "")
+    if not isinstance(codec_revision, str):
+        raise ValueError("config.json video_studio.kani_codec_revision must be text.")
 
     source_hashes = {}
     module_path = Path(__file__).resolve()
     project_root = module_path.parents[1]
     if not command:
         # These constants are metadata only; importing the adapter does not load PyTorch/NeMo.
-        from urdu_tts_adapter import DEFAULT_MODEL_ID, DEFAULT_MODEL_REVISION
+        from urdu_tts_adapter import (
+            DEFAULT_MODEL_ID, DEFAULT_MODEL_REVISION,
+            DEFAULT_CODEC_MODEL_ID,
+        )
         model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", DEFAULT_MODEL_ID).strip() or DEFAULT_MODEL_ID
         revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", DEFAULT_MODEL_REVISION).strip() or DEFAULT_MODEL_REVISION
         route = "bundled-kani-nanocodec"
-        codec_model = "nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps"
+        codec_model = os.environ.get("AGENTHQ_URDU_TTS_CODEC", DEFAULT_CODEC_MODEL_ID).strip() or DEFAULT_CODEC_MODEL_ID
         source_paths = [
             module_path,
             module_path.with_name("urdu_tts_adapter.py"),
@@ -76,6 +82,7 @@ def urdu_voice_profile_sha256(config):
         "model_id": model_id,
         "model_revision": revision,
         "codec_model": codec_model,
+        "codec_revision": codec_revision.strip(),
         "speaker_prefix": prefix.strip(),
         "source_sha256": source_hashes,
     }
