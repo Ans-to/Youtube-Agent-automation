@@ -497,6 +497,60 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                     errors.append("Package-status JSON could not be validated: " + str(exc)[:250])
 
             check["checks"].append("script_storyboard_package_status")
+            if package_status and package_status.get("web_research_performed") is True:
+                research_md = require_file(target, "research.md", errors)
+                research_json_path = require_file(target, "research.json", errors)
+                if nonempty_file(research_md) and not research_md.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("Research report is empty.")
+                if nonempty_file(research_json_path):
+                    try:
+                        research_data = json.loads(research_json_path.read_text(encoding="utf-8"))
+                        if not isinstance(research_data, dict):
+                            raise ValueError("Research report must be a JSON object.")
+                        research_metadata = research_data.get("metadata")
+                        research_results = research_data.get("results")
+                        if not isinstance(research_metadata, dict) or not isinstance(research_results, list):
+                            raise ValueError("Research metadata/results have invalid types.")
+                        if research_metadata.get("source_provenance_schema") != 1:
+                            errors.append("Research report lacks the required source-provenance schema.")
+                        if research_metadata.get("verified") is not False:
+                            errors.append("Research metadata must not overclaim independent verification.")
+                        fetched_count = 0
+                        fetched_domains = set()
+                        for source in research_results:
+                            if not isinstance(source, dict) or source.get("fetch_status") != "fetched":
+                                continue
+                            page_text = source.get("page_text")
+                            digest_value = source.get("page_text_sha256")
+                            domain = source.get("final_domain")
+                            if not isinstance(page_text, str) or not page_text.strip():
+                                continue
+                            if (not isinstance(digest_value, str) or len(digest_value) != 64
+                                    or any(char not in "0123456789abcdef" for char in digest_value.lower())):
+                                errors.append("Fetched research source is missing a valid extracted-text SHA-256.")
+                                continue
+                            actual_text_hash = hashlib.sha256(page_text.encode("utf-8")).hexdigest()
+                            if actual_text_hash != digest_value:
+                                errors.append("Research extracted-text SHA-256 does not match the saved page text.")
+                                continue
+                            if not isinstance(domain, str) or not domain.strip():
+                                errors.append("Fetched research source is missing its final domain.")
+                                continue
+                            fetched_count += 1
+                            fetched_domains.add(domain.lower().rstrip("."))
+                        if fetched_count < 1:
+                            errors.append("Research was marked complete without any fetched, traceable source-page text.")
+                        summary = package_status.get("research_evidence")
+                        if not isinstance(summary, dict):
+                            errors.append("Package status is missing the research evidence summary.")
+                        else:
+                            if summary.get("fetched_page_count") != fetched_count:
+                                errors.append("Package research evidence page count does not match research.json.")
+                            if summary.get("independent_domain_count") != len(fetched_domains):
+                                errors.append("Package research domain count does not match research.json.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Research JSON could not be validated: " + str(exc)[:250])
+                check["checks"].append("research_source_text_provenance_and_manifest_parity")
             if result.get("render_expected") is True:
                 video = require_file(target, "video.mp4", errors)
                 srt = require_file(target, "video.srt", errors)
