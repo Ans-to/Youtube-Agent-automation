@@ -2,7 +2,7 @@ name: Windows setup smoke test
 
 on:
   push:
-    branches: [main, video-studio/pro-motion-voice-character, fix/ceo-video-e2e-ci-20261020]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
