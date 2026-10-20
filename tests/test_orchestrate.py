@@ -17,6 +17,10 @@ class NarrationLanguageRoutingTests(unittest.TestCase):
             "Narration language: English. Create a CI test video.": "en",
             "Use voice-over in Urdu with English technical terms.": "ur-en",
             "Generate subtitles in ur-en.": "ur-en",
+            "Use Urdu narration for this explainer.": "ur-en",
+            "Create an English voice-over.": "en",
+            "Write Urdu subtitles.": "ur-en",
+            "Speak in English.": "en",
             "Language: en.": "en",
         }
         for instruction, expected in cases.items():
@@ -43,6 +47,7 @@ class NarrationLanguageRoutingTests(unittest.TestCase):
             "Create a video about Urdu literature.",
             "Explain English technical writing to Urdu students.",
             "Compare English and Urdu search tools.",
+            "Build a video about Urdu language history.",
         ):
             with self.subTest(instruction=instruction):
                 self.assertIsNone(orchestrate.requested_narration_language(instruction))
