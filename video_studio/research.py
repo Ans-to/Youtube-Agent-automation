@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Collect free web-search leads without API keys; sources are not automatically verified."""
 import argparse
+import hashlib
 import ipaddress
 import json
 import urllib.error
@@ -333,6 +334,15 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
         elif item.get("page_title"):
             item["page_title"] = item["page_title"][:300]
         item["page_text"] = str(item.get("page_text", ""))[:MAX_PAGE_TEXT]
+        requested_domain = (urllib.parse.urlsplit(item["url"]).hostname or "").lower()
+        final_url = item.get("final_url") or item["url"]
+        final_domain = (urllib.parse.urlsplit(final_url).hostname or "").lower()
+        item["requested_domain"] = requested_domain
+        item["final_domain"] = final_domain
+        item["page_text_sha256"] = (
+            hashlib.sha256(item["page_text"].encode("utf-8")).hexdigest()
+            if item.get("fetch_status") == "fetched" else None
+        )
     all_results = page_targets + [item for item in all_results if item["url"] not in selected_urls]
 
     fetched_count = sum(1 for item in all_results if item.get("fetch_status") == "fetched")
@@ -347,7 +357,8 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
         "search_errors": errors,
         "page_errors": page_errors,
         "verified": False,
-        "note": "Search leads and page text are collected for analysis, but claims are not independently fact-checked. Check source authority, publication dates, context, and corroboration.",
+        "source_provenance_schema": 1,
+        "note": "Search leads and page text are collected for analysis, but claims are not independently fact-checked. Domain fields and text digests support traceability; they do not establish source authority or claim truth. Check publication dates, context, and corroboration.",
     }
     return metadata, all_results
 
@@ -367,6 +378,9 @@ def render_markdown(metadata, results, max_page_text=2500):
         lines.extend([
             "## [S" + str(index) + "] " + item["title"],
             "- URL: " + item["url"],
+            "- Requested domain: " + str(item.get("requested_domain", "")),
+            "- Final domain: " + str(item.get("final_domain", item.get("requested_domain", ""))),
+            "- Extracted text SHA-256: " + str(item.get("page_text_sha256") or "(Not available; page text was not fetched.)"),
             "- Search query: " + item["query"],
             "- Search snippet: " + (item["snippet"] or "(No snippet was returned.)"),
             "- Page fetch status: " + str(item.get("fetch_status", "not_attempted")),
