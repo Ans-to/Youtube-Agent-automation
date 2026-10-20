@@ -176,6 +176,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         scene[key] = scene[key].strip()[:12000 if key == "narration" else 240]
     scene["narration"] = validate_narration_text(scene["narration"], language, "Scene " + str(index) + " narration")
     scene["caption"] = scene["narration"]
+    scene["narration_language"] = language
     visual_type = str(scene.get("visual_type", "hero")).lower()
     if visual_type not in VISUAL_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported visual_type: " + visual_type)
