@@ -16,7 +16,7 @@ ROOT = BASE.parent
 sys.path.insert(0, str(BASE))
 from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_voice_model, validate_subtitle_text
 from capabilities import profile_device
-from voice_backends import get_urdu_tts_command, load_project_config, resolve_urdu_tts_command
+from voice_backends import get_urdu_tts_command, load_project_config, resolve_urdu_tts_command, require_urdu_voice_human_approval
 from render_lock import render_lock
 
 
@@ -362,6 +362,11 @@ def main():
             raise SystemExit("English voice requested, but Piper or a valid PIPER_MODEL file is missing.")
         if args.with_voice and language == "ur-en" and not urdu_tts_command:
             raise SystemExit("No Urdu-English voice adapter command was resolved. The default empty setting should select Kani + NeMo; inspect config.json and video_studio/requirements-urdu-tts.txt.")
+        if args.with_voice and language == "ur-en":
+            try:
+                require_urdu_voice_human_approval(config)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
         data["narration_language"] = language
         for index, scene in enumerate(data["scenes"], 1):
             scene["narration_language"] = language
