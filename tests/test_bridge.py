@@ -50,6 +50,21 @@ class BridgeTests(unittest.TestCase):
             marker = json.loads((Path(directory) / "request-1.processing.json").read_text(encoding="utf-8"))
             self.assertEqual(marker["request_sha256"], "a" * 64)
 
+    def test_atomic_json_writes_use_unique_temp_files_under_concurrency(self):
+        import json
+        import tempfile
+        from concurrent.futures import ThreadPoolExecutor
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "seen-request-ids.json"
+            payloads = [{"writer": index, "items": list(range(index, index + 3))} for index in range(30)]
+            with ThreadPoolExecutor(max_workers=8) as executor:
+                list(executor.map(lambda payload: bridge.write_json_atomic(target, payload), payloads))
+            result = json.loads(target.read_text(encoding="utf-8"))
+            self.assertIn(result, payloads)
+            leftovers = [path.name for path in Path(directory).iterdir() if path != target]
+            self.assertEqual(leftovers, [])
+
     def test_self_test_covers_practice_and_motion_documents(self):
         with patch.object(bridge, "PROJECT", ROOT):
             result = bridge.run_self_test()
