@@ -16,6 +16,10 @@ class BridgeTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         checked = set(result["syntax_checked"])
         self.assertIn("practice.py", checked)
+        self.assertIn("piper_urdu_tts_adapter.py", checked)
+        self.assertIn("quality_audit.py", checked)
+        self.assertIn("run_quality_gate.py", checked)
+        self.assertIn("config.example.json", checked)
         self.assertIn("MOTION_DESIGN_SYSTEM.md", checked)
         self.assertIn("TRAINING.md", checked)
 
