@@ -250,7 +250,7 @@
   for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
   // Multi-depth motion-design layer: drifting particles, perspective streaks, and
   // connected signal nodes move at different rates to create parallax instead of a static grid.
-  const motionT=globalFrame/Math.max(1,Number(s.fps)||30), depthCount=portrait?20:34;
+  const motionT=globalFrame/30, depthCount=portrait?20:34;
   ctx.save();
   ctx.globalCompositeOperation="screen";
   for(let i=0;i<depthCount;i++){
