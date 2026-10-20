@@ -13,10 +13,21 @@ sys.path.insert(0, str(ROOT / "video_studio"))
 import production
 import studio
 from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text
-from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command
+from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_voice_human_approved, require_urdu_voice_human_approval
 
 
 class VideoStudioTests(unittest.TestCase):
+    def test_urdu_voice_render_requires_explicit_human_approval(self):
+        self.assertFalse(urdu_voice_human_approved({}))
+        self.assertFalse(urdu_voice_human_approved({"video_studio": {"urdu_voice_human_approved": False}}))
+        approved = {"video_studio": {"urdu_voice_human_approved": True}}
+        self.assertTrue(urdu_voice_human_approved(approved))
+        with self.assertRaisesRegex(ValueError, "pending human voice approval"):
+            require_urdu_voice_human_approval({})
+        require_urdu_voice_human_approval(approved)
+        with self.assertRaisesRegex(ValueError, "must be true or false"):
+            urdu_voice_human_approved({"video_studio": {"urdu_voice_human_approved": "yes"}})
+
     def test_kani_speaker_prefix_is_optional_explicit_and_type_checked(self):
         self.assertIsNone(studio.configured_kani_speaker_prefix({}))
         self.assertEqual(
