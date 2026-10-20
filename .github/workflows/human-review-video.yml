@@ -1,0 +1,127 @@
+name: Human review video previews
+
+on:
+  workflow_dispatch:
+    inputs:
+      topic:
+        description: Topic label for the deterministic visual preview
+        required: true
+        default: "Every frame is code — faceless video studio preview"
+        type: string
+  push:
+    branches: [main]
+    paths:
+      - "video_studio/production.py"
+      - "video_studio/render.js"
+      - "video_studio/render.html"
+      - "video_studio/studio.py"
+      - "video_studio/quality_audit.py"
+      - ".github/workflows/human-review-video.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: human-review-video-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render-review-videos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install renderer and audio dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install -r video_studio/requirements-urdu-tts.txt
+          cd video_studio
+          npm install
+
+      - name: Download pinned English preview voice
+        env:
+          PIPER_VOICE_REVISION: b145f2ac26522d6a2ccde0164b7b0e48b1e3199c
+        run: |
+          set -eu
+          voice_dir=video_studio/voices/en_US-lessac-medium
+          mkdir -p "$voice_dir"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          test -s "$voice_dir/en_US-lessac-medium.onnx"
+          test -s "$voice_dir/en_US-lessac-medium.onnx.json"
+
+      - name: Render landscape visual review video
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: |
+          topic="${{ github.event.inputs.topic || 'Every frame is code — faceless video studio preview' }}"
+          python video_studio/production.py --topic "$topic" --out workspace/human-review/landscape --format long --language en --render-template
+
+      - name: Render vertical Shorts visual review video
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: |
+          topic="${{ github.event.inputs.topic || 'Every frame is code — faceless video studio preview' }}"
+          python video_studio/production.py --topic "$topic" --out workspace/human-review/shorts --format shorts --language en --render-template
+
+      - name: Verify review package completeness and video streams
+        run: |
+          python - <<'PY'
+          import json
+          import subprocess
+          from pathlib import Path
+
+          root = Path("workspace/human-review")
+          for name in ("landscape", "shorts"):
+              folder = root / name
+              required = ("video.mp4", "video.srt", "video.vtt", "video.qc.json",
+                          "script.md", "storyboard.json", "package-status.json")
+              missing = [item for item in required if not (folder / item).is_file() or (folder / item).stat().st_size == 0]
+              if missing:
+                  raise SystemExit(f"{name}: missing or empty review artifacts: {missing}")
+              status = json.loads((folder / "package-status.json").read_text(encoding="utf-8"))
+              qc = json.loads((folder / "video.qc.json").read_text(encoding="utf-8"))
+              if status.get("publishable") is not False or status.get("published") is not False:
+                  raise SystemExit(f"{name}: review preview must never be marked publishable or published")
+              if not qc.get("passed") or not qc.get("strict"):
+                  raise SystemExit(f"{name}: strict technical quality audit did not pass")
+              probe = subprocess.run(
+                  ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height",
+                   "-show_entries", "format=duration", "-of", "json", str(folder / "video.mp4")],
+                  check=True, capture_output=True, text=True,
+              )
+              info = json.loads(probe.stdout)
+              streams = info.get("streams", [])
+              if not any(s.get("codec_type") == "video" for s in streams):
+                  raise SystemExit(f"{name}: MP4 has no video stream")
+              if not any(s.get("codec_type") == "audio" for s in streams):
+                  raise SystemExit(f"{name}: MP4 has no audio stream")
+              video = next(s for s in streams if s.get("codec_type") == "video")
+              expected = (1080, 1920) if name == "shorts" else (1920, 1080)
+              actual = (video.get("width"), video.get("height"))
+              if actual != expected:
+                  raise SystemExit(f"{name}: expected dimensions {expected}, got {actual}")
+              print(f"PASS {name}: {actual[0]}x{actual[1]}, strict QC passed, audio present, human review required")
+          PY
+
+      - name: Upload videos and review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: human-review-video-previews
+          path: workspace/human-review/
+          if-no-files-found: error
+          retention-days: 14
