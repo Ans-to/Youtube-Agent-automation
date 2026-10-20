@@ -114,7 +114,7 @@ A separate operational branch, `mobile-agent-inbox`, is available for requests c
 - The mobile bridge does not accept shell commands or arbitrary code. Video rendering may be too resource-intensive for Android; queue video tasks on mobile and render on the Windows PC when available.
 - **Repository visibility warning:** this repository is public, so any task JSON or status report committed to `mobile-agent-inbox` is publicly readable even though that branch is separate. Use only non-sensitive prompts there; use a private repository or the local dashboard for confidential work.
 
-Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Even on a private repository, committed prompt text remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
+Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Request JSON is committed to a public branch and remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
 
 ### Request protocol
 
