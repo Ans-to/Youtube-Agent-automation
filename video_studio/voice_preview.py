@@ -284,7 +284,7 @@ def main(argv=None):
             approve_existing_preview(args.approve_existing)
         else:
             generate_voice_preview(args.text, args.output, args.overwrite)
-    except (OSError, ValueError, RuntimeError) as exc:
+    except (OSError, ValueError, RuntimeError, EOFError) as exc:
         print("URDU VOICE PREVIEW FAILED:", str(exc), file=sys.stderr)
         raise SystemExit(1) from exc
 
