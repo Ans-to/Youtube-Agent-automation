@@ -231,7 +231,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     character.setdefault("speaking", True)
     character.setdefault("x", 0.91)
     character.setdefault("y", 0.63)
-    character.setdefault("scale", 0.205)
+    character.setdefault("scale", 0.28)
     character.setdefault("walking", 0)
     character.setdefault("expression", ("curious", "confident", "focused", "concerned")[index % 4])
     character.setdefault("pose", ("explain", "point", "think", "explain")[index % 4])
