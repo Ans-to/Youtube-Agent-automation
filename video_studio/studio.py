@@ -197,7 +197,7 @@ def main():
         if args.with_voice and language == "en" and (not piper or not model or not Path(model).is_file()):
             raise SystemExit("English voice requested, but Piper or a valid PIPER_MODEL file is missing.")
         if args.with_voice and language == "ur-en" and not urdu_tts_command:
-            raise SystemExit("Urdu-English voice requested, but config.json video_studio.urdu_tts_command is empty.")
+            raise SystemExit("No Urdu-English voice adapter command was resolved. The default empty setting should select Kani + NeMo; inspect config.json and video_studio/requirements-urdu-tts.txt.")
         data["narration_language"] = language
         for index, scene in enumerate(data["scenes"], 1):
             scene["narration_language"] = language
