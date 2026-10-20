@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from video_studio.publish_youtube import sha256, validate_approval
+from video_studio.publish_youtube import sha256, validate_approval, claim_upload_attempt
 
 
 class PublishApprovalTests(unittest.TestCase):
@@ -61,6 +61,43 @@ class PublishApprovalTests(unittest.TestCase):
             }
             with self.assertRaisesRegex(ValueError, "already been used for an upload"):
                 validate_approval(approval, video.resolve(), metadata)
+
+    def test_rejects_reuse_when_previous_upload_outcome_is_uncertain(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video, metadata, approval = self.make_package(directory)
+            approval["upload"] = {
+                "status": "in_progress",
+                "uploaded": False,
+                "outcome": "unknown_until_confirmed",
+            }
+            with self.assertRaisesRegex(ValueError, "uncertain outcome"):
+                validate_approval(approval, video.resolve(), metadata)
+
+    def test_claim_persists_fail_closed_marker_before_upload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video, metadata, approval = self.make_package(directory)
+            approval_path = Path(directory) / "approval.json"
+            approval_path.write_text(json.dumps(approval), encoding="utf-8")
+            claimed, approved = claim_upload_attempt(approval_path, video.resolve(), metadata, "private")
+            self.assertEqual(approved, metadata)
+            self.assertEqual(claimed["upload"]["status"], "in_progress")
+            self.assertEqual(claimed["upload"]["video_sha256"], sha256(video))
+            saved = json.loads(approval_path.read_text(encoding="utf-8"))
+            self.assertEqual(saved["upload"]["status"], "in_progress")
+            with self.assertRaisesRegex(ValueError, "uncertain outcome"):
+                validate_approval(saved, video.resolve(), metadata)
+            self.assertFalse(Path(str(approval_path) + ".upload.lock").exists())
+
+    def test_claim_refuses_an_existing_upload_lock(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video, metadata, approval = self.make_package(directory)
+            approval_path = Path(directory) / "approval.json"
+            approval_path.write_text(json.dumps(approval), encoding="utf-8")
+            Path(str(approval_path) + ".upload.lock").write_text("other process", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Another upload process"):
+                claim_upload_attempt(approval_path, video.resolve(), metadata, "private")
+            saved = json.loads(approval_path.read_text(encoding="utf-8"))
+            self.assertNotIn("upload", saved)
 
     def test_does_not_reject_incomplete_upload_record(self):
         with tempfile.TemporaryDirectory() as directory:
