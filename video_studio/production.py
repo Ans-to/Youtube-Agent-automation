@@ -430,7 +430,7 @@ def main():
                 "human_review_required": True,
                 "published": False,
             })
-        except (OSError, RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError, KeyError) as exc:
+        except (OSError, RuntimeError, ValueError, subprocess.TimeoutExpired, json.JSONDecodeError, KeyError) as exc:
             status.update({
                 "status": "technical_qa_failed",
                 "quality_audit_passed": False,
