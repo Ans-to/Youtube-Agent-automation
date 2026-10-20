@@ -17,6 +17,9 @@ def sha256(path):
 def validate_approval(approval, video, requested):
  if not isinstance(approval,dict) or approval.get("approved") is not True:
   raise ValueError("Approval record is not approved.")
+ upload_record = approval.get("upload")
+ if isinstance(upload_record, dict) and upload_record.get("uploaded") is True:
+  raise ValueError("This approval record has already been used for an upload; create and review a new package approval before uploading again.")
  if Path(approval.get("video_file","")).resolve()!=video.resolve():
   raise ValueError("Approval record references a different video.")
  if approval.get("video_sha256")!=sha256(video):
