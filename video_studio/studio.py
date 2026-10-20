@@ -215,6 +215,12 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
                 prefix = configured_kani_speaker_prefix(config)
                 if prefix is not None:
                     adapter_env["AGENTHQ_KANI_SPEAKER_PREFIX"] = prefix
+                video_config = config.get("video_studio", {}) if isinstance(config.get("video_studio", {}), dict) else {}
+                codec_revision = video_config.get("kani_codec_revision", "")
+                if not isinstance(codec_revision, str):
+                    raise ValueError("config.json video_studio.kani_codec_revision must be text.")
+                if codec_revision.strip():
+                    adapter_env["AGENTHQ_URDU_TTS_CODEC_REVISION"] = codec_revision.strip()
             result = subprocess.run(
                 command, cwd=str(ROOT), capture_output=True, text=True,
                 timeout=timeout, check=False, env=adapter_env,
