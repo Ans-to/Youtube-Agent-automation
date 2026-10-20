@@ -25,18 +25,29 @@ def slug(value):
 
 
 def requested_narration_language(text):
-    """Return an explicit output-language override, or None to use configured channel default.
+    """Return an explicit narration/subtitle language override, or None.
 
-    A topic mentioning Urdu/English alone must not switch voice-over language. Recognize
-    explicit narration, voice-over, subtitle, caption, or 'language: ...' instructions.
+    Avoid switching because a topic merely mentions English or Urdu. Match language words
+    only when tied to narration, voice-over, subtitles/captions, or an explicit in-language
+    instruction.
     """
-    match = re.search(
-        r"(?i)(?:\b(?:narration|voice(?:[\s-]?over)?|subtitles?|captions?)\s+(?:language\s*[:=]\s*|in\s+)|\blanguage\s*[:=]\s*)(english|en|urdu(?:\s*[-+&]\s*english)?|ur(?:\s*[-+&]\s*en)?)\b",
-        str(text or ""),
+    value = str(text or "")
+    language_token = r"(english|en|urdu(?:\\s*[-+&]\\s*english)?|ur(?:\\s*[-+&]\\s*en)?)"
+    patterns = (
+        r"(?i)\\b(?:narration|voice(?:[\\s-]?over)?|subtitles?|captions?)\\s+(?:language\\s*[:=]\\s*|in\\s+)" + language_token + r"\\b",
+        r"(?i)\\blanguage\\s*[:=]\\s*" + language_token + r"\\b",
+        r"(?i)\\b" + language_token + r"\\s+(?:narration|voice[\\s-]?over|subtitles?|captions?)\\b",
+        r"(?i)\\b(?:speak|narrate|read|use)\\s+(?:it\\s+)?in\\s+" + language_token + r"\\b",
     )
-    if not match:
+    selected = None
+    for pattern in patterns:
+        match = re.search(pattern, value)
+        if match:
+            selected = match.group(1)
+            break
+    if not selected:
         return None
-    return "en" if match.group(1).strip().lower() in {"english", "en"} else "ur-en"
+    return "en" if selected.strip().lower() in {"english", "en"} else "ur-en"
 
 
 def configured_narration_language_instruction(config):
