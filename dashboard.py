@@ -173,6 +173,13 @@ def has_pending_tasks():
     return any(isinstance(task, dict) and str(task.get("status", "pending")).lower() in {"pending", "queued"} for task in tasks)
 
 
+def has_running_tasks():
+    """Return whether the worker must inspect running records for interruption recovery."""
+    raw = load(TASKS, [])
+    tasks = raw if isinstance(raw, list) else []
+    return any(isinstance(task, dict) and str(task.get("status", "")).lower() == "running" for task in tasks)
+
+
 def start_task_runner():
     """Start the local task worker automatically, draining queued tasks in order."""
     global RUNNING
@@ -194,7 +201,9 @@ def start_task_runner():
         try:
             LOGS.mkdir(exist_ok=True)
             for cycle_number in range(100):
-                if not has_pending_tasks():
+                # Always perform one queue sweep when a runner starts. agent.py uses
+                # that sweep to recover orphaned running tasks even when nothing is queued.
+                if cycle_number > 0 and not has_pending_tasks():
                     break
                 with (LOGS / "dashboard.log").open("a", encoding="utf-8") as log_file:
                     log_file.write("[" + datetime.now().astimezone().isoformat(timespec="seconds") + "] Auto queue worker cycle " + str(cycle_number + 1) + " started\n")
@@ -502,8 +511,8 @@ def main():
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise SystemExit("Safety check: dashboard must bind to loopback only.")
     server = HTTPServer((host, port), Handler)
-    if has_pending_tasks():
-        print("Pending tasks detected; automatically resuming the local queue worker.")
+    if has_pending_tasks() or has_running_tasks():
+        print("Queued or interrupted task records detected; inspecting and resuming the local queue worker safely.")
         started, active = start_task_runner()
         if not started:
             print("Queue remains pending because another workflow is active: " + active)
