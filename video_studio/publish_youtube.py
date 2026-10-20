@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Upload an explicitly approved local MP4 to YouTube; OAuth and confirmation are required."""
-import argparse,hashlib,json,sys
+import argparse,hashlib,json,sys,os,tempfile
 from datetime import datetime,timezone
 from pathlib import Path
 
@@ -14,12 +14,31 @@ def sha256(path):
   for block in iter(lambda:stream.read(1024*1024),b""):h.update(block)
  return h.hexdigest()
 
+def write_json_atomic(path, value):
+ """Persist approval state atomically so an interrupted write cannot corrupt the record."""
+ path = Path(path).resolve()
+ fd, temporary_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+ try:
+  with os.fdopen(fd, "w", encoding="utf-8") as stream:
+   json.dump(value, stream, ensure_ascii=False, indent=2)
+   stream.write("\n")
+  os.replace(temporary_name, path)
+ except Exception:
+  try:
+   os.unlink(temporary_name)
+  except OSError:
+   pass
+  raise
+
 def validate_approval(approval, video, requested):
  if not isinstance(approval,dict) or approval.get("approved") is not True:
   raise ValueError("Approval record is not approved.")
  upload_record = approval.get("upload")
- if isinstance(upload_record, dict) and upload_record.get("uploaded") is True:
-  raise ValueError("This approval record has already been used for an upload; create and review a new package approval before uploading again.")
+ if isinstance(upload_record, dict):
+  if upload_record.get("uploaded") is True or upload_record.get("status") == "uploaded":
+   raise ValueError("This approval record has already been used for an upload; create and review a new package approval before uploading again.")
+  if upload_record.get("status") in {"in_progress", "outcome_unknown"}:
+   raise ValueError("A previous upload attempt has an uncertain outcome. Check YouTube Studio for the video, then create and review a fresh approval before retrying.")
  if Path(approval.get("video_file","")).resolve()!=video.resolve():
   raise ValueError("Approval record references a different video.")
  if approval.get("video_sha256")!=sha256(video):
@@ -63,6 +82,36 @@ def validate_approval(approval, video, requested):
  if requested.get("privacy") not in {"private","unlisted","public"} or requested.get("made_for_kids") not in {"yes","no"}:
   raise ValueError("Approved visibility or made-for-kids setting is invalid.")
  return approved
+
+def claim_upload_attempt(approval_path, video, requested, privacy):
+ """Atomically claim one approval and persist a fail-closed marker before the upload request."""
+ approval_path = Path(approval_path).resolve()
+ lock_path = approval_path.with_name(approval_path.name + ".upload.lock")
+ try:
+  lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+ except FileExistsError as exc:
+  raise ValueError("Another upload process holds the approval lock. Do not retry; inspect the approval and YouTube Studio first.") from exc
+ try:
+  with os.fdopen(lock_fd, "w", encoding="utf-8") as lock_stream:
+   lock_stream.write(str(os.getpid()))
+  current = json.loads(approval_path.read_text(encoding="utf-8"))
+  approved = validate_approval(current, video, requested)
+  current["upload"] = {
+   "status": "in_progress",
+   "uploaded": False,
+   "attempt_started_at": datetime.now(timezone.utc).isoformat(),
+   "video_sha256": sha256(video),
+   "privacy": privacy,
+   "outcome": "unknown_until_confirmed",
+  }
+  write_json_atomic(approval_path, current)
+  return current, approved
+ finally:
+  try:
+   lock_path.unlink()
+  except FileNotFoundError:
+   pass
+
 def main():
  p=argparse.ArgumentParser(description=__doc__)
  p.add_argument("--video",required=True);p.add_argument("--approval",required=True)
@@ -97,6 +146,7 @@ def main():
   credentials=InstalledAppFlow.from_client_secrets_file(str(client),scopes).run_local_server(port=0)
   token.write_text(credentials.to_json(),encoding="utf-8")
  youtube=build("youtube","v3",credentials=credentials)
+ approval,approved=claim_upload_attempt(approval_path,video,requested,a.privacy)
  body={"snippet":{"title":approved["title"],"description":approved["description"],"tags":approved["tags"],"categoryId":"28"},"status":{"privacyStatus":approved["privacy"],"selfDeclaredMadeForKids":approved["made_for_kids"]=="yes"}}
  media=MediaFileUpload(str(video),chunksize=8*1024*1024,resumable=True,mimetype="video/mp4")
  request=youtube.videos().insert(part="snippet,status",body=body,media_body=media);response=None
@@ -104,7 +154,7 @@ def main():
   status,response=request.next_chunk()
   if status:print("Upload progress: {:.1f}%".format(status.progress()*100),flush=True)
  uploaded_at=datetime.now(timezone.utc).isoformat();video_id=response.get("id")
- approval["upload"]={"uploaded":True,"uploaded_at":uploaded_at,"video_id":video_id,"privacy":a.privacy};approval_path.write_text(json.dumps(approval,indent=2)+"\n",encoding="utf-8")
+ approval["upload"]={"status":"uploaded","uploaded":True,"uploaded_at":uploaded_at,"video_id":video_id,"privacy":a.privacy};write_json_atomic(approval_path,approval)
  status_path=Path(approval.get("package_dir",str(video.parent)))/"package-status.json"
  if status_path.is_file():
   package_status=json.loads(status_path.read_text(encoding="utf-8"));package_status.update({"status":"uploaded","uploaded":True,"published":a.privacy=="public","upload_privacy":a.privacy,"youtube_video_id":video_id,"uploaded_at":uploaded_at})
