@@ -42,7 +42,7 @@ def is_retryable_error(error):
         # A model may transiently return an empty completion; the retry prompt can recover.
         return True
     transient_markers = (
-        "timed out", "timeout", "temporarily unavailable", "temporary failure",
+        "timed out", "temporarily unavailable", "temporary failure",
         "connection reset", "connection aborted", "connection refused",
         "remote disconnected", "rate limit", "too many requests",
         "http 429", "http 500", "http 502", "http 503", "http 504",
