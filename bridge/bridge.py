@@ -8,6 +8,7 @@ import json
 import os
 import re
 import pathlib
+import tempfile
 import subprocess
 import sys
 import time
@@ -123,11 +124,21 @@ def claim_request(request_id: str, state_dir: pathlib.Path, request_sha256: str)
 
 
 def write_json_atomic(path: pathlib.Path, data: object) -> None:
-    """Write JSON via same-directory replacement to avoid truncated state files."""
+    """Write JSON via a unique same-directory temporary file and atomic replacement."""
     path = pathlib.Path(path)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, temporary_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as stream:
+            json.dump(data, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+        os.replace(temporary_name, path)
+    except Exception:
+        try:
+            os.unlink(temporary_name)
+        except OSError:
+            pass
+        raise
 
 
 def valid_request_id(value: object) -> bool:
