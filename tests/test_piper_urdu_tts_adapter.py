@@ -16,9 +16,11 @@ import piper_urdu_tts_adapter as adapter
 class FakeVoice:
     def __init__(self):
         self.calls = []
+        self.synthesis_configs = []
 
-    def synthesize_wav(self, text, wav_file):
+    def synthesize_wav(self, text, wav_file, syn_config=None):
         self.calls.append(text)
+        self.synthesis_configs.append(syn_config)
         wav_file.setnchannels(1)
         wav_file.setsampwidth(2)
         wav_file.setframerate(22050)
@@ -59,12 +61,23 @@ class PiperUrduAdapterTests(unittest.TestCase):
                     cls.calls += 1
                     return voice
 
-            with patch.dict(sys.modules, {"piper": type("PiperModule", (), {"PiperVoice": FakePiperVoice})}):
+            class FakeSynthesisConfig:
+                def __init__(self, **kwargs):
+                    self.__dict__.update(kwargs)
+
+            with patch.dict(sys.modules, {"piper": type("PiperModule", (), {
+                "PiperVoice": FakePiperVoice,
+                "SynthesisConfig": FakeSynthesisConfig,
+            })}):
                 with patch.object(adapter, "ensure_voice_model", return_value=(root / "voice.onnx", root / "voice.onnx.json")):
                     reports = adapter.synthesize_manifest(manifest)
 
             self.assertEqual(FakePiperVoice.calls, 1)
             self.assertEqual(len(voice.calls), 2)
+            self.assertEqual(
+                [item.length_scale for item in voice.synthesis_configs],
+                [adapter.DEFAULT_LENGTH_SCALE, adapter.DEFAULT_LENGTH_SCALE],
+            )
             self.assertEqual(len(reports), 2)
             for item, report in zip(items, reports):
                 audio = Path(item["output_file"])
@@ -76,6 +89,25 @@ class PiperUrduAdapterTests(unittest.TestCase):
                     self.assertEqual(wav_file.getnchannels(), 1)
                     self.assertEqual(wav_file.getsampwidth(), 2)
                     self.assertEqual(wav_file.getframerate(), 22050)
+
+    def test_fasih_v2_revision_and_slower_speech_profile_are_pinned(self):
+        self.assertEqual(adapter.DEFAULT_MODEL_REVISION, "06202b7")
+        self.assertEqual(adapter.MODEL_MD5, "f32ec2c6ebcc6bd1752cab0b932859c7")
+        self.assertEqual(adapter.MODEL_SIZE_BYTES, 64_832_023)
+        self.assertEqual(adapter.DEFAULT_LENGTH_SCALE, 1.15)
+
+    def test_fasih_v2_config_adds_expected_diphthong_ids(self):
+        source = {
+            "audio": {"sample_rate": 22050},
+            "language": {"code": "ur_PK"},
+            "phoneme_id_map": {"a": [14], "b": [15]},
+            "piper_version": "1.3.0",
+        }
+        result = adapter._build_fasih_v2_config(source)
+        self.assertEqual(result["piper_version"], "1.5.0")
+        for symbol, item_id in adapter.FASIH_V2_PHONEME_IDS.items():
+            self.assertEqual(result["phoneme_id_map"][symbol], [item_id])
+        self.assertEqual(source["piper_version"], "1.3.0")
 
     def test_manifest_rejects_duplicate_output_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
