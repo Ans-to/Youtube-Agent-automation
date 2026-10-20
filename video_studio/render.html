@@ -236,7 +236,13 @@
    else{ctx.globalAlpha=(q-.5)*2;ctx.drawImage(incoming,0,0,w,h);}
    ctx.globalAlpha=1;
   }
-  else if(kind==="wipe-left"||kind==="wipe-right"){const width=w*(1-q);ctx.beginPath();ctx.rect(kind==="wipe-left"?w-width:0,0,width,h);ctx.clip();ctx.drawImage(outgoing,0,0,w,h);}
+  else if(kind==="wipe-left"||kind==="wipe-right"){
+   // Keep the outgoing frame as the base, then reveal the incoming frame through a moving matte.
+   // The previous implementation clipped the outgoing image again, so a wipe could never reveal the new scene.
+   ctx.drawImage(outgoing,0,0,w,h);
+   const revealed=w*q;ctx.beginPath();ctx.rect(kind==="wipe-left"?w-revealed:0,0,revealed,h);ctx.clip();
+   ctx.drawImage(incoming,0,0,w,h);
+  }
   else if(kind==="slide-left"||kind==="slide-right"){
    ctx.drawImage(outgoing,0,0,w,h);
    const offset=(1-q)*w*(kind==="slide-left"?1:-1);
