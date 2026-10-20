@@ -360,7 +360,9 @@ def main():
             raise SystemExit("Storyboard must contain at least one scene.")
         try:
             language = resolve_narration_language(args.language, data, config)
-            urdu_tts_command = get_urdu_tts_command(config)
+            # Urdu TTS is optional for explicitly English renders; malformed Urdu-only
+            # configuration must not block the separate English Piper backend.
+            urdu_tts_command = get_urdu_tts_command(config) if language == "ur-en" else []
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
         if language == "ur-en" and not args.with_voice:
