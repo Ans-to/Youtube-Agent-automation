@@ -9,6 +9,8 @@ from pathlib import Path
 import sys
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
+sys.path.insert(0, str(ROOT / "tools"))
+from path_utils import canonical_path, safe_relative_path
 RESEARCH_DIR = ROOT / "video_studio"
 if str(RESEARCH_DIR) not in sys.path:
     sys.path.insert(0, str(RESEARCH_DIR))
@@ -113,10 +115,10 @@ def research_topic_from_task(task):
 
 def save_research_report(agent_id, markdown, metadata=None, sources=None):
     """Persist a bounded Markdown report and structured JSON for both success and failure."""
-    research_dir = (ROOT / "workspace" / "research" / "agent-runs").resolve()
+    research_dir = canonical_path(ROOT / "workspace" / "research" / "agent-runs")
     research_dir.mkdir(parents=True, exist_ok=True)
     report_name = str(agent_id).lower() + "-" + datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".md"
-    report_path = research_dir / report_name
+    report_path = canonical_path(research_dir / report_name)
     if research_dir not in report_path.parents:
         raise ValueError("Research report path escaped the workspace.")
     report_path.write_text(str(markdown).rstrip() + "\n", encoding="utf-8")
@@ -125,7 +127,7 @@ def save_research_report(agent_id, markdown, metadata=None, sources=None):
         "metadata": metadata or {},
         "results": sources or [],
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return str(report_path.relative_to(ROOT)), str(json_path.relative_to(ROOT))
+    return safe_relative_path(report_path, ROOT).as_posix(), safe_relative_path(json_path, ROOT).as_posix()
 
 
 def run_role(role,task,context,cfg,perform_research=True):
