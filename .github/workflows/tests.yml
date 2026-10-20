@@ -112,7 +112,7 @@ jobs:
           if [ "$code" -eq 0 ]; then echo "Oversized storyboard was unexpectedly accepted"; exit 1; fi
           grep -q "30000-frame render limit" limit-check.log
       - name: Render and validate a 1-second landscape MP4
-        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4
+        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en
         working-directory: .
       - name: Verify normalized transition type and applied frame count
         run: |
@@ -130,7 +130,7 @@ jobs:
               assert manifest["transitions"][index] == record, manifest["transitions"][index]
           PY
       - name: Render and validate a 1-second vertical Shorts MP4
-        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4
+        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
         working-directory: .
       - name: Verify subtitles exist for both render profiles
         run: |
@@ -191,8 +191,8 @@ jobs:
       - name: Render voiced landscape prototype with English subtitles
         run: |
           export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx"
-          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --with-voice
-          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo-shorts.json --output outputs/motion-character-transition-shorts.mp4 --with-voice
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --language en --with-voice
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo-shorts.json --output outputs/motion-character-transition-shorts.mp4 --language en --with-voice
       - name: Run topic-to-video production pipeline with English narration
         env:
           PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
