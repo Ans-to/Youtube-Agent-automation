@@ -11,6 +11,7 @@
       "headline": "LEARN",
       "subhead": "A concise Urdu-English narration test",
       "narration": "آج ہم Python سیکھیں گے۔",
+      "caption": "آج ہم Python سیکھیں گے۔",
       "visual_type": "hero",
       "graphic_label": "URDU VOICE V2",
       "transition_in": "none",
@@ -22,6 +23,7 @@
       "headline": "INPUT",
       "subhead": "Data enters the workflow",
       "narration": "یہاں input ڈیٹا ملتا ہے۔",
+      "caption": "یہاں input ڈیٹا ملتا ہے۔",
       "visual_type": "diagram",
       "visual_nodes": [
         "INPUT",
@@ -37,6 +39,7 @@
       "headline": "PROCESS",
       "subhead": "Keep each spoken sentence short",
       "narration": "پھر code اسے process کرتا ہے۔",
+      "caption": "پھر code اسے process کرتا ہے۔",
       "visual_type": "timeline",
       "timeline_events": [
         "INPUT",
@@ -52,6 +55,7 @@
       "headline": "RESULT",
       "subhead": "Confirm audio and subtitle output",
       "narration": "آخر میں، result ملتا ہے۔",
+      "caption": "آخر میں، result ملتا ہے۔",
       "visual_type": "kinetic-type",
       "transition_in": "wipe-right",
       "transition_frames": 6
