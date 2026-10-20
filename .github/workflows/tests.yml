@@ -71,13 +71,28 @@ jobs:
         with:
           node-version: "22"
       - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-core
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
       - name: Audit renderer dependencies
         working-directory: video_studio
         run: npm audit --audit-level=high
+      - name: Render mixed Urdu-English RTL text without audio
+        working-directory: video_studio
+        run: |
+          node render.js storyboard.urdu-smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("render-manifest.json").read_text(encoding="utf-8"))
+          assert manifest["width"] == 640 and manifest["height"] == 360, manifest
+          assert manifest["frame_count"] == 2 and manifest["scene_count"] == 1, manifest
+          for index in range(2):
+              frame = Path("frames") / ("frame-%06d.png" % index)
+              assert frame.is_file() and frame.stat().st_size > 1024, frame
+          print("Urdu/English RTL renderer smoke test passed:", manifest["frame_count"], "frames")
+          PY
       - name: Reject invalid transition before browser launch
         working-directory: video_studio
         run: |
