@@ -52,6 +52,18 @@ async function main(){
    english:window.textDirectionForTest("English API")
   }));
   if(directionCheck.urdu!=="rtl"||directionCheck.english!=="ltr")throw new Error("Script-direction regression: Urdu must be RTL and English LTR. "+JSON.stringify(directionCheck));
+  const captionLayoutCheck=await page.evaluate(()=>{
+   const landscape=window.captionLayoutForTest(1920,1080,150,1620);
+   const portrait=window.captionLayoutForTest(1080,1920,84,912);
+   return {landscape,portrait};
+  });
+  if(!captionLayoutCheck.landscape||captionLayoutCheck.landscape.width>1920*.60||
+     captionLayoutCheck.landscape.x!==150||captionLayoutCheck.landscape.portrait!==false||
+     !captionLayoutCheck.portrait||captionLayoutCheck.portrait.width!==912||
+     captionLayoutCheck.portrait.portrait!==true){
+   throw new Error("Caption/presenter safe-lane regression: "+JSON.stringify(captionLayoutCheck));
+  }
+
   const rigCheck=await page.evaluate(()=>window.characterRigCapabilitiesForTest());
   const requiredJoints=["shoulder","elbow","wrist","hip","knee","ankle","neck","head"];
   const requiredVisemes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
