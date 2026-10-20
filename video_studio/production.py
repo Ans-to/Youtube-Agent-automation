@@ -342,8 +342,8 @@ def main():
         elif not urdu_tts_command:
             raise SystemExit(
                 "No Urdu-English voice adapter command could be resolved. An empty command should select the bundled "
-                "Kani + NeMo adapter; check config.json, video_studio/urdu_tts_adapter.py, and the optional "
-                "video_studio/requirements-urdu-tts.txt dependencies. English Piper, eSpeak, and silent audio will not be substituted."
+                "Piper Urdu CPU adapter; install its isolated runtime with setup_urdu_tts_windows.ps1 and inspect the detailed adapter error. "
+                "English voice models and silent audio will not be substituted for Urdu-English narration."
             )
     target_seconds = target_minutes * 60
     default_scenes = max(4, math.ceil(target_minutes * 3))
