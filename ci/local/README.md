@@ -19,7 +19,13 @@ Extract it to a folder you control. Do not extract over a production copy with u
 
 The script doesn't require a payment card, hosted CI service, paid AI API, local model, administrator permissions, or YouTube OAuth. It runs deterministic template mode with synthetic test data.
 
-If Python, Node.js, FFmpeg, and ffprobe are already installed, you can run the test command directly. If FFmpeg or another prerequisite is missing, run `.`\\`setup_all_windows.ps1` from the repository root first. It can install FFmpeg portably inside the repository if `winget` is unavailable. If it asks whether to install the optional local AI model, enter `N`; the smoke test does not need that download. The test script automatically detects `tools\\ffmpeg\\bin` when both FFmpeg executables are present.
+If Python, Node.js, FFmpeg, and ffprobe are already installed, you can run the test command directly. If FFmpeg or another prerequisite is missing, run this from the repository root first:
+
+```powershell
+.\setup_all_windows.ps1
+```
+
+It can install FFmpeg portably inside the repository if `winget` is unavailable. If it asks whether to install the optional local AI model, enter `N`; the smoke test does not need that download. The test script automatically detects `tools\ffmpeg\bin` when both FFmpeg executables are present.
 
 ## Run
 
