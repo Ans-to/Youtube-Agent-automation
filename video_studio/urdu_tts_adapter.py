@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""CPU-friendly batch adapter for a pinned local KaniTTS Urdu model.
+"""Batch adapter for the pinned Urdu Kani causal model and NeMo NanoCodec.
 
-The supported KaniTTS API returns an audio waveform which the wrapper saves as WAV.
-The model snapshot is pinned and cached, and one model instance serves all scenes in
-a video. The small JSON/deterministic paths are tested without downloading model weights.
+The model emits speech-code tokens; the matching codec decodes them to PCM audio.
+No shell is invoked by this module. A manifest lets one model+codec load synthesize
+all scenes sequentially instead of reloading large models for each scene.
 """
 import argparse
 from array import array
@@ -338,15 +338,8 @@ def synthesize_manifest(manifest_path, pipeline_instance=None):
         if isinstance(result, dict) and "audio" in result:
             sample_rate = result.get("sampling_rate", result.get("sample_rate"))
             report = write_wav(item["output_file"], result["audio"], sample_rate)
-        elif isinstance(result, (tuple, list)) and result:
-            audio = result[0]
-            saver = getattr(tts, "save_audio", None)
-            if not callable(saver):
-                raise ValueError("KaniTTS returned an audio waveform but its save_audio API is unavailable.")
-            saver(audio, str(item["output_file"]))
-            report = inspect_wav(item["output_file"])
         else:
-            raise ValueError("Urdu TTS did not return a recognized KaniTTS waveform for scene " + str(item["index"]) + ".")
+            raise ValueError("Urdu TTS backend did not return an audio waveform for scene " + str(item["index"]) + ".")
         report["scene"] = item["index"]
         report["output_file"] = str(item["output_file"])
         reports.append(report)
