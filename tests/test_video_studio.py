@@ -24,7 +24,7 @@ class VideoStudioTests(unittest.TestCase):
         profile = {
             "video_studio": {
                 "narration_language": "ur-en",
-                "urdu_tts_command": [],
+                "urdu_tts_command": ["python", "video_studio/urdu_tts_adapter.py", "--manifest", "{manifest_file}"],
                 "kani_speaker_prefix": "speaker-a",
             }
         }
@@ -72,7 +72,7 @@ class VideoStudioTests(unittest.TestCase):
             with patch.object(voice_backends, "__file__", str(module_file)):
                 command = voice_backends.builtin_urdu_tts_command()
             self.assertEqual(command[0], str(python_path))
-            self.assertEqual(Path(command[1]), module_dir / "urdu_tts_adapter.py")
+            self.assertEqual(Path(command[1]), module_dir / "piper_urdu_tts_adapter.py")
 
     def test_builtin_urdu_adapter_falls_back_to_current_interpreter_without_venv(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -330,7 +330,7 @@ class VideoStudioTests(unittest.TestCase):
 
     def test_empty_urdu_tts_setting_selects_bundled_batch_adapter(self):
         command = get_urdu_tts_command({"video_studio": {"urdu_tts_command": []}})
-        self.assertIn("urdu_tts_adapter.py", command[1])
+        self.assertIn("piper_urdu_tts_adapter.py", command[1])
         self.assertEqual(command[-2:], ["--manifest", "{manifest_file}"])
         resolved = resolve_urdu_tts_command(command, manifest_file="temp/manifest.json")
         self.assertTrue(resolved[-1].endswith("manifest.json"))
