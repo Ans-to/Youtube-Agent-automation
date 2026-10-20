@@ -1,0 +1,62 @@
+$ErrorActionPreference = "Stop"
+$Root = Split-Path -Parent $MyInvocation.MyCommand.Path
+Set-Location $Root
+
+Write-Host ""
+Write-Host "Offline Agent HQ - Windows Urdu voice setup" -ForegroundColor Cyan
+Write-Host "This installs Piper (CPU/ONNX Runtime) in an isolated .venv-urdu-tts."
+Write-Host "It does not modify the main Agent HQ Python environment or config.json."
+Write-Host "The Pakistani Urdu male Fasih model is about 64 MB and downloads on first preview."
+Write-Host ""
+
+$PythonCommand = $null
+$PythonArgs = @()
+if (Get-Command py -ErrorAction SilentlyContinue) {
+    $PythonCommand = "py"
+    $PythonArgs = @("-3")
+} elseif (Get-Command python -ErrorAction SilentlyContinue) {
+    $PythonCommand = "python"
+} else {
+    throw "Python 3.9+ is required. Install Python from https://www.python.org/downloads/windows/ and rerun this script."
+}
+
+$VersionText = (& $PythonCommand @PythonArgs -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
+if ($LASTEXITCODE -ne 0) { throw "Could not run Python; verify that Python is installed and available on PATH." }
+$VersionParts = $VersionText.Split(".")
+$Major = [int]$VersionParts[0]
+$Minor = [int]$VersionParts[1]
+if (($Major -lt 3) -or (($Major -eq 3) -and ($Minor -lt 9))) {
+    throw "Piper requires Python 3.9 or newer; detected $VersionText."
+}
+
+$VenvRoot = Join-Path $Root ".venv-urdu-tts"
+$VenvPython = Join-Path $VenvRoot "Scripts\python.exe"
+if (-not (Test-Path $VenvPython)) {
+    Write-Host "Creating isolated voice environment with Python $VersionText..." -ForegroundColor Cyan
+    & $PythonCommand @PythonArgs -m venv $VenvRoot
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path $VenvPython)) {
+        throw "Could not create .venv-urdu-tts with Python $VersionText."
+    }
+} else {
+    $ExistingVersion = (& $VenvPython -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect the existing .venv-urdu-tts interpreter." }
+    $ExistingParts = $ExistingVersion.Split(".")
+    if ([int]$ExistingParts[0] -lt 3 -or ([int]$ExistingParts[0] -eq 3 -and [int]$ExistingParts[1] -lt 9)) {
+        throw "The existing .venv-urdu-tts is older than Python 3.9. It was left untouched; rename that dedicated environment and rerun this installer."
+    }
+    Write-Host "Reusing isolated voice environment (Python $ExistingVersion)." -ForegroundColor DarkGray
+}
+
+& $VenvPython -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) { throw "Could not update pip inside .venv-urdu-tts." }
+
+& $VenvPython -m pip install -r (Join-Path $Root "video_studio\requirements-urdu-tts.txt")
+if ($LASTEXITCODE -ne 0) { throw "Piper/ONNX dependencies failed to install inside .venv-urdu-tts. The main Agent HQ Python was not changed." }
+
+& $VenvPython (Join-Path $Root "video_studio\piper_urdu_tts_adapter.py") --check-dependencies
+if ($LASTEXITCODE -ne 0) { throw "Piper runtime import verification failed. Inspect the error above; Urdu voice remains unavailable." }
+
+Write-Host ""
+Write-Host "Urdu voice runtime installed and import-checked." -ForegroundColor Green
+Write-Host "Next, run: python video_studio/voice_preview.py --text ""آج ہم Python API کو step by step سمجھیں گے۔"" --output workspace/urdu-voice-preview.wav" -ForegroundColor Cyan
+Write-Host "The first preview downloads and checksum-verifies the pinned Urdu voice model (~64 MB)."
