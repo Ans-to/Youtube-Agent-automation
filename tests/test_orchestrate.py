@@ -270,7 +270,7 @@ class CEODelegationTests(unittest.TestCase):
         self.assertIn("Never delegate translation/localization as a standalone task", run_role.call_args.args[1])
         self.assertIn("single point of task intake", run_role.call_args.args[1])
         self.assertIn("you alone decide which specialists receive work", run_role.call_args.args[1])
-        self.assertIn("single point of task intake", run_role.call_args.args[1])
+        self.assertIn("The renderer must reject a missing/incompatible voice backend", run_role.call_args.args[1])
 
     def test_ceo_json_parser_filters_approval_and_duplicate_roles(self):
         roles = {item["id"]: item for item in orchestrate.dispatch.load_json(
