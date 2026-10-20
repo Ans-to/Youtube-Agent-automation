@@ -274,6 +274,14 @@ def approve_existing_preview(path):
         print("Voice remains unapproved. No config settings were changed.")
         return False
 
+    # Re-check after the interactive pause so replacing the WAV or changing settings
+    # while the user is listening cannot approve a different artifact/profile.
+    validated = validate_preview_artifact(destination, load_local_config(require_existing=True))
+    metadata = validated["metadata"]
+    current_fingerprint = validated["voice_profile_sha256"]
+    sidecar = validated["sidecar_path"]
+    config = load_local_config(require_existing=True)
+
     video_config = config.setdefault("video_studio", {})
     if not isinstance(video_config, dict):
         raise ValueError("config.json video_studio settings must be an object.")
