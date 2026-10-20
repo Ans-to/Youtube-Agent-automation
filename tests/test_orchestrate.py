@@ -265,10 +265,12 @@ class CEODelegationTests(unittest.TestCase):
         self.assertEqual(mode, "ceo_model_delegation")
         self.assertEqual([item["agent_id"] for item in assignments], ["AGENT-09", "AGENT-08"])
         self.assertEqual(run_role.call_args.args[0]["id"], "AGENT-01")
-        self.assertIn("voice-over narration and subtitles must be English only", run_role.call_args.args[1])
+        self.assertIn("Voice-over narration and subtitles must follow the explicit request or configured default", run_role.call_args.args[1])
+        self.assertIn("The configured default narration language is Pakistani Urdu", run_role.call_args.args[1])
+        self.assertIn("Never delegate translation/localization as a standalone task", run_role.call_args.args[1])
         self.assertIn("single point of task intake", run_role.call_args.args[1])
         self.assertIn("you alone decide which specialists receive work", run_role.call_args.args[1])
-        self.assertIn("Never delegate translation/localization", run_role.call_args.args[1])
+        self.assertIn("single point of task intake", run_role.call_args.args[1])
 
     def test_ceo_json_parser_filters_approval_and_duplicate_roles(self):
         roles = {item["id"]: item for item in orchestrate.dispatch.load_json(
