@@ -216,7 +216,7 @@ def check_dependencies():
 def synthesize_manifest(manifest_path):
     """Load the small CPU voice once, render each scene, and verify each WAV."""
     items = read_manifest(manifest_path)
-    model_path, _ = ensure_voice_model()
+    # Fail fast before downloading a model if the isolated Piper runtime is absent.
     try:
         from piper import PiperVoice
     except ImportError as exc:
@@ -224,6 +224,7 @@ def synthesize_manifest(manifest_path):
             "Piper Urdu voice dependencies are missing. Run "
             "powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup_urdu_tts_windows.ps1"
         ) from exc
+    model_path, _ = ensure_voice_model()
     print("Loading Pakistani Urdu male voice: Fasih (Piper medium, pinned revision).", flush=True)
     try:
         voice = PiperVoice.load(str(model_path), use_cuda=False)
