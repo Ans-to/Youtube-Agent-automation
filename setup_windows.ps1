@@ -71,4 +71,4 @@ if ($Node -and $Npm) {
 
 Write-Host ""
 Write-Host "Setup checks finished. Run .\start_windows.bat to open Agent HQ." -ForegroundColor Green
-Write-Host "Urdu voice dependencies are optional and are offered by START_HERE.bat. Kani runs in isolated .venv-urdu-tts using Python 3.10-3.12; model and codec weights (~1.5 GB) download on first voice preview/render. English Piper and YouTube OAuth are separate optional setups."
+Write-Host "Urdu voice dependencies are optional and are offered by START_HERE.bat. The default Urdu backend is Piper in isolated .venv-piper-urdu; the pinned Pakistani Urdu voice model (~64 MB) downloads on first preview. The legacy Kani + NeMo adapter is advanced/custom only."
