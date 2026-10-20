@@ -11,10 +11,7 @@ from video_studio.quality_audit import file_sha256
 
 
 class ResearchPolicyTests(unittest.TestCase):
-    def test_model_generated_content_researches_by_default(self):
-        self.assertTrue(should_collect_research(research_requested=False, render_template=False))
-
-    def test_non_template_package_researches_even_without_a_model(self):
+    def test_research_is_default_for_non_template_packages(self):
         self.assertTrue(should_collect_research(research_requested=False, render_template=False))
 
     def test_offline_template_smoke_stays_network_free_by_default(self):
