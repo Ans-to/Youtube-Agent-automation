@@ -220,7 +220,8 @@ def start_task_runner():
                         )
                         log_file.write("Auto queue worker exit code: " + str(result.returncode) + "\n")
                     except (OSError, subprocess.SubprocessError) as exc:
-                    + type(exc).__name__ + "\n"
+                        log_file.write("Auto queue worker error: " + type(exc).__name__ + ": " + str(exc)[:300] + "\n")
+                        break
                         break
                 if cycle_number == 99 and has_pending_tasks():
                     with (LOGS / "dashboard.log").open("a", encoding="utf-8") as log_file:
