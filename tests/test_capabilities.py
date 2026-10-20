@@ -28,7 +28,7 @@ class DeviceCapabilityProfileTests(unittest.TestCase):
     def test_unknown_gpu_does_not_crash_and_keeps_single_heavy_job(self):
         profile = profile_device(
             cpu_count=1,
-            total_memory_bytes=None,
+            total_memory_bytes=0,
             gpu={"detected": False, "name": None, "dedicated_memory_bytes": None},
             free_disk_bytes=None,
         )
