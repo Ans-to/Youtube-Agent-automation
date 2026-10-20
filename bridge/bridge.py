@@ -17,7 +17,7 @@ import urllib.request
 from datetime import datetime, timezone
 
 REPO = os.environ.get("AGENT_HQ_REPO", "Ans-to/Youtube-Agent-automation")
-# Set AGENT_HQ_BRANCH to the integration branch while PR #11 remains unmerged.
+# The application runtime defaults to main; AGENT_HQ_BRANCH selects the separate request/result inbox branch.
 BRANCH = os.environ.get("AGENT_HQ_BRANCH", "main")
 API = "https://api.github.com"
 PROJECT = pathlib.Path(os.environ.get(
