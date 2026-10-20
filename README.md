@@ -256,3 +256,8 @@ For MP4 rendering, install Node.js LTS and FFmpeg as described in \`video_studio
 
 This is a local-first web app, not a hosted service. If you start Agent HQ separately on the PC and phone, they have separate task queues, configuration, and output folders. The installed web app does not synchronize data between devices. The local dashboard is intentionally restricted to loopback; do not change it to \`0.0.0.0\` or expose it to the public internet. A shared multi-device deployment would need a separately designed authenticated server and encrypted data synchronization.
 
+## ADHD-friendly agent output style
+
+The project bundles the upstream MIT-licensed `i-have-adhd` skill at `skills/i-have-adhd/SKILL.md` (source: [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd)). `agents/dispatch.py` injects a compact version of its response-structure rules into local-model specialist and CEO prompts. It prioritizes action-first answers, bounded numbered steps, explicit progress, matter-of-fact errors, and a single next action when work remains. Requested artifact formats and existing safety/approval boundaries take priority; this is prompt guidance, not model fine-tuning or a guarantee of output quality. No external plugin or new runtime dependency is required.
+
+To update the bundled skill, review the upstream `skills/i-have-adhd/SKILL.md`, replace the bundled copy and its MIT license together, then update the compact mapping in `agents/adhd_style.py` and run `python -m unittest discover -s tests -v`.
