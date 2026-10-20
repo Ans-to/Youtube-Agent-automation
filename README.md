@@ -116,6 +116,20 @@ A separate operational branch, `mobile-agent-inbox`, is available for requests c
 
 Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Request JSON is committed to a public branch and remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
 
+### Recovering an interrupted bridge request safely
+
+The bridge stores local request state under `~/.local/state/offline-agent-hq/` by default; override this with `AGENT_HQ_STATE_DIR` if needed. For each request ID, the state may include a `.result.json` completion record or a `.processing.json` marker. The bridge now fails closed when deduplication state is unreadable and refuses to automatically replay a request that has an unfinished processing marker.
+
+If the bridge reports an interrupted request:
+
+1. Stop the bridge and inspect that request ID's `.result.json` and `.processing.json` files in the local state directory.
+2. If a result file exists, treat the request as already handled; do not resubmit it with the same ID.
+3. If only a processing marker exists, assume the task may have partially executed. Check the local queue, logs, outputs, and any relevant external service before deciding what happened.
+4. Do not delete the marker or reset `seen-request-ids.json` just to force a retry. After a human has confirmed the prior attempt's outcome, create a **new request with a new ID** for any required follow-up.
+5. If `seen-request-ids.json` is corrupt, back up the entire state directory and repair it only after reconciling the result and processing records. The bridge intentionally stops instead of silently forgetting which requests it has handled.
+
+This recovery behavior prioritizes preventing duplicate task creation or repeated actions over automatic recovery. An interrupted request requires human review.
+
 ### Request protocol
 
 Status request:
