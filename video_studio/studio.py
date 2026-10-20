@@ -40,13 +40,15 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
     if profile == "en":
         validate_english_voice_model(model)
     elif not command_template:
-        raise ValueError("Urdu-English narration requires a configured local video_studio.urdu_tts_command adapter.")
+        raise ValueError("Urdu-English narration requires a valid local voice adapter.")
     voice_dir = BASE / "voice_segments"
     shutil.rmtree(voice_dir, ignore_errors=True)
     voice_dir.mkdir(parents=True)
     segments = []
+    voice_items = []
     for index, scene in enumerate(data["scenes"]):
         narration = validate_narration_text(scene.get("narration", ""), profile, "Scene " + str(index + 1) + " narration")
+        scene["narration_language"] = profile
         scene["caption"] = narration
         raw = voice_dir / ("raw-%03d.wav" % index)
         if profile == "en":
@@ -55,20 +57,60 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
         else:
             text_file = voice_dir / ("narration-%03d.txt" % index)
             text_file.write_text(narration + "\n", encoding="utf-8")
-            command = resolve_urdu_tts_command(command_template, text_file, raw)
+            voice_items.append({"text_file": text_file, "output_file": raw, "scene_index": index + 1})
+
+    if profile == "ur-en":
+        manifest = voice_dir / "urdu-tts-manifest.json"
+        manifest.write_text(json.dumps({
+            "schema_version": 1,
+            "items": [{"text_file": str(item["text_file"].resolve()),
+                       "output_file": str(item["output_file"].resolve())}
+                      for item in voice_items],
+        }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        # The bundled adapter accepts a manifest and loads its ~740 MB model once per
+        # entire video. Custom legacy adapters may still accept one text/output pair
+        # per process, but are deliberately not the default path.
+        if any("{manifest_file}" in part for part in command_template):
+            command = resolve_urdu_tts_command(command_template, manifest_file=manifest)
+            timeout = max(900, min(7200, len(voice_items) * 120))
             print("+", " ".join(command), flush=True)
             result = subprocess.run(
                 command, cwd=str(ROOT), capture_output=True, text=True,
-                timeout=600, check=False,
+                timeout=timeout, check=False,
             )
             if result.stdout:
                 print(result.stdout.rstrip(), flush=True)
             if result.stderr:
                 print(result.stderr.rstrip(), file=sys.stderr, flush=True)
             if result.returncode != 0:
-                raise RuntimeError("Urdu TTS adapter failed for scene " + str(index + 1) + " with exit code " + str(result.returncode) + ".")
-            if not raw.is_file() or raw.stat().st_size == 0:
-                raise RuntimeError("Urdu TTS adapter reported success but did not create a non-empty WAV for scene " + str(index + 1) + ".")
+                raise RuntimeError("Batched Urdu TTS adapter failed with exit code " + str(result.returncode) + ".")
+        else:
+            for item in voice_items:
+                command = resolve_urdu_tts_command(
+                    command_template, text_file=item["text_file"], output_file=item["output_file"]
+                )
+                print("+", " ".join(command), flush=True)
+                result = subprocess.run(
+                    command, cwd=str(ROOT), capture_output=True, text=True,
+                    timeout=600, check=False,
+                )
+                if result.stdout:
+                    print(result.stdout.rstrip(), flush=True)
+                if result.stderr:
+                    print(result.stderr.rstrip(), file=sys.stderr, flush=True)
+                if result.returncode != 0:
+                    raise RuntimeError("Urdu TTS adapter failed for scene " + str(item["scene_index"])
+                                       + " with exit code " + str(result.returncode) + ".")
+        missing = [str(item["scene_index"]) for item in voice_items
+                   if not item["output_file"].is_file() or item["output_file"].stat().st_size == 0]
+        if missing:
+            raise RuntimeError("Urdu TTS adapter did not create non-empty WAV output for scene(s): "
+                               + ", ".join(missing) + ". Refusing an incomplete or silent render.")
+
+    for index, scene in enumerate(data["scenes"]):
+        raw = voice_dir / ("raw-%03d.wav" % index)
+        if not raw.is_file() or raw.stat().st_size == 0:
+            raise RuntimeError("Voice backend did not create a non-empty WAV for scene " + str(index + 1) + ".")
         spoken_duration = probe_duration(ffprobe, raw)
         scene["narration_duration_seconds"] = spoken_duration
         target_seconds = max(float(scene["duration_seconds"]), spoken_duration + 0.45)
@@ -83,6 +125,7 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
     storyboard = BASE / "voice-storyboard.generated.json"
     storyboard.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return storyboard, voice_dir, segments
+
 
 
 def combine_voice(segments, ffmpeg, output):
