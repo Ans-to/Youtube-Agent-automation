@@ -41,13 +41,17 @@ Urdu-English voice setup:
 
 The bundled KaniTTS adapter is selected automatically when video_studio.urdu_tts_command is left as an empty array in config.json; this is the default in config.example.json. Run START_HERE.bat and approve the optional CPU-only Urdu TTS dependency install. The adapter loads the pinned KaniTTS Urdu snapshot once per video and synthesizes scenes sequentially to limit memory use. The first render needs internet access and enough disk space for the Urdu model and codec caches (roughly 1.5 GB per upstream setup guidance). CPU generation can be slow on an 8 GB machine.
 
-Before enabling production renders, audition an isolated WAV preview (this does not create an MP4 and does not approve the voice):
+Before enabling production renders, create an isolated WAV preview (this does not create an MP4 and does not approve the voice):
 
     python video_studio/voice_preview.py --text "آج ہم Python API کو step by step سمجھیں گے۔" --output workspace/urdu-voice-preview.wav
 
-The first preview downloads the configured model and codec if they are not cached. Change `video_studio.kani_speaker_prefix` in your local `config.json` only to try a documented/testable speaker prefix, rerun the preview to a different WAV filename, and listen to each result. Keep the approval flag false if none meets the requirement.
+The first preview downloads the configured model and codec if they are not cached. The command writes a sidecar `workspace/urdu-voice-preview.wav.preview.json` with the WAV hash, voice-profile fingerprint, technical audio report, and pending-review status. Change `video_studio.kani_speaker_prefix` in your local `config.json` only to try a documented/testable speaker prefix, create a new preview with a different filename, and listen to each result.
 
-**Human voice approval is required before any Urdu-English production render.** The default configuration sets `video_studio.urdu_voice_human_approved` to `false`. First generate/listen to a real sample using your local setup; check that it is intelligible Pakistani Urdu, preserves English technical terms, and uses the required adult-male voice. Only after that review set `"urdu_voice_human_approved": true` and copy the preview command's **Voice profile SHA-256** into `"urdu_voice_approved_profile_sha256"` in your local `config.json`. The render gate compares that hash to the selected adapter, model revision and speaker prefix, so changing those settings invalidates the approval. This is a user attestation, not an automated quality measurement. If the current model or speaker prefix is unsuitable, leave approval false and do not release the video. Never commit the local config or tokens.
+**Human voice approval is required before any Urdu-English production render.** The default configuration keeps `video_studio.urdu_voice_human_approved` false. Listen to the exact WAV yourself and check that it is intelligible Pakistani Urdu, preserves English technical terms, and sounds like the required natural adult-male voice. Only then run the separate interactive approval command printed by the preview tool; for the example above:
+
+    python video_studio/voice_preview.py --approve-existing workspace/urdu-voice-preview.wav
+
+Type the exact word `APPROVE` only after you have personally listened and accepted that sample. The approval command verifies the preview sidecar, WAV SHA-256, current adapter/model/revision/speaker-profile fingerprint, and audio validity before it updates local `config.json`. Generating a preview never approves anything. Changing the model, adapter source/requirements, or speaker prefix invalidates approval. This is a human attestation, not an automated quality measurement. If the model or speaker identity is unsuitable, do not approve or release the video. Never commit local config or tokens.
 
 A custom adapter may be configured in config.json (never commit this file). Its command is an argument array, not a shell string, and must contain either {manifest_file} for a batch adapter or both {text_file} and {output_file} for a per-scene adapter. For example:
 
