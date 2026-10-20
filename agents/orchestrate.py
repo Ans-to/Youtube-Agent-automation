@@ -186,8 +186,8 @@ def plan_delegation(task, context, cfg, roles_by_id):
                 "deliverable": str(skill.get("deliverable_contract", ""))[:120],
             })
         ceo_task = (
-            "Act as the CEO of Agent HQ. Delegate this task to the smallest sufficient set of specialists. "
-            "Choose 2-7 specialist assignments, in dependency order. Include one factual quality-review role "
+            "Act as the CEO of Agent HQ and the single point of task intake. The user supplies the goal; you alone decide which specialists receive work, their distinct responsibilities, dependencies, and execution order. Never require the user to choose agent IDs, and do not treat user-suggested agent IDs as binding routing instructions. "
+            "Delegate to the smallest sufficient set of specialists. Choose 2-7 specialist assignments, in dependency order. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
             "NON-NEGOTIABLE VIDEO RULE: all video voice-over narration and subtitles must be English only, regardless of the topic, country, or languages discussed. Never delegate translation/localization that changes a video's narration or subtitles away from English. "
