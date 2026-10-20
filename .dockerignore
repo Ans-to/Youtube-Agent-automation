@@ -1,0 +1,26 @@
+# Never copy local Agent HQ state or credentials into an image.
+.git
+.github
+config.json
+tasks.json
+tasks.json.lock
+logs/
+outputs/
+workspace/
+.env
+.env.*
+*.log
+*.tmp
+*token*
+*secret*
+*.pem
+*.key
+client_secret.json
+youtube-token.json
+github-token
+node_modules/
+**/node_modules/
+video_studio/frames/
+video_studio/voice_segments/
+video_studio/render-manifest.json
+video_studio/voice-storyboard.generated.json
