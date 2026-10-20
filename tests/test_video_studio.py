@@ -219,6 +219,22 @@ class VideoStudioTests(unittest.TestCase):
                 self.assertEqual(scene["caption"], scene["narration"])
         self.assertGreater(len({scene["visual_type"] for scene in storyboard["scenes"]}), 1)
 
+    def test_renderer_smoke_storyboards_exercise_character_at_30_fps(self):
+        for filename in ("storyboard.smoke.json", "storyboard.smoke-shorts.json"):
+            data = json.loads((ROOT / "video_studio" / filename).read_text(encoding="utf-8"))
+            with self.subTest(storyboard=filename):
+                self.assertEqual(data["fps"], 30)
+                characters = [
+                    scene["character"] for scene in data["scenes"]
+                    if isinstance(scene.get("character"), dict)
+                    and scene["character"].get("enabled") is True
+                ]
+                self.assertGreaterEqual(len(characters), 3)
+                for character in characters:
+                    self.assertTrue(character.get("speaking"))
+                    self.assertGreater(character.get("scale", 0), 0)
+                    self.assertIn(character.get("expression"), {"focused", "curious", "confident", "concerned"})
+
     def test_example_storyboard_is_valid(self):
         path = ROOT / "video_studio" / "storyboard.example.json"
         data = json.loads(path.read_text(encoding="utf-8"))
