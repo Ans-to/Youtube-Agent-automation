@@ -9,8 +9,8 @@ This module renders MP4s from JSON storyboards using Canvas2D in headless Chromi
 - FFmpeg and ffprobe on PATH
 - A Windows PC is recommended; PNG-frame rendering is CPU- and storage-intensive.
 - For English voice: Piper CLI plus a verified English model and matching .onnx.json config.
-- For Urdu-English voice: a suitable local TTS backend must be explicitly configured in config.json under video_studio.urdu_tts_command. The adapter must accept a UTF-8 text file and write a non-empty WAV file to the requested output path.
-- The repository does **not** currently bundle a verified, licensed Urdu voice model. An Urdu-English final render fails closed until the user installs/configures a compatible backend. It will not silently substitute English Piper, eSpeak, or silence.
+- For Urdu-English voice: the repository includes a KaniTTS adapter and pins the Urdu fine-tuned model revision. Choose the optional CPU-only Urdu voice dependency setup in START_HERE.bat; the model weights are downloaded on first render (about 740 MB), not committed to Git.
+- The model card labels the fine-tuned model Apache-2.0, but the upstream/base model and dependencies must also be reviewed before commercial redistribution or use. A technically generated WAV is not proof of natural pronunciation. Missing dependencies, invalid audio, or silence block the render; English Piper is never substituted.
 - Rendering writes matching SRT/WebVTT sidecars and uses script-aware RTL layout for Urdu captions. This does not guarantee natural pronunciation, voice quality, or phoneme-accurate lip-sync.
 - Optional YouTube upload: Google OAuth desktop client JSON and the dependencies in requirements-publish.txt.
 
@@ -24,7 +24,7 @@ Puppeteer downloads a compatible Chromium build during npm install. If your netw
 
 ## Narration languages and local voice backends
 
-The default production profile is ur-en: conversational Pakistani Urdu in Urdu/Arabic script, retaining familiar English technical terms such as API names, product names, and code identifiers. Use --language en only when English narration is explicitly requested (the CI smoke-test fixture does this). The language profile is stored in the storyboard and package status, and subtitle validation checks that Urdu-English text contains Urdu-script text rather than merely labelling English as Urdu.
+The default production profile is ur-en: conversational Pakistani Urdu in Urdu/Arabic script, retaining familiar English technical terms such as API names, product names, and code identifiers. Use --language en only when English narration is explicitly requested (the CI smoke-test fixture does this). The language profile is stored in the storyboard and package status, and subtitle validation checks that the track contains Urdu-script text rather than merely labelling English as Urdu.
 
 English voice setup:
 
@@ -39,7 +39,9 @@ PowerShell example for an explicitly English render:
 
 Urdu-English voice setup:
 
-Configure config.json (never commit this file) with a trusted local adapter command. The command is an argument array, not a shell string, and must contain both {text_file} and {output_file} placeholders. For example:
+The bundled KaniTTS adapter is selected automatically when video_studio.urdu_tts_command is left as an empty array in config.json; this is the default in config.example.json. Run START_HERE.bat and approve the optional CPU-only Urdu TTS dependency install. The adapter loads the pinned KaniTTS Urdu snapshot once per video and synthesizes scenes sequentially to limit memory use. The first render needs internet access and roughly 740 MB for the model cache.
+
+A custom adapter may be configured in config.json (never commit this file). Its command is an argument array, not a shell string, and must contain either {manifest_file} for a batch adapter or both {text_file} and {output_file} for a per-scene adapter. For example:
 
     {
       "video_studio": {
@@ -48,7 +50,7 @@ Configure config.json (never commit this file) with a trusted local adapter comm
       }
     }
 
-The adapter and model path above are a contract example, not a bundled engine. Install only a suitable model whose license permits your intended use, verify that it produces correctly spoken Urdu with English technical terms, and use its documented CLI/API. Final rendering is blocked when the selected voice adapter is absent, exits unsuccessfully, or fails to create a valid WAV. No voice model is provided by this repository, and this integration alone is **not** proof of production-quality Urdu narration. Human listening review remains mandatory.
+The custom adapter path above is a contract example, not a bundled engine. The default bundled adapter uses KaniTTS from the pinned model revision. The model card labels the fine-tune Apache-2.0; review the base-model and dependency licenses before commercial use. Final rendering is blocked when the selected backend fails or produces invalid/silent WAV output. Human listening review remains mandatory; this integration does **not** prove production-quality Urdu narration.
 
 Subtitles are derived from narration text and timed within measured scene durations. The current subtitle timing is scene/phrase-level rather than forced word alignment. RTL layout improves Urdu text presentation but does not prove accurate punctuation, pronunciation, or natural voice quality.
 
@@ -112,7 +114,7 @@ This is a deterministic starter renderer, not a professional editor or anime rig
 
 The agent's creative/QA contract is in:
 - [Professional Motion Design Director](skills/PRO_MOTION_DIRECTOR.md): transition selection, easing, staging, typography, audio-led pacing, review rubric, and render QA.
-- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, viseme-aligned lip sync, English narration, and acceptance tests.
+- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, audio-aligned lip sync, selected-language narration, and acceptance tests.
 
 **Important status distinction:** the renderer now includes a more detailed procedural presenter (hands/fingers, clothing details, gaze, brows, expressions, blinking, and secondary head motion), but it is not a production-quality skeletal or anime rig. Piper output is not automatically natural-sounding. Direct `studio.py` renders can be silent when used for visual smoke tests; the `production.py` final-render path requires a verified English Piper model and generates SRT/WebVTT subtitles.
 
