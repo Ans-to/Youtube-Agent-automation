@@ -115,20 +115,10 @@ def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
                     + type(exc).__name__ + ": " + str(exc)[:400]
                 ) from exc
             output_ids = generated[0].to("cpu")
-            starts = (output_ids == start_of_speech).nonzero(as_tuple=True)[0]
-            ends = (output_ids == end_of_speech).nonzero(as_tuple=True)[0]
-            if len(starts) != 1 or len(ends) != 1 or int(starts[0]) >= int(ends[0]):
-                raise ValueError("Kani TTS did not return exactly one valid speech-token section.")
-            audio_codes = output_ids[int(starts[0]) + 1:int(ends[0])]
-            if audio_codes.numel() == 0 or audio_codes.numel() % 4:
-                raise ValueError("Kani TTS speech-token count is empty or not divisible by four codebooks.")
-            audio_codes = audio_codes.reshape(-1, 4)
-            offsets = torch.tensor([codebook_size * i for i in range(4)], dtype=torch.long)
-            audio_codes = audio_codes - offsets
-            audio_codes = audio_codes - audio_tokens_start
-            if bool((audio_codes < 0).any()):
-                raise ValueError("Kani TTS generated invalid audio-codebook token IDs.")
-            audio_codes = audio_codes.T.unsqueeze(0).to("cpu")
+            codebook_rows = extract_kani_audio_codebook_rows(
+                output_ids, tokenizer_length=tokenizer_length, codebook_size=codebook_size
+            )
+            audio_codes = torch.tensor(codebook_rows, dtype=torch.long).T.unsqueeze(0).to("cpu")
             tokens_len = torch.tensor([audio_codes.shape[-1]], dtype=torch.long)
             try:
                 with torch.inference_mode():
@@ -144,6 +134,49 @@ def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
             return {"audio": waveform, "sampling_rate": sample_rate}
 
     return KaniUrduPipeline()
+
+def extract_kani_audio_codebook_rows(output_ids, tokenizer_length=64400, codebook_size=4032):
+    """Convert model output's speech-token interval into 4-codebook rows.
+
+    Kept dependency-free so the token protocol can be regression-tested without
+    downloading the TTS model or importing PyTorch/NeMo.
+    """
+    if hasattr(output_ids, "detach"):
+        output_ids = output_ids.detach().cpu()
+    if hasattr(output_ids, "tolist"):
+        output_ids = output_ids.tolist()
+    if not isinstance(output_ids, (list, tuple)) or not output_ids:
+        raise ValueError("Kani TTS generated an empty token sequence.")
+    while isinstance(output_ids, (list, tuple)) and len(output_ids) == 1 and isinstance(output_ids[0], (list, tuple)):
+        output_ids = output_ids[0]
+    if not isinstance(output_ids, (list, tuple)) or not output_ids:
+        raise ValueError("Kani TTS generated an empty token sequence.")
+    try:
+        ids = [int(value) for value in output_ids]
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Kani TTS output contains a non-integer token ID.") from exc
+
+    start_of_speech = tokenizer_length + 1
+    end_of_speech = tokenizer_length + 2
+    audio_tokens_start = tokenizer_length + 10
+    starts = [index for index, value in enumerate(ids) if value == start_of_speech]
+    ends = [index for index, value in enumerate(ids) if value == end_of_speech]
+    if len(starts) != 1 or len(ends) != 1 or starts[0] >= ends[0]:
+        raise ValueError("Kani TTS did not return exactly one valid speech-token section.")
+    tokens = ids[starts[0] + 1:ends[0]]
+    if not tokens or len(tokens) % 4:
+        raise ValueError("Kani TTS speech-token count is empty or not divisible by four codebooks.")
+    rows = []
+    for offset in range(0, len(tokens), 4):
+        row = []
+        for codebook, value in enumerate(tokens[offset:offset + 4]):
+            code = value - audio_tokens_start - codebook_size * codebook
+            if code < 0 or code >= codebook_size:
+                raise ValueError("Kani TTS generated an invalid codebook token ID.")
+            row.append(code)
+        rows.append(row)
+    return rows
+
 
 def read_manifest(path):
     """Validate an internal batch manifest before loading a large model."""
