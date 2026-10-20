@@ -155,6 +155,7 @@ class ArtifactVerificationTests(unittest.TestCase):
         research_path.write_text(json.dumps(research_data), encoding="utf-8")
         status["research_evidence"]["fetched_page_count"] = 2
         status_path.write_text(json.dumps(status), encoding="utf-8")
+        result["status"] = "completed"  # Each verification failure intentionally mutates the builder result.
         checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
         self.assertEqual(checks[0]["status"], "failed")
         self.assertTrue(any("duplicate fetched source ID" in error for error in checks[0]["errors"]))
@@ -165,6 +166,7 @@ class ArtifactVerificationTests(unittest.TestCase):
         research_path.write_text(json.dumps(research_data), encoding="utf-8")
         status["research_evidence"]["fetched_page_count"] = 1
         status_path.write_text(json.dumps(status), encoding="utf-8")
+        result["status"] = "completed"
         checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
         self.assertEqual(checks[0]["status"], "failed")
         self.assertTrue(any("fetched-page count" in error for error in checks[0]["errors"]))
