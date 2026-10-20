@@ -670,14 +670,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", required=True)
     parser.add_argument("--context-file")
-    parser.add_argument("--agents", default=None,
-                        help="Optional comma-separated specialist IDs. Omit to let the CEO delegate automatically.")
     parser.add_argument("--out", default="workspace/orchestration/run")
     args = parser.parse_args()
     try:
         context = read_context(args.context_file)
-        selected_agents = [part.strip().upper() for part in args.agents.split(",") if part.strip()] if args.agents else None
-        destination, manifest = run_pipeline(args.task, context, selected_agents, ROOT / args.out)
+        # Public CLI intake is CEO-only: AGENT-01 owns all specialist selection.
+        destination, manifest = run_pipeline(args.task, context, agent_ids=None, output_dir=ROOT / args.out)
     except (ValueError, OSError) as exc:
         raise SystemExit(str(exc))
     print("Pipeline output:", destination)
