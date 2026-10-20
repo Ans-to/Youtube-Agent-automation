@@ -47,9 +47,16 @@ def require_urdu_voice_human_approval(config):
 
 
 def builtin_urdu_tts_command():
-    """Run the bundled CPU adapter using this exact Python interpreter."""
-    adapter = Path(__file__).resolve().with_name("urdu_tts_adapter.py")
-    return [sys.executable, str(adapter), "--manifest", "{manifest_file}"]
+    """Use the isolated Urdu TTS interpreter when installed, else the active interpreter."""
+    module = Path(__file__).resolve()
+    project_root = module.parents[1]
+    adapter = module.with_name("urdu_tts_adapter.py")
+    if sys.platform == "win32":
+        candidates = [project_root / ".venv-urdu-tts" / "Scripts" / "python.exe"]
+    else:
+        candidates = [project_root / ".venv-urdu-tts" / "bin" / "python"]
+    interpreter = next((candidate for candidate in candidates if candidate.is_file()), Path(sys.executable))
+    return [str(interpreter), str(adapter), "--manifest", "{manifest_file}"]
 
 
 def get_urdu_tts_command(config):
