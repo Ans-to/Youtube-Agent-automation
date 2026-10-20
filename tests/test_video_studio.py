@@ -192,6 +192,24 @@ class VideoStudioTests(unittest.TestCase):
             self.assertTrue(later_closed)
             self.assertTrue(all(cue["shape"] == "closed" for cue in later_closed))
 
+    def test_audio_envelope_tracks_final_wav_energy_and_normalizes_to_unit_range(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "active-then-silent.wav"
+            self._write_pcm16_test_wav(audio_path, active_seconds=0.48, duration_seconds=1.0)
+            envelope = studio.build_audio_envelope(audio_path, bins=64)
+            self.assertEqual(len(envelope), 64)
+            self.assertTrue(all(math.isfinite(value) and 0.0 <= value <= 1.0 for value in envelope))
+            self.assertGreater(max(envelope), 0.9)
+            self.assertGreater(sum(envelope[:20]) / 20, sum(envelope[-20:]) / 20)
+
+    def test_audio_envelope_handles_silence_and_rejects_invalid_bin_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "silent.wav"
+            self._write_pcm16_test_wav(audio_path, active_seconds=0.0, amplitude=0)
+            self.assertEqual(studio.build_audio_envelope(audio_path, bins=32), [0.0] * 32)
+            with self.assertRaisesRegex(ValueError, "8 to 120"):
+                studio.build_audio_envelope(audio_path, bins=4)
+
     def test_silent_audio_produces_only_closed_mouth_viseme_cues(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio_path = Path(tmp) / "silent.wav"
