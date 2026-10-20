@@ -182,7 +182,7 @@ The script exits non-zero if a required check fails and can save a JSON report. 
 
 - Do not store credentials, tax/bank information, or sensitive personal data in task prompts or workspace files.
 - `config.json`, `tasks.json`, logs, outputs, and workspace data are local-only and ignored by Git.
-- The bridge publishes only sanitized status metadata; repository collaborators can see those reports.
+- The bridge publishes only sanitized status metadata, but **this repository is public, so anyone can read committed reports and request files**. Never include confidential task details, even though full prompts and outputs are excluded from the status report.
 - This project is a constrained local task runner, not an unrestricted agent swarm or fully automated YouTube publishing system.
 
 
