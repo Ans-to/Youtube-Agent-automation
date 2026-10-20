@@ -242,7 +242,8 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     if visual_type not in VISUAL_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported visual_type: " + visual_type)
     scene["visual_type"] = visual_type
-    transition = str(scene.get("transition_in", "none")).lower()
+    default_transitions = ("none", "wipe-left", "slide-left", "fade", "zoom")
+    transition = str(scene.get("transition_in", default_transitions[(index - 1) % len(default_transitions)])).lower()
     if transition not in TRANSITION_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported transition_in: " + transition)
     scene["transition_in"] = transition
@@ -280,19 +281,19 @@ def fallback(topic):
     scenes = [
         {"duration_seconds": 5, "eyebrow": "THE QUESTION", "headline": topic[:80],
          "subhead": "A topic package created with the offline template.", "narration": topic,
-         "visual_type": "hero", "graphic_label": "THE CORE IDEA"},
+         "visual_type": "hero", "graphic_label": "THE CORE IDEA", "transition_in": "none"},
         {"duration_seconds": 5, "eyebrow": "THE CONTEXT", "headline": "What we know",
          "subhead": "Add trusted source notes before presenting factual claims.",
          "narration": "Start with what is known, and verify factual claims against reliable sources.",
-         "visual_type": "diagram", "visual_nodes": ["EVIDENCE", "EXPLANATION", "TAKEAWAY"]},
+         "visual_type": "diagram", "visual_nodes": ["EVIDENCE", "EXPLANATION", "TAKEAWAY"], "transition_in": "wipe-left"},
         {"duration_seconds": 5, "eyebrow": "THE EXPLANATION", "headline": "How it works",
          "subhead": "Use one concept per scene, with a simple visual metaphor.",
          "narration": "Explain the core idea step by step, with one concept in each scene.",
-         "visual_type": "code", "code_lines": ["input = evidence;", "process = explain(input);", "output = clear_idea;"]},
+         "visual_type": "code", "code_lines": ["input = evidence;", "process = explain(input);", "output = clear_idea;"], "transition_in": "slide-left"},
         {"duration_seconds": 5, "eyebrow": "THE TAKEAWAY", "headline": "What to remember",
          "subhead": "Review, fact-check, and edit before publication.",
          "narration": "Summarize the practical takeaway. This is a template, not researched or fact-checked content.",
-         "visual_type": "timeline", "timeline_events": ["QUESTION", "EVIDENCE", "EXPLAIN", "REVIEW"]},
+         "visual_type": "timeline", "timeline_events": ["QUESTION", "EVIDENCE", "EXPLAIN", "REVIEW"], "transition_in": "fade"},
     ]
     return {"title": topic[:90],
             "description": "Offline template package. Research and verify factual claims before publication.",
