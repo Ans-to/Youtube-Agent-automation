@@ -284,6 +284,9 @@ def main():
     args = parser.parse_args()
     cfg = load_config()
     video_config = cfg.get("video_studio", {}) if isinstance(cfg.get("video_studio", {}), dict) else {}
+    kani_speaker_prefix = video_config.get("kani_speaker_prefix", "")
+    if not isinstance(kani_speaker_prefix, str):
+        raise SystemExit("config.json video_studio.kani_speaker_prefix must be text.")
     try:
         language = normalize_narration_language(args.language or video_config.get("narration_language", "ur-en"))
     except ValueError as exc:
@@ -427,6 +430,8 @@ def main():
         "human_voice_review_status": "pending",
         "voice_naturalness_verified": False,
         "target_adult_male_voice_verified": False,
+        "kani_speaker_prefix_configured": bool(kani_speaker_prefix.strip()),
+        "speaker_identity_human_reviewed": False,
         "forced_phoneme_alignment": False,
         "note": ("Model output is a draft; factual claims and the actual rendered voice still need human review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
     }
