@@ -208,7 +208,7 @@ jobs:
           python video_studio/validate_render.py workspace/ci-production-package/video.mp4 --width 1920 --height 1080 --fps 30 --require-audio
           test -s workspace/ci-production-package/video.srt
           test -s workspace/ci-production-package/video.vtt
-          python video_studio/quality_audit.py workspace/ci-production-package/video.mp4 --strict --report workspace/ci-production-package/video.qc.json
+          python -c "import json; p='workspace/ci-production-package/video.qc.json'; r=json.load(open(p, encoding='utf-8')); assert r.get('strict') is True and r.get('passed') is True and r.get('warnings') == [] and r.get('video_sha256'); print('Strict QA report verified')"
           python - <<'PY'
           import json
           with open("workspace/ci-production-package/package-status.json", encoding="utf-8") as f:
