@@ -101,6 +101,7 @@
  }
 
  function easeSmooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)}
+ const characterRigVisemeGeometry={closed:[.22,.006],open:[.30,.028],wide:[.48,.018],round:[.24,.028],teeth:[.38,.024],tongue:[.30,.026],sibilant:[.44,.009],lip:[.25,.012],open_wide:[.50,.026],open_round:[.25,.030]};
  function drawCharacter(c,progress,frame){
   if(!c||c.enabled!==true)return;
   const portrait=canvas.height>canvas.width,w=canvas.width,h=canvas.height;
@@ -175,9 +176,9 @@
   }
   ctx.strokeStyle="#8f5f50";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,headH*.03);ctx.lineTo(scale*.008,headH*.20);ctx.stroke();
   // Ten reusable mouth/viseme groups. Cue timing remains approximate unless a true aligner supplied it.
-  const visemeShapes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
+  const visemeShapes=Object.keys(characterRigVisemeGeometry);
   const vis=(Array.isArray(c.visemes)?c.visemes:[]).filter(v=>Number.isFinite(Number(v.t))&&Number(v.t)>=0&&Number(v.t)<=1&&visemeShapes.includes(String(v.shape))).slice().sort((a,b)=>Number(a.t)-Number(b.t));
-  const geometry={closed:[.22,.006],open:[.30,.028],wide:[.48,.018],round:[.24,.028],teeth:[.38,.024],tongue:[.30,.026],sibilant:[.44,.009],lip:[.25,.012],open_wide:[.50,.026],open_round:[.25,.030]};
+  const geometry=characterRigVisemeGeometry;
   let mouthW=.27,mouthH=.018,activeShape="open";
   if(vis.length){
    let before=vis[0],after=vis[vis.length-1];
@@ -196,7 +197,7 @@
   ctx.restore();ctx.restore();
  }
  window.drawCharacterForTest=drawCharacter;
- window.characterRigCapabilitiesForTest=()=>({version:2,joints:["shoulder","elbow","wrist","hip","knee","ankle","neck","head"],visemeShapes:["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"]});
+ window.characterRigCapabilitiesForTest=()=>({version:2,joints:["shoulder","elbow","wrist","hip","knee","ankle","neck","head"],visemeShapes:Object.keys(characterRigVisemeGeometry)});
  async function drawTransitionFrame(previous,previousFrame,previousCount,previousGlobal,current,currentFrame,currentCount,currentGlobal,kind,t){
   window.drawFrame(previous,previousFrame,previousCount,previousGlobal,true);
   const outgoing=new Image();outgoing.src=canvas.toDataURL("image/png");await outgoing.decode();
