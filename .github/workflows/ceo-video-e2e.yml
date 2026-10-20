@@ -29,7 +29,7 @@ jobs:
         with:
           node-version: "22"
       - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-core
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
