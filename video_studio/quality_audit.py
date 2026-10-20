@@ -5,12 +5,21 @@ This catches technical defects, not artistic quality, speech correctness, or tru
 Use --strict for release candidates; tune thresholds for intentionally static/cinematic content.
 """
 import argparse
+import hashlib
 import json
 import re
 import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def run_filter(binary, path, video_filter=None, audio_filter=None, timeout=300):
@@ -69,9 +78,10 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     duration = float(data.get("format", {}).get("duration", 0))
     if duration <= 0:
         raise ValueError("Invalid duration.")
-    report = {"file": str(path), "duration_seconds": duration,
-              "video": videos[0], "audio_stream_count": len(audios),
-              "checks": {}, "warnings": [], "passed": True}
+    report = {"file": str(path.resolve()), "video_sha256": file_sha256(path),
+              "duration_seconds": duration, "video": videos[0],
+              "audio_stream_count": len(audios), "checks": {},
+              "warnings": [], "passed": True, "strict": bool(strict)}
     code, log = run_filter(ffmpeg, path, video_filter="blackdetect=d=0.10:pix_th=0.10")
     if code:
         raise ValueError("FFmpeg black-frame detector failed: " + log[-1000:])
