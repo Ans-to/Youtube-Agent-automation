@@ -169,6 +169,38 @@ def build_audio_gated_visemes(text, audio_path, scene_duration_seconds, window_s
     return normalized
 
 
+def build_audio_envelope(audio_path, bins=64):
+    """Summarize real PCM narration energy into normalized per-scene waveform bins."""
+    if not isinstance(bins, int) or not 8 <= bins <= 120:
+        raise ValueError("Audio envelope bins must be an integer from 8 to 120.")
+    try:
+        with wave.open(str(audio_path), "rb") as stream:
+            channels, width, rate, frame_count = (
+                stream.getnchannels(), stream.getsampwidth(), stream.getframerate(), stream.getnframes()
+            )
+            if channels not in (1, 2) or width != 2 or rate < 8000 or frame_count <= 0:
+                raise ValueError("Audio envelope requires non-empty mono/stereo PCM16 WAV at 8 kHz or above.")
+            samples = array("h")
+            samples.frombytes(stream.readframes(frame_count))
+    except (OSError, EOFError, wave.Error) as exc:
+        raise ValueError("Unable to read audio for waveform analysis: " + str(exc)) from exc
+    if sys.byteorder != "little":
+        samples.byteswap()
+    if len(samples) != frame_count * channels:
+        raise ValueError("Audio waveform contains an incomplete PCM frame.")
+    levels = []
+    for index in range(bins):
+        start = (index * frame_count) // bins
+        end = max(start + 1, ((index + 1) * frame_count) // bins)
+        segment = samples[start * channels:min(frame_count, end) * channels]
+        mean_square = sum(int(value) * int(value) for value in segment) / max(1, len(segment))
+        levels.append(math.sqrt(mean_square))
+    peak = max(levels, default=0.0)
+    if peak <= 0:
+        return [0.0] * bins
+    return [round(max(0.0, min(1.0, math.sqrt(level / peak))), 5) for level in levels]
+
+
 def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", config=None):
     profile = normalize_narration_language(language)
     config = config or {}
@@ -280,6 +312,9 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
              "-af", "apad,atrim=duration=" + ("%.6f" % aligned_seconds),
              "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(normalized)])
         segments.append(normalized)
+        if str(scene.get("visual_type", "")).lower() == "waveform":
+            scene["audio_envelope"] = build_audio_envelope(normalized, bins=64)
+            scene["waveform_source"] = "final_scene_narration_pcm16_rms"
     storyboard = BASE / "voice-storyboard.generated.json"
     storyboard.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     return storyboard, voice_dir, segments
