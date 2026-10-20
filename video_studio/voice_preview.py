@@ -16,7 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 WORKSPACE = (ROOT / "workspace").resolve()
 sys.path.insert(0, str(ROOT / "video_studio"))
 from captions import validate_narration_text
-from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command
+from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_voice_profile_sha256
 from urdu_tts_adapter import inspect_wav
 
 
@@ -70,6 +70,7 @@ def generate_voice_preview(text, output, overwrite=False):
         raise ValueError("config.json must contain a JSON object.")
 
     command_template = get_urdu_tts_command(config)
+    approval_fingerprint = urdu_voice_profile_sha256(config)
     with tempfile.TemporaryDirectory(prefix="urdu-voice-preview-", dir=str(WORKSPACE)) as temp:
         temp_root = Path(temp)
         text_file = temp_root / "narration.txt"
@@ -125,8 +126,10 @@ def generate_voice_preview(text, output, overwrite=False):
 
     print("Voice preview created:", destination)
     print("Audio check:", json.dumps(audio_report, ensure_ascii=False))
-    print("Human review still required: voice identity, naturalness, Urdu pronunciation, and English technical terms.")
-    print("Only after listening to this WAV should you set video_studio.urdu_voice_human_approved=true.")
+    print("Voice profile SHA-256:", approval_fingerprint)
+    print("Human review still required: adult-male voice identity, naturalness, Urdu pronunciation, and English technical terms.")
+    print("Only after listening to this WAV, set video_studio.urdu_voice_human_approved=true and")
+    print("video_studio.urdu_voice_approved_profile_sha256 to the exact fingerprint above in config.json.")
     return destination
 
 
