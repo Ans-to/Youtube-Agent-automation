@@ -1,0 +1,11 @@
+{
+  "git.autofetch": true,
+  "git.autofetchPeriod": 60,
+  "git.confirmSync": true,
+  "git.enableSmartCommit": false,
+  "files.exclude": {
+    "**/__pycache__": true
+  },
+  "python.testing.unittestEnabled": true,
+  "python.testing.pytestEnabled": false
+}
