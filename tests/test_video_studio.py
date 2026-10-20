@@ -13,12 +13,35 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "video_studio"))
 import production
 import studio
+import audio_design
 import voice_backends
 from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text, narration_language_instruction
 from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_voice_human_approved, require_urdu_voice_human_approval, urdu_voice_profile_sha256
 
 
 class VideoStudioTests(unittest.TestCase):
+    def test_procedural_sound_design_is_deterministic_format_and_scene_timed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            first = Path(tmp) / "sound-a.wav"
+            second = Path(tmp) / "sound-b.wav"
+            report = audio_design.render_sound_design(first, 2.0, [1.0, 1.0], sample_rate=8000)
+            audio_design.render_sound_design(second, 2.0, [1.0, 1.0], sample_rate=8000)
+            with wave.open(str(first), "rb") as a, wave.open(str(second), "rb") as b:
+                self.assertEqual(a.getnchannels(), 1)
+                self.assertEqual(a.getsampwidth(), 2)
+                self.assertEqual(a.getframerate(), 8000)
+                self.assertEqual(a.getnframes(), 16000)
+                self.assertEqual(a.readframes(a.getnframes()), b.readframes(b.getnframes()))
+            self.assertEqual(report["scene_cue_count"], 1)
+            self.assertEqual(report["duration_seconds"], 2.0)
+
+    def test_procedural_sound_design_rejects_invalid_durations(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(ValueError, "finite and positive"):
+                audio_design.render_sound_design(Path(tmp) / "bad.wav", 0, [1.0])
+            with self.assertRaisesRegex(ValueError, "Scene durations"):
+                audio_design.render_sound_design(Path(tmp) / "bad.wav", 1.0, [1.0, -1.0])
+
     def test_urdu_voice_render_requires_approval_for_exact_configured_profile(self):
         self.assertFalse(urdu_voice_human_approved({}))
         self.assertFalse(urdu_voice_human_approved({"video_studio": {"urdu_voice_human_approved": False}}))
