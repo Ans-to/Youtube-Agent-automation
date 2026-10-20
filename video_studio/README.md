@@ -52,6 +52,8 @@ A custom adapter may be configured in config.json (never commit this file). Its 
 
 The custom adapter path above is a contract example, not the default engine. The bundled adapter follows the upstream Kani inference path: a causal model generates speech-code tokens, then NeMo NanoCodec decodes them to audio. The fine-tuned Urdu model card labels the model Apache-2.0; review the base-model, NVIDIA codec, and dependency licenses before commercial use. Final rendering is blocked when the backend fails or produces invalid/silent WAV output. Human listening review remains mandatory; this integration does **not** prove production-quality Urdu narration.
 
+Speaker identity is deliberately not inferred. The default Kani adapter does not force an unverified speaker label. You may set `video_studio.kani_speaker_prefix` in your local config only to a prefix documented or tested for this exact fine-tuned model; that value is passed to the bundled adapter as a text prefix. No adult-male speaker prefix is currently verified by this repository. Human-listen-test the actual rendered sample before treating the adult-male voice requirement as met.
+
 Subtitles are derived from narration text and timed within measured scene durations. The current subtitle timing is scene/phrase-level rather than forced word alignment. RTL layout improves Urdu text presentation but does not prove accurate punctuation, pronunciation, or natural voice quality.
 
 ## Device-aware rendering
