@@ -418,5 +418,35 @@ def main():
         (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
 
+    if args.render or args.render_template:
+        try:
+            qc_report = run_strict_quality_audit(output_dir)
+            status.update({
+                "status": "technical_qa_passed_waiting_for_human_review",
+                "quality_audit_passed": True,
+                "quality_report": "video.qc.json",
+                "quality_report_video_sha256": qc_report["video_sha256"],
+                "publishable": False,
+                "human_review_required": True,
+                "published": False,
+            })
+        except (OSError, RuntimeError, subprocess.TimeoutExpired, json.JSONDecodeError, KeyError) as exc:
+            status.update({
+                "status": "technical_qa_failed",
+                "quality_audit_passed": False,
+                "publishable": False,
+                "human_review_required": True,
+                "published": False,
+                "quality_audit_error": str(exc),
+            })
+            (output_dir / "package-status.json").write_text(
+                json.dumps(status, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+            )
+            raise SystemExit("Strict technical QA failed; release is blocked: " + str(exc))
+        (output_dir / "package-status.json").write_text(
+            json.dumps(status, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8"
+        )
+
+
 if __name__ == "__main__":
     main()
