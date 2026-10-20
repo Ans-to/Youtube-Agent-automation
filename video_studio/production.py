@@ -303,17 +303,23 @@ def main():
     cfg = load_config()
     video_config = cfg.get("video_studio", {}) if isinstance(cfg.get("video_studio", {}), dict) else {}
     kani_speaker_prefix = video_config.get("kani_speaker_prefix", "")
-    if not isinstance(kani_speaker_prefix, str):
-        raise SystemExit("config.json video_studio.kani_speaker_prefix must be text.")
     try:
         language = normalize_narration_language(args.language or video_config.get("narration_language", "ur-en"))
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     language_label = "Urdu + English technical terms" if language == "ur-en" else "English"
     try:
-        urdu_tts_command = get_urdu_tts_command(cfg)
-        voice_profile_sha256 = urdu_voice_profile_sha256(cfg)
-        voice_profile_human_approved = urdu_voice_human_approved(cfg)
+        if language == "ur-en":
+            if not isinstance(kani_speaker_prefix, str):
+                raise ValueError("config.json video_studio.kani_speaker_prefix must be text.")
+            urdu_tts_command = get_urdu_tts_command(cfg)
+            voice_profile_sha256 = urdu_voice_profile_sha256(cfg)
+            voice_profile_human_approved = urdu_voice_human_approved(cfg)
+        else:
+            # Urdu TTS configuration is not a dependency of explicit English production.
+            urdu_tts_command = []
+            voice_profile_sha256 = None
+            voice_profile_human_approved = False
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     topic = args.topic.strip()
