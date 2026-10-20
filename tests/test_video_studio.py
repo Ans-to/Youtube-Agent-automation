@@ -7,11 +7,37 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "video_studio"))
 import production
+import studio
 from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text
 from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command
 
 
 class VideoStudioTests(unittest.TestCase):
+    def test_direct_renderer_language_precedence_is_explicit_and_configurable(self):
+        self.assertEqual(
+            studio.resolve_narration_language(
+                "en",
+                {"narration_language": "ur-en"},
+                {"video_studio": {"narration_language": "ur-en"}},
+            ),
+            "en",
+        )
+        self.assertEqual(
+            studio.resolve_narration_language(
+                None,
+                {"narration_language": "ur-en"},
+                {"video_studio": {"narration_language": "en"}},
+            ),
+            "ur-en",
+        )
+        self.assertEqual(
+            studio.resolve_narration_language(
+                None, {}, {"video_studio": {"narration_language": "ur-en"}}
+            ),
+            "ur-en",
+        )
+        self.assertEqual(studio.resolve_narration_language(None, {}, {}), "ur-en")
+
     def test_example_storyboard_is_valid(self):
         path = ROOT / "video_studio" / "storyboard.example.json"
         data = json.loads(path.read_text(encoding="utf-8"))
