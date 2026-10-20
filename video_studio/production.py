@@ -356,6 +356,7 @@ def main():
         actual_target_seconds = sum(float(scene["duration_seconds"]) for scene in scenes)
 
     for scene_index, scene in enumerate(scenes, 1):
+        scene["narration_language"] = language
         scene["narration"] = validate_narration_text(scene.get("narration", ""), language, "Scene " + str(scene_index) + " narration")
         scene["caption"] = scene["narration"]
 
