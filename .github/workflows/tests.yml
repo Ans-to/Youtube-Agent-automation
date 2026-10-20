@@ -229,10 +229,10 @@ jobs:
           print("Honest status: partial; semantic quality gate unconfirmed; template-only; not publishable.")
           PY
 
-      - name: Render and validate a 1-second landscape MP4
+      - name: Render and validate a 10-second landscape MP4 (1-second scenes)
         run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en
 
-      - name: Render and validate a 1-second vertical Shorts MP4
+      - name: Render and validate a 10-second vertical Shorts MP4 (1-second scenes)
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
 
       - name: Verify landscape and Shorts smoke outputs exist for artifact retention
