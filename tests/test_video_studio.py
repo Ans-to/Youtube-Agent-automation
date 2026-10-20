@@ -56,6 +56,34 @@ class VideoStudioTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "must be text"):
             urdu_voice_human_approved({"video_studio": {"urdu_voice_approved_profile_sha256": False}})
 
+    def test_default_piper_voice_profile_is_pinned_and_ignores_legacy_kani_prefix(self):
+        default_config = {"video_studio": {"urdu_tts_command": []}}
+        with_legacy_setting = {
+            "video_studio": {
+                "urdu_tts_command": [],
+                "kani_speaker_prefix": "legacy-setting-does-not-affect-piper",
+            }
+        }
+        first = urdu_voice_profile_sha256(default_config)
+        second = urdu_voice_profile_sha256(with_legacy_setting)
+        self.assertEqual(len(first), 64)
+        self.assertEqual(first, second)
+        command = get_urdu_tts_command(default_config)
+        self.assertIn("piper_urdu_tts_adapter.py", command[1])
+
+    def test_custom_piper_voice_model_changes_invalidate_approval_fingerprint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            model = Path(tmp) / "custom-urdu.onnx"
+            sidecar = Path(str(model) + ".json")
+            model.write_bytes(b"first model bytes")
+            sidecar.write_text('{"language":{"code":"ur_PK"}}', encoding="utf-8")
+            config = {"video_studio": {"urdu_tts_command": []}}
+            with patch.dict("os.environ", {"AGENTHQ_PIPER_URDU_MODEL_PATH": str(model)}):
+                first = urdu_voice_profile_sha256(config)
+                model.write_bytes(b"changed model bytes")
+                second = urdu_voice_profile_sha256(config)
+                self.assertNotEqual(first, second)
+
     def test_builtin_urdu_adapter_prefers_isolated_interpreter_when_present(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
