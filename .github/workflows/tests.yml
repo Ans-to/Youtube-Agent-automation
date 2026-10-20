@@ -164,6 +164,13 @@ jobs:
               raise SystemExit("CEO queue runner did not process the synthetic video task")
           print("PASS: CEO queue runner processed the synthetic task")
           PY
+          # Preserve the actual specialist/render failure before the later artifact
+          # assertion fails; otherwise the task manifest only contains a truncated summary.
+          if [ -f workspace/orchestration/task-CI-VIDEO-E2E/video-studio-tool.log ]; then
+            echo "::group::Detailed video-studio tool log"
+            cat workspace/orchestration/task-CI-VIDEO-E2E/video-studio-tool.log
+            echo "::endgroup::"
+          fi
 
       - name: Verify CEO orchestration and rendered video artifacts
         run: |
