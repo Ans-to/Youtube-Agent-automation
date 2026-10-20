@@ -7,7 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "video_studio"))
 import production
-from captions import build_subtitles, validate_english_text, validate_english_voice_model, validate_subtitle_text
+from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text
+from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command
 
 
 class VideoStudioTests(unittest.TestCase):
@@ -75,6 +76,38 @@ class VideoStudioTests(unittest.TestCase):
             config.write_text(json.dumps({"language": {"code": "ur_PK"}}), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "English-only"):
                 validate_english_voice_model(model)
+
+    def test_urdu_english_profile_accepts_urdu_script_and_english_technical_terms(self):
+        text = "یہ Python code اور API request کو automate کرتا ہے۔"
+        self.assertEqual(normalize_narration_language("urdu"), "ur-en")
+        self.assertEqual(validate_narration_text(text, "ur-en"), text)
+        storyboard = {
+            "narration_language": "ur-en",
+            "scenes": [{"duration_seconds": 4.0, "narration_duration_seconds": 3.2, "narration": text}],
+        }
+        srt, vtt = build_subtitles(storyboard)
+        self.assertIn("Python code", srt)
+        self.assertIn("API request", vtt)
+        report = validate_subtitle_text(srt, vtt, language="ur-en")
+        self.assertGreaterEqual(report["cue_count"], 1)
+
+    def test_urdu_english_profile_rejects_english_only_and_devanagari(self):
+        with self.assertRaisesRegex(ValueError, "must contain Urdu text"):
+            validate_narration_text("Python code builds an API", "ur-en")
+        with self.assertRaisesRegex(ValueError, "another writing system"):
+            validate_narration_text("यह हिन्दी है", "ur-en")
+
+    def test_urdu_tts_adapter_requires_explicit_input_and_output_paths(self):
+        self.assertIsNone(get_urdu_tts_command({"video_studio": {"urdu_tts_command": []}}))
+        with self.assertRaisesRegex(ValueError, "output_file"):
+            get_urdu_tts_command({"video_studio": {"urdu_tts_command": ["python", "adapter.py", "{text_file}"]}})
+        template = ["python", "adapter.py", "--input", "{text_file}", "--output", "{output_file}"]
+        config = {"video_studio": {"urdu_tts_command": template}}
+        self.assertEqual(get_urdu_tts_command(config), template)
+        resolved = resolve_urdu_tts_command(template, "temp/narration.txt", "temp/audio.wav")
+        self.assertTrue(resolved[3].endswith("narration.txt"))
+        self.assertTrue(resolved[5].endswith("audio.wav"))
+        self.assertFalse(any("{" in item or "}" in item for item in resolved))
 
     def test_subtitle_validation_rejects_overlapping_cues(self):
         srt = """1
