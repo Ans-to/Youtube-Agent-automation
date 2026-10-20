@@ -185,7 +185,7 @@ def _ensure_fasih_v2_config(config_path):
     derived = _build_fasih_v2_config(source_config)
     if not all(derived["phoneme_id_map"].get(symbol) == [item_id] for symbol, item_id in FASIH_V2_PHONEME_IDS.items()):
         raise ValueError("Generated Fasih v2 config failed its diphthong-map validation.")
-    output_bytes = (json.dumps(derived, ensure_ascii=False, indent=2) + "\\n").encode("utf-8")
+    output_bytes = (json.dumps(derived, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
     fd, temporary_name = tempfile.mkstemp(
         prefix=config_path.name + ".tmp-", suffix=".json", dir=str(config_path.parent)
     )
