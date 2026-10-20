@@ -287,7 +287,7 @@ def main():
     ):
         try:
             # Diverse queries plus up to eight bounded page fetches; failure blocks
-            # model-generated content rather than silently producing an unresearched script.
+            # non-template packages rather than silently producing unresearched content.
             research_metadata, research_results = collect_research(topic, max_results=8, max_pages=8)
             research_markdown = render_research_markdown(research_metadata, research_results)
             source_notes = (source_notes + "\n\n" + research_markdown).strip()
