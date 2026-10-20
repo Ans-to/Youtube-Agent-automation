@@ -132,7 +132,20 @@ def write_json_atomic(path: pathlib.Path, data: object) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             json.dump(data, stream, ensure_ascii=False, indent=2)
             stream.write("\n")
-        os.replace(temporary_name, path)
+        # Windows can transiently deny replacement when several writers race to
+        # replace the same target. Retry only known sharing/access contention;
+        # genuine permission and filesystem errors still fail closed.
+        attempts = 10 if os.name == "nt" else 1
+        for attempt in range(attempts):
+            try:
+                os.replace(temporary_name, path)
+                break
+            except PermissionError as exc:
+                winerror = getattr(exc, "winerror", None)
+                transient_windows_lock = os.name == "nt" and winerror in {5, 32, 33}
+                if not transient_windows_lock or attempt + 1 >= attempts:
+                    raise
+                time.sleep(0.01 * (attempt + 1))
     except Exception:
         try:
             os.unlink(temporary_name)
