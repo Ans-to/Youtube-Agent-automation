@@ -248,6 +248,31 @@
   ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
   for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+  // Multi-depth motion-design layer: drifting particles, perspective streaks, and
+  // connected signal nodes move at different rates to create parallax instead of a static grid.
+  const motionT=globalFrame/Math.max(1,Number(s.fps)||30), depthCount=portrait?20:34;
+  ctx.save();
+  ctx.globalCompositeOperation="screen";
+  for(let i=0;i<depthCount;i++){
+    const depth=.25+(i%5)*.19,seed=(i*73.17)%997;
+    const px=((seed*1.73+motionT*(8+depth*24))%(w+120))-60;
+    const py=((seed*2.37+h*.13+Math.sin(motionT*.65+i)*24)%(h*.84));
+    const radius=1.2+depth*2.4;
+    ctx.globalAlpha=.08+depth*.11;
+    ctx.fillStyle=i%4===0?p.accent:(i%3===0?"#8c78c8":"#78a9c8");
+    ctx.beginPath();ctx.arc(px,py,radius,0,Math.PI*2);ctx.fill();
+    if(i%4===0){
+      const nx=px+Math.cos(motionT*.45+i)*w*.045,ny=py+Math.sin(motionT*.37+i)*h*.035;
+      ctx.strokeStyle=p.accent;ctx.lineWidth=1;ctx.globalAlpha=.07+depth*.07;
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(nx,ny);ctx.stroke();
+    }
+  }
+  for(let i=0;i<5;i++){
+    const q=(motionT*.09+i*.21)%1,xx=w*(.18+i*.16),yy=h*(.15+(i%3)*.23);
+    ctx.globalAlpha=(1-q)*.12;ctx.strokeStyle=i%2?p.accent:"#8c78c8";ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.moveTo(xx+q*w*.08,yy-q*h*.025);ctx.lineTo(xx+q*w*.08+w*.055,yy-q*h*.025);ctx.stroke();
+  }
+  ctx.restore();ctx.globalAlpha=1;ctx.globalCompositeOperation="source-over";
   // Character is a background performance layer; all type and information graphics render above it.
   if(scene.character)drawCharacter(scene.character,progress,globalFrame);
   ctx.fillStyle=p.accent;ctx.fillRect(left,eyebrowY-55,Math.max(30,w*.028),6);
