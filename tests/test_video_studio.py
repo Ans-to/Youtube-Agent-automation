@@ -97,8 +97,15 @@ class VideoStudioTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "another writing system"):
             validate_narration_text("यह हिन्दी है", "ur-en")
 
-    def test_urdu_tts_adapter_requires_explicit_input_and_output_paths(self):
-        self.assertIsNone(get_urdu_tts_command({"video_studio": {"urdu_tts_command": []}}))
+    def test_empty_urdu_tts_setting_selects_bundled_batch_adapter(self):
+        command = get_urdu_tts_command({"video_studio": {"urdu_tts_command": []}})
+        self.assertIn("urdu_tts_adapter.py", command[1])
+        self.assertEqual(command[-2:], ["--manifest", "{manifest_file}"])
+        resolved = resolve_urdu_tts_command(command, manifest_file="temp/manifest.json")
+        self.assertTrue(resolved[-1].endswith("manifest.json"))
+        self.assertFalse(any("{" in item or "}" in item for item in resolved))
+
+    def test_custom_urdu_tts_adapter_requires_safe_path_placeholders(self):
         with self.assertRaisesRegex(ValueError, "output_file"):
             get_urdu_tts_command({"video_studio": {"urdu_tts_command": ["python", "adapter.py", "{text_file}"]}})
         template = ["python", "adapter.py", "--input", "{text_file}", "--output", "{output_file}"]
@@ -108,6 +115,15 @@ class VideoStudioTests(unittest.TestCase):
         self.assertTrue(resolved[3].endswith("narration.txt"))
         self.assertTrue(resolved[5].endswith("audio.wav"))
         self.assertFalse(any("{" in item or "}" in item for item in resolved))
+
+    def test_custom_urdu_tts_batch_adapter_can_use_manifest_placeholder(self):
+        template = ["python", "adapter.py", "--manifest", "{manifest_file}"]
+        self.assertEqual(
+            get_urdu_tts_command({"video_studio": {"urdu_tts_command": template}}),
+            template,
+        )
+        resolved = resolve_urdu_tts_command(template, manifest_file="temp/manifest.json")
+        self.assertTrue(resolved[-1].endswith("manifest.json"))
 
     def test_subtitle_validation_rejects_overlapping_cues(self):
         srt = """1
