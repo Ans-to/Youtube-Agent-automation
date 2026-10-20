@@ -9,11 +9,16 @@ from agents import dispatch
 
 
 class PracticeLoopTests(unittest.TestCase):
+    def create_template_attempt(self, *args, **kwargs):
+        # Unit tests must not perform live web research; research has dedicated tests.
+        with patch.object(practice.dispatch, "run_role", return_value="# Deterministic template practice artifact\n"):
+            return practice.create_attempt(*args, **kwargs)
+
     def test_practice_run_creates_artifact_and_assessment_template(self):
         practice.WORKSPACE.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
             run_root = Path(directory) / "runs"
-            attempt_dir, report = practice.create_attempt(
+            attempt_dir, report = self.create_template_attempt(
                 "AGENT-51",
                 task="Produce a short art-direction practice brief.",
                 context="Only supplied practice context.",
@@ -30,7 +35,7 @@ class PracticeLoopTests(unittest.TestCase):
         practice.WORKSPACE.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
             root = Path(directory)
-            attempt_dir, report = practice.create_attempt(
+            attempt_dir, report = self.create_template_attempt(
                 "AGENT-52",
                 task="Design a short compositing checklist.",
                 config={"model": {"enabled": False}},
@@ -87,7 +92,7 @@ class PracticeLoopTests(unittest.TestCase):
         practice.WORKSPACE.mkdir(parents=True, exist_ok=True)
         with tempfile.TemporaryDirectory(dir=practice.WORKSPACE) as directory:
             root = Path(directory)
-            attempt_dir, report = practice.create_attempt(
+            attempt_dir, report = self.create_template_attempt(
                 "AGENT-52",
                 task="Create a compositing practice checklist.",
                 config={"model": {"enabled": False}},
