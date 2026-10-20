@@ -84,6 +84,20 @@ class AgentDispatcherTests(unittest.TestCase):
         self.assertEqual(saved["metadata"]["pages_fetched"], 1)
         self.assertEqual(saved["results"][0]["url"], "https://example.com")
 
+    def test_research_report_handles_noncanonical_project_root(self):
+        import json
+        from unittest.mock import patch
+        noncanonical_root = Path(self.tempdir.name) / "unused" / ".."
+        with patch.object(dispatch, "ROOT", noncanonical_root):
+            md_path, json_path = dispatch.save_research_report(
+                "AGENT-02", "# Research report", {"topic": "path regression"}, []
+            )
+        root = Path(self.tempdir.name)
+        self.assertTrue((root / md_path).is_file())
+        self.assertTrue((root / json_path).is_file())
+        saved = json.loads((root / json_path).read_text(encoding="utf-8"))
+        self.assertEqual(saved["metadata"]["topic"], "path regression")
+
     def test_finds_specialist_role(self):
         role = dispatch.find_role("AGENT-09")
         self.assertIsNotNone(role)
