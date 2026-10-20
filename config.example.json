@@ -21,6 +21,7 @@
     "narration_language": "ur-en",
     "urdu_tts_command": [],
     "kani_speaker_prefix": "",
+    "kani_codec_revision": "",
     "urdu_voice_human_approved": false,
     "urdu_voice_approved_profile_sha256": ""
   }
