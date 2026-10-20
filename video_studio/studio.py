@@ -212,12 +212,9 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
             print("+", " ".join(command), flush=True)
             adapter_env = os.environ.copy()
             if any(Path(part).name == "urdu_tts_adapter.py" for part in command_template):
-                video_config = config.get("video_studio", {}) if isinstance(config.get("video_studio", {}), dict) else {}
-                if "kani_speaker_prefix" in video_config:
-                    prefix = video_config.get("kani_speaker_prefix")
-                    if not isinstance(prefix, str):
-                        raise ValueError("config.json video_studio.kani_speaker_prefix must be text.")
-                    adapter_env["AGENTHQ_KANI_SPEAKER_PREFIX"] = prefix.strip()
+                prefix = configured_kani_speaker_prefix(config)
+                if prefix is not None:
+                    adapter_env["AGENTHQ_KANI_SPEAKER_PREFIX"] = prefix
             result = subprocess.run(
                 command, cwd=str(ROOT), capture_output=True, text=True,
                 timeout=timeout, check=False, env=adapter_env,
@@ -294,6 +291,19 @@ def combine_voice(segments, ffmpeg, output):
     command.extend(["-filter_complex", filter_graph, "-map", "[outa]",
                     "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(output)])
     run(command, timeout=900)
+
+
+def configured_kani_speaker_prefix(config):
+    """Return the explicit local Kani speaker prefix, or None when unspecified."""
+    video_config = config.get("video_studio", {}) if isinstance(config, dict) else {}
+    if not isinstance(video_config, dict):
+        raise ValueError("config.json video_studio settings must be an object.")
+    if "kani_speaker_prefix" not in video_config:
+        return None
+    prefix = video_config.get("kani_speaker_prefix")
+    if not isinstance(prefix, str):
+        raise ValueError("config.json video_studio.kani_speaker_prefix must be text.")
+    return prefix.strip()
 
 
 def resolve_narration_language(explicit_language, storyboard, config):
