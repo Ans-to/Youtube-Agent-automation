@@ -137,7 +137,7 @@
   const elbowL=endpoint(shoulderL,scale*.205,leftUpperAngle);
   const elbowR=endpoint(shoulderR,scale*.205,rightUpperAngle);
   const leftForeAngle=2.05+gesture*.28;
-  const rightForeAngle=1.18-gesture*.68+(pose==="think"?.38:0);
+  const rightForeAngle=1.18-gesture*.68+(pose==="think" ? .38 : 0);
   const wristL=endpoint(elbowL,scale*.185,leftForeAngle);
   const wristR=endpoint(elbowR,scale*.185,rightForeAngle);
   bone(shoulderL,elbowL,scale*.052,shirt);bone(elbowL,wristL,scale*.046,shirt);
