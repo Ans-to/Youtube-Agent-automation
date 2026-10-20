@@ -476,6 +476,19 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                         errors.append("Video package must not claim that it has been published.")
                     if package_status.get("human_review_required") is not True:
                         errors.append("Video package must explicitly require human review.")
+                    narration_profile = package_status.get("narration_language")
+                    if narration_profile == "Urdu + English technical terms":
+                        if package_status.get("human_voice_review_status") != "approved_for_current_profile":
+                            errors.append("Urdu-English render is missing a human voice approval for the current profile.")
+                        if package_status.get("voice_naturalness_verified") is not True:
+                            errors.append("Urdu-English render does not record human approval of voice naturalness.")
+                        if package_status.get("target_adult_male_voice_verified") is not True:
+                            errors.append("Urdu-English render does not record review of the required adult-male voice.")
+                        if package_status.get("speaker_identity_human_reviewed") is not True:
+                            errors.append("Urdu-English render does not record human review of speaker identity.")
+                        fingerprint = package_status.get("approved_voice_profile_sha256")
+                        if not isinstance(fingerprint, str) or not re.fullmatch(r"[0-9a-f]{64}", fingerprint):
+                            errors.append("Urdu-English render does not include a valid approved voice-profile SHA-256.")
                 except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
                     errors.append("Package-status JSON could not be validated: " + str(exc)[:250])
 
