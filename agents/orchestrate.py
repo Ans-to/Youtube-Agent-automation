@@ -103,6 +103,11 @@ def run_role_with_retry(role, instruction, context, cfg, runner=None):
         return result, 0
     except Exception as first_error:
         if not is_retryable_error(first_error):
+            # Preserve the original exception type while recording that no retry ran.
+            try:
+                first_error.retry_count = 0
+            except Exception:
+                pass
             raise
         retry_instruction = (
             instruction
@@ -111,9 +116,19 @@ def run_role_with_retry(role, instruction, context, cfg, runner=None):
             + ". Re-read the task and supplied evidence, correct the cause, and return the complete deliverable. "
               "Do not claim work succeeded unless you actually produce it. This is the final automatic retry."
         )
-        result = execute(role, retry_instruction, context, cfg)
+        try:
+            result = execute(role, retry_instruction, context, cfg)
+        except Exception as retry_error:
+            # The second exception is still surfaced unchanged for existing callers.
+            try:
+                retry_error.retry_count = 1
+            except Exception:
+                pass
+            raise
         if not isinstance(result, str) or not result.strip():
-            raise ValueError("Specialist returned an empty result on automatic retry.")
+            retry_error = ValueError("Specialist returned an empty result on automatic retry.")
+            retry_error.retry_count = 1
+            raise retry_error
         return result, 1
 
 
@@ -660,6 +675,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         try:
             result, retry_count = run_role_with_retry(role, instruction, combined_context, cfg)
         except Exception as exc:
+            failed_retry_count = int(getattr(exc, "retry_count", 0))
             # Preserve research files created before a model timeout, then continue to
             # downstream specialists and the final quality gate.
             reports_after_failure = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
@@ -702,6 +718,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 + "- Stage: " + str(index) + " of " + str(len(assignments)) + "\n"
                 + "- Error type: " + type(exc).__name__ + "\n"
                 + "- Error: " + str(exc)[:1000] + "\n"
+                + "- Retry attempts completed: " + str(failed_retry_count) + "\n"
                 + "- Research status before failure: " + failure_research_status + "\n"
                 + "- Research pages fetched before failure: " + str(research_pages_fetched) + "\n"
                 + "- Research reports: \n" + report_listing + "\n\n"
@@ -713,7 +730,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             failure = {
                 "sequence": index, "agent_id": agent_id, "role": role["name"],
                 "assigned_task": specialist_task, "output_file": failure_filename, "status": "failed",
-                "retry_count": 1,
+                "retry_count": failed_retry_count,
                 "research_status": failure_research_status,
                 "research_reports": failed_stage_report_names,
                 "research_pages_attempted": research_pages_attempted,
@@ -843,7 +860,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                     repair_attempt = {
                         "attempted": True, "status": "failed",
                         "repair_agent_id": repair_id, "error_type": type(exc).__name__,
-                        "error": str(exc)[:700], "trigger_gate": reviewer_record.get("quality_gate"),
+                        "error": str(exc)[:700], "failed_call_retry_count": int(getattr(exc, "retry_count", 0)),
+                        "trigger_gate": reviewer_record.get("quality_gate"),
                     }
                     (destination / "99-repair-failure.md").write_text(
                         "# Automatic repair failed\n\n"
