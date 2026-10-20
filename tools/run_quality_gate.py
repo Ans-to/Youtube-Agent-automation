@@ -4,7 +4,9 @@
 Default mode runs syntax checks, the full unittest suite, renderer JavaScript
 syntax validation when Node.js is installed, and the device-capability probe.
 Pass --render-smoke to require FFmpeg, FFprobe, Node.js, installed Puppeteer
-dependencies, and actual landscape + vertical MP4 renders.
+dependencies, and actual landscape + vertical MP4 renders. Pass --urdu-voice-smoke
+to synthesize real Urdu-English narration, render a vertical MP4, and run strict
+technical audio/video QA. That option requires a current human-approved local voice profile.
 """
 from __future__ import annotations
 
@@ -105,6 +107,11 @@ def main() -> int:
         help="also render and validate actual landscape and vertical MP4 smoke tests",
     )
     parser.add_argument(
+        "--urdu-voice-smoke",
+        action="store_true",
+        help="render an actual Urdu-English narrated Shorts MP4 and run strict technical audio/video QA; requires a current voice approval in config.json",
+    )
+    parser.add_argument(
         "--report",
         default="",
         help="optional path for a JSON report (relative paths resolve from the repository root)",
@@ -193,6 +200,104 @@ def main() -> int:
                 output_dir = ROOT / "video_studio" / "outputs"
                 for stem in ("ci-smoke", "ci-smoke-shorts"):
                     for suffix in (".mp4", ".srt", ".vtt", ".capabilities.json"):
+                        artifact = output_dir / (stem + suffix)
+                        results.append({
+                            "name": f"Output integrity: {artifact.relative_to(ROOT)}",
+                            "status": "PASS" if artifact.is_file() and artifact.stat().st_size > 0 else "FAIL",
+                            "path": str(artifact.relative_to(ROOT)),
+                        })
+
+    if args.urdu_voice_smoke:
+        # Unlike --render-smoke, this test intentionally uses the real local TTS
+        # model and requires the user-reviewed voice approval to remain current.
+        earlier_failures = [result for result in results if result["status"] == "FAIL"]
+        if earlier_failures:
+            results.append(skipped(
+                "Urdu-English narrated MP4 smoke",
+                "Earlier syntax, unit-test, renderer-syntax, or capability checks failed; fix those first.",
+            ))
+        else:
+            free_bytes = shutil.disk_usage(ROOT).free
+            minimum_free_bytes = 1024 * 1024 * 1024
+            missing = [tool for tool in ("node", "ffmpeg", "ffprobe") if not shutil.which(tool)]
+            if not (ROOT / "video_studio" / "node_modules" / "puppeteer").exists():
+                missing.append("video_studio/node_modules/puppeteer (run npm install in video_studio)")
+            if free_bytes < minimum_free_bytes:
+                results.append({
+                    "name": "Urdu-English narrated MP4 smoke",
+                    "status": "FAIL",
+                    "reason": (
+                        "At least 1 GiB free disk space is required before rendering; "
+                        f"only {free_bytes // (1024 * 1024)} MiB is free."
+                    ),
+                })
+            elif missing:
+                results.append({
+                    "name": "Urdu-English narrated MP4 smoke",
+                    "status": "FAIL",
+                    "reason": "Missing required renderer dependencies: " + ", ".join(missing),
+                })
+            else:
+                approval_code = (
+                    "import sys; from pathlib import Path; "
+                    "sys.path.insert(0, str((Path.cwd() / 'video_studio').resolve())); "
+                    "from voice_backends import load_project_config, require_urdu_voice_human_approval; "
+                    "cfg=load_project_config(Path.cwd()); "
+                    "require_urdu_voice_human_approval(cfg); "
+                    "print('Current approved voice profile:', cfg['video_studio']['urdu_voice_approved_profile_sha256'])"
+                )
+                approval = run_step(
+                    "Verify current human-approved Urdu voice profile",
+                    [sys.executable, "-c", approval_code],
+                    timeout=60,
+                )
+                results.append(approval)
+                if approval["status"] != "PASS":
+                    results.append(skipped(
+                        "Urdu-English narrated MP4 render and strict QA",
+                        "The configured voice profile is not approved or its approval fingerprint is stale.",
+                    ))
+                else:
+                    output_dir = ROOT / "video_studio" / "outputs"
+                    stem = "ci-smoke-urdu"
+                    video = output_dir / (stem + ".mp4")
+                    qc_report = output_dir / (stem + ".qc.json")
+                    # Remove only fixed, tool-owned smoke artifacts so old files
+                    # cannot make a failed render appear to have succeeded.
+                    for suffix in (
+                        ".mp4", ".silent.mp4", ".srt", ".vtt",
+                        ".capabilities.json", ".qc.json",
+                    ):
+                        (output_dir / (stem + suffix)).unlink(missing_ok=True)
+                    render = run_step(
+                        "Urdu-English narrated vertical Shorts MP4 render",
+                        [
+                            sys.executable, "video_studio/studio.py",
+                            "--storyboard", "storyboard.smoke-urdu.json",
+                            "--output", "outputs/ci-smoke-urdu.mp4",
+                            "--language", "ur-en", "--with-voice",
+                        ],
+                        timeout=1200,
+                    )
+                    results.append(render)
+                    if render["status"] == "PASS":
+                        audit = run_step(
+                            "Strict technical audio/video audit for Urdu MP4",
+                            [
+                                sys.executable, "video_studio/quality_audit.py", str(video),
+                                "--strict", "--max-black-seconds", "0.25",
+                                "--max-freeze-seconds", "3.0", "--max-silence-seconds", "1.5",
+                                "--report", str(qc_report),
+                            ],
+                            timeout=600,
+                        )
+                        results.append(audit)
+                    else:
+                        results.append(skipped(
+                            "Strict technical audio/video audit for Urdu MP4",
+                            "The narrated render failed; no stale output is audited as the new result.",
+                        ))
+                    for suffix in (".mp4", ".srt", ".vtt", ".capabilities.json", ".qc.json"):
                         artifact = output_dir / (stem + suffix)
                         results.append({
                             "name": f"Output integrity: {artifact.relative_to(ROOT)}",
