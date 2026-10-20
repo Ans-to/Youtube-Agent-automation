@@ -98,7 +98,7 @@
     for(let i=0;i<count;i++){
       const envelopeIndex=envelope.length?Math.max(0,Math.min(envelope.length-1,Math.round(progress*(envelope.length-1)+(i-(count-1)/2)))):0;
       const energy=envelope.length?clamp(Number(envelope[envelopeIndex])||0,0,1):Math.abs(Math.sin(i*.57+frame*.09));
-      const amplitude=envelope.length?.08+.42*energy:(.12+.35*energy)*(0.45+0.55*progress),bh=amplitude*gh,x=gx+gw*.06+i*(barGap*1.5);
+      const amplitude=envelope.length ? (.08+.42*energy) : (.12+.35*energy)*(0.45+0.55*progress),bh=amplitude*gh,x=gx+gw*.06+i*(barGap*1.5);
       ctx.globalAlpha=.5+.5*(i/count);ctx.fillStyle=i/count<progress?accent:muted;ctx.fillRect(x,mid-bh/2,barWidth,bh)
     }
     ctx.globalAlpha=1;
