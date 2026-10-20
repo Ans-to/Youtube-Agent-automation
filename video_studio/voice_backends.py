@@ -34,24 +34,50 @@ def urdu_voice_profile_sha256(config):
     if not isinstance(command, list) or any(not isinstance(part, str) for part in command):
         raise ValueError("config.json video_studio.urdu_tts_command must be an array of strings.")
 
+    source_hashes = {}
+    module_path = Path(__file__).resolve()
+    project_root = module_path.parents[1]
     if not command:
         # These constants are metadata only; importing the adapter does not load PyTorch/NeMo.
         from urdu_tts_adapter import DEFAULT_MODEL_ID, DEFAULT_MODEL_REVISION
         model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", DEFAULT_MODEL_ID).strip() or DEFAULT_MODEL_ID
         revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", DEFAULT_MODEL_REVISION).strip() or DEFAULT_MODEL_REVISION
         route = "bundled-kani-nanocodec"
+        codec_model = "nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps"
+        source_paths = [
+            module_path,
+            module_path.with_name("urdu_tts_adapter.py"),
+            module_path.with_name("requirements-urdu-tts.txt"),
+        ]
     else:
         model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", "custom-adapter").strip() or "custom-adapter"
         revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", "external-model-unspecified").strip()
         route = "custom-adapter"
+        codec_model = os.environ.get("AGENTHQ_URDU_TTS_CODEC", "external-codec-unspecified").strip()
+        source_paths = [module_path]
+        for part in command:
+            if Path(part).suffix.lower() == ".py":
+                candidate = Path(part).expanduser()
+                if not candidate.is_absolute():
+                    candidate = project_root / candidate
+                source_paths.append(candidate.resolve())
+
+    for source_path in source_paths:
+        label = str(source_path.resolve().relative_to(project_root)) if source_path.resolve().is_relative_to(project_root) else source_path.name
+        try:
+            source_hashes[label] = hashlib.sha256(source_path.read_bytes()).hexdigest()
+        except OSError:
+            source_hashes[label] = "unavailable"
 
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "route": route,
         "command": command,
         "model_id": model_id,
         "model_revision": revision,
+        "codec_model": codec_model,
         "speaker_prefix": prefix.strip(),
+        "source_sha256": source_hashes,
     }
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
