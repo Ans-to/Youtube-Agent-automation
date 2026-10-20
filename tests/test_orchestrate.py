@@ -457,6 +457,7 @@ class CEODelegationTests(unittest.TestCase):
             failed = manifest["pipeline"][0]
             self.assertEqual(failed["status"], "failed")
             self.assertEqual(failed["error_type"], "TimeoutError")
+            self.assertEqual(failed["retry_count"], 1)
             self.assertTrue((destination / failed["output_file"]).is_file())
             self.assertEqual(failed["research_status"], "pages_fetched")
             self.assertEqual(failed["research_pages_fetched"], 1)
