@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT / "video_studio"))
 import production
 import studio
 import voice_backends
-from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text
+from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text, narration_language_instruction
 from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_voice_human_approved, require_urdu_voice_human_approval, urdu_voice_profile_sha256
 
 
@@ -335,6 +335,16 @@ class VideoStudioTests(unittest.TestCase):
             config.write_text(json.dumps({"language": {"code": "ur_PK"}}), encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "English-only"):
                 validate_english_voice_model(model)
+
+    def test_narration_instructions_prioritize_clarity_and_short_spoken_sentences(self):
+        urdu = narration_language_instruction("ur-en")
+        self.assertIn("Write for the ear", urdu)
+        self.assertIn("short complete sentences", urdu)
+        self.assertIn("مرحلہ وار", urdu)
+        self.assertIn("unexplained abbreviations", urdu)
+        english = narration_language_instruction("en")
+        self.assertIn("active voice", english)
+        self.assertIn("run-on sentences", english)
 
     def test_urdu_english_profile_accepts_urdu_script_and_english_technical_terms(self):
         text = "یہ Python code اور API request کو automate کرتا ہے۔"
