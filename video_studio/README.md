@@ -56,7 +56,7 @@ Scene narration captions are paginated into readable two-line cards, while SRT a
 
 
 
-## Free source discovery (optional)
+## Research-first source discovery
 
 Every model-generated package runs web research by default: up to five complementary public search queries, up to eight search results per query, and up to eight bounded public-page fetches, without an API key. Use `--research` to force research even for the deterministic offline template demo:
 
@@ -65,11 +65,12 @@ Every model-generated package runs web research by default: up to five complemen
 The package includes `research.md` and `research.json`. The collector extracts a bounded amount of readable content, validates public IP addresses and redirect targets, and records fetch failures. If research fails for model-generated content, package generation stops instead of silently falling back to an unresearched script. Search snippets and extracted page text are **not automatic verification**: check publication dates, prefer primary sources, corroborate important claims, and confirm that sources actually support the statements before publishing. Common secrets and direct identifiers are redacted from search queries. The collector does not guarantee that the search provider or target websites will always be available. You may also provide curated local notes using `--source-file workspace/source-notes.md`.
 
 ## Explicit release approval and YouTube upload
-Review the script, storyboard, and rendered video. From the repository root:
+Review the script, storyboard, and rendered video. From the repository root, run a strict technical audit first, then request human approval:
 
+    python video_studio/quality_audit.py workspace/generated/video.mp4 --strict --report workspace/generated/video.qc.json
     python video_studio/release_gate.py --package workspace/generated
 
-Type the exact confirmation displayed by the program. This asks you to review the exact title, description, tags, visibility, and made-for-kids setting, then creates a local approval record bound to both those metadata and the video SHA-256. It does not publish anything. The uploader refuses any metadata that differs from the approved record.
+Approval is blocked unless the strict audit passes with no warnings, confirms an audio stream and positive duration, and its SHA-256 matches the exact MP4. Type the exact confirmation displayed by the program to review the title, description, tags, visibility, and made-for-kids setting. The approval record binds the video, script, storyboard, metadata, and QA report hashes; it does not publish anything.
 
 For optional YouTube upload, create a Google OAuth desktop client in Google Cloud Console, save its JSON locally as client_secret.json, and install:
 
@@ -79,7 +80,7 @@ Example private upload, only after local approval:
 
     python video_studio/publish_youtube.py --video workspace/generated/video.mp4 --approval workspace/generated/release-approval.json --title "Video title" --description "Video description" --privacy private --made-for-kids no --confirm-publish
 
-Public uploads require the additional --confirm-public flag. The uploader verifies the approval record and video hash, uses user OAuth rather than an API key, and defaults to private visibility. OAuth setup, account consent, YouTube API access, and upload processing cannot be completed by repository code alone. Never commit client_secret.json or youtube-token.json.
+Public uploads require the additional --confirm-public flag. The uploader revalidates the strict QA report and its hash, the approved video/script/storyboard hashes, and exact metadata before upload. It uses user OAuth rather than an API key and defaults to private visibility. OAuth setup, account consent, YouTube API access, and upload processing cannot be completed by repository code alone. Never commit client_secret.json or youtube-token.json.
 
 ## Customize
 Copy storyboard.example.json and change title, canvas size, fps, scenes, durations, headline, subhead, and narration. Width must be 320–3840, height 180–2160, fps 1–60, and each scene duration must be positive and no more than 600 seconds.
