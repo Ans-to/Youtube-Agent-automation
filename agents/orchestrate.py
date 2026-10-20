@@ -12,7 +12,9 @@ from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
-WORKSPACE = (ROOT / "workspace").resolve()
+sys.path.insert(0, str(ROOT / "tools"))
+from path_utils import canonical_path, is_within, safe_relative_path
+WORKSPACE = canonical_path(ROOT / "workspace")
 sys.path.insert(0, str(BASE))
 import dispatch
 
@@ -329,7 +331,7 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         topic = topic[:500] or "Technology explainer"
         fmt = "shorts" if re.search(r"\b(shorts|short-form|vertical)\b", intent_lower) else "long"
         output = destination / "video-production"
-        relative_out = output.resolve().relative_to(ROOT).as_posix()
+        relative_out = safe_relative_path(output, ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
                    "--topic", topic, "--format", fmt, "--out", relative_out]
         language_override = requested_narration_language(intent_text)
@@ -372,7 +374,7 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         idea_match = re.search(r"(?is)user problem and product idea:\s*(.+?)(?:\.\s*research the user need|$)", intent_text)
         idea = (idea_match.group(1).strip() if idea_match else intent_text[:1000])[:1000]
         output = destination / "product-prototype"
-        relative_out = output.resolve().relative_to(ROOT).as_posix()
+        relative_out = safe_relative_path(output, ROOT).as_posix()
         command = [sys.executable, str(ROOT / "product_studio" / "build_product.py"),
                    "--title", title[:100], "--idea", idea, "--out", relative_out]
         if source_path is not None:
@@ -397,14 +399,14 @@ def _run_fixed_tool(name, command, destination, relative_out, timeout):
         return {
             "tool": name, "status": "completed" if result.returncode == 0 else "failed",
             "exit_code": result.returncode, "artifact_dir": relative_out,
-            "log_file": str(log_path.relative_to(ROOT)),
+            "log_file": safe_relative_path(log_path, ROOT).as_posix(),
             "summary": output[-2000:] if output else errors[-2000:],
         }
     except (OSError, subprocess.TimeoutExpired) as exc:
         log_path.write_text(type(exc).__name__ + ": " + str(exc)[:1000] + "\n", encoding="utf-8")
         return {
             "tool": name, "status": "failed", "artifact_dir": relative_out,
-            "log_file": str(log_path.relative_to(ROOT)),
+            "log_file": safe_relative_path(log_path, ROOT).as_posix(),
             "error": type(exc).__name__ + ": " + str(exc)[:500],
         }
 
@@ -417,8 +419,8 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
     unsafe artifacts convert a nominally successful builder run to a failure.
     All artifact paths must remain beneath this project's workspace directory.
     """
-    root = Path(project_root or ROOT).expanduser().resolve()
-    workspace_root = (root / "workspace").resolve()
+    root = canonical_path(project_root or ROOT)
+    workspace_root = canonical_path(root / "workspace")
     checks = []
 
     def nonempty_file(path):
@@ -689,7 +691,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                 if nonempty_file(readme_path) and not readme_path.read_text(encoding="utf-8", errors="replace").strip():
                     errors.append("Product README is empty.")
                 check["checks"].append("html_readme_product_status_and_archive")
-                check["product_directory"] = product_dir.relative_to(root).as_posix()
+                check["product_directory"] = safe_relative_path(product_dir, root).as_posix()
 
         if errors:
             check["status"] = "failed"
@@ -707,8 +709,9 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
     roles_by_id = {role.get("id"): role for role in roles}
     cfg = config if config is not None else dispatch.load_json(ROOT / "config.json", {})
-    destination = Path(output_dir).resolve() if output_dir else WORKSPACE / "orchestration" / slug(task[:80])
-    if destination == WORKSPACE or WORKSPACE not in destination.parents:
+    destination = canonical_path(output_dir) if output_dir else canonical_path(WORKSPACE / "orchestration" / slug(task[:80]))
+    workspace_root = canonical_path(WORKSPACE)
+    if destination == workspace_root or not is_within(destination, workspace_root, allow_equal=False):
         raise ValueError("Pipeline output must remain inside the project workspace.")
     destination.mkdir(parents=True, exist_ok=True)
     progress_path = destination / "pipeline-progress.json"
@@ -748,7 +751,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         })
         delegation_mode = "user_selected_roles"
     ceo_reports_after = set(ceo_research_dir.glob("agent-01-*.md")) if ceo_research_dir.is_dir() else set()
-    ceo_research_reports = sorted(str(path.relative_to(ROOT)) for path in ceo_reports_after - ceo_reports_before)
+    ceo_research_reports = sorted(safe_relative_path(path, ROOT).as_posix() for path in ceo_reports_after - ceo_reports_before)
     selected = [item["agent_id"] for item in assignments]
     save_progress("running", "Specialist work", "CEO assigned " + str(len(assignments)) + " stages; starting specialist execution.", 0, len(assignments))
     combined_context = context[:20000]
@@ -790,7 +793,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             # downstream specialists and the final quality gate.
             reports_after_failure = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
             failed_stage_reports = sorted(reports_after_failure - reports_before)
-            failed_stage_report_names = [str(path.relative_to(ROOT)) for path in failed_stage_reports]
+            failed_stage_report_names = [safe_relative_path(path, ROOT).as_posix() for path in failed_stage_reports]
             research_pages_attempted = 0
             research_pages_fetched = 0
             evidence_sections = []
@@ -806,7 +809,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 try:
                     evidence_sections.append(
                         "\n\n## Research saved before specialist failure — "
-                        + str(report_path.relative_to(ROOT)) + "\n"
+                        + safe_relative_path(report_path, ROOT).as_posix() + "\n"
                         + report_path.read_text(encoding="utf-8", errors="replace")[:5000]
                     )
                 except OSError:
@@ -859,7 +862,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         quality_gate = extract_quality_gate(result) if agent_id == "AGENT-08" else None
         reports_after = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
         new_report_paths = reports_after - reports_before
-        research_reports = sorted(str(path.relative_to(ROOT)) for path in new_report_paths)
+        research_reports = sorted(safe_relative_path(path, ROOT).as_posix() for path in new_report_paths)
         pages_attempted = 0
         pages_fetched = 0
         for report_path in new_report_paths:
@@ -984,13 +987,13 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     save_progress("running", "Specialist stage complete", "All specialist stages have returned; assembling research evidence and preparing artifact tools.", len(assignments), len(assignments))
     research_sections = []
     research_budget = 18000
-    research_root = (ROOT / "workspace" / "research" / "agent-runs").resolve()
+    research_root = canonical_path(ROOT / "workspace" / "research" / "agent-runs")
     for record in records:
         for report in record.get("research_reports", []):
             if research_budget <= 0:
                 break
-            report_path = (ROOT / report).resolve()
-            if research_root not in report_path.parents or report_path.suffix.lower() != ".md" or not report_path.is_file():
+            report_path = canonical_path(ROOT / report)
+            if not is_within(report_path, research_root, allow_equal=False) or report_path.suffix.lower() != ".md" or not report_path.is_file():
                 continue
             try:
                 report_text = report_path.read_text(encoding="utf-8", errors="replace")[:min(5000, research_budget)]
