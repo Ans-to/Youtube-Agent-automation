@@ -17,6 +17,25 @@ from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command
 
 
 class VideoStudioTests(unittest.TestCase):
+    def test_kani_speaker_prefix_is_optional_explicit_and_type_checked(self):
+        self.assertIsNone(studio.configured_kani_speaker_prefix({}))
+        self.assertEqual(
+            studio.configured_kani_speaker_prefix(
+                {"video_studio": {"kani_speaker_prefix": "  verified_male_speaker  "}}
+            ),
+            "verified_male_speaker",
+        )
+        self.assertEqual(
+            studio.configured_kani_speaker_prefix(
+                {"video_studio": {"kani_speaker_prefix": ""}}
+            ),
+            "",
+        )
+        with self.assertRaisesRegex(ValueError, "must be text"):
+            studio.configured_kani_speaker_prefix(
+                {"video_studio": {"kani_speaker_prefix": False}}
+            )
+
     def test_direct_renderer_language_precedence_is_explicit_and_configurable(self):
         self.assertEqual(
             studio.resolve_narration_language(
