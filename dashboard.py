@@ -60,7 +60,7 @@ def release_workflow(name):
             with (LOGS / "dashboard.log").open("a", encoding="utf-8") as log_file:
                 log_file.write(
                     "Could not resume pending queue after workflow release: "
-                    + type(exc).__name__ + "\\n"
+                    + type(exc).__name__ + "\n"
                 )
         except OSError:
             # Queue resumption was already best-effort; a logging failure must
