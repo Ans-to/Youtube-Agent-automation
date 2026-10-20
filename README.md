@@ -190,7 +190,7 @@ Example:
 python video_studio/production.py --topic "How AI agents work" --format long --research --source-file workspace/source-notes.md --render
 ```
 
-Add `--with-voice` only after installing Piper and setting `PIPER_MODEL` to a local voice model file. Use `--target-minutes 8` to change the duration. YouTube upload still requires explicit video-and-metadata approval and Google OAuth; content is never auto-published.
+For Urdu-English narration on Windows, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup_urdu_tts_windows.ps1`, generate and listen to the audio-only preview, then use `--with-voice` only after the exact voice profile has been approved in `config.json`. For explicitly English narration (`--language en`), install Piper and set `PIPER_MODEL` to a verified English voice model. Use `--target-minutes 8` to change the duration. YouTube upload still requires explicit video-and-metadata approval and Google OAuth; content is never auto-published.
 
 ## Specialist practice and human-reviewed improvement
 
