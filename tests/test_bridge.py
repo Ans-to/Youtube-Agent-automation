@@ -41,6 +41,7 @@ class BridgeTests(unittest.TestCase):
             self.assertEqual(bridge.request_replay_state("request-1", root), "completed")
 
     def test_claim_request_is_exclusive_and_atomic(self):
+        import json
         import tempfile
         from pathlib import Path
         with tempfile.TemporaryDirectory() as directory:
