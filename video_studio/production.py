@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from agent import post_local_model
 from research import research as collect_research, render_markdown as render_research_markdown
 from captions import normalize_narration_language, narration_language_instruction, validate_narration_text, validate_english_voice_model
-from voice_backends import get_urdu_tts_command
+from voice_backends import get_urdu_tts_command, require_urdu_voice_human_approval
 from release_gate import validate_qc_report
 
 
@@ -307,6 +307,11 @@ def main():
     piper = shutil.which("piper")
     voice_model = os.environ.get("PIPER_MODEL", "").strip()
     if args.render or args.render_template:
+        if language == "ur-en":
+            try:
+                require_urdu_voice_human_approval(cfg)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
         if language == "en":
             if not piper or not voice_model:
                 raise SystemExit("English narration requires Piper and PIPER_MODEL pointing to a verified English voice model; silent output is not an acceptable fallback.")
