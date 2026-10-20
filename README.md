@@ -135,6 +135,10 @@ Request IDs must contain only letters, digits, hyphens, or underscores and must 
 
 All supported queued task kinds run through the CEO-led pipeline. Put non-sensitive `.txt`, `.md`, or `.json` reference files in `workspace/`. Inspect all outputs before relying on them.
 
+## Adaptive device profile and quality-first sequential rendering
+
+Before a render, `video_studio/studio.py` detects available RAM, CPU count, disk space, and supported GPU information using standard-library probes. It selects conservative encoding thread limits and writes a `.capabilities.json` sidecar next to the video. Run `python video_studio/studio.py --print-capabilities` to inspect the profile without rendering. Heavy render/model stages should remain sequential by default (`max_parallel_heavy_jobs: 1`). The profiler never silently reduces the requested resolution or frame rate: low-resource machines may take longer, and jobs can still fail if they exceed available memory or disk space. A detected GPU is not proof that every AI model supports it.
+
 ## Tests
 
 Run locally:
