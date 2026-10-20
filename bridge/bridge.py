@@ -126,7 +126,7 @@ def write_json_atomic(path: pathlib.Path, data: object) -> None:
     """Write JSON via same-directory replacement to avoid truncated state files."""
     path = pathlib.Path(path)
     temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(path)
 
 
