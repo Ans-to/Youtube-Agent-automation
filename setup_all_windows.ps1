@@ -144,6 +144,17 @@ if ($LASTEXITCODE -ne 0) {
 
 $UrduTtsAnswer = Read-Host "Install optional CPU-only Urdu voice dependencies now? The first Urdu render also downloads model and codec weights (roughly 1.5 GB per upstream guidance) [y/N]"
 if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
+    # Upstream KaniTTS documents and tests Python 3.10–3.12. Use the same interpreter
+    # that start_windows.bat selects, and fail before installing gigabytes of packages
+    # if the active interpreter is outside that tested range.
+    if (Has-Command "py") {
+        $VoicePythonVersion = (& py -3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
+    } else {
+        $VoicePythonVersion = (& python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
+    }
+    if ($LASTEXITCODE -ne 0 -or $VoicePythonVersion -notin @("3.10", "3.11", "3.12")) {
+        throw "The optional Kani Urdu voice backend is documented for Python 3.10–3.12; active interpreter is $VoicePythonVersion. Select Python 3.12 for the project and rerun START_HERE.bat. Other Agent HQ features can still run without the Urdu voice package."
+    }
     if (Has-Command "py") {
         & py -3 -m pip install --upgrade pip
         if ($LASTEXITCODE -ne 0) { throw "Could not update pip before Urdu TTS installation." }
