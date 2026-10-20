@@ -205,6 +205,20 @@ class VideoStudioTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "positive scene duration"):
                 studio.build_audio_gated_visemes("some narration", audio_path, 0)
 
+    def test_urdu_voice_smoke_storyboard_is_vertical_short_and_language_valid(self):
+        path = ROOT / "video_studio" / "storyboard.smoke-urdu.json"
+        storyboard = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(storyboard["narration_language"], "ur-en")
+        self.assertEqual((storyboard["width"], storyboard["height"]), (320, 568))
+        self.assertEqual(storyboard["fps"], 12)
+        self.assertEqual(len(storyboard["scenes"]), 4)
+        for index, scene in enumerate(storyboard["scenes"], 1):
+            with self.subTest(scene=index):
+                self.assertGreater(float(scene["duration_seconds"]), 0)
+                self.assertEqual(validate_narration_text(scene["narration"], "ur-en"), scene["narration"])
+                self.assertEqual(scene["caption"], scene["narration"])
+        self.assertGreater(len({scene["visual_type"] for scene in storyboard["scenes"]}), 1)
+
     def test_example_storyboard_is_valid(self):
         path = ROOT / "video_studio" / "storyboard.example.json"
         data = json.loads(path.read_text(encoding="utf-8"))
