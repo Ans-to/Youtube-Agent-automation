@@ -15,10 +15,10 @@ This module renders MP4s from JSON storyboards using Canvas2D in headless Chromi
 - Optional YouTube upload: Google OAuth desktop client JSON and the dependencies in requirements-publish.txt.
 
 ## Windows setup
-Open PowerShell in this directory and run:
+Open PowerShell in this directory and run this explicitly English, silent renderer smoke demo:
 
     npm install
-    python studio.py --storyboard storyboard.example.json --output outputs\offline-agent-hq-demo.mp4
+    python studio.py --storyboard storyboard.example.json --output outputs\offline-agent-hq-demo.mp4 --language en
 
 Puppeteer downloads a compatible Chromium build during npm install. If your network blocks this, install a supported Chrome/Chromium build and configure Puppeteer to use it.
 
@@ -136,6 +136,6 @@ Scene transitions composite previous and incoming frames with eased fade, direct
 Landscape and vertical regression storyboards are provided at `storyboard.motion-character-demo.json` and `storyboard.motion-character-demo-shorts.json`. Existing renderer smoke fixtures use English TTS where configured; these are technical tests, not proof of natural Urdu voice quality.
 
     npm install
-    python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4
+    python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4 --language en
 
 This command can produce English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
