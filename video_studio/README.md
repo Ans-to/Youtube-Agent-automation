@@ -7,7 +7,8 @@ This module renders local MP4s from JSON storyboards using deterministic Canvas2
 - Node.js LTS
 - FFmpeg and ffprobe available on PATH
 - A Windows PC is recommended; PNG-frame rendering is CPU- and storage-intensive.
-- Required for final production renders: Piper CLI plus a verified English voice model and matching `.onnx.json` config. Silent rendering is for visual smoke tests only.\n- Every render requires English narration text and emits validated `.srt` and `.vtt` subtitle sidecars.
+- Required for final production renders: Piper CLI plus a verified English voice model and matching `.onnx.json` config. Silent rendering is for visual smoke tests only.
+- Every render requires English narration text and emits validated `.srt` and `.vtt` subtitle sidecars.
 - Optional YouTube upload: Google OAuth desktop client JSON and the dependencies in requirements-publish.txt.
 
 ## Windows setup
@@ -40,7 +41,7 @@ Inspect the machine profile before a render:
     python video_studio/studio.py --print-capabilities
     python video_studio/capabilities.py --json
 
-The profiler uses only Python's standard library and supported OS probes. It reports RAM, CPU count, free disk space, GPU detection, a conservative encoder thread count, and a single-heavy-job policy. Every render writes a `.capabilities.json` sidecar next to the output. The profile never silently lowers requested resolution or frame rate; low-memory rendering can be slower and may still fail if the requested project exceeds available resources.
+The profiler uses only Python's standard library and supported OS probes. It reports RAM, CPU count, free disk space, GPU detection, a conservative encoder thread count, and a single-heavy-job policy. Every render writes a `.capabilities.json` sidecar next to the output. The profile never silently lowers requested resolution or frame rate; low-memory rendering can be slower and may still fail if the requested project exceeds available resources. The renderer also takes a cross-process lock before touching shared frame, manifest, or voice-intermediate paths; simultaneous render requests wait instead of corrupting one another.
 
 ## Generate a topic package
 From the repository root, run:
