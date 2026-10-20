@@ -65,6 +65,18 @@ class BridgeTests(unittest.TestCase):
             leftovers = [path.name for path in Path(directory).iterdir() if path != target]
             self.assertEqual(leftovers, [])
 
+    def test_atomic_json_write_retries_permission_errors_at_most_twice(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            target = Path(directory) / "state.json"
+            with patch.object(bridge.os, "replace", side_effect=PermissionError("temporary lock")) as replace:
+                with self.assertRaisesRegex(PermissionError, "temporary lock"):
+                    bridge.write_json_atomic(target, {"safe": True})
+            self.assertEqual(replace.call_count, 3)
+            self.assertFalse(target.exists())
+            self.assertEqual(list(Path(directory).iterdir()), [])
+
     def test_self_test_covers_practice_and_motion_documents(self):
         with patch.object(bridge, "PROJECT", ROOT):
             result = bridge.run_self_test()
