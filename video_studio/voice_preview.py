@@ -19,11 +19,21 @@ from captions import validate_narration_text
 from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command
 
 
-def resolve_preview_output(path, workspace=WORKSPACE):
-    """Resolve a preview WAV strictly beneath workspace and reject ambiguous extensions."""
+def resolve_preview_output(path, workspace=WORKSPACE, project_root=ROOT):
+    """Resolve a preview WAV strictly beneath workspace and reject ambiguous extensions.
+
+    Paths prefixed with "workspace/" are project-root-relative for the documented CLI;
+    a bare filename or other relative path is relative to the workspace itself.
+    """
     root = Path(workspace).expanduser().resolve()
+    project = Path(project_root).expanduser().resolve()
     value = Path(path).expanduser()
-    destination = (root / value if not value.is_absolute() else value).resolve()
+    if value.is_absolute():
+        destination = value.resolve()
+    elif value.parts and value.parts[0].lower() == "workspace":
+        destination = (project / value).resolve()
+    else:
+        destination = (root / value).resolve()
     try:
         destination.relative_to(root)
     except ValueError as exc:
@@ -45,6 +55,7 @@ def generate_voice_preview(text, output, overwrite=False):
         )
     if destination.exists() and destination.is_dir():
         raise ValueError("Voice preview output path is a directory.")
+    WORKSPACE.mkdir(parents=True, exist_ok=True)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     config_path = ROOT / "config.json"
