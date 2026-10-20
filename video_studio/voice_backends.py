@@ -140,9 +140,9 @@ def builtin_urdu_tts_command():
     project_root = module.parents[1]
     adapter = module.with_name("piper_urdu_tts_adapter.py")
     if sys.platform == "win32":
-        candidates = [project_root / ".venv-urdu-tts" / "Scripts" / "python.exe"]
+        candidates = [project_root / ".venv-piper-urdu" / "Scripts" / "python.exe"]
     else:
-        candidates = [project_root / ".venv-urdu-tts" / "bin" / "python"]
+        candidates = [project_root / ".venv-piper-urdu" / "bin" / "python"]
     interpreter = next((candidate for candidate in candidates if candidate.is_file()), Path(sys.executable))
     return [str(interpreter), str(adapter), "--manifest", "{manifest_file}"]
 
