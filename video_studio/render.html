@@ -118,6 +118,13 @@
   ctx.restore();
  }
 
+ function captionLayout(width,height,left,contentWidth){
+  const portrait=height>width;
+  // Landscape captions stay in the editorial text lane and never paint over the presenter.
+  // Portrait captions use the full safe-width because the presenter occupies the upper/middle frame.
+  return {x:left,width:portrait?contentWidth:Math.min(contentWidth,width*.59),portrait};
+ }
+ window.captionLayoutForTest=captionLayout;
  function easeSmooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)}
  const characterRigVisemeGeometry={closed:[.22,.006],open:[.30,.028],wide:[.48,.018],round:[.24,.028],teeth:[.38,.024],tongue:[.30,.026],sibilant:[.44,.009],lip:[.25,.012],open_wide:[.50,.026],open_round:[.25,.030]};
  function drawCharacter(c,progress,frame){
@@ -314,8 +321,8 @@
    if(scene.character)drawCharacter(scene.character,progress,globalFrame);
   ctx.fillStyle="#30303a";ctx.fillRect(left,barY,barW,3);ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);
    const duplicateCaption=caption.replace(/\s+/g," ").trim().toLocaleLowerCase()===headline.replace(/\s+/g," ").trim().toLocaleLowerCase();
-   const captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px "+TEXT_FONT,captionInfo=getCaptionPage(caption,contentW-32,captionFont,progress,captionDirection),captionLines=duplicateCaption?[]:captionInfo.lines,captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
-   if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.82;ctx.fillStyle="#111119";ctx.fillRect(left,boxY,contentW,boxHeight);ctx.globalAlpha=1;ctx.fillStyle=p.accent;ctx.fillRect(left,boxY,4,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;ctx.direction=captionDirection;ctx.textAlign=captionDirection==="rtl"?"right":"left";const captionX=captionDirection==="rtl"?left+contentW-16:left+16;captionLines.forEach((line,i)=>ctx.fillText(line,captionX,boxY+10+captionSize+i*captionLineHeight));ctx.direction="ltr";ctx.textAlign="left";}
+   const captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px "+TEXT_FONT,captionLayout=captionLayoutForTest(w,h,left,contentW),captionWidth=captionLayout.width,captionInfo=getCaptionPage(caption,captionWidth-32,captionFont,progress,captionDirection),captionLines=duplicateCaption?[]:captionInfo.lines,captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
+   if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.82;ctx.fillStyle="#111119";ctx.fillRect(captionLayout.x,boxY,captionWidth,boxHeight);ctx.globalAlpha=1;ctx.fillStyle=p.accent;ctx.fillRect(captionLayout.x,boxY,4,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;ctx.direction=captionDirection;ctx.textAlign=captionDirection==="rtl"?"right":"left";const captionX=captionDirection==="rtl"?captionLayout.x+captionWidth-16:captionLayout.x+16;captionLines.forEach((line,i)=>ctx.fillText(line,captionX,boxY+10+captionSize+i*captionLineHeight));ctx.direction="ltr";ctx.textAlign="left";}
    if(String(scene.visual_type||"hero")==="hero"||scene.show_orbit===true){
     ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;
     const cx=w*.84,cy=portrait?h*.22:h*.26,r=Math.min(w,h)*(portrait ? 0.055 : 0.075);
