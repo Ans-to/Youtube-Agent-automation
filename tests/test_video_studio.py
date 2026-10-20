@@ -5,6 +5,7 @@ import wave
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -106,6 +107,42 @@ class VideoStudioTests(unittest.TestCase):
         self.assertIn("Motion Graphics Creative Director", {agent["name"] for agent in agents})
         self.assertIn("Motion Systems & Compositing Specialist", {agent["name"] for agent in agents})
         self.assertTrue(any(agent["approval_required"] for agent in agents))
+
+    def test_scene_builder_validates_narration_in_the_selected_language(self):
+        def scene_with(narration):
+            return {
+                "eyebrow": "EXPLAINER",
+                "headline": "Python APIs",
+                "subhead": "A practical overview",
+                "narration": narration,
+                "visual_type": "hero",
+            }
+
+        urdu_scene = scene_with("آج ہم Python API کو step by step سمجھیں گے۔")
+        with patch.object(production, "model_json", return_value=dict(urdu_scene)):
+            generated = production.create_scene(
+                "Python API", {"thesis": "Explain the API"},
+                {"title": "Introduction"}, "", {"model": {"scene_output_tokens": 700}},
+                1, 4, 20, {"headline": "", "summary": "Opening"}, "ur-en"
+            )
+        self.assertIn("Python API", generated["narration"])
+        self.assertEqual(generated["narration_language"], "ur-en")
+
+        with patch.object(production, "model_json", return_value=scene_with("Today we explain the Python API.")):
+            with self.assertRaisesRegex(ValueError, "must contain Urdu text"):
+                production.create_scene(
+                    "Python API", {"thesis": "Explain the API"},
+                    {"title": "Introduction"}, "", {"model": {"scene_output_tokens": 700}},
+                    1, 4, 20, {"headline": "", "summary": "Opening"}, "ur-en"
+                )
+
+        with patch.object(production, "model_json", return_value=dict(urdu_scene)):
+            with self.assertRaisesRegex(ValueError, "must be English text"):
+                production.create_scene(
+                    "Python API", {"thesis": "Explain the API"},
+                    {"title": "Introduction"}, "", {"model": {"scene_output_tokens": 700}},
+                    1, 4, 20, {"headline": "", "summary": "Opening"}, "en"
+                )
 
     def test_fallback_is_explicitly_not_researched(self):
         result = production.fallback("Test topic")
