@@ -112,6 +112,7 @@ A separate operational branch, `mobile-agent-inbox`, is available for requests c
 - The bridge creates a local pending task atomically. It does not start the task when it is created. A task only runs when the local queue runner is started or a separately approved, allowed run request is processed.
 - The phone and PC still have separate local queues and output folders. A task queued on the phone is not automatically transferred to the PC; for PC processing later, run the bridge on the PC against the same inbox branch or recreate the task in its local queue.
 - The mobile bridge does not accept shell commands or arbitrary code. Video rendering may be too resource-intensive for Android; queue video tasks on mobile and render on the Windows PC when available.
+- **Repository visibility warning:** this repository is public, so any task JSON or status report committed to `mobile-agent-inbox` is publicly readable even though that branch is separate. Use only non-sensitive prompts there; use a private repository or the local dashboard for confidential work.
 
 Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Even on a private repository, committed prompt text remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
 
