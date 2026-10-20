@@ -98,7 +98,16 @@ jobs:
               if status.get("publishable") is not False or status.get("published") is not False:
                   raise SystemExit(f"{name}: review preview must never be marked publishable or published")
               if not qc.get("passed") or not qc.get("strict"):
-                  raise SystemExit(f"{name}: strict technical quality audit did not pass")
+                  raise SystemExit(f"{name}: strict technical QA did not pass")
+              if status.get("technical_qa_passed") is not True:
+                  raise SystemExit(f"{name}: package must explicitly report technical QA status")
+              if status.get("quality_audit_scope") != "technical_only_not_artistic_or_editorial":
+                  raise SystemExit(f"{name}: technical QA must not be represented as artistic/editorial quality")
+              readiness = status.get("production_readiness")
+              if not isinstance(readiness, dict) or readiness.get("passed") is not False:
+                  raise SystemExit(f"{name}: template preview must be explicitly blocked from production readiness")
+              if status.get("production_readiness_passed") is not False:
+                  raise SystemExit(f"{name}: template preview must not be marked production-ready")
               probe = subprocess.run(
                   ["ffprobe", "-v", "error", "-show_entries", "stream=codec_type,width,height",
                    "-show_entries", "format=duration", "-of", "json", str(folder / "video.mp4")],
@@ -115,7 +124,7 @@ jobs:
               actual = (video.get("width"), video.get("height"))
               if actual != expected:
                   raise SystemExit(f"{name}: expected dimensions {expected}, got {actual}")
-              print(f"PASS {name}: {actual[0]}x{actual[1]}, strict QC passed, audio present, human review required")
+              print(f"PASS {name}: {actual[0]}x{actual[1]}, technical QA passed, production readiness correctly blocked, audio present, human review required")
           PY
 
       - name: Upload videos and review evidence
