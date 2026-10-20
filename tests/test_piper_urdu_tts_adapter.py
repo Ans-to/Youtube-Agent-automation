@@ -108,6 +108,7 @@ class PiperUrduAdapterTests(unittest.TestCase):
         for symbol, item_id in adapter.FASIH_V2_PHONEME_IDS.items():
             self.assertEqual(result["phoneme_id_map"][symbol], [item_id])
         self.assertEqual(source["piper_version"], "1.3.0")
+        self.assertNotIn("aɪ", source["phoneme_id_map"])
 
     def test_manifest_rejects_duplicate_output_paths(self):
         with tempfile.TemporaryDirectory() as tmp:
