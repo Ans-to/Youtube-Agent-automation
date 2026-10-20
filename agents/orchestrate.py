@@ -253,6 +253,8 @@ def plan_delegation(task, context, cfg, roles_by_id):
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
             "VIDEO LANGUAGE RULE: preserve the explicit language requested by the user. "
+            "Voice-over narration and subtitles must follow the explicit request or configured default; never silently substitute English or Urdu. "
+            "Never delegate translation/localization as a standalone task. "
             + configured_narration_language_instruction(cfg) + " "
             "The renderer must reject a missing/incompatible voice backend rather than claim that narration was synthesized. "
             "Return ONLY valid JSON in this exact shape: "
