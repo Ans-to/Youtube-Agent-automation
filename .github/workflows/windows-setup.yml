@@ -4,6 +4,15 @@ name: Windows setup smoke test
 # available on demand so routine pushes use the consolidated Linux pipeline only.
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/windows-setup.yml"
+      - "setup_windows.ps1"
+      - "setup_all_windows.ps1"
+      - "setup_urdu_tts_windows.ps1"
+      - "scripts/**"
+      - ".vscode/**"
+      - "video_studio/**"
 
 permissions:
   contents: read
@@ -23,15 +32,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Parse both PowerShell setup scripts
+      - name: Parse PowerShell setup and sync scripts
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ./setup_windows.ps1), [ref]$tokens, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path ./setup_all_windows.ps1), [ref]$tokens, [ref]$errors) | Out-Null
-          if ($errors.Count -gt 0) { $errors | Format-List; exit 1 }
+          $files = @(
+            "./setup_windows.ps1",
+            "./setup_all_windows.ps1",
+            "./setup_urdu_tts_windows.ps1",
+            "./scripts/sync-and-test.ps1",
+            "./scripts/install-auto-sync.ps1"
+          )
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) { Write-Error ("PowerShell parse failed for " + $file); $errors | Format-List; exit 1 }
+          }
+
       - name: Validate project setup and Python syntax
         shell: pwsh
         run: ./setup_windows.ps1
