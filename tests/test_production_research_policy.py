@@ -57,6 +57,35 @@ class ResearchPolicyTests(unittest.TestCase):
                     "Source notes", {"model": {}}, 1, 1, 12, {}, "en", ["S1"],
                 )
 
+    def test_generated_scene_always_has_an_integrated_speaking_presenter(self):
+        base_scene = {
+            "eyebrow": "Evidence", "headline": "A supported claim",
+            "subhead": "A short explanation",
+            "narration": "This system records source evidence for review.",
+            "visual_type": "hero", "source_refs": [], "unresolved_notes": [],
+        }
+        with patch("video_studio.production.model_json", return_value=dict(base_scene)):
+            scene = create_scene(
+                "Research pipeline", {"thesis": "Evidence matters"},
+                {"name": "Evidence", "purpose": "Explain provenance"},
+                "Source notes", {"model": {}}, 2, 4, 12, {}, "en", [],
+            )
+        self.assertTrue(scene["character"]["enabled"])
+        self.assertTrue(scene["character"]["speaking"])
+        self.assertGreater(scene["character"]["scale"], 0)
+        self.assertIn("pose", scene["character"])
+
+    def test_fallback_preview_has_presenter_in_every_scene(self):
+        from video_studio.production import fallback
+        storyboard = fallback("Integrated motion design")
+        self.assertGreaterEqual(len(storyboard["scenes"]), 4)
+        self.assertTrue(all(
+            isinstance(scene.get("character"), dict)
+            and scene["character"].get("enabled") is True
+            and scene["character"].get("speaking") is True
+            for scene in storyboard["scenes"]
+        ))
+
     def test_research_gate_records_fetched_domains_and_text_digests(self):
         page_text = "Fetched primary-source text"
         digest = hashlib.sha256(page_text.encode("utf-8")).hexdigest()
