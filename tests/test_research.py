@@ -109,7 +109,11 @@ class ResearchTests(unittest.TestCase):
             )
         def fake_page(url):
             fetched.append(url)
-            return {"fetch_status": "fetched", "page_title": "Title", "page_text": "Page evidence"}
+            return {
+                "fetch_status": "fetched", "page_title": "Title", "page_text": "Page evidence",
+                "published_date": "2026-10-12", "published_date_source": "article:published_time",
+                "modified_date": "2026-10-18",
+            }
         metadata, results = research(
             "topic",
             queries=["topic", "topic official", "topic risks"],
@@ -138,6 +142,9 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(results[0]["source_id"], "S1")
         self.assertEqual(results[0]["requested_domain"], "example.com")
         self.assertEqual(results[0]["final_domain"], "example.com")
+        self.assertEqual(results[0]["published_date"], "2026-10-12")
+        self.assertEqual(results[0]["published_date_source"], "article:published_time")
+        self.assertEqual(results[0]["modified_date"], "2026-10-18")
         self.assertEqual(len(results[0]["page_text_sha256"]), 64)
         self.assertEqual(metadata["result_count"], 2)
         self.assertEqual(len(results), 2)
