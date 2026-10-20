@@ -518,6 +518,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                             errors.append("Research metadata must not overclaim independent verification.")
                         fetched_count = 0
                         fetched_domains = set()
+                        fetched_hashes = set()
                         for source in research_results:
                             if not isinstance(source, dict) or source.get("fetch_status") != "fetched":
                                 continue
@@ -543,6 +544,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                                 continue
                             fetched_count += 1
                             fetched_domains.add(domain.lower().rstrip("."))
+                            fetched_hashes.add(digest_value)
                             traceable_source_ids.add(source_id)
                         if fetched_count < 1:
                             errors.append("Research was marked complete without any fetched, traceable source-page text.")
@@ -554,6 +556,15 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                                 errors.append("Package research evidence page count does not match research.json.")
                             if summary.get("independent_domain_count") != len(fetched_domains):
                                 errors.append("Package research domain count does not match research.json.")
+                            if summary.get("domains") != sorted(fetched_domains):
+                                errors.append("Package research domain list does not match research.json.")
+                            if summary.get("page_text_sha256") != sorted(fetched_hashes):
+                                errors.append("Package research text-digest list does not match research.json.")
+                            expected_research_status = "multiple_domains_fetched" if len(fetched_domains) > 1 else "single_domain_only"
+                            if summary.get("status") != expected_research_status:
+                                errors.append("Package research evidence status does not match the fetched domains.")
+                            if summary.get("independently_verified") is not False:
+                                errors.append("Package research summary must not claim independent verification.")
                     except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
                         errors.append("Research JSON could not be validated: " + str(exc)[:250])
                 check["checks"].append("research_source_text_provenance_and_manifest_parity")
