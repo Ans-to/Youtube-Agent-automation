@@ -47,7 +47,7 @@ Do not add a dependency merely because it exists; confirm maintenance, supported
 
 ### D. Narration, audio, and synchronization
 - Audit installed/available TTS engines and actual language/voice models. The mandatory production language is English for both narration and subtitles on every topic, including Pakistan- or Urdu-related topics. Prefer a natural adult voice; do not claim the requirement is met without listening to a generated sample. Never switch narration or subtitles to Urdu.
-- Research Urdu-capable local/open models and hosted alternatives, but keep the default cost-free/local-first unless a required capability is demonstrably impossible. Verify model license, language coverage, RAM, inference speed, and pronunciation.
+- Research English-capable local/open models and hosted alternatives, but keep the default cost-free/local-first unless a required capability is demonstrably impossible. Verify model license, language coverage, RAM, inference speed, and pronunciation.
 - If no suitable voice is installed, report a clear blocker and the exact model/setup required. Never quietly use eSpeak or silent audio as a substitute for production narration.
 - Normalize loudness, remove clipping, control peaks, avoid abrupt cuts, mix music/SFX beneath speech, and verify audio stream, duration, silence, and A/V sync. Use an actual audio file for lip-sync generation.
 
