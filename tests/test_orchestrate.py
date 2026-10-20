@@ -44,6 +44,35 @@ class SpecialistRetryTests(unittest.TestCase):
         self.assertIn("AUTOMATIC RECOVERY ATTEMPT 2/2", calls[1])
         self.assertIn("local model timed out", calls[1])
 
+    def test_deterministic_validation_error_is_not_retried(self):
+        calls = []
+
+        def invalid_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            raise ValueError("Local model response was not valid JSON.")
+
+        with self.assertRaisesRegex(ValueError, "not valid JSON"):
+            orchestrate.run_role_with_retry(
+                {"id": "AGENT-09"}, "Write the script", "", {}, runner=invalid_runner
+            )
+        self.assertEqual(len(calls), 1)
+
+    def test_http_503_is_retried_once(self):
+        calls = []
+
+        def unavailable_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            if len(calls) == 1:
+                raise RuntimeError("HTTP 503 service unavailable")
+            return "Recovered after temporary service failure"
+
+        result, retries = orchestrate.run_role_with_retry(
+            {"id": "AGENT-09"}, "Write the script", "", {}, runner=unavailable_runner
+        )
+        self.assertEqual(result, "Recovered after temporary service failure")
+        self.assertEqual(retries, 1)
+        self.assertEqual(len(calls), 2)
+
     def test_persistent_failure_stops_after_two_attempts(self):
         calls = []
 
