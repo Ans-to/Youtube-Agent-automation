@@ -64,9 +64,9 @@ class VideoStudioTests(unittest.TestCase):
             module_file = module_dir / "voice_backends.py"
             module_file.write_text("", encoding="utf-8")
             if sys.platform == "win32":
-                python_path = project / ".venv-urdu-tts" / "Scripts" / "python.exe"
+                python_path = project / ".venv-piper-urdu" / "Scripts" / "python.exe"
             else:
-                python_path = project / ".venv-urdu-tts" / "bin" / "python"
+                python_path = project / ".venv-piper-urdu" / "bin" / "python"
             python_path.parent.mkdir(parents=True)
             python_path.write_text("", encoding="utf-8")
             with patch.object(voice_backends, "__file__", str(module_file)):
