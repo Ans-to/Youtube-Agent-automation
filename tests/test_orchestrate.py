@@ -118,6 +118,10 @@ class MillionCaseRetrySimulationTests(unittest.TestCase):
 
 
 class CEODelegationTests(unittest.TestCase):
+    def test_direct_specialist_cli_is_disabled(self):
+        with self.assertRaisesRegex(SystemExit, "Direct specialist execution is disabled"):
+            orchestrate.dispatch.main()
+
     def test_heuristic_delegation_is_task_specific_and_has_quality_gate(self):
         assignments, mode = orchestrate.heuristic_assignments(
             "Create a faceless Urdu YouTube video with premium motion graphics and captions"
