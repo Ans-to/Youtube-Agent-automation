@@ -1,4 +1,4 @@
 # Optional Windows/CPU Urdu-English TTS runtime. Isolated in .venv-urdu-tts.
 # Piper uses ONNX Runtime and avoids the unsupported-on-Windows NeMo/Kani dependency stack.
 # Urdu model: Pakistani male voice Fasih (medium), downloaded with pinned revision/checksum on first preview.
-piper-tts==1.8.0
+piper-tts==1.6.0
