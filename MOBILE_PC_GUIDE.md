@@ -50,7 +50,7 @@ The local dashboard itself is not a hosted website, so a phone browser cannot di
 Important limits:
 - This works without GitHub Actions and without a paid hosted worker, but the bridge only runs while Termux is active and connected. Android may suspend it.
 - A phone can create drafts and smaller local-model tasks if a compatible model is configured. Long narrated MP4 rendering is likely to be slow or unreliable on a phone; keep it queued for the PC when available.
-- Request JSON is committed to a private GitHub branch and remains in Git history. Never include secrets, tokens, passwords, confidential material, or sensitive personal data.
+- **This repository is public.** Request JSON and sanitized result files committed to `mobile-agent-inbox` are publicly visible and remain in Git history; the branch is separate, not private. Use this inbox only for non-sensitive task instructions. Never include secrets, tokens, passwords, confidential material, personal data, or private work details. For confidential tasks, use a private repository or enter the task directly into your local dashboard.
 - Keep the inbox branch separate. Do not merge `mobile-agent-inbox` into `main`, and do not merge PR #11 unless separately authorized.
 
 ## Ready-to-use vs. external setup

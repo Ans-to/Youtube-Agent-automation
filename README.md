@@ -112,8 +112,9 @@ A separate operational branch, `mobile-agent-inbox`, is available for requests c
 - The bridge creates a local pending task atomically. It does not start the task when it is created. A task only runs when the local queue runner is started or a separately approved, allowed run request is processed.
 - The phone and PC still have separate local queues and output folders. A task queued on the phone is not automatically transferred to the PC; for PC processing later, run the bridge on the PC against the same inbox branch or recreate the task in its local queue.
 - The mobile bridge does not accept shell commands or arbitrary code. Video rendering may be too resource-intensive for Android; queue video tasks on mobile and render on the Windows PC when available.
+- **Repository visibility warning:** this repository is public, so any task JSON or status report committed to `mobile-agent-inbox` is publicly readable even though that branch is separate. Use only non-sensitive prompts there; use a private repository or the local dashboard for confidential work.
 
-Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Even on a private repository, committed prompt text remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
+Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Request JSON is committed to a public branch and remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
 
 ### Request protocol
 
@@ -181,13 +182,13 @@ The script exits non-zero if a required check fails and can save a JSON report. 
 
 - Do not store credentials, tax/bank information, or sensitive personal data in task prompts or workspace files.
 - `config.json`, `tasks.json`, logs, outputs, and workspace data are local-only and ignored by Git.
-- The bridge publishes only sanitized status metadata; repository collaborators can see those reports.
+- The bridge publishes only sanitized status metadata, but **this repository is public, so anyone can read committed reports and request files**. Never include confidential task details, even though full prompts and outputs are excluded from the status report.
 - This project is a constrained local task runner, not an unrestricted agent swarm or fully automated YouTube publishing system.
 
 
 ## Video studio (new starter module)
 
-The `video_studio/` folder includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, English-only Piper narration for final production renders, and required SRT/WebVTT subtitles. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, waveform, kinetic-typography, and animated bar-chart compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
+The `video_studio/` folder includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, Piper narration (English and the pinned Pakistani Urdu-English backend), and required SRT/WebVTT subtitles. Urdu-English production remains blocked until the exact local voice profile has been auditioned and human-approved. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, waveform, kinetic-typography, and animated bar-chart compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
 
 The CEO can invoke `video_studio/production.py` for a clear video request. The builder uses supplied CEO/specialist research notes when available; standalone use supports `--research` to collect public search results and extract bounded page text without an API key. With a configured loopback model, it creates a multi-scene script and storyboard; without a model, it creates a clearly labelled deterministic template package. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4. The script never uploads or publishes automatically.
 
