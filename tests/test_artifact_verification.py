@@ -67,6 +67,60 @@ class ArtifactVerificationTests(unittest.TestCase):
         self.assertEqual(checks[0]["status"], "passed")
         self.assertEqual(result["status"], "completed")
 
+    def test_model_generated_package_cannot_claim_research_without_source_artifacts(self):
+        result, package = self.write_video_package()
+        status_path = package / "package-status.json"
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        status.update({
+            "generated_by": "local_model_multi_pass",
+            "web_research_performed": True,
+            "research_evidence": {
+                "status": "multiple_domains_fetched",
+                "fetched_page_count": 2,
+                "independent_domain_count": 2,
+                "domains": ["docs.example.com", "research.example.org"],
+                "page_text_sha256": [],
+                "independently_verified": False,
+            },
+        })
+        status_path.write_text(json.dumps(status), encoding="utf-8")
+        checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
+        self.assertEqual(checks[0]["status"], "failed")
+        self.assertTrue(any("research.md" in error or "research.json" in error for error in checks[0]["errors"]))
+
+    def test_model_generated_package_accepts_hash_bound_research_provenance(self):
+        result, package = self.write_video_package()
+        page_text = "Fetched evidence from an independent source."
+        digest = hashlib.sha256(page_text.encode("utf-8")).hexdigest()
+        domain = "docs.example.com"
+        (package / "research.md").write_text("# Research\n\nFetched source text.\n", encoding="utf-8")
+        (package / "research.json").write_text(json.dumps({
+            "metadata": {"source_provenance_schema": 1, "verified": False, "pages_fetched": 1},
+            "results": [{
+                "fetch_status": "fetched",
+                "page_text": page_text,
+                "page_text_sha256": digest,
+                "final_domain": domain,
+            }],
+        }), encoding="utf-8")
+        status_path = package / "package-status.json"
+        status = json.loads(status_path.read_text(encoding="utf-8"))
+        status.update({
+            "generated_by": "local_model_multi_pass",
+            "web_research_performed": True,
+            "research_evidence": {
+                "status": "single_domain_only",
+                "fetched_page_count": 1,
+                "independent_domain_count": 1,
+                "domains": [domain],
+                "page_text_sha256": [digest],
+                "independently_verified": False,
+            },
+        })
+        status_path.write_text(json.dumps(status), encoding="utf-8")
+        checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
+        self.assertEqual(checks[0]["status"], "passed", checks[0]["errors"])
+
     def test_render_is_failed_when_mp4_subtitles_or_quality_report_are_missing(self):
         result, _ = self.write_video_package(rendered=True)
         package = self.root / result["artifact_dir"]
