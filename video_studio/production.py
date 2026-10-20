@@ -424,7 +424,11 @@ def main():
         "standalone_web_research_performed": bool(research_metadata),
         "research_independently_verified": False,
         "human_review_required": True, "published": False,
-        "note": ("Model output is a draft; factual claims still need review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
+        "human_voice_review_status": "pending",
+        "voice_naturalness_verified": False,
+        "target_adult_male_voice_verified": False,
+        "forced_phoneme_alignment": False,
+        "note": ("Model output is a draft; factual claims and the actual rendered voice still need human review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
     }
     (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Draft package:", output_dir)
