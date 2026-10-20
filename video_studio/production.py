@@ -174,7 +174,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         if not isinstance(scene.get(key), str) or not scene[key].strip():
             raise ValueError("Scene " + str(index) + " is missing required text field: " + key)
         scene[key] = scene[key].strip()[:12000 if key == "narration" else 240]
-    scene["narration"] = validate_english_text(scene["narration"], "Scene " + str(index) + " narration")
+    scene["narration"] = validate_narration_text(scene["narration"], language, "Scene " + str(index) + " narration")
     scene["caption"] = scene["narration"]
     visual_type = str(scene.get("visual_type", "hero")).lower()
     if visual_type not in VISUAL_TYPES:
