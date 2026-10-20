@@ -41,6 +41,17 @@ $Version = [version]$PythonVersion.Trim()
 if ($Version -lt [version]"3.10") { Stop-WithHint ("Found Python " + $Version + "; Python 3.10+ is required.") "Install Python 3.12 from the official Python website." }
 Write-Host ("Python " + $Version + " detected.") -ForegroundColor Green
 
+# The repository setup script can install a portable FFmpeg copy without
+# administrator rights. Prefer that copy when it exists, even if it is not
+# installed system-wide or was not added to the machine/user PATH.
+$PortableFfmpegBin = Join-Path $Root "tools\ffmpeg\bin"
+$PortableFfmpegExe = Join-Path $PortableFfmpegBin "ffmpeg.exe"
+$PortableFfprobeExe = Join-Path $PortableFfmpegBin "ffprobe.exe"
+if ((Test-Path -LiteralPath $PortableFfmpegExe) -and (Test-Path -LiteralPath $PortableFfprobeExe)) {
+    $env:Path = "$PortableFfmpegBin;$env:Path"
+    Write-Host "Using repository-local portable FFmpeg: $PortableFfmpegBin" -ForegroundColor Green
+}
+
 foreach ($Tool in @("node", "npm", "ffmpeg", "ffprobe")) {
     if (-not (Get-Command $Tool -ErrorAction SilentlyContinue)) {
         if ($Tool -in @("ffmpeg", "ffprobe")) {
