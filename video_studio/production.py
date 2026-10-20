@@ -19,6 +19,7 @@ from research import research as collect_research, render_markdown as render_res
 from captions import normalize_narration_language, narration_language_instruction, validate_narration_text, validate_english_voice_model
 from voice_backends import get_urdu_tts_command, require_urdu_voice_human_approval, urdu_voice_human_approved, urdu_voice_profile_sha256
 from release_gate import validate_qc_report
+from production_readiness import evaluate_production_readiness
 
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
@@ -662,9 +663,15 @@ def main():
     if args.render or args.render_template:
         try:
             qc_report = run_strict_quality_audit(output_dir)
+            readiness = evaluate_production_readiness(status, research_evidence_summary, storyboard)
             status.update({
                 "status": "technical_qa_passed_waiting_for_human_review",
+                # This is strictly technical QA, not an artistic or editorial quality verdict.
+                "technical_qa_passed": True,
                 "quality_audit_passed": True,
+                "quality_audit_scope": "technical_only_not_artistic_or_editorial",
+                "production_readiness_passed": readiness["passed"],
+                "production_readiness": readiness,
                 "quality_report": "video.qc.json",
                 "quality_report_video_sha256": qc_report["video_sha256"],
                 "publishable": False,
