@@ -39,6 +39,19 @@ def requested_narration_language(text):
     return "en" if match.group(1).strip().lower() in {"english", "en"} else "ur-en"
 
 
+def configured_narration_language_instruction(config):
+    """Describe the configured narration profile for the CEO prompt without guessing."""
+    video_config = config.get("video_studio", {}) if isinstance(config, dict) else {}
+    if not isinstance(video_config, dict):
+        return "The configured narration-language section is invalid; report the configuration error instead of guessing."
+    value = str(video_config.get("narration_language", "ur-en")).strip().lower().replace("_", "-")
+    if value in {"en", "english", "en-us", "en-gb"}:
+        return "The configured default narration language is English. Use English narration and subtitles unless the user explicitly asks for another supported profile."
+    if value in {"ur", "urdu", "ur-en", "urdu-english", "urdu-with-english-technical-terms", "ur-pk"}:
+        return "The configured default narration language is Pakistani Urdu written in Urdu/Arabic script, with common English technical terms preserved. Use that profile unless the user explicitly requests English."
+    return "The configured narration_language value " + repr(value) + " is unsupported. Report this configuration error and do not silently guess or substitute a language."
+
+
 def extract_quality_gate(text):
     """Accept a quality verdict only when exactly one explicit gate line is present."""
     matches = re.findall(
@@ -226,9 +239,8 @@ def plan_delegation(task, context, cfg, roles_by_id):
             "Delegate to the smallest sufficient set of specialists. Choose 1-7 specialist assignments, in dependency order; one specialist plus the required reviewer is valid for a narrow task. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
-            "VIDEO LANGUAGE RULE: preserve the narration_language setting explicitly requested in the task or video_studio config. "
-            "When no profile is requested, the channel default is natural Pakistani Urdu written in Urdu/Arabic script with English technical terms preserved. "
-            "If a task explicitly requests English, use English. Never silently change the selected language to another language. "
+            "VIDEO LANGUAGE RULE: preserve the explicit language requested by the user. "
+            + configured_narration_language_instruction(cfg) + " "
             "The renderer must reject a missing/incompatible voice backend rather than claim that narration was synthesized. "
             "Return ONLY valid JSON in this exact shape: "
             '{"assignments":[{"agent_id":"AGENT-02","task":"Specific work and deliverable"}]}\n\n'
