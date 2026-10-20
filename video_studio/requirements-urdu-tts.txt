@@ -1,9 +1,9 @@
-# Install CPU-only PyTorch first on Windows (see setup_all_windows.ps1), then install this file.
-# KaniTTS 2 / LFM2 currently documents Transformers 4.57.1 for this model family.
-torch>=2.6.0,<3.0
+# Optional Kani Urdu TTS runtime. Requires Python 3.10–3.12.
+# setup_all_windows.ps1 installs CPU-only PyTorch first, then this dependency set.
+# The upstream Kani example pins NeMo 2.4.0 and Transformers 4.57.1 for model compatibility.
+nemo_toolkit[tts]==2.4.0
 transformers==4.57.1
-kani-tts
 huggingface_hub>=0.35.0,<2.0
 safetensors>=0.6.2,<1.0
-numpy>=1.26.0,<3.0
-soundfile>=0.12.1,<1.0
+numpy<2.0
+scipy>=1.10,<2.0
