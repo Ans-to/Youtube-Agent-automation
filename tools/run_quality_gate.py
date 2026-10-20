@@ -19,27 +19,47 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def run_step(name: str, command: list[str], *, timeout: int = 300) -> dict:
+def run_step(
+    name: str,
+    command: list[str],
+    *,
+    timeout: int = 300,
+    stream_output: bool = False,
+) -> dict:
     started = time.monotonic()
     print(f"\n=== {name} ===", flush=True)
+    process = None
     try:
-        result = subprocess.run(
-            command,
-            cwd=ROOT,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-        if result.stdout:
-            print(result.stdout.rstrip())
-        if result.stderr:
-            print(result.stderr.rstrip(), file=sys.stderr)
-        status = "PASS" if result.returncode == 0 else "FAIL"
+        if stream_output:
+            # Inherit the console so long-running checks show progress instead
+            # of appearing frozen while subprocess.run buffers all output.
+            process = subprocess.Popen(command, cwd=ROOT)
+            try:
+                returncode = process.wait(timeout=timeout)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+                raise
+        else:
+            result = subprocess.run(
+                command,
+                cwd=ROOT,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
+                check=False,
+            )
+            if result.stdout:
+                print(result.stdout.rstrip())
+            if result.stderr:
+                print(result.stderr.rstrip(), file=sys.stderr)
+            returncode = result.returncode
+
+        status = "PASS" if returncode == 0 else "FAIL"
         return {
             "name": name,
             "status": status,
-            "returncode": result.returncode,
+            "returncode": returncode,
             "duration_seconds": round(time.monotonic() - started, 2),
             "command": command,
         }
@@ -52,6 +72,23 @@ def run_step(name: str, command: list[str], *, timeout: int = 300) -> dict:
             "duration_seconds": round(time.monotonic() - started, 2),
             "command": command,
             "error": f"timeout after {timeout} seconds",
+        }
+    except KeyboardInterrupt:
+        if process is not None and process.poll() is None:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
+        print("INTERRUPTED by user; this step is not marked PASS.", file=sys.stderr)
+        return {
+            "name": name,
+            "status": "FAIL",
+            "returncode": None,
+            "duration_seconds": round(time.monotonic() - started, 2),
+            "command": command,
+            "error": "interrupted by user",
         }
 
 
@@ -84,6 +121,7 @@ def main() -> int:
         "Full unit test suite",
         [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-v"],
         timeout=900,
+        stream_output=True,
     ))
 
     node = shutil.which("node")
