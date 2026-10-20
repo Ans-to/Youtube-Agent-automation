@@ -3,6 +3,7 @@ import math
 import struct
 import wave
 import sys
+import os
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -97,10 +98,12 @@ class VideoStudioTests(unittest.TestCase):
                 python_path = project / ".venv-piper-urdu" / "bin" / "python"
             python_path.parent.mkdir(parents=True)
             python_path.write_text("", encoding="utf-8")
+            adapter_file = module_dir / "piper_urdu_tts_adapter.py"
+            adapter_file.write_text("", encoding="utf-8")
             with patch.object(voice_backends, "__file__", str(module_file)):
                 command = voice_backends.builtin_urdu_tts_command()
-            self.assertEqual(command[0], str(python_path))
-            self.assertEqual(Path(command[1]), module_dir / "piper_urdu_tts_adapter.py")
+            self.assertTrue(os.path.samefile(command[0], python_path))
+            self.assertTrue(os.path.samefile(command[1], adapter_file))
 
     def test_builtin_urdu_adapter_falls_back_to_current_interpreter_without_venv(self):
         with tempfile.TemporaryDirectory() as tmp:
