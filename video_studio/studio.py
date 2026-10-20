@@ -7,6 +7,8 @@ import os
 import shutil
 import subprocess
 import sys
+import wave
+from array import array
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
@@ -31,6 +33,140 @@ def probe_duration(ffprobe, path):
     if duration <= 0:
         raise ValueError("Could not determine audio duration for " + str(path))
     return duration
+
+
+def build_audio_gated_visemes(text, audio_path, scene_duration_seconds, window_seconds=0.08):
+    """Create approximate mouth-shape cues from real audio energy and grapheme classes.
+
+    This is an offline fallback when a forced phoneme/viseme aligner is not configured.
+    It is intentionally labelled as an approximation: energy does not reveal phonemes,
+    and grapheme-to-mouth-shape mapping cannot guarantee phoneme-accurate lip-sync.
+    """
+    try:
+        scene_duration = float(scene_duration_seconds)
+        window_seconds = float(window_seconds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Viseme timing requires numeric scene and window durations.") from exc
+    if not math.isfinite(scene_duration) or scene_duration <= 0:
+        raise ValueError("Viseme timing requires a finite positive scene duration.")
+    if not math.isfinite(window_seconds) or not 0.02 <= window_seconds <= 0.25:
+        raise ValueError("Viseme analysis window must be between 0.02 and 0.25 seconds.")
+
+    try:
+        with wave.open(str(audio_path), "rb") as stream:
+            channels = stream.getnchannels()
+            sample_width = stream.getsampwidth()
+            sample_rate = stream.getframerate()
+            frame_count = stream.getnframes()
+            if channels not in (1, 2) or sample_width != 2 or sample_rate < 8000 or sample_rate > 192000:
+                raise ValueError("Viseme analysis expects mono/stereo PCM16 WAV at 8–192 kHz.")
+            raw = stream.readframes(frame_count)
+    except (OSError, EOFError, wave.Error) as exc:
+        raise ValueError("Could not read narration WAV for approximate viseme timing: " + str(exc)) from exc
+
+    samples = array("h")
+    samples.frombytes(raw)
+    if sys.byteorder != "little":
+        samples.byteswap()
+    actual_frames = len(samples) // channels
+    if actual_frames <= 0:
+        raise ValueError("Narration WAV contains no audio frames.")
+    if len(samples) % channels:
+        raise ValueError("Narration WAV has an incomplete interleaved audio frame.")
+
+    audio_seconds = actual_frames / sample_rate
+    analysis_seconds = min(scene_duration, audio_seconds)
+    window_frames = max(1, int(round(sample_rate * window_seconds)))
+    levels = []
+    starts = []
+    cursor = 0
+    while cursor < int(math.ceil(analysis_seconds * sample_rate)):
+        end = min(actual_frames, cursor + window_frames)
+        if end <= cursor:
+            break
+        sample_start, sample_end = cursor * channels, end * channels
+        segment = samples[sample_start:sample_end]
+        if segment:
+            mean_square = sum(int(value) * int(value) for value in segment) / len(segment)
+            rms = math.sqrt(mean_square)
+        else:
+            rms = 0.0
+        levels.append(rms)
+        starts.append(cursor / sample_rate)
+        cursor = end
+    peak_rms = max(levels, default=0.0)
+    # PCM16 units avoid classifying codec quantization noise as speech.
+    threshold = max(35.0, peak_rms * 0.14)
+
+    # This mapping is a visual heuristic, not a claim of phonetic alignment.
+    # It covers frequent English and Urdu letter classes; unknown letters use open.
+    closed_letters = set("mbpمبپ")
+    round_letters = set("ouwqوؤ")
+    wide_letters = set("eiyےیئ")
+    open_letters = set("aآااہ")
+    def shape_for_grapheme(char):
+        token = char.lower()
+        if token in closed_letters:
+            return "closed"
+        if token in round_letters:
+            return "round"
+        if token in wide_letters:
+            return "wide"
+        if token in open_letters:
+            return "open"
+        return "open"
+
+    graphemes = [char for char in str(text or "") if char.isalpha()]
+    mapped = [shape_for_grapheme(char) for char in graphemes] or ["open"]
+    cues = []
+    char_index = 0
+    last_shape = None
+
+    def add_cue(time_seconds, shape):
+        ratio = max(0.0, min(1.0, float(time_seconds) / scene_duration))
+        timestamp = round(ratio, 8)
+        if cues and timestamp < cues[-1]["t"]:
+            timestamp = cues[-1]["t"]
+        if cues and timestamp == cues[-1]["t"]:
+            cues[-1]["shape"] = shape
+        elif not cues or cues[-1]["shape"] != shape:
+            cues.append({"t": timestamp, "shape": shape})
+
+    for start, rms in zip(starts, levels):
+        if rms > threshold:
+            shape = mapped[char_index % len(mapped)]
+            char_index += 1
+        else:
+            shape = "closed"
+        if shape != last_shape:
+            add_cue(start, shape)
+            last_shape = shape
+
+    # Explicitly close the mouth when the unpadded narration ends and at scene end.
+    add_cue(min(scene_duration, audio_seconds), "closed")
+    add_cue(scene_duration, "closed")
+    if not cues:
+        return [{"t": 0.0, "shape": "closed"}, {"t": 1.0, "shape": "closed"}]
+    if cues[0]["t"] > 0.0:
+        cues.insert(0, {"t": 0.0, "shape": "closed"})
+    if cues[-1]["t"] < 1.0:
+        cues.append({"t": 1.0, "shape": "closed"})
+    # Normalize same-timestamp updates and ensure a stable sorted track.
+    normalized = []
+    for cue in sorted(cues, key=lambda item: item["t"]):
+        if normalized and cue["t"] == normalized[-1]["t"]:
+            normalized[-1] = cue
+        elif not normalized or normalized[-1]["shape"] != cue["shape"]:
+            normalized.append(cue)
+    if not normalized:
+        normalized = [{"t": 0.0, "shape": "closed"}]
+    if normalized[0]["t"] > 0:
+        normalized.insert(0, {"t": 0.0, "shape": "closed"})
+    if normalized[-1]["t"] < 1.0:
+        normalized.append({"t": 1.0, "shape": "closed"})
+    elif normalized[-1]["t"] == 1.0:
+        normalized[-1]["shape"] = "closed"
+    return normalized
 
 
 def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", config=None):
@@ -117,6 +253,16 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
         target_frames = max(1, math.ceil(target_seconds * fps))
         aligned_seconds = target_frames / fps
         scene["duration_seconds"] = aligned_seconds
+        character = scene.get("character")
+        if isinstance(character, dict) and character.get("enabled") is True and not character.get("visemes"):
+            character["visemes"] = build_audio_gated_visemes(
+                scene.get("narration", ""), raw, aligned_seconds
+            )
+            character["viseme_alignment"] = (
+                "audio-energy-gated grapheme approximation; not forced phoneme alignment"
+            )
+            character["speaking"] = True
+            scene["viseme_alignment"] = character["viseme_alignment"]
         normalized = voice_dir / ("segment-%03d.wav" % index)
         run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw),
              "-af", "apad,atrim=duration=" + ("%.6f" % aligned_seconds),
