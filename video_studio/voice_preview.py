@@ -99,7 +99,12 @@ def generate_voice_preview(text, output, overwrite=False):
         timeout = 1800
         print("Generating an audio-only Urdu-English preview; this does not approve a production voice.")
         print("Output:", destination)
-        print("Speaker prefix configured:", "yes" if env.get("AGENTHQ_KANI_SPEAKER_PREFIX", "").strip() else "no")
+        if any(Path(part).name == "piper_urdu_tts_adapter.py" for part in command_template):
+            print("Voice backend: Piper ONNX CPU; default profile is Fasih (Pakistani Urdu male, medium quality).")
+        elif any(Path(part).name == "urdu_tts_adapter.py" for part in command_template):
+            print("Legacy Kani speaker prefix configured:", "yes" if env.get("AGENTHQ_KANI_SPEAKER_PREFIX", "").strip() else "no")
+        else:
+            print("Voice backend: custom local adapter.")
         try:
             result = subprocess.run(
                 command, cwd=str(ROOT), capture_output=True, text=True, check=False,
