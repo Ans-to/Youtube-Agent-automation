@@ -243,9 +243,11 @@ def fallback(topic):
 def character_alignment_summary(storyboard):
     """Report the character/viseme evidence present in an aligned storyboard without overstating quality."""
     scenes = storyboard.get("scenes", []) if isinstance(storyboard, dict) else []
+    if not isinstance(scenes, list):
+        scenes = []
     enabled_characters = []
     aligned_characters = []
-    for scene in scenes if isinstance(scenes, list) else []:
+    for scene in scenes:
         if not isinstance(scene, dict):
             continue
         character = scene.get("character")
