@@ -26,6 +26,8 @@ async function main(){
   const arrayLimits={visual_nodes:4,timeline_events:4,comparison_left:3,comparison_right:3,code_lines:6,chart_labels:6};
   for(const [key,maxItems] of Object.entries(arrayLimits))if(scene[key]!==undefined&&(!Array.isArray(scene[key])||scene[key].length>maxItems||!scene[key].every(v=>typeof v==="string"&&v.length<=120)))throw new Error("Scene "+index+" field "+key+" must be an array of at most "+maxItems+" short strings.");
   if(scene.chart_values!==undefined&&(!Array.isArray(scene.chart_values)||scene.chart_values.length<2||scene.chart_values.length>6||!scene.chart_values.every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=0)))throw new Error("Scene "+index+" chart_values must contain 2–6 finite non-negative numbers.");
+  if(scene.audio_envelope!==undefined&&(!Array.isArray(scene.audio_envelope)||scene.audio_envelope.length<8||scene.audio_envelope.length>120||!scene.audio_envelope.every(v=>typeof v==="number"&&Number.isFinite(v)&&v>=0&&v<=1)))throw new Error("Scene "+index+" audio_envelope must contain 8–120 finite normalized RMS values from 0 to 1.");
+  if(kind==="waveform"&&scene.audio_envelope!==undefined&&scene.waveform_source!=="final_scene_narration_pcm16_rms")throw new Error("Scene "+index+" waveform envelope is missing its final narration RMS provenance.");
   if(kind==="bar-chart"){
    if(!Array.isArray(scene.chart_values)||scene.chart_values.length<2||scene.chart_values.length>6)throw new Error("bar-chart requires 2–6 chart_values.");
    if(!Array.isArray(scene.chart_labels)||scene.chart_labels.length!==scene.chart_values.length)throw new Error("bar-chart requires one chart_label per chart_value.");
@@ -73,6 +75,13 @@ async function main(){
   });
   if(!transitionCheck||transitionCheck.modes_rendered.length!==6||transitionCheck.canvas_width!==w||transitionCheck.canvas_height!==h)throw new Error("Transition rendering smoke check failed: "+JSON.stringify(transitionCheck));
   console.log("Transition smoke check:",JSON.stringify(transitionCheck));
+  const waveformCheck=await page.evaluate(()=>{
+   const values=Array.from({length:64},(_,i)=>Math.max(0,Math.min(1,Math.abs(Math.sin(i*.2)))));
+   window.drawFrame({visual_type:"waveform",headline:"Audio energy",subhead:"Measured narration envelope",caption:"Sample narration",audio_envelope:values,waveform_source:"final_scene_narration_pcm16_rms"},15,30,15,true);
+   return {bins:values.length,source:"final_scene_narration_pcm16_rms",width:document.getElementById("frame").width};
+  });
+  if(!waveformCheck||waveformCheck.bins!==64||waveformCheck.source!=="final_scene_narration_pcm16_rms"||waveformCheck.width!==w)throw new Error("Audio waveform rendering smoke check failed: "+JSON.stringify(waveformCheck));
+  console.log("Waveform smoke check:",JSON.stringify(waveformCheck));
   const captionCheck=await page.evaluate(()=>{
    const text=Array.from({length:80},(_,i)=>"captionword"+i).join(" ");
    const info=window.captionPageForTest(text,180,"16px Arial",0.5);
