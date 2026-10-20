@@ -12,10 +12,13 @@ import subprocess
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
 REPO = os.environ.get("AGENT_HQ_REPO", "Ans-to/Youtube-Agent-automation")
+# Set AGENT_HQ_BRANCH to the integration branch while PR #11 remains unmerged.
+BRANCH = os.environ.get("AGENT_HQ_BRANCH", "main")
 API = "https://api.github.com"
 PROJECT = pathlib.Path(os.environ.get(
     "AGENT_HQ_PROJECT",
@@ -28,7 +31,7 @@ STATE_DIR = pathlib.Path(os.environ.get(
     "AGENT_HQ_STATE_DIR", str(pathlib.Path.home() / ".local/state/offline-agent-hq")
 )).expanduser()
 # Deliberately narrow: never add shell, arbitrary code, package installation, or task execution.
-ALLOWED_ACTIONS = {"status", "self_test", "run_task"}
+ALLOWED_ACTIONS = {"status", "self_test", "create_task", "run_task"}
 
 
 def api_get(path: str, token: str) -> dict:
@@ -47,7 +50,8 @@ def api_get(path: str, token: str) -> dict:
 
 def get_file(path: str, token: str) -> dict | None:
     try:
-        return api_get(f"/repos/{REPO}/contents/{path}", token)
+        ref = urllib.parse.quote(BRANCH, safe="")
+        return api_get(f"/repos/{REPO}/contents/{path}?ref={ref}", token)
     except urllib.error.HTTPError as exc:
         if exc.code == 404:
             return None
@@ -58,6 +62,7 @@ def api_put_json(path: str, content: dict, token: str, message: str) -> dict:
     """Create a JSON file at a fixed, caller-controlled repository path."""
     body = {
         "message": message,
+        "branch": BRANCH,
         "content": base64.b64encode(
             (json.dumps(content, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
         ).decode("ascii"),
@@ -98,12 +103,14 @@ def public_result(response: dict) -> dict:
             name for name in result.get("syntax_checked", [])
             if name in {"agent.py", "dashboard.py", "queue_store.py", "dispatch.py", "orchestrate.py", "skillbooks.json", "practice.py", "bridge.py", "studio.py", "production.py", "research.py", "validate_render.py", "validate_frames.py", "release_gate.py", "publish_youtube.py", "build_product.py"}
         ]
-    elif action == "run_task":
+    elif action in {"create_task", "run_task"}:
         public["result"]["task_id"] = result.get("task_id")
-        public["result"]["returncode"] = result.get("returncode")
         public["result"]["status"] = result.get(
-            "status", "completed" if result.get("ok") else "failed_or_refused"
+            "status", "queued" if action == "create_task" and result.get("ok")
+            else ("completed" if result.get("ok") else "failed_or_refused")
         )
+        if action == "run_task":
+            public["result"]["returncode"] = result.get("returncode")
     elif action == "status":
         public["result"]["status"] = "status_check_completed"
     return public
@@ -193,6 +200,55 @@ def run_self_test() -> dict:
         return {"ok": False, "checked": checked, "error": str(exc)[:1000]}
     return {"ok": True, "syntax_checked": checked,
             "note": "Python syntax and required JSON profiles checked. No tasks were run and tasks.json was not modified intentionally."}
+
+def create_local_task(title: object, kind: object, user_input: object) -> dict:
+    """Create a bounded CEO task from an explicitly approved GitHub request."""
+    title = title.strip() if isinstance(title, str) else ""
+    user_input = user_input.strip() if isinstance(user_input, str) else ""
+    allowed_kinds = {"plan", "draft", "summarize_workspace", "review_output", "youtube_package"}
+    if not title or len(title) > 160:
+        return {"ok": False, "reason": "title must contain 1–160 characters"}
+    if not isinstance(kind, str) or kind not in allowed_kinds:
+        return {"ok": False, "reason": "kind is not allowlisted"}
+    if not user_input or len(user_input) > 16000:
+        return {"ok": False, "reason": "input must contain 1–16,000 characters"}
+    tasks_path = PROJECT / "tasks.json"
+    if not PROJECT.is_dir():
+        return {"ok": False, "reason": "Project directory not found"}
+    if str(PROJECT) not in sys.path:
+        sys.path.insert(0, str(PROJECT))
+    try:
+        from queue_store import task_queue_lock, load_tasks, save_tasks
+        with task_queue_lock(tasks_path):
+            tasks = load_tasks(tasks_path)
+            numbers = [
+                int(str(item.get("id", "")).split("-")[-1])
+                for item in tasks
+                if str(item.get("id", "")).startswith("TASK-")
+                and str(item.get("id", "")).split("-")[-1].isdigit()
+            ]
+            task_id = "TASK-%04d" % (max(numbers, default=0) + 1)
+            tasks.append({
+                "id": task_id,
+                "title": title,
+                "kind": kind,
+                "input": user_input,
+                "status": "pending",
+                "error": "",
+                "research_status": "pending",
+                "created_via": "approved_github_mobile_bridge",
+            })
+            save_tasks(tasks_path, tasks)
+    except (OSError, ValueError, TimeoutError, ImportError) as exc:
+        return {"ok": False, "reason": "Could not safely write the local task queue (" + type(exc).__name__ + ")"}
+    return {
+        "ok": True,
+        "task_id": task_id,
+        "kind": kind,
+        "status": "queued",
+        "note": "Queued locally only; this request does not start the task or publish anything.",
+    }
+
 
 def run_one_queued_task(task_id: str) -> dict:
     """Run only the specifically named, locally queued safe task; never accept task text remotely."""
@@ -312,7 +368,9 @@ def run_once() -> int:
         action = request.get("action")
         # Reject extra fields so requests cannot smuggle command strings or arguments.
         expected_fields = {"id", "approved", "action"}
-        if action == "run_task":
+        if action == "create_task":
+            expected_fields.update({"title", "kind", "input"})
+        elif action == "run_task":
             expected_fields.add("task_id")
         if set(request) != expected_fields or action not in ALLOWED_ACTIONS:
             print("Rejected request with unsupported fields/action:", req_id)
@@ -323,6 +381,8 @@ def run_once() -> int:
             result = project_status()
         elif action == "self_test":
             result = run_self_test()
+        elif action == "create_task":
+            result = create_local_task(request.get("title"), request.get("kind"), request.get("input"))
         elif action == "run_task":
             task_id = request.get("task_id")
             if not isinstance(task_id, str) or not task_id or len(task_id) > 100:
