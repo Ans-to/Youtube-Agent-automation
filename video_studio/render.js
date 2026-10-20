@@ -62,6 +62,17 @@ async function main(){
    const canvas=document.getElementById("frame");return {shapes_drawn:shapes.length,canvas_width:canvas.width,canvas_height:canvas.height};
   });
   if(!rigDrawCheck||rigDrawCheck.shapes_drawn!==requiredVisemes.length||rigDrawCheck.canvas_width!==w||rigDrawCheck.canvas_height!==h)throw new Error("Character-rig draw smoke check failed: "+JSON.stringify(rigDrawCheck));
+  const transitionCheck=await page.evaluate(async()=>{
+   const previous={visual_type:"hero",headline:"Previous scene",subhead:"Outgoing text",caption:"Outgoing narration",transition_in:"none"};
+   const current={visual_type:"diagram",headline:"Current scene",subhead:"Incoming text",caption:"Incoming narration",visual_nodes:["INPUT","PROCESS","OUTPUT"],transition_in:"none"};
+   const modes=["fade","wipe-left","wipe-right","slide-left","slide-right","zoom"];
+   for(const mode of modes){
+    await window.drawTransitionFrame(previous,29,30,29,current,0,30,30,mode,0.5);
+   }
+   return {modes_rendered:modes,canvas_width:document.getElementById("frame").width,canvas_height:document.getElementById("frame").height};
+  });
+  if(!transitionCheck||transitionCheck.modes_rendered.length!==6||transitionCheck.canvas_width!==w||transitionCheck.canvas_height!==h)throw new Error("Transition rendering smoke check failed: "+JSON.stringify(transitionCheck));
+  console.log("Transition smoke check:",JSON.stringify(transitionCheck));
   const captionCheck=await page.evaluate(()=>{
    const text=Array.from({length:80},(_,i)=>"captionword"+i).join(" ");
    const info=window.captionPageForTest(text,180,"16px Arial",0.5);
