@@ -57,6 +57,11 @@ def parse_json_response(content, label):
     return value
 
 
+def should_collect_research(*, research_requested, model_enabled, render_template):
+    """Require web research for model-generated packages; keep offline demos deterministic."""
+    return bool(research_requested or (model_enabled and not render_template))
+
+
 def model_json(prompt, cfg, max_tokens):
     model = cfg.get("model", {})
     if not model.get("enabled"):
@@ -217,7 +222,7 @@ def main():
     parser.add_argument("--format", choices=["long", "shorts"], default="long")
     parser.add_argument("--target-minutes", type=float, help="Requested narration length; default 15 minutes for long, 1 minute for Shorts.")
     parser.add_argument("--source-file", help="Local .txt, .md, or .json source notes to ground claims.")
-    parser.add_argument("--research", action="store_true", help="Collect free DuckDuckGo search leads; results are not independently verified.")
+    parser.add_argument("--research", action="store_true", help="Force web research even for an offline template demo; model-generated packages research automatically.")
     parser.add_argument("--scenes", type=int, help="Override scene count (1–100); defaults to about 3 scenes per minute.")
     parser.add_argument("--render", action="store_true", help="Render final storyboard to MP4.")
     parser.add_argument("--render-template", action="store_true", help="Explicitly permit a short, clearly labelled template demo without AI generation.")
@@ -249,17 +254,23 @@ def main():
     if target_seconds > 1000 or round(target_seconds * 30) > 30000:
         raise SystemExit("Target duration exceeds the renderer's supported limits.")
     cfg = load_config()
+    model_enabled = bool(cfg.get("model", {}).get("enabled"))
     manual_source_notes = read_source(args.source_file)
     source_notes = manual_source_notes
     research_metadata, research_results, research_markdown = None, [], ""
-    if args.research:
+    if should_collect_research(
+        research_requested=args.research,
+        model_enabled=model_enabled,
+        render_template=args.render_template,
+    ):
         try:
-            research_metadata, research_results = collect_research(topic, max_results=5)
+            # Diverse queries plus up to eight bounded page fetches; failure blocks
+            # model-generated content rather than silently producing an unresearched script.
+            research_metadata, research_results = collect_research(topic, max_results=8, max_pages=8)
             research_markdown = render_research_markdown(research_metadata, research_results)
             source_notes = (source_notes + "\n\n" + research_markdown).strip()
         except (ValueError, RuntimeError, OSError, urllib.error.URLError) as exc:
-            raise SystemExit("Web research failed: " + str(exc))
-    model_enabled = bool(cfg.get("model", {}).get("enabled"))
+            raise SystemExit("Web research failed; no model-generated package was finalized: " + str(exc))
     if args.render and not model_enabled and not args.render_template:
         raise SystemExit("No local model is enabled. This produces only a 20-second template, not the requested full video. Use --render-template only for a demo.")
     if args.render_template and model_enabled:
