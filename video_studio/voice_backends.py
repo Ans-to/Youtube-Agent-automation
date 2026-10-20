@@ -42,7 +42,7 @@ def urdu_voice_profile_sha256(config):
             DEFAULT_MODEL_ID,
             DEFAULT_MODEL_REVISION,
             MODEL_MD5,
-            CONFIG_MD5,
+            SOURCE_CONFIG_MD5,
         )
         model_id = os.environ.get("AGENTHQ_PIPER_URDU_MODEL_PATH", "").strip() or DEFAULT_MODEL_ID
         revision = DEFAULT_MODEL_REVISION
@@ -53,7 +53,11 @@ def urdu_voice_profile_sha256(config):
             module_path.with_name("piper_urdu_tts_adapter.py"),
             module_path.with_name("requirements-urdu-tts.txt"),
         ]
-        voice_artifact_hashes = {"onnx_md5": MODEL_MD5, "config_md5": CONFIG_MD5}
+        voice_artifact_hashes = {
+            "onnx_md5": MODEL_MD5,
+            "source_config_md5": SOURCE_CONFIG_MD5,
+            "sidecar_profile": "Fasih-v2-phoneme-map",
+        }
         # The model is pinned and downloaded with these checksums. Do not fingerprint
         # local cache presence, or approval would change merely because first use
         # populated the model cache after the audio preview was generated.
@@ -89,7 +93,7 @@ def urdu_voice_profile_sha256(config):
             source_hashes[label] = "unavailable"
 
     payload = {
-        "schema_version": 3,
+        "schema_version": 4,
         "route": route,
         "command": command,
         "model_id": model_id,
