@@ -113,7 +113,7 @@ A separate operational branch, `mobile-agent-inbox`, is available for requests c
 - The phone and PC still have separate local queues and output folders. A task queued on the phone is not automatically transferred to the PC; for PC processing later, run the bridge on the PC against the same inbox branch or recreate the task in its local queue.
 - The mobile bridge does not accept shell commands or arbitrary code. Video rendering may be too resource-intensive for Android; queue video tasks on mobile and render on the Windows PC when available.
 
-Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Even on a private repository, committed prompt text remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
+**This repository is public.** The `mobile-agent-inbox` branch is separate, not private; request JSON and status reports committed there are publicly readable and remain in Git history. Use only non-sensitive task instructions in the inbox. For confidential work, use a private repository or the local dashboard. Never put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
 
 ### Request protocol
 
