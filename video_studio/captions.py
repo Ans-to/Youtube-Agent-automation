@@ -61,14 +61,21 @@ def narration_language_instruction(language):
     if profile == "ur-en":
         return (
             "NARRATION LANGUAGE: natural conversational Pakistani Urdu, written in Urdu/Arabic script, "
-            "with familiar English technical terms, APIs, product names, code identifiers, and standard "
-            "technology vocabulary preserved in English where that is how Pakistani tech audiences use them. "
-            "Do not produce English-only narration, Hindi/Devanagari, Roman Urdu, or a word-for-word translation. "
-            "Captions must match the Urdu-English mixed narration exactly. "
+            "with only necessary familiar English technical terms, product names, API names, and code identifiers "
+            "preserved in English. Write for the ear, not as a formal essay: use everyday Pakistani Urdu, active "
+            "voice, short complete sentences, one main idea per sentence, and explicit punctuation for pauses. "
+            "Prefer a clear Urdu equivalent such as 'مرحلہ وار' over unnecessary English filler such as 'step by step'. "
+            "Avoid long subordinate clauses, literal translations, run-on sentences, strings of English terms, "
+            "unexplained abbreviations, repeated filler, and awkward Urdu-English switching inside a phrase. "
+            "Introduce at most one unfamiliar technical term at a time and explain it simply on first use. "
+            "Do not produce English-only narration, Hindi/Devanagari, or Roman Urdu. "
+            "Keep captions identical to the final narration text. "
         )
     return (
         "NARRATION LANGUAGE: clear, natural spoken English only. Do not switch languages based on the topic. "
-        "Captions must match the English narration exactly. "
+        "Write for speech, not an essay: use short complete sentences, one main idea per sentence, active voice, "
+        "ordinary vocabulary, and punctuation that supports natural pauses. Avoid run-on sentences, filler, and "
+        "unexplained acronyms. Captions must match the English narration exactly. "
     )
 
 
