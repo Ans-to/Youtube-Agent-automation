@@ -93,10 +93,19 @@ class ArtifactVerificationTests(unittest.TestCase):
         page_text = "Fetched evidence from an independent source."
         digest = hashlib.sha256(page_text.encode("utf-8")).hexdigest()
         domain = "docs.example.com"
+        storyboard_path = package / "storyboard.json"
+        storyboard = json.loads(storyboard_path.read_text(encoding="utf-8"))
+        storyboard["scenes"][0].update({
+            "source_refs": ["S1"],
+            "evidence_status": "source_linked_requires_review",
+            "unresolved_notes": [],
+        })
+        storyboard_path.write_text(json.dumps(storyboard), encoding="utf-8")
         (package / "research.md").write_text("# Research\n\nFetched source text.\n", encoding="utf-8")
         (package / "research.json").write_text(json.dumps({
             "metadata": {"source_provenance_schema": 1, "verified": False, "pages_fetched": 1},
             "results": [{
+                "source_id": "S1",
                 "fetch_status": "fetched",
                 "page_text": page_text,
                 "page_text_sha256": digest,
