@@ -67,9 +67,9 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
                        "output_file": str(item["output_file"].resolve())}
                       for item in voice_items],
         }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        # The bundled adapter accepts a manifest and loads its ~740 MB model once per
-        # entire video. Custom legacy adapters may still accept one text/output pair
-        # per process, but are deliberately not the default path.
+        # The bundled adapter accepts a manifest and loads the Urdu model plus codec
+        # once per entire video. Their cache may require roughly 1.5 GB; scene synthesis
+        # is sequential to keep peak memory bounded. Custom per-scene adapters remain supported.
         if any("{manifest_file}" in part for part in command_template):
             command = resolve_urdu_tts_command(command_template, manifest_file=manifest)
             timeout = max(900, min(7200, len(voice_items) * 120))
