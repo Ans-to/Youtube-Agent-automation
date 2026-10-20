@@ -125,6 +125,39 @@ class VideoStudioTests(unittest.TestCase):
         resolved = resolve_urdu_tts_command(template, manifest_file="temp/manifest.json")
         self.assertTrue(resolved[-1].endswith("manifest.json"))
 
+    def test_urdu_track_allows_an_english_technical_term_only_cue(self):
+        srt = """1
+00:00:00,000 --> 00:00:01,000
+یہ introduction ہے۔
+
+2
+00:00:01,100 --> 00:00:02,000
+Python API version three.
+"""
+        vtt = """WEBVTT
+
+00:00:00.000 --> 00:00:01.000
+یہ introduction ہے۔
+
+00:00:01.100 --> 00:00:02.000
+Python API version three.
+"""
+        report = validate_subtitle_text(srt, vtt, language="ur-en")
+        self.assertEqual(report["cue_count"], 2)
+
+    def test_urdu_track_rejects_english_only_sidecars(self):
+        srt = """1
+00:00:00,000 --> 00:00:01,000
+Python API version three.
+"""
+        vtt = """WEBVTT
+
+00:00:00.000 --> 00:00:01.000
+Python API version three.
+"""
+        with self.assertRaisesRegex(ValueError, "English-only captions"):
+            validate_subtitle_text(srt, vtt, language="ur-en")
+
     def test_subtitle_validation_rejects_overlapping_cues(self):
         srt = """1
 00:00:00,000 --> 00:00:02,000
