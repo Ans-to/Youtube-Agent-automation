@@ -11,22 +11,45 @@ Write-Host ""
 
 $PythonCommand = $null
 $PythonArgs = @()
+$VersionText = $null
 if (Get-Command py -ErrorAction SilentlyContinue) {
-    $PythonCommand = "py"
-    $PythonArgs = @("-3")
+    # Prefer a version explicitly listed by the Piper package, rather than silently
+    # choosing a newer interpreter. Fall back to the installed default only if needed.
+    foreach ($Candidate in @("3.13", "3.12", "3.11", "3.10", "3.9")) {
+        $DetectedVersion = (& py "-$Candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null).Trim()
+        if ($LASTEXITCODE -eq 0 -and $DetectedVersion -eq $Candidate) {
+            $PythonCommand = "py"
+            $PythonArgs = @("-$Candidate")
+            $VersionText = $DetectedVersion
+            break
+        }
+    }
+    if (-not $PythonCommand) {
+        $DetectedVersion = (& py -3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null).Trim()
+        if ($LASTEXITCODE -eq 0) {
+            $PythonCommand = "py"
+            $PythonArgs = @("-3")
+            $VersionText = $DetectedVersion
+        }
+    }
 } elseif (Get-Command python -ErrorAction SilentlyContinue) {
     $PythonCommand = "python"
+    $VersionText = (& python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
 } else {
     throw "Python 3.9+ is required. Install Python from https://www.python.org/downloads/windows/ and rerun this script."
 }
 
-$VersionText = (& $PythonCommand @PythonArgs -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
-if ($LASTEXITCODE -ne 0) { throw "Could not run Python; verify that Python is installed and available on PATH." }
+if (-not $PythonCommand -or -not $VersionText) {
+    throw "Could not run Python; verify that Python is installed and available on PATH."
+}
 $VersionParts = $VersionText.Split(".")
 $Major = [int]$VersionParts[0]
 $Minor = [int]$VersionParts[1]
 if (($Major -lt 3) -or (($Major -eq 3) -and ($Minor -lt 9))) {
     throw "Piper requires Python 3.9 or newer; detected $VersionText."
+}
+if (($Major -eq 3) -and ($Minor -gt 13)) {
+    Write-Warning "Piper 1.8.0 publishes a Windows ABI3 wheel but currently lists tested Python versions through 3.13. Attempting Python $VersionText; if a dependency wheel is unavailable, install Python 3.13 side-by-side and rerun this script."
 }
 
 $VenvRoot = Join-Path $Root ".venv-piper-urdu"
