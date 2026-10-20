@@ -146,6 +146,7 @@ def main():
             raise SystemExit("Urdu-English voice requested, but config.json video_studio.urdu_tts_command is empty.")
         data["narration_language"] = language
         for index, scene in enumerate(data["scenes"], 1):
+            scene["narration_language"] = language
             scene["narration"] = validate_narration_text(scene.get("narration", ""), language, "Scene " + str(index) + " narration")
             scene["caption"] = scene["narration"]
         fps = int(data.get("fps", 30))
