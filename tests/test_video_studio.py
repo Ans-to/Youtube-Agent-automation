@@ -14,20 +14,47 @@ import production
 import studio
 import voice_backends
 from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_text, validate_english_voice_model, validate_subtitle_text
-from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_voice_human_approved, require_urdu_voice_human_approval
+from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_voice_human_approved, require_urdu_voice_human_approval, urdu_voice_profile_sha256
 
 
 class VideoStudioTests(unittest.TestCase):
-    def test_urdu_voice_render_requires_explicit_human_approval(self):
+    def test_urdu_voice_render_requires_approval_for_exact_configured_profile(self):
         self.assertFalse(urdu_voice_human_approved({}))
         self.assertFalse(urdu_voice_human_approved({"video_studio": {"urdu_voice_human_approved": False}}))
-        approved = {"video_studio": {"urdu_voice_human_approved": True}}
+        profile = {
+            "video_studio": {
+                "narration_language": "ur-en",
+                "urdu_tts_command": [],
+                "kani_speaker_prefix": "speaker-a",
+            }
+        }
+        fingerprint = urdu_voice_profile_sha256(profile)
+        approved = {
+            "video_studio": {
+                "narration_language": "ur-en",
+                "urdu_tts_command": [],
+                "kani_speaker_prefix": "speaker-a",
+                "urdu_voice_human_approved": True,
+                "urdu_voice_approved_profile_sha256": fingerprint,
+            }
+        }
+        self.assertEqual(len(fingerprint), 64)
         self.assertTrue(urdu_voice_human_approved(approved))
-        with self.assertRaisesRegex(ValueError, "pending human voice approval"):
-            require_urdu_voice_human_approval({})
         require_urdu_voice_human_approval(approved)
+
+        changed_profile = {
+            "video_studio": {
+                **approved["video_studio"],
+                "kani_speaker_prefix": "speaker-b",
+            }
+        }
+        self.assertFalse(urdu_voice_human_approved(changed_profile))
+        with self.assertRaisesRegex(ValueError, "fingerprint becomes invalid"):
+            require_urdu_voice_human_approval(changed_profile)
         with self.assertRaisesRegex(ValueError, "must be true or false"):
             urdu_voice_human_approved({"video_studio": {"urdu_voice_human_approved": "yes"}})
+        with self.assertRaisesRegex(ValueError, "must be text"):
+            urdu_voice_human_approved({"video_studio": {"urdu_voice_approved_profile_sha256": False}})
 
     def test_builtin_urdu_adapter_prefers_isolated_interpreter_when_present(self):
         with tempfile.TemporaryDirectory() as tmp:
