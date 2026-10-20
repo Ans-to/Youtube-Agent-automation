@@ -1,4 +1,7 @@
 import json
+import math
+import struct
+import wave
 import sys
 import tempfile
 import unittest
@@ -37,6 +40,54 @@ class VideoStudioTests(unittest.TestCase):
             "ur-en",
         )
         self.assertEqual(studio.resolve_narration_language(None, {}, {}), "ur-en")
+
+    def _write_pcm16_test_wav(self, path, active_seconds=0.48, duration_seconds=1.0, amplitude=10000):
+        sample_rate = 22050
+        total_frames = int(sample_rate * duration_seconds)
+        active_frames = int(sample_rate * active_seconds)
+        with wave.open(str(path), "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(sample_rate)
+            frames = []
+            for index in range(total_frames):
+                sample = int(amplitude * math.sin(2 * math.pi * 440 * index / sample_rate)) if index < active_frames else 0
+                frames.append(struct.pack("<h", sample))
+            output.writeframes(b"".join(frames))
+
+    def test_audio_energy_visemes_follow_speech_activity_and_close_after_audio(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "active-then-silent.wav"
+            self._write_pcm16_test_wav(audio_path, active_seconds=0.48)
+            cues = studio.build_audio_gated_visemes("یہ Python API ہے", audio_path, 1.0, 0.08)
+            self.assertGreaterEqual(len(cues), 3)
+            self.assertEqual(cues[0]["t"], 0.0)
+            self.assertEqual(cues[-1], {"t": 1.0, "shape": "closed"})
+            self.assertTrue(all(0.0 <= cue["t"] <= 1.0 for cue in cues))
+            self.assertTrue(all(
+                left["t"] <= right["t"] for left, right in zip(cues, cues[1:])
+            ))
+            self.assertTrue(all(cue["shape"] in {"closed", "open", "wide", "round"} for cue in cues))
+            self.assertTrue(any(cue["shape"] != "closed" and cue["t"] < 0.45 for cue in cues))
+            later_closed = [cue for cue in cues if cue["t"] >= 0.62]
+            self.assertTrue(later_closed)
+            self.assertTrue(all(cue["shape"] == "closed" for cue in later_closed))
+
+    def test_silent_audio_produces_only_closed_mouth_viseme_cues(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "silent.wav"
+            self._write_pcm16_test_wav(audio_path, active_seconds=0.0, amplitude=0)
+            cues = studio.build_audio_gated_visemes("یہ Urdu narration ہے", audio_path, 1.0)
+            self.assertEqual(cues[0], {"t": 0.0, "shape": "closed"})
+            self.assertEqual(cues[-1], {"t": 1.0, "shape": "closed"})
+            self.assertTrue(all(cue["shape"] == "closed" for cue in cues))
+
+    def test_viseme_builder_rejects_invalid_duration(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            audio_path = Path(tmp) / "active.wav"
+            self._write_pcm16_test_wav(audio_path)
+            with self.assertRaisesRegex(ValueError, "positive scene duration"):
+                studio.build_audio_gated_visemes("some narration", audio_path, 0)
 
     def test_example_storyboard_is_valid(self):
         path = ROOT / "video_studio" / "storyboard.example.json"
