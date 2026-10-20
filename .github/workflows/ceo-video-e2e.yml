@@ -1,0 +1,108 @@
+name: CEO video pipeline integration evidence
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ceo-video-e2e-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  ceo-video-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install renderer dependencies
+        working-directory: video_studio
+        run: npm install
+      - name: Install Piper TTS
+        run: python -m pip install --upgrade pip piper-tts
+      - name: Download and verify the pinned English voice
+        env:
+          PIPER_VOICE_REVISION: b145f2ac26522d6a2ccde0164b7b0e48b1e3199c
+        run: |
+          set -eu
+          voice_dir=video_studio/voices/en_US-lessac-medium
+          mkdir -p "$voice_dir"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+          printf '%s  %s\n' '5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f' "$voice_dir/en_US-lessac-medium.onnx" | sha256sum --check
+          python -m json.tool "$voice_dir/en_US-lessac-medium.onnx.json" > /dev/null
+          python - "$voice_dir/en_US-lessac-medium.onnx.json" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as stream:
+              config = json.load(stream)
+          assert config.get("language", {}).get("code", "").startswith("en"), config.get("language")
+          PY
+      - name: Run a rendered video through normal CEO intake
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: |
+          python agents/orchestrate.py --task "Create and render a template demo video about deterministic software testing" --out workspace/ci-ceo-e2e
+      - name: Verify CEO aggregation and release artifacts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("workspace/ci-ceo-e2e")
+          manifest_path = root / "pipeline-status.json"
+          assert manifest_path.is_file(), "CEO pipeline manifest missing"
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          assert manifest.get("delegation_mode") in {
+              "heuristic_no_model", "heuristic_fallback_after_ceo_error",
+              "heuristic_fallback_invalid_ceo_plan"
+          }, manifest.get("delegation_mode")
+          assert manifest.get("pipeline"), "CEO did not record specialist stages"
+          assert any(stage.get("agent_id") == "AGENT-08" for stage in manifest["pipeline"]), "Final reviewer stage missing"
+          video_runs = [run for run in manifest.get("tool_runs", []) if run.get("tool") == "video_studio"]
+          assert len(video_runs) == 1, video_runs
+          assert video_runs[0].get("status") == "completed", video_runs[0]
+          package = root / "video-production"
+          for name in ("script.md", "storyboard.json", "package-status.json", "video.mp4", "video.srt", "video.vtt", "video.qc.json"):
+              path = package / name
+              assert path.is_file() and path.stat().st_size > 0, f"Missing/empty artifact: {path}"
+          status = json.loads((package / "package-status.json").read_text(encoding="utf-8"))
+          assert status.get("voice_language") == "English", status
+          assert status.get("quality_audit_passed") is True, status
+          assert status.get("human_review_required") is True, status
+          assert status.get("published") is False, status
+          print(json.dumps({
+              "pipeline_status": manifest.get("status"),
+              "delegation_mode": manifest.get("delegation_mode"),
+              "specialist_stages": len(manifest["pipeline"]),
+              "video_tool": video_runs[0].get("status"),
+              "artifact_directory": str(package),
+              "rendered_duration_seconds": status.get("rendered_duration_seconds"),
+              "technical_qa": status.get("status"),
+              "human_review_required": status.get("human_review_required")
+          }, indent=2))
+          PY
+          python video_studio/validate_render.py workspace/ci-ceo-e2e/video-production/video.mp4 --require-audio
+      - name: Upload CEO pipeline evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ceo-video-pipeline-evidence
+          path: |
+            workspace/ci-ceo-e2e/**
+            workspace/research/agent-runs/**
+          if-no-files-found: warn
+          retention-days: 7
