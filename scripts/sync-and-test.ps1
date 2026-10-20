@@ -18,10 +18,14 @@ function Invoke-Git([string[]]$GitArgs) {
     if ($LASTEXITCODE -ne 0) { throw "git $($GitArgs -join ' ') failed with exit code $LASTEXITCODE" }
 }
 function Invoke-Python([string[]]$PythonArgs) {
-    if (Get-Command py -ErrorAction SilentlyContinue) {
+    # Prefer the interpreter selected on PATH (including actions/setup-python) so
+    # the launcher cannot silently choose a different, newer Python installation.
+    if (Get-Command python -ErrorAction SilentlyContinue) {
+        & python @PythonArgs
+    } elseif (Get-Command py -ErrorAction SilentlyContinue) {
         & py -3 @PythonArgs
     } else {
-        & python @PythonArgs
+        throw "Python is required but neither 'python' nor the 'py' launcher is available."
     }
     if ($LASTEXITCODE -ne 0) { throw "Python command failed: $($PythonArgs -join ' ')" }
 }
@@ -63,7 +67,6 @@ try {
     }
 
     if ($shouldTest) {
-        $python = if (Get-Command py -ErrorAction SilentlyContinue) { "py -3" } else { "python" }
         Write-Log "Running Python syntax checks."
         $compileTargets = @(
             "agent.py", "dashboard.py", "queue_store.py",
@@ -76,7 +79,7 @@ try {
             "video_studio/research.py", "video_studio/validate_render.py",
             "video_studio/validate_frames.py", "video_studio/quality_audit.py",
             "video_studio/release_gate.py", "video_studio/publish_youtube.py",
-            "product_studio/build_product.py", "tools/run_quality_gate.py"
+            "product_studio/build_product.py", "tools/run_quality_gate.py", "tools/path_utils.py"
         )
         Invoke-Python (@("-m", "py_compile") + $compileTargets)
         Write-Log "Checking JSON configuration examples."
