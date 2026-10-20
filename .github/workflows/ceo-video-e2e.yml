@@ -2,9 +2,8 @@ name: CEO video pipeline integration evidence
 
 on:
   push:
-    branches: [fix/ceo-video-e2e-ci-20261020]
+    branches: [main, video-studio/pro-motion-voice-character, fix/ceo-video-e2e-ci-20261020]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
