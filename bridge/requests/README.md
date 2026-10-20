@@ -1,4 +1,4 @@
-# Mobile task inbox (private operational branch)
+# Mobile task inbox (separate operational branch)
 
 This branch is a separate queue channel for the local Agent HQ GitHub bridge. It is **not** PR #11 and should not be merged into `main`.
 
@@ -34,7 +34,7 @@ Allowed task kinds for creation: `plan`, `draft`, `summarize_workspace`, `review
 
 ## Privacy and safety
 
-- This is a private repository queue, but prompts are still committed to Git history. **Never include passwords, API keys, tokens, private personal data, or confidential source material.**
+- **This repository is public.** Requests and results committed to this branch are publicly readable and remain in Git history. This branch is separate, not private. Use only non-sensitive task instructions here; use a private repository or the local dashboard for confidential work. **Never include passwords, API keys, tokens, private personal data, or confidential source material.**
 - The bridge does not accept shell commands, arbitrary code, package installs, publishing requests, or payment/deletion actions.
 - `youtube_package` can be queued from mobile, but actual MP4 rendering is resource-intensive on Android. For best output, let the Windows PC process the queued task when it is available; the phone and PC do not automatically share local task queues.
 - Result files are intentionally minimal. Full prompts, local output paths, and raw logs are not uploaded.
