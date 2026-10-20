@@ -17,7 +17,7 @@ concurrency:
 jobs:
   pipeline:
     # One Linux runner runs all checks sequentially. This preserves coverage while
-    # reducing runner startups and private-repository Actions-minute consumption.
+    # reducing runner startups and Actions usage.
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
