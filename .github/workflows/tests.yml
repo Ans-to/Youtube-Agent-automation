@@ -229,14 +229,15 @@ jobs:
           print("Honest status: partial; semantic quality gate unconfirmed; template-only; not publishable.")
           PY
 
-      - name: Render and validate a 1-second landscape MP4
+      - name: Render and validate a 10-second landscape MP4 (1-second scenes)
         run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en
 
-      - name: Render and validate a 1-second vertical Shorts MP4
+      - name: Render and validate a 10-second vertical Shorts MP4 (1-second scenes)
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
 
       - name: Verify landscape and Shorts smoke outputs exist for artifact retention
-        if: always()
+        # Use the default success() condition: cancellation or an earlier render failure
+        # must not turn missing outputs into a misleading secondary failure.
         run: |
           test -s video_studio/outputs/ci-smoke.mp4 || { echo "Landscape smoke MP4 missing; artifact paths or render output changed."; exit 1; }
           test -s video_studio/outputs/ci-smoke-shorts.mp4 || { echo "Vertical Shorts smoke MP4 missing; artifact paths or render output changed."; exit 1; }
@@ -244,7 +245,7 @@ jobs:
       # Keep generated smoke-test outputs available for human inspection.
       # The test content is synthetic and must never be used for publication.
       - name: Upload rendered QA artifacts for inspection
-        if: always()
+        if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: agent-hq-qa-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
