@@ -263,3 +263,40 @@ jobs:
             video_studio/outputs/ci-smoke-shorts.mp4
           if-no-files-found: error
           retention-days: 7
+
+  windows-safe-sync:
+    name: Windows PowerShell safe-sync validation
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Parse Windows PowerShell scripts without scheduling tasks
+        shell: pwsh
+        run: |
+          $files = @("scripts/sync-and-test.ps1", "scripts/install-auto-sync.ps1")
+          foreach ($file in $files) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $file), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              throw "PowerShell parsing failed for $file"
+            }
+            Write-Host "PASS: $file"
+          }
+
+      - name: Run local sync-and-test checks without changing Git history
+        shell: pwsh
+        run: ./scripts/sync-and-test.ps1 -SkipSync -RunTestsOnNoUpdate
