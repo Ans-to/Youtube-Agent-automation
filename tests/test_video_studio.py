@@ -349,6 +349,14 @@ class VideoStudioTests(unittest.TestCase):
 
 
 
+    def test_fallback_uses_intentional_scene_transitions(self):
+        result = production.fallback("Test topic")
+        scenes = result["scenes"]
+        self.assertEqual(scenes[0]["transition_in"], "none")
+        self.assertTrue(all(scene.get("transition_in") in production.TRANSITION_TYPES for scene in scenes))
+        self.assertGreater(len({scene["transition_in"] for scene in scenes[1:]}), 1)
+        self.assertTrue(all(1 <= scene.get("transition_frames", 12) <= 60 for scene in scenes))
+
     def test_all_fallback_narration_is_english(self):
         result = production.fallback("Test topic")
         for index, scene in enumerate(result["scenes"], 1):
