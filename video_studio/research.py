@@ -170,9 +170,29 @@ class PageTextParser(HTMLParser):
         self.in_title = False
         self.title_parts = []
         self.parts = []
+        self.published_date = ""
+        self.modified_date = ""
+        self.date_source = ""
 
     def handle_starttag(self, tag, attrs):
         tag = tag.lower()
+        attrs = {str(key).lower(): str(value or "").strip() for key, value in attrs}
+        if tag == "meta":
+            key = (attrs.get("property") or attrs.get("name") or attrs.get("itemprop") or "").lower()
+            value = attrs.get("content", "")[:100]
+            if value and key in {
+                "article:published_time", "datepublished", "citation_publication_date",
+                "dc.date", "dc.date.issued", "date"
+            } and not self.published_date:
+                self.published_date = value
+                self.date_source = key
+            elif value and key in {"article:modified_time", "datemodified", "last-modified"} and not self.modified_date:
+                self.modified_date = value
+        if tag == "time" and attrs.get("datetime"):
+            value = attrs["datetime"][:100]
+            if value and not self.published_date:
+                self.published_date = value
+                self.date_source = "time[datetime]"
         if tag == "title":
             self.in_title = True
         if tag in self.SKIP:
@@ -238,7 +258,13 @@ def fetch_page(url, timeout=12, opener=None):
                 text = text[:MAX_PAGE_TEXT]
             if not text:
                 return {"fetch_status": "empty", "page_title": title, "page_text": "", "fetch_error": "No readable page text extracted"}
-            return {"fetch_status": "fetched", "page_title": title, "page_text": text, "final_url": final_url, "truncated": truncated}
+            return {
+                "fetch_status": "fetched", "page_title": title, "page_text": text,
+                "final_url": final_url, "truncated": truncated,
+                "published_date": parser.published_date or None,
+                "published_date_source": parser.date_source or None,
+                "modified_date": parser.modified_date or None,
+            }
     except (OSError, ValueError, urllib.error.URLError, TimeoutError, UnicodeError) as exc:
         return {"fetch_status": "failed", "page_title": "", "page_text": "", "fetch_error": type(exc).__name__ + ": " + str(exc)[:180]}
 
@@ -389,6 +415,9 @@ def render_markdown(metadata, results, max_page_text=2500):
             "- Search snippet: " + (item["snippet"] or "(No snippet was returned.)"),
             "- Page fetch status: " + str(item.get("fetch_status", "not_attempted")),
             "- Page title: " + str(item.get("page_title", "")),
+            "- Publication date (page metadata; not independently verified): " + str(item.get("published_date") or "(Not exposed by page metadata.)"),
+            "- Publication date field: " + str(item.get("published_date_source") or "(Unknown.)"),
+            "- Modified date (page metadata; not independently verified): " + str(item.get("modified_date") or "(Not exposed by page metadata.)"),
             "- Extracted page text: " + ((str(item.get("page_text", ""))[:max(0, int(max_page_text))]) or "(No page text extracted.)"),
             "",
         ])
@@ -418,17 +447,3 @@ def main():
     if output == WORKSPACE or WORKSPACE not in output.parents:
         raise SystemExit("Research output must remain inside the project workspace.")
     try:
-        metadata, results = research(args.query, max_results=args.max_results)
-    except (ValueError, RuntimeError, OSError, urllib.error.URLError) as exc:
-        raise SystemExit("Research failed: " + str(exc))
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(render_markdown(metadata, results), encoding="utf-8")
-    output.with_suffix(".json").write_text(json.dumps({"metadata": metadata, "results": results}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print("Collected", len(results), "search leads.")
-    print("Markdown:", output)
-    print("JSON:", output.with_suffix(".json"))
-    print("No result was independently fact-checked.")
-
-
-if __name__ == "__main__":
-    main()
