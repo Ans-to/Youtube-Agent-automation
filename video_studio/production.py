@@ -119,7 +119,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "Write exactly one production-ready scene for a faceless technology explainer. Return a JSON object with keys "
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
-        "Optional transition_in must be none, fade, wipe-left, or wipe-right; transition_frames must be an integer from 1 to 60.\\n"
+        "Optional transition_in must be none, fade, wipe-left, or wipe-right; transition_frames is clamped to a smooth 15–24 frames.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
         "Section: " + json.dumps(section, ensure_ascii=False) + "\n"
@@ -149,11 +149,11 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     if transition not in TRANSITION_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported transition_in: " + transition)
     scene["transition_in"] = transition
-    if "transition_frames" in scene:
-        if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 1 <= scene["transition_frames"] <= 60:
-            raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
-    else:
-        scene["transition_frames"] = 12
+    # Clamp model-selected micro-transitions: under 15 frames reads as a flash at 30 fps.
+    scene["transition_frames"] = max(15, min(24, int(scene.get("transition_frames", 18))))
+    if index > 1 and transition == "none":
+        # Use a controlled, varied editorial rhythm rather than defaulting every cut to a hard cut.
+        scene["transition_in"] = ("fade", "wipe-left", "wipe-right")[(index - 2) % 3]
     array_limits = {
         "visual_nodes": 4, "timeline_events": 4, "comparison_left": 3,
         "comparison_right": 3, "code_lines": 6, "chart_labels": 6,
@@ -225,6 +225,8 @@ def main():
         raise SystemExit("Target minutes must be between 0.25 and 16 to stay within renderer resource limits.")
     if args.with_voice and not args.render:
         raise SystemExit("--with-voice requires --render.")
+    if args.render and not args.with_voice and not args.render_template:
+        raise SystemExit("Production renders require --with-voice and a tested local Piper model. Silent output is allowed only for explicit template previews.")
     target_seconds = target_minutes * 60
     default_scenes = max(4, math.ceil(target_minutes * 3))
     scene_count = args.scenes if args.scenes is not None else default_scenes

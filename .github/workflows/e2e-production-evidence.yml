@@ -1,0 +1,139 @@
+name: End-to-end production evidence
+
+on:
+  push:
+    branches: ["quality/million-simulation-gate"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-production-evidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full-test-and-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg espeak-ng
+      - name: Install renderer dependencies
+        working-directory: video_studio
+        run: npm install
+      - name: Compile project Python modules
+        run: python -m compileall -q .
+      - name: Validate JSON configuration and storyboards
+        run: |
+          python -m json.tool agents/roster.json > /dev/null
+          python -m json.tool agents/skillbooks.json > /dev/null
+          python -m json.tool video_studio/storyboard.example.json > /dev/null
+          python -m json.tool video_studio/storyboard.smoke.json > /dev/null
+          python -m json.tool video_studio/storyboard.smoke-shorts.json > /dev/null
+      - name: Run complete unit and regression suite
+        run: |
+          mkdir -p outputs/e2e-evidence
+          set -o pipefail
+          python -m unittest discover -s tests -v 2>&1 | tee outputs/e2e-evidence/unit-tests.log
+      - name: Run research and CEO production-package smoke test
+        continue-on-error: true
+        run: |
+          set +e
+          python video_studio/production.py --topic "How AI agents can verify their own work" --format long --target-minutes 0.333333 --scenes 4 --research --out workspace/e2e-production-package > outputs/e2e-evidence/research-package.log 2>&1
+          code=$?
+          echo "$code" > outputs/e2e-evidence/research-package.exitcode
+          cat outputs/e2e-evidence/research-package.log
+          if [ -f workspace/e2e-production-package/package-status.json ]; then
+            cp workspace/e2e-production-package/package-status.json outputs/e2e-evidence/package-status.json
+            cp workspace/e2e-production-package/script.md outputs/e2e-evidence/script.md
+            cp workspace/e2e-production-package/storyboard.json outputs/e2e-evidence/package-storyboard.json
+            [ ! -f workspace/e2e-production-package/research.json ] || cp workspace/e2e-production-package/research.json outputs/e2e-evidence/research.json
+            [ ! -f workspace/e2e-production-package/research.md ] || cp workspace/e2e-production-package/research.md outputs/e2e-evidence/research.md
+          fi
+          exit 0
+      - name: Render 30-second landscape motion-graphics test
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = json.loads(Path("video_studio/storyboard.smoke.json").read_text())
+          source["title"] = "E2E 30-second landscape motion graphics test"
+          source["width"], source["height"], source["fps"] = 1280, 720, 24
+          for scene in source["scenes"]:
+              scene["duration_seconds"] = 3
+          out = Path("outputs/e2e-evidence/landscape-30s-storyboard.json")
+          out.write_text(json.dumps(source, indent=2) + "\n")
+          PY
+          python video_studio/studio.py --storyboard outputs/e2e-evidence/landscape-30s-storyboard.json --output outputs/e2e-evidence/landscape-30s.mp4 --keep-frames
+          cp video_studio/outputs/e2e-evidence/landscape-30s.mp4 outputs/e2e-evidence/landscape-30s.mp4
+          python video_studio/add_test_narration.py --video outputs/e2e-evidence/landscape-30s.mp4 --storyboard outputs/e2e-evidence/landscape-30s-storyboard.json --output outputs/e2e-evidence/landscape-30s-narrated.mp4
+          mv outputs/e2e-evidence/landscape-30s-narrated.mp4 outputs/e2e-evidence/landscape-30s.mp4
+          python video_studio/validate_render.py outputs/e2e-evidence/landscape-30s.mp4 --width 1280 --height 720 --fps 24 --require-audio > outputs/e2e-evidence/landscape-validation.json
+      - name: Render 15-second vertical Shorts motion-graphics test
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          source = json.loads(Path("video_studio/storyboard.smoke-shorts.json").read_text())
+          source["title"] = "E2E 15-second vertical Shorts motion graphics test"
+          source["width"], source["height"], source["fps"] = 540, 960, 24
+          for scene in source["scenes"]:
+              scene["duration_seconds"] = 1.5
+          out = Path("outputs/e2e-evidence/shorts-15s-storyboard.json")
+          out.write_text(json.dumps(source, indent=2) + "\n")
+          PY
+          python video_studio/studio.py --storyboard outputs/e2e-evidence/shorts-15s-storyboard.json --output outputs/e2e-evidence/shorts-15s.mp4 --keep-frames
+          cp video_studio/outputs/e2e-evidence/shorts-15s.mp4 outputs/e2e-evidence/shorts-15s.mp4
+          python video_studio/add_test_narration.py --video outputs/e2e-evidence/shorts-15s.mp4 --storyboard outputs/e2e-evidence/shorts-15s-storyboard.json --output outputs/e2e-evidence/shorts-15s-narrated.mp4
+          mv outputs/e2e-evidence/shorts-15s-narrated.mp4 outputs/e2e-evidence/shorts-15s.mp4
+          python video_studio/validate_render.py outputs/e2e-evidence/shorts-15s.mp4 --width 540 --height 960 --fps 24 --require-audio > outputs/e2e-evidence/shorts-validation.json
+      - name: Generate frame samples and objective evidence report
+        if: always()
+        run: |
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+          root=Path("outputs/e2e-evidence")
+          report={"scope":"Cloud CI integration test; not a full AI-generated or publish-ready video","videos":[]}
+          for name in ["landscape-30s","shorts-15s"]:
+              path=root/(name+".mp4")
+              item={"name":name,"exists":path.exists(),"size_bytes":path.stat().st_size if path.exists() else 0}
+              if path.exists():
+                  p=subprocess.run(["ffprobe","-v","error","-show_entries","format=duration:stream=codec_name,codec_type,width,height,avg_frame_rate","-of","json",str(path)],capture_output=True,text=True)
+                  item["ffprobe_exit_code"]=p.returncode
+                  if p.returncode==0:
+                      item["metadata"]=json.loads(p.stdout)
+                  else: item["ffprobe_error"]=p.stderr[-2000:]
+                  sample_dir=root/(name+"-samples"); sample_dir.mkdir(exist_ok=True)
+                  for idx,t in enumerate([0.5,3,7,12,20,28] if name.startswith("landscape") else [0.5,2,5,9,13]):
+                      subprocess.run(["ffmpeg","-y","-hide_banner","-loglevel","error","-ss",str(t),"-i",str(path),"-frames:v","1",str(sample_dir/("sample-%02d.jpg"%idx))],check=False)
+                  item["sample_frames"]=[str(p) for p in sorted(sample_dir.glob("*.jpg"))]
+              report["videos"].append(item)
+          (root/"e2e-report.json").write_text(json.dumps(report,indent=2)+"\n")
+          PY
+      - name: Upload video files, frame samples, scripts, research and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-production-evidence
+          path: |
+            outputs/e2e-evidence/
+            outputs/e2e-evidence/landscape-30s.mp4
+            outputs/e2e-evidence/shorts-15s.mp4
+            outputs/e2e-evidence/landscape-30s-samples/
+            outputs/e2e-evidence/shorts-15s-samples/
+          if-no-files-found: warn
+          retention-days: 14

@@ -1,6 +1,6 @@
 # Offline Agent HQ — deterministic video studio
 
-This module renders a local MP4 from a JSON storyboard using Canvas2D in headless Chromium and FFmpeg. Optional narration uses a locally installed Piper TTS voice. The YouTube uploader is separate and requires OAuth setup.
+This module renders a local MP4 from a JSON storyboard using Canvas2D in headless Chromium and FFmpeg. Optional narration uses a locally installed neural Piper TTS voice. The CI espeak narration is synthetic test audio only and must never be treated as production voice. The YouTube uploader is separate and requires OAuth setup.
 
 ## Requirements
 - Python 3.10 or newer
@@ -17,6 +17,21 @@ Open PowerShell in this directory and run:
     python studio.py --storyboard storyboard.example.json --output outputs\offline-agent-hq-demo.mp4
 
 Puppeteer downloads a compatible Chromium build during npm install. If your network blocks this, install a supported Chrome/Chromium build and configure Puppeteer to use it.
+
+## Mandatory professional editor-review gate
+
+Every render now runs `quality_review_agent.py` and is blocked unless a configured multimodal reviewer compares sampled candidate frames against licensed/owned professional reference videos and returns passing scores (minimum 7/10 in every category). The gate intentionally fails closed: a missing reviewer endpoint or empty reference directory is a failure, not an approval.
+
+1. Put professional reference videos you own or are licensed to use in `video_studio/references/` (MP4, MOV, MKV, or WEBM).
+2. Run an OpenAI-compatible **vision-capable** local inference server and set:
+   - PowerShell: `$env:VIDEO_REVIEWER_URL = "http://127.0.0.1:PORT/v1"`
+   - PowerShell: `$env:VIDEO_REVIEWER_MODEL = "your-vision-model-id"`
+   - Optional: `$env:VIDEO_REFERENCE_DIR = "C:\\path\\to\\references"`
+3. Render normally. A JSON report named `video.editor-review.json` is written beside the candidate. A failed or unavailable review exits non-zero; do not publish the candidate.
+
+Manual gate test: `python video_studio/quality_review_agent.py --video path\\to\\candidate.mp4`. The reviewer is a visual gate; it does not certify narration naturalness or factual accuracy. Those require separate checks/listening and source verification.
+
+Transition duration is clamped to 15–24 frames (0.5–0.8 seconds at 30 fps); shorter model-requested transitions are rejected by the renderer. Scene transitions are varied when the model requests only hard cuts.
 
 ## Optional local narration
 Install Piper and a compatible voice model, then set the environment variable:
