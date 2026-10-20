@@ -83,6 +83,53 @@ def api_put_json(path: str, content: dict, token: str, message: str) -> dict:
         return json.loads(response.read().decode("utf-8"))
 
 
+def load_seen_request_ids(path: pathlib.Path) -> set[str]:
+    """Load deduplication state strictly; corrupt state must never enable request replay."""
+    path = pathlib.Path(path)
+    if not path.exists():
+        return set()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise ValueError("Bridge deduplication state is unreadable; refusing to process requests.") from exc
+    if not isinstance(data, list) or any(not valid_request_id(item) for item in data) or len(data) != len(set(data)):
+        raise ValueError("Bridge deduplication state is invalid; refusing to process requests.")
+    return set(data)
+
+
+def request_replay_state(request_id: str, state_dir: pathlib.Path) -> str:
+    """Return new, completed, or interrupted so a partially handled request is never replayed."""
+    root = pathlib.Path(state_dir)
+    if (root / (request_id + ".result.json")).is_file():
+        return "completed"
+    if (root / (request_id + ".processing.json")).is_file():
+        return "interrupted"
+    return "new"
+
+
+def claim_request(request_id: str, state_dir: pathlib.Path, request_sha256: str) -> bool:
+    """Atomically claim a request before side effects; stale claims require human review."""
+    marker = pathlib.Path(state_dir) / (request_id + ".processing.json")
+    try:
+        with marker.open("x", encoding="utf-8") as stream:
+            json.dump({
+                "id": request_id,
+                "request_sha256": request_sha256,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+            }, stream)
+    except FileExistsError:
+        return False
+    return True
+
+
+def write_json_atomic(path: pathlib.Path, data: object) -> None:
+    """Write JSON via same-directory replacement to avoid truncated state files."""
+    path = pathlib.Path(path)
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    temporary.replace(path)
+
+
 def valid_request_id(value: object) -> bool:
     """Restrict IDs so they cannot escape the local or repository result folders."""
     return isinstance(value, str) and re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_-]{0,79}", value) is not None
@@ -338,9 +385,10 @@ def run_once() -> int:
     STATE_DIR.mkdir(parents=True, exist_ok=True)
     seen_path = STATE_DIR / "seen-request-ids.json"
     try:
-        seen = set(json.loads(seen_path.read_text(encoding="utf-8"))) if seen_path.exists() else set()
-    except (json.JSONDecodeError, OSError):
-        seen = set()
+        seen = load_seen_request_ids(seen_path)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
+        return 2
 
     listing = get_file("bridge/requests", token)
     if listing is None:
@@ -370,6 +418,12 @@ def run_once() -> int:
         if request.get("approved") is not True:
             print("Request not approved; skipped:", req_id)
             continue
+        replay_state = request_replay_state(req_id, STATE_DIR)
+        if replay_state != "new":
+            seen.add(req_id)
+            if replay_state == "interrupted":
+                print("Request has an unfinished local processing marker; refusing automatic replay and requiring human review:", req_id, file=sys.stderr)
+            continue
         action = request.get("action")
         # Reject extra fields so requests cannot smuggle command strings or arguments.
         expected_fields = {"id", "approved", "action"}
@@ -380,6 +434,11 @@ def run_once() -> int:
         if set(request) != expected_fields or action not in ALLOWED_ACTIONS:
             print("Rejected request with unsupported fields/action:", req_id)
             seen.add(req_id)
+            continue
+
+        if not claim_request(req_id, STATE_DIR, digest):
+            seen.add(req_id)
+            print("Request was claimed by another run or has an unfinished marker; refusing automatic replay:", req_id, file=sys.stderr)
             continue
 
         if action == "status":
@@ -407,7 +466,12 @@ def run_once() -> int:
         # Persist locally before attempting reporting so a network/write failure never
         # loses the execution record or causes a completed task to be rerun on next poll.
         out = STATE_DIR / (req_id + ".result.json")
-        out.write_text(json.dumps(response, indent=2), encoding="utf-8")
+        write_json_atomic(out, response)
+        marker = STATE_DIR / (req_id + ".processing.json")
+        try:
+            marker.unlink()
+        except FileNotFoundError:
+            pass
         seen.add(req_id)
         processed += 1
         published, detail = publish_result(response, token)
@@ -416,7 +480,7 @@ def run_once() -> int:
         else:
             print(f"{req_id}: {action} finished locally; GitHub report unavailable: {detail}")
 
-    seen_path.write_text(json.dumps(sorted(seen), indent=2), encoding="utf-8")
+    write_json_atomic(seen_path, sorted(seen))
     print(f"Bridge check complete. New requests processed: {processed}.")
     return 0
 
