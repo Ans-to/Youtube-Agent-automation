@@ -42,6 +42,36 @@ class AgentDispatcherTests(unittest.TestCase):
         self.assertIn("free tools for making professional motion graphics", topic)
         self.assertNotIn("AVAILABLE SPECIALISTS", topic)
 
+    def test_specialist_research_uses_five_complementary_queries_and_pages(self):
+        from unittest.mock import patch
+        role = dispatch.find_role("AGENT-02")
+        metadata = {"topic": "task topic", "pages_attempted": 5, "pages_fetched": 5}
+        sources = [{"url": "https://example.com/" + str(i)} for i in range(5)]
+        response = {"choices": [{"message": {"content": "Research-backed specialist draft."}}]}
+        with patch.object(dispatch, "collect_web_research", return_value=(metadata, sources)) as research_call, \
+             patch.object(dispatch, "post_local_model", return_value=response):
+            dispatch.run_role(
+                role,
+                "OVERALL USER GOAL:\\nBuild a useful AI video workflow.\\n\\n"
+                "YOUR CEO-ASSIGNED SUBTASK:\\nResearch reliable implementation approaches.",
+                "",
+                {"model": {
+                    "enabled": True,
+                    "base_url": "http://127.0.0.1:11434/v1/chat/completions",
+                    "model": "llama3.2:3b",
+                    "max_output_tokens": 900,
+                    "timeout_seconds": 120,
+                }},
+            )
+        kwargs = research_call.call_args.kwargs
+        self.assertEqual(len(kwargs["queries"]), 5)
+        self.assertIn("official documentation", kwargs["queries"][1])
+        self.assertIn("independent research", kwargs["queries"][2])
+        self.assertIn("limitations risks", kwargs["queries"][3])
+        self.assertIn("recent updates", kwargs["queries"][4])
+        self.assertEqual(kwargs["max_results"], 5)
+        self.assertEqual(kwargs["max_pages"], 5)
+
     def test_research_report_saves_markdown_and_structured_status(self):
         import json
         metadata = {"topic": "test topic", "pages_attempted": 1, "pages_fetched": 1}
