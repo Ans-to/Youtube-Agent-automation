@@ -47,6 +47,14 @@ Before enabling production renders, audition an isolated WAV preview (this does 
 
     python video_studio/voice_preview.py --text "آج ہم Python سیکھیں گے۔ پھر API کے ذریعے ڈیٹا حاصل کریں گے۔ آخر میں، نتیجہ چیک کریں گے۔" --output workspace/urdu-voice-preview-v2.wav
 
+After the voice profile is approved locally, run the full Python regression tests and the actual narrated-video smoke gate from the repository root:
+
+    python -m unittest discover -s tests -p "test_piper_urdu_tts_adapter.py" -v
+    python -m unittest discover -s tests -p "test_video_studio.py" -v
+    python tools/run_quality_gate.py --urdu-voice-smoke --report outputs/local-quality-gate-urdu-voice.json
+
+The voice smoke gate checks that the current approval fingerprint is still valid, renders a small vertical MP4 with real Urdu-English speech, validates SRT/WebVTT and the video/audio streams, then runs strict black-frame, freeze, and silence checks. It will not silently substitute English or a silent video. Its MP4 is a technical integration demo at 320×568 and 12 fps, not a publish-ready Shorts export.
+
 The first preview downloads the pinned Fasih v2 model if it is not already cached. The default Piper Fasih voice is single-speaker, so `kani_speaker_prefix` does not affect it; that setting is only for an explicitly configured legacy Kani adapter. For a custom Piper model, set the environment variable `AGENTHQ_PIPER_URDU_MODEL_PATH` to the absolute model path and place the matching JSON sidecar beside it using the conventional `.onnx.json` suffix. The profile fingerprint records the custom model/config hashes. Use a different WAV filename for each preview and keep voice approval disabled if the sample does not meet your requirements.
 
 **Human voice approval is required before any Urdu-English production render.** The default configuration sets `video_studio.urdu_voice_human_approved` to `false`. First generate/listen to a real sample using your local setup; check that it is intelligible Pakistani Urdu, preserves English technical terms, and uses the required adult-male voice. Only after that review set `"urdu_voice_human_approved": true` and copy the preview command's **Voice profile SHA-256** into `"urdu_voice_approved_profile_sha256"` in your local `config.json`. The render gate compares that hash to the selected adapter, model revision and speaker prefix, so changing those settings invalidates the approval. This is a user attestation, not an automated quality measurement. If the current model or speaker prefix is unsuitable, leave approval false and do not release the video. Never commit the local config or tokens.
