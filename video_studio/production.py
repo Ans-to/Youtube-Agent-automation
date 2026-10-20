@@ -240,6 +240,32 @@ def fallback(topic):
             "scenes": scenes}
 
 
+def character_alignment_summary(storyboard):
+    """Report the character/viseme evidence present in an aligned storyboard without overstating quality."""
+    scenes = storyboard.get("scenes", []) if isinstance(storyboard, dict) else []
+    enabled_characters = []
+    aligned_characters = []
+    for scene in scenes if isinstance(scenes, list) else []:
+        if not isinstance(scene, dict):
+            continue
+        character = scene.get("character")
+        if not isinstance(character, dict) or character.get("enabled") is not True:
+            continue
+        enabled_characters.append(character)
+        visemes = character.get("visemes")
+        if isinstance(visemes, list) and visemes:
+            aligned_characters.append(character)
+    return {
+        "character_scenes": len(enabled_characters),
+        "viseme_cued_character_scenes": len(aligned_characters),
+        "phoneme_aligned": False,
+        "viseme_alignment_method": (
+            "audio-energy-gated grapheme approximation; not forced phoneme alignment"
+            if aligned_characters else "no generated character viseme cues"
+        ),
+    }
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--topic", required=True)
@@ -413,6 +439,7 @@ def main():
         if aligned_storyboard.is_file():
             (output_dir / "storyboard.json").write_text(aligned_storyboard.read_text(encoding="utf-8"), encoding="utf-8")
             aligned = json.loads(aligned_storyboard.read_text(encoding="utf-8"))
+            status["character_animation"] = character_alignment_summary(aligned)
             status["storyboard_seconds"] = sum(float(scene["duration_seconds"]) for scene in aligned["scenes"])
             status["rendered_duration_seconds"] = status["storyboard_seconds"]
             status["duration_target_met"] = abs(status["rendered_duration_seconds"] - target_seconds) <= 1 / 30
@@ -428,6 +455,7 @@ def main():
         aligned_storyboard = output_dir / "video.storyboard.json"
         if aligned_storyboard.is_file():
             aligned = json.loads(aligned_storyboard.read_text(encoding="utf-8"))
+            status["character_animation"] = character_alignment_summary(aligned)
             (output_dir / "storyboard.json").write_text(json.dumps(aligned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             status["storyboard_seconds"] = sum(float(scene["duration_seconds"]) for scene in aligned["scenes"])
             status["rendered_duration_seconds"] = status["storyboard_seconds"]
