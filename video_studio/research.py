@@ -447,3 +447,18 @@ def main():
     if output == WORKSPACE or WORKSPACE not in output.parents:
         raise SystemExit("Research output must remain inside the project workspace.")
     try:
+        metadata, results = research(args.query, max_results=args.max_results)
+
+    except (ValueError, RuntimeError, OSError, urllib.error.URLError) as exc:
+        raise SystemExit("Research failed: " + str(exc))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(render_markdown(metadata, results), encoding="utf-8")
+    output.with_suffix(".json").write_text(json.dumps({"metadata": metadata, "results": results}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print("Collected", len(results), "search leads.")
+    print("Markdown:", output)
+    print("JSON:", output.with_suffix(".json"))
+    print("No result was independently fact-checked.")
+
+
+if __name__ == "__main__":
+    main()
