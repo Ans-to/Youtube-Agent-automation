@@ -316,8 +316,8 @@ def main():
         raise SystemExit("No local model is enabled. This produces only a 20-second template, not the requested full video. Use --render-template only for a demo.")
     if args.render_template and model_enabled:
         raise SystemExit("--render-template is only for the deterministic no-model demo. Use --render for model-generated content.")
-    if not model_enabled and language == "ur-en" and not args.render_template:
-        raise SystemExit("Urdu-English script generation requires the configured local language model. Refusing to present the English-only offline scaffold as Urdu-English content.")
+    if not model_enabled and language == "ur-en":
+        raise SystemExit("Urdu-English script generation requires the configured local language model. Refusing to present the English-only offline scaffold or template demo as Urdu-English content.")
 
     if model_enabled:
         if source_notes:
@@ -430,9 +430,9 @@ def main():
             status["storyboard_seconds"] = sum(float(scene["duration_seconds"]) for scene in aligned["scenes"])
             status["rendered_duration_seconds"] = status["storyboard_seconds"]
             status["duration_target_met"] = abs(status["rendered_duration_seconds"] - target_seconds) <= 1 / 30
-            status["narration_alignment"] = "per-scene English audio; SRT/WebVTT generated and validated"
+            status["narration_alignment"] = "per-scene " + language_label + " audio; SRT/WebVTT generated and validated"
             aligned_storyboard.unlink(missing_ok=True)
-        status["voice_language"] = "English"
+        status["voice_language"] = language_label
         status["subtitles_required"] = True
         status["subtitle_files"] = ["video.srt", "video.vtt"]
         (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
