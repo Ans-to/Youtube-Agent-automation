@@ -93,6 +93,19 @@ python bridge/bridge.py --watch --interval=30
 
 Stop watch mode with Ctrl+C. Before approving a `run_task` request, inspect the local task queue and confirm the exact task is safe to run. Do not queue a task that contains secrets or private personal data.
 
+### Mobile task intake without merging PR #11
+
+A separate operational branch, `mobile-agent-inbox`, is available for requests created from the GitHub mobile app. It is intentionally based on `main` and kept separate from PR #11 so prompts/results do not become part of the integration PR.
+
+- Open [the mobile inbox instructions](https://github.com/Ans-to/Youtube-Agent-automation/blob/mobile-agent-inbox/bridge/requests/README.md) on the `mobile-agent-inbox` branch.
+- Add a new JSON request under `bridge/requests/` with `action: "create_task"`, `approved: true`, and bounded `title`, `kind`, and `input` fields.
+- The bridge code on the integration branch supports this request type and can be configured to poll/write only the inbox branch using `AGENT_HQ_BRANCH=mobile-agent-inbox`. This is a separate branch setting, not a PR merge.
+- The bridge creates a local pending task atomically. It does not start the task when it is created. A task only runs when the local queue runner is started or a separately approved, allowed run request is processed.
+- The phone and PC still have separate local queues and output folders. A task queued on the phone is not automatically transferred to the PC; for PC processing later, run the bridge on the PC against the same inbox branch or recreate the task in its local queue.
+- The mobile bridge does not accept shell commands or arbitrary code. Video rendering may be too resource-intensive for Android; queue video tasks on mobile and render on the Windows PC when available.
+
+Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Even on a private repository, committed prompt text remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
+
 ### Request protocol
 
 Status request:
