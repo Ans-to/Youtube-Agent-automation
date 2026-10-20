@@ -100,7 +100,7 @@ def generate_voice_preview(text, output, overwrite=False):
         print("Generating an audio-only Urdu-English preview; this does not approve a production voice.")
         print("Output:", destination)
         if any(Path(part).name == "piper_urdu_tts_adapter.py" for part in command_template):
-            print("Voice backend: Piper ONNX CPU; default profile is Fasih (Pakistani Urdu male, medium quality).")
+            print("Voice backend: Piper ONNX CPU; Fasih v2 (Pakistani Urdu male, medium quality), with a slower intelligibility-focused speech rate.")
         elif any(Path(part).name == "urdu_tts_adapter.py" for part in command_template):
             print("Legacy Kani speaker prefix configured:", "yes" if env.get("AGENTHQ_KANI_SPEAKER_PREFIX", "").strip() else "no")
         else:
@@ -132,7 +132,7 @@ def generate_voice_preview(text, output, overwrite=False):
     print("Voice preview created:", destination)
     print("Audio check:", json.dumps(audio_report, ensure_ascii=False))
     print("Voice profile SHA-256:", approval_fingerprint)
-    print("Human review still required: adult-male voice identity, naturalness, Urdu pronunciation, and English technical terms.")
+    print("Human review still required: adult-male voice identity, sentence clarity, naturalness, Urdu pronunciation, pacing, and English technical terms.")
     print("Only after listening to this WAV, set video_studio.urdu_voice_human_approved=true and")
     print("video_studio.urdu_voice_approved_profile_sha256 to the exact fingerprint above in config.json.")
     return destination
