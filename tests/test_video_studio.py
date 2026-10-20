@@ -231,26 +231,34 @@ class VideoStudioTests(unittest.TestCase):
                     1, 4, 20, {"headline": "", "summary": "Opening"}, "en"
                 )
 
-    def test_package_status_distinguishes_audio_gated_visemes_from_phoneme_alignment(self):
+    def test_package_status_distinguishes_audio_energy_cues_from_unverified_visemes(self):
+        audio_label = "audio-energy-gated grapheme approximation; not forced phoneme alignment"
         storyboard = {
             "scenes": [
                 {"character": {"enabled": True, "visemes": [
                     {"t": 0.0, "shape": "closed"}, {"t": 1.0, "shape": "open"}
                 ]}},
-                {"character": {"enabled": True, "speaking": True}},
+                {"character": {"enabled": True, "speaking": True, "visemes": [
+                    {"t": 0.0, "shape": "closed"}, {"t": 1.0, "shape": "round"}
+                ], "viseme_alignment": audio_label}},
                 {"character": {"enabled": False, "visemes": [{"t": 0.0, "shape": "closed"}]}},
                 {"visual_type": "hero"},
             ]
         }
         summary = production.character_alignment_summary(storyboard)
         self.assertEqual(summary["character_scenes"], 2)
-        self.assertEqual(summary["viseme_cued_character_scenes"], 1)
+        self.assertEqual(summary["viseme_cued_character_scenes"], 2)
+        self.assertEqual(summary["audio_energy_gated_viseme_scenes"], 1)
+        self.assertEqual(summary["preauthored_or_unverified_viseme_scenes"], 1)
         self.assertFalse(summary["phoneme_aligned"])
+        self.assertIn("mixed", summary["viseme_alignment_method"])
         self.assertIn("not forced phoneme alignment", summary["viseme_alignment_method"])
 
         without_character = production.character_alignment_summary({"scenes": [{"visual_type": "hero"}]})
         self.assertEqual(without_character["character_scenes"], 0)
         self.assertEqual(without_character["viseme_cued_character_scenes"], 0)
+        self.assertEqual(without_character["audio_energy_gated_viseme_scenes"], 0)
+        self.assertEqual(without_character["preauthored_or_unverified_viseme_scenes"], 0)
         self.assertEqual(without_character["viseme_alignment_method"], "no generated character viseme cues")
 
     def test_fallback_is_explicitly_not_researched(self):
