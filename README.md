@@ -108,7 +108,7 @@ A separate operational branch, `mobile-agent-inbox`, is available for requests c
 
 - Open [the mobile inbox instructions](https://github.com/Ans-to/Youtube-Agent-automation/blob/mobile-agent-inbox/bridge/requests/README.md) on the `mobile-agent-inbox` branch.
 - Add a new JSON request under `bridge/requests/` with `action: "create_task"`, `approved: true`, and bounded `title`, `kind`, and `input` fields.
-- The bridge code on the integration branch supports this request type and can be configured to poll/write only the inbox branch using `AGENT_HQ_BRANCH=mobile-agent-inbox`. This is a separate branch setting, not a PR merge.
+- The `mobile-bridge-runtime` branch is a runnable snapshot of the current integration code for the Android/Termux bridge; it is separate from PR #11 and is not a merge. Configure it to poll/write only the inbox branch using `AGENT_HQ_BRANCH=mobile-agent-inbox`.
 - The bridge creates a local pending task atomically. It does not start the task when it is created. A task only runs when the local queue runner is started or a separately approved, allowed run request is processed.
 - The phone and PC still have separate local queues and output folders. A task queued on the phone is not automatically transferred to the PC; for PC processing later, run the bridge on the PC against the same inbox branch or recreate the task in its local queue.
 - The mobile bridge does not accept shell commands or arbitrary code. Video rendering may be too resource-intensive for Android; queue video tasks on mobile and render on the Windows PC when available.
