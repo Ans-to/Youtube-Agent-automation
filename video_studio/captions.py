@@ -166,6 +166,7 @@ def validate_subtitle_text(srt_text, vtt_text, language="en"):
     if not blocks:
         raise ValueError("SRT file contains no cues.")
     previous_end = -1.0
+    collected_subtitle_text = []
     def seconds(stamp):
         match = re.fullmatch(r"(\d{2,}):(\d{2}):(\d{2}),(\d{3})", stamp)
         if not match:
@@ -182,10 +183,23 @@ def validate_subtitle_text(srt_text, vtt_text, language="en"):
         start, end = map(seconds, match.groups())
         if start < previous_end - 0.001 or end <= start:
             raise ValueError("Subtitle cues overlap, are unordered, or have invalid duration.")
-        text = validate_narration_text(" ".join(lines[2:]), profile, "Subtitle cue")
+        raw_cue_text = " ".join(lines[2:]).strip()
+        if profile == "ur-en":
+            # Individual cues may consist entirely of technical terms in English.
+            # Validate Urdu script at track level rather than rejecting such a cue.
+            if not raw_cue_text:
+                raise ValueError("Subtitle cue must not be empty.")
+            if UNSUPPORTED_NON_LATIN_SCRIPT.search(raw_cue_text):
+                raise ValueError("Subtitle cue contains a writing system incompatible with the Urdu-English profile.")
+            text = raw_cue_text
+            collected_subtitle_text.append(text)
+        else:
+            text = validate_english_text(raw_cue_text, "Subtitle cue")
         if len(text) > 1000:
             raise ValueError("Subtitle cue exceeds the 1000-character limit.")
         previous_end = end
+    if profile == "ur-en" and not URDU_ARABIC_SCRIPT.search(" ".join(collected_subtitle_text)):
+        raise ValueError("Urdu-English subtitle track must contain Urdu-script text, not English-only captions.")
     vtt_blocks = [block for block in vtt_text.strip().split("\n\n") if block.strip()]
     if not vtt_blocks or vtt_blocks[0].strip() != "WEBVTT":
         raise ValueError("WebVTT header is missing or malformed.")
