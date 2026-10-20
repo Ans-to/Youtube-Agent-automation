@@ -23,6 +23,21 @@ class NarrationLanguageRoutingTests(unittest.TestCase):
             with self.subTest(instruction=instruction):
                 self.assertEqual(orchestrate.requested_narration_language(instruction), expected)
 
+    def test_ceo_language_policy_reflects_configured_default(self):
+        english = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "en"}}
+        )
+        urdu = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "ur-en"}}
+        )
+        invalid = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "xx"}}
+        )
+        self.assertIn("default narration language is English", english)
+        self.assertIn("Pakistani Urdu", urdu)
+        self.assertIn("unsupported", invalid.lower())
+        self.assertIn("do not silently guess", invalid)
+
     def test_topic_mentions_do_not_change_the_configured_voice_language(self):
         for instruction in (
             "Create a video about Urdu literature.",
