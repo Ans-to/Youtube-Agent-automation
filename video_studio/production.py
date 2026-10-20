@@ -86,6 +86,41 @@ def should_collect_research(*, research_requested, render_template):
     return bool(research_requested or not render_template)
 
 
+def validate_research_evidence(metadata, results):
+    """Require fetched source text and traceable provenance, not search snippets alone."""
+    if not isinstance(metadata, dict) or not isinstance(results, list):
+        raise ValueError("Research result has an invalid metadata/results structure.")
+    fetched = [
+        item for item in results
+        if isinstance(item, dict)
+        and item.get("fetch_status") == "fetched"
+        and isinstance(item.get("page_text"), str)
+        and item.get("page_text").strip()
+    ]
+    traceable = [
+        item for item in fetched
+        if isinstance(item.get("page_text_sha256"), str)
+        and len(item["page_text_sha256"]) == 64
+        and all(char in "0123456789abcdef" for char in item["page_text_sha256"].lower())
+        and isinstance(item.get("final_domain"), str)
+        and item.get("final_domain").strip()
+    ]
+    if not traceable:
+        raise ValueError(
+            "Search results were found, but no source page with readable text and traceable provenance was fetched. "
+            "Search snippets alone are discovery leads, not acceptable evidence; check connectivity or supply source notes."
+        )
+    domains = sorted({item["final_domain"].lower().rstrip(".") for item in traceable})
+    return {
+        "status": "multiple_domains_fetched" if len(domains) > 1 else "single_domain_only",
+        "fetched_page_count": len(traceable),
+        "independent_domain_count": len(domains),
+        "domains": domains,
+        "page_text_sha256": sorted({item["page_text_sha256"] for item in traceable}),
+        "independently_verified": False,
+    }
+
+
 def model_json(prompt, cfg, max_tokens):
     model = cfg.get("model", {})
     if not model.get("enabled"):
@@ -357,6 +392,14 @@ def main():
     manual_source_notes = read_source(args.source_file)
     source_notes = manual_source_notes
     research_metadata, research_results, research_markdown = None, [], ""
+    research_evidence_summary = {
+        "status": "not_required_for_template",
+        "fetched_page_count": 0,
+        "independent_domain_count": 0,
+        "domains": [],
+        "page_text_sha256": [],
+        "independently_verified": False,
+    }
     if should_collect_research(
         research_requested=args.research,
         render_template=args.render_template,
@@ -365,6 +408,7 @@ def main():
             # Diverse queries plus up to eight bounded page fetches; failure blocks
             # non-template packages rather than silently producing unresearched content.
             research_metadata, research_results = collect_research(topic, max_results=8, max_pages=8)
+            research_evidence_summary = validate_research_evidence(research_metadata, research_results)
             research_markdown = render_research_markdown(research_metadata, research_results)
             source_notes = (source_notes + "\n\n" + research_markdown).strip()
         except (ValueError, RuntimeError, OSError, urllib.error.URLError) as exc:
@@ -450,6 +494,7 @@ def main():
         "source_notes_provided": bool(manual_source_notes), "web_research_performed": bool(research_metadata),
         "research_result_count": len(research_results),
         "standalone_web_research_performed": bool(research_metadata),
+        "research_evidence": research_evidence_summary,
         "research_independently_verified": False,
         "human_review_required": True, "published": False,
         "human_voice_review_status": (
