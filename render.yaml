@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: youtube-agent-automation-ci
+    runtime: docker
+    plan: free
+    branch: render-ci-test-runner
+    dockerfilePath: ./ci/render/Dockerfile
+    dockerContext: .
+    autoDeploy: false
+    healthCheckPath: /health
