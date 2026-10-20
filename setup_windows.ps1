@@ -40,7 +40,7 @@ $CompileTargets = @(
     "agent.py", "dashboard.py", "queue_store.py",
     "bridge/bridge.py", "agents/dispatch.py", "agents/orchestrate.py",
     "agents/practice.py", "video_studio/studio.py", "video_studio/production.py",
-    "video_studio/voice_backends.py", "video_studio/urdu_tts_adapter.py",
+    "video_studio/voice_backends.py", "video_studio/urdu_tts_adapter.py", "video_studio/voice_preview.py",
     "video_studio/research.py", "video_studio/validate_render.py",
     "video_studio/validate_frames.py", "video_studio/release_gate.py",
     "video_studio/publish_youtube.py", "product_studio/build_product.py"
