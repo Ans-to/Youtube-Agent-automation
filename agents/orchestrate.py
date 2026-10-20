@@ -342,6 +342,8 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             })
         tool_result = _run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400)
         tool_result["generation_mode"] = "local_model" if model_enabled else ("explicit_template_demo" if template_demo and render_requested else "deterministic_template")
+        tool_result["render_requested"] = render_requested
+        tool_result["render_expected"] = bool(render_requested and (model_enabled or template_demo))
         if not model_enabled:
             tool_result["note"] = "No local model is enabled: script and storyboard are deterministic scaffolding, not a researched or AI-written final video."
         results.append(tool_result)
