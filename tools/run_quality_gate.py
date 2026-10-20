@@ -133,7 +133,9 @@ def main() -> int:
                     "-s", "tests", "-p", test_file.name, "-v",
                 ],
                 timeout=900,
-                stream_output=True,
+                # Capture per-test chatter and print it only when the module exits.
+                # This avoids fragile interleaved console writes on Windows PowerShell.
+                stream_output=False,
             )
             results.append(result)
             if result.get("error") == "interrupted by user":
