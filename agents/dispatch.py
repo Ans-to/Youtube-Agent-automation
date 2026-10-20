@@ -145,13 +145,15 @@ def run_role(role,task,context,cfg,perform_research=True):
                 query_topic,
                 queries=[
                     query_topic[:300],
-                    query_topic[:250] + " official documentation",
-                    query_topic[:220] + " independent evidence limitations risks recent updates",
+                    query_topic[:250] + " official documentation primary sources",
+                    query_topic[:220] + " independent research data evidence",
+                    query_topic[:220] + " limitations risks criticism",
+                    query_topic[:220] + " recent updates",
                 ],
-                max_results=4,
+                max_results=5,
                 search_timeout=8,
                 page_timeout=6,
-                max_pages=4,
+                max_pages=5,
             )
             # Keep retrieved source notes concise so a small local model can fit its prompt context.
             research_context = render_research_markdown(metadata, sources, max_page_text=700)[:3000]
