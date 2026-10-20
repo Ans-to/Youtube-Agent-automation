@@ -42,6 +42,7 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
         wav.setsampwidth(2)
         wav.setframerate(sample_rate)
         chunk_frames = sample_rate
+        cue_index = 0
         for start in range(0, frame_count, chunk_frames):
             end = min(frame_count, start + chunk_frames)
             samples = array("h")
@@ -52,9 +53,11 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
                 bed = pulse * (0.020 * math.sin(2.0 * math.pi * 55.0 * t)
                                + 0.012 * math.sin(2.0 * math.pi * 82.41 * t)
                                + 0.006 * math.sin(2.0 * math.pi * 110.0 * t))
+                while cue_index < len(scene_starts) and t - scene_starts[cue_index] >= cue_window:
+                    cue_index += 1
                 cue = 0.0
-                for cue_start in scene_starts:
-                    elapsed = t - cue_start
+                if cue_index < len(scene_starts):
+                    elapsed = t - scene_starts[cue_index]
                     if 0.0 <= elapsed < cue_window:
                         fade = max(0.0, 1.0 - elapsed / cue_window)
                         # Short descending digital sweep and a crisp, low-level click.
@@ -63,7 +66,7 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
                         click = 0.0
                         if elapsed < 0.035:
                             click = 0.035 * math.exp(-elapsed * 115.0) * math.sin(2.0 * math.pi * 1550.0 * elapsed)
-                        cue += sweep + click
+                        cue = sweep + click
                 value = max(-0.12, min(0.12, bed + cue))
                 samples.append(int(value * 32767))
             if __import__("sys").byteorder != "little":
