@@ -105,76 +105,98 @@
   if(!c||c.enabled!==true)return;
   const portrait=canvas.height>canvas.width,w=canvas.width,h=canvas.height;
   const scale=Math.min(w,h)*(Number(c.scale)||0.22),cx=w*(Number(c.x)|| (portrait?0.5:0.82)),cy=h*(Number(c.y)||(portrait?0.70:0.56));
-  const bob=Math.sin(frame*0.10)*scale*.018,breath=Math.sin(frame*.055)*scale*.012,gesture=easeSmooth((progress-.15)/.28)*(1-easeSmooth((progress-.68)/.18));
+  const bob=Math.sin(frame*0.10)*scale*.012,breath=Math.sin(frame*.055)*scale*.009;
+  const gesture=easeSmooth((progress-.12)/.22)*(1-easeSmooth((progress-.68)/.18));
   const skin=c.skin||"#c58e72",hair=c.hair||"#25212a",shirt=c.shirt||"#6479b8",trousers=c.trousers||"#303746",line=c.outline||"#15151d";
-  const limb=(x1,y1,x2,y2,x3,y3,width,color)=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=line;ctx.lineWidth=width+scale*.035;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.stroke();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.stroke()};
+  const expression=String(c.expression||"confident").toLowerCase();
+  const pose=String(c.pose||"explain").toLowerCase();
+  const bone=(a,b,width,color)=>{
+   ctx.lineCap="round";ctx.lineJoin="round";
+   ctx.strokeStyle=line;ctx.lineWidth=width+scale*.026;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+   ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+  };
+  const endpoint=(p,length,angle)=>({x:p.x+Math.cos(angle)*length,y:p.y+Math.sin(angle)*length});
+  const joint=(p,r)=>{ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.012;ctx.beginPath();ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.fill();ctx.stroke()};
+  const shoe=(p,rotation)=>{ctx.save();ctx.translate(p.x,p.y);ctx.rotate(rotation);ctx.fillStyle="#171821";ctx.strokeStyle=line;ctx.lineWidth=scale*.012;ctx.beginPath();ctx.ellipse(0,0,scale*.105,scale*.038,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.restore()};
   ctx.save();ctx.translate(cx,cy+bob);
-  // Feet and legs: a restrained alternating walk/idle cycle.
-  const walk=Number(c.walking)===1?Math.sin(frame*.12)*scale*.09:Math.sin(frame*.045)*scale*.012;
-  limb(-scale*.13,scale*.18,-scale*.16+walk,scale*.43, -scale*.19+walk,scale*.65,scale*.085,trousers);
-  limb(scale*.13,scale*.18,scale*.16-walk,scale*.43,scale*.20-walk,scale*.65,scale*.085,trousers);
-  ctx.fillStyle="#171821";ctx.beginPath();ctx.ellipse(-scale*.20+walk,scale*.67,scale*.12,scale*.045,0,0,Math.PI*2);ctx.fill();
-  ctx.beginPath();ctx.ellipse(scale*.21-walk,scale*.67,scale*.12,scale*.045,0,0,Math.PI*2);ctx.fill();
-  // Arms with an eased explanatory gesture.
-  const leftHandX=-scale*.31-gesture*scale*.20,leftHandY=scale*.18-gesture*scale*.24;
-  const rightHandX=scale*.37+gesture*scale*.16,rightHandY=scale*.15-gesture*scale*.26;
-  limb(-scale*.22,-scale*.18,-scale*.35,scale*.02,leftHandX,leftHandY,scale*.065,shirt);
-  limb(scale*.22,-scale*.18,scale*.34+gesture*scale*.10,scale*.02-gesture*scale*.17,rightHandX,rightHandY,scale*.065,shirt);
-  // Hands and fingertips are separate shapes, keeping the gesture silhouette readable.
-  for(const [hx,hy,rotation] of [[leftHandX,leftHandY,-.25],[rightHandX,rightHandY,.20]]){
-   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.012;
-   ctx.beginPath();ctx.ellipse(hx,hy,scale*.055,scale*.043,rotation,0,Math.PI*2);ctx.fill();ctx.stroke();
-   ctx.strokeStyle=skin;ctx.lineWidth=scale*.012;
-   for(let finger=0;finger<3;finger++){
-    const fx=hx+(finger-1)*scale*.022;
-    ctx.beginPath();ctx.moveTo(fx,hy+scale*.012);ctx.lineTo(fx+rotation*scale*.025,hy+scale*.033);ctx.stroke();
-   }
-  }
-  // Torso and neck.
-  ctx.fillStyle=shirt;ctx.strokeStyle=line;ctx.lineWidth=scale*.018;ctx.beginPath();ctx.moveTo(-scale*.21,-scale*.23);ctx.quadraticCurveTo(0,-scale*.31,scale*.21,-scale*.23);ctx.lineTo(scale*.19,scale*.20);ctx.quadraticCurveTo(0,scale*.27,-scale*.19,scale*.20);ctx.closePath();ctx.fill();ctx.stroke();
-  // Collar, seam, pocket, buttons, and restrained fabric highlights add readable clothing structure.
+  // Legs are separate upper/lower bones joined at knee pivots; gait is eased and bounded.
+  const walk=Number(c.walking)===1?Math.sin(frame*.12)*.28:Math.sin(frame*.045)*.025;
+  const hipL={x:-scale*.105,y:scale*.17},hipR={x:scale*.105,y:scale*.17};
+  const kneeL=endpoint(hipL,scale*.245,Math.PI/2+walk);
+  const kneeR=endpoint(hipR,scale*.245,Math.PI/2-walk);
+  const ankleL=endpoint(kneeL,scale*.235,Math.PI/2-walk*.42);
+  const ankleR=endpoint(kneeR,scale*.235,Math.PI/2+walk*.42);
+  bone(hipL,kneeL,scale*.071,trousers);bone(kneeL,ankleL,scale*.064,trousers);
+  bone(hipR,kneeR,scale*.071,trousers);bone(kneeR,ankleR,scale*.064,trousers);
+  joint(kneeL,scale*.035);joint(kneeR,scale*.035);shoe({x:ankleL.x-scale*.025,y:ankleL.y+scale*.015},-walk*.2);shoe({x:ankleR.x+scale*.025,y:ankleR.y+scale*.015},walk*.2);
+  // Shoulder, elbow and wrist pivots are independent. The gesture is driven by eased scene progress.
+  const shoulderL={x:-scale*.205,y:-scale*.185},shoulderR={x:scale*.205,y:-scale*.185};
+  const leftUpperAngle=2.05-gesture*.20+(pose==="think"?-.18:0);
+  const rightUpperAngle=.98-gesture*.82+(pose==="point"?-.18:0);
+  const elbowL=endpoint(shoulderL,scale*.205,leftUpperAngle);
+  const elbowR=endpoint(shoulderR,scale*.205,rightUpperAngle);
+  const leftForeAngle=2.05+gesture*.28;
+  const rightForeAngle=1.18-gesture*.68+(pose==="think"?.38:0);
+  const wristL=endpoint(elbowL,scale*.185,leftForeAngle);
+  const wristR=endpoint(elbowR,scale*.185,rightForeAngle);
+  bone(shoulderL,elbowL,scale*.052,shirt);bone(elbowL,wristL,scale*.046,shirt);
+  bone(shoulderR,elbowR,scale*.052,shirt);bone(elbowR,wristR,scale*.046,shirt);
+  joint(elbowL,scale*.029);joint(elbowR,scale*.029);
+  // Torso remains a separate layer and covers upper-arm origins for clean overlap.
+  ctx.fillStyle=shirt;ctx.strokeStyle=line;ctx.lineWidth=scale*.018;ctx.beginPath();
+  ctx.moveTo(-scale*.21,-scale*.23);ctx.quadraticCurveTo(0,-scale*.31,scale*.21,-scale*.23);
+  ctx.lineTo(scale*.19,scale*.20);ctx.quadraticCurveTo(0,scale*.27,-scale*.19,scale*.20);ctx.closePath();ctx.fill();ctx.stroke();
   ctx.strokeStyle="rgba(244,242,236,0.72)";ctx.lineWidth=scale*.012;ctx.beginPath();ctx.moveTo(-scale*.075,-scale*.255);ctx.lineTo(0,-scale*.19);ctx.lineTo(scale*.075,-scale*.255);ctx.stroke();
   ctx.strokeStyle="rgba(21,21,29,0.55)";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,-scale*.18);ctx.lineTo(0,scale*.19);ctx.stroke();
   ctx.strokeStyle="rgba(244,242,236,0.50)";ctx.lineWidth=scale*.010;ctx.strokeRect(-scale*.135,-scale*.075,scale*.07,scale*.075);
   for(const by of [-scale*.075,scale*.005,scale*.085]){ctx.fillStyle=p.accent;ctx.beginPath();ctx.arc(scale*.025,by,scale*.008,0,Math.PI*2);ctx.fill()}
+  // Hands are separate wrist-attached shapes, with a readable palm and three finger strokes.
+  for(const [hand,rotation] of [[wristL,-.25],[wristR,.20]]){
+   ctx.save();ctx.translate(hand.x,hand.y);ctx.rotate(rotation);
+   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.012;ctx.beginPath();ctx.ellipse(0,0,scale*.052,scale*.041,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.strokeStyle=skin;ctx.lineWidth=scale*.014;
+   for(let finger=0;finger<3;finger++){const fx=(finger-1)*scale*.022;ctx.beginPath();ctx.moveTo(fx,scale*.012);ctx.lineTo(fx+(finger-1)*scale*.008,scale*.039);ctx.stroke()}
+   ctx.restore();
+  }
   ctx.fillStyle=skin;ctx.fillRect(-scale*.055,-scale*.34+breath,scale*.11,scale*.12);
-  // Head and hair.
-  const headY=-scale*.48+breath+Math.sin(progress*Math.PI*2)*scale*.004,headW=scale*.18,headH=scale*.22;
-  ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.ellipse(0,headY,headW,headH,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-  ctx.fillStyle=hair;ctx.beginPath();ctx.moveTo(-headW*1.02,headY);ctx.quadraticCurveTo(-headW*1.1,headY-headH*1.3,0,headY-headH*1.12);ctx.quadraticCurveTo(headW*1.12,headY-headH*1.1,headW,headY-headH*.2);ctx.lineTo(headW*.55,headY-headH*.36);ctx.lineTo(headW*.18,headY-headH*.13);ctx.lineTo(-headW*.25,headY-headH*.33);ctx.lineTo(-headW*.7,headY-headH*.16);ctx.closePath();ctx.fill();
-  ctx.strokeStyle="rgba(244,242,236,0.24)";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(-headW*.62,headY-headH*.68);ctx.quadraticCurveTo(-headW*.18,headY-headH*1.02,headW*.43,headY-headH*.76);ctx.stroke();
-  // Ears, gaze saccades, expression-aware brows, and a subtle nose line.
-  const blink=(frame%173>168&&frame%173<172)?0.15:1;
-  const gazeX=Math.sin(frame*.031)*headW*.05,gazeY=Math.sin(frame*.019)*headH*.035;
-  const expression=String(c.expression||"confident").toLowerCase();
+  const headY=-scale*.48+breath+Math.sin(progress*Math.PI*2)*scale*.003,headW=scale*.18,headH=scale*.22;
+  const headTilt=Math.sin(frame*.018)*.025+(expression==="curious"?-.035:0);
+  ctx.save();ctx.translate(0,headY);ctx.rotate(headTilt);
+  ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.ellipse(0,0,headW,headH,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=hair;ctx.beginPath();ctx.moveTo(-headW*1.02,-headH*.02);ctx.quadraticCurveTo(-headW*1.1,-headH*1.3,0,-headH*1.12);ctx.quadraticCurveTo(headW*1.12,-headH*1.1,headW,-headH*.2);ctx.lineTo(headW*.55,-headH*.36);ctx.lineTo(headW*.18,-headH*.13);ctx.lineTo(-headW*.25,-headH*.33);ctx.lineTo(-headW*.7,-headH*.16);ctx.closePath();ctx.fill();
+  ctx.strokeStyle="rgba(244,242,236,0.24)";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(-headW*.62,-headH*.68);ctx.quadraticCurveTo(-headW*.18,-headH*1.02,headW*.43,-headH*.76);ctx.stroke();
+  const blink=(frame%173>168&&frame%173<172)?0.15:1,gazeX=Math.sin(frame*.031)*headW*.05,gazeY=Math.sin(frame*.019)*headH*.035;
   const browLift=expression==="curious"?-headH*.07:(expression==="concerned"?headH*.055:(expression==="focused"?headH*.025:0));
   for(const ex of [-1,1]){
-   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.010;ctx.beginPath();ctx.ellipse(ex*headW*.98,headY+headH*.10,headW*.11,headH*.15,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-   ctx.fillStyle="#f4f2ec";ctx.beginPath();ctx.ellipse(ex*headW*.39,headY,headW*.19,headH*.13*blink,0,0,Math.PI*2);ctx.fill();
-   ctx.fillStyle="#292b39";ctx.beginPath();ctx.arc(ex*headW*.39+gazeX,headY+gazeY,headW*.07,0,Math.PI*2);ctx.fill();
-   ctx.strokeStyle=hair;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.moveTo(ex*headW*.57,headY-headH*.23+browLift);ctx.quadraticCurveTo(ex*headW*.39,headY-headH*.34+browLift,ex*headW*.20,headY-headH*.26+browLift);ctx.stroke();
+   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.010;ctx.beginPath();ctx.ellipse(ex*headW*.98,headH*.10,headW*.11,headH*.15,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.fillStyle="#f4f2ec";ctx.beginPath();ctx.ellipse(ex*headW*.39,0,headW*.19,headH*.13*blink,0,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle="#292b39";ctx.beginPath();ctx.arc(ex*headW*.39+gazeX,gazeY,headW*.07,0,Math.PI*2);ctx.fill();
+   ctx.strokeStyle=hair;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.moveTo(ex*headW*.57,-headH*.23+browLift);ctx.quadraticCurveTo(ex*headW*.39,-headH*.34+browLift,ex*headW*.20,-headH*.26+browLift);ctx.stroke();
   }
-  ctx.strokeStyle="#8f5f50";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,headY+headH*.03);ctx.lineTo(scale*.008,headY+headH*.20);ctx.stroke()
-  // Smoothly blend viseme geometry between timestamped cues; never snap the mouth shape frame-to-frame.
-  const vis=(Array.isArray(c.visemes)?c.visemes:[]).filter(v=>Number.isFinite(Number(v.t))&&Number(v.t)>=0&&Number(v.t)<=1&&["closed","open","wide","round"].includes(String(v.shape))).slice().sort((a,b)=>Number(a.t)-Number(b.t));
-  const geometry={closed:[.22,.006],open:[.30,.023],wide:[.48,.018],round:[.24,.025]};
-  let mouthW=.27,mouthH=.018;
+  ctx.strokeStyle="#8f5f50";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,headH*.03);ctx.lineTo(scale*.008,headH*.20);ctx.stroke();
+  // Ten reusable mouth/viseme groups. Cue timing remains approximate unless a true aligner supplied it.
+  const visemeShapes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
+  const vis=(Array.isArray(c.visemes)?c.visemes:[]).filter(v=>Number.isFinite(Number(v.t))&&Number(v.t)>=0&&Number(v.t)<=1&&visemeShapes.includes(String(v.shape))).slice().sort((a,b)=>Number(a.t)-Number(b.t));
+  const geometry={closed:[.22,.006],open:[.30,.028],wide:[.48,.018],round:[.24,.028],teeth:[.38,.024],tongue:[.30,.026],sibilant:[.44,.009],lip:[.25,.012],open_wide:[.50,.026],open_round:[.25,.030]};
+  let mouthW=.27,mouthH=.018,activeShape="open";
   if(vis.length){
    let before=vis[0],after=vis[vis.length-1];
    for(let i=0;i<vis.length;i++){if(Number(vis[i].t)<=progress)before=vis[i];if(Number(vis[i].t)>=progress){after=vis[i];break}}
    const a=geometry[String(before.shape)],b=geometry[String(after.shape)],span=Number(after.t)-Number(before.t);
    const raw=span>0?Math.max(0,Math.min(1,(progress-Number(before.t))/span)):1,q=raw*raw*(3-2*raw);
-   mouthW=a[0]+(b[0]-a[0])*q;mouthH=a[1]+(b[1]-a[1])*q;
+   mouthW=a[0]+(b[0]-a[0])*q;mouthH=a[1]+(b[1]-a[1])*q;activeShape=raw<.5?String(before.shape):String(after.shape);
   }else if(c.speaking===true){
-   const jaw=(.5-.5*Math.cos(2*Math.PI*3.2*progress));
-   mouthW=.23+.06*jaw;mouthH=.006+.017*jaw;
-  }
-  const my=headY+headH*.55,mw=headW*mouthW,mh=scale*mouthH;
+   const jaw=(.5-.5*Math.cos(2*Math.PI*3.2*progress));mouthW=.23+.06*jaw;mouthH=.006+.017*jaw;
+  }else{activeShape="closed";mouthH=.006}
+  const my=headH*.55,mw=headW*mouthW,mh=scale*mouthH;
   ctx.fillStyle="#562e32";ctx.beginPath();ctx.ellipse(0,my,mw,mh,0,0,Math.PI*2);ctx.fill();
-  if(mouthH>.019){ctx.fillStyle="#f3e8de";ctx.fillRect(-mw*.65,my-mh*.22,mw*1.3,mh*.28)}
-  ctx.restore();
+  if(["teeth","sibilant","wide","open_wide"].includes(activeShape)&&mouthH>.012){ctx.fillStyle="#f3e8de";ctx.fillRect(-mw*.65,my-mh*.18,mw*1.3,mh*.34)}
+  if(activeShape==="tongue"&&mouthH>.012){ctx.fillStyle="#cf777d";ctx.beginPath();ctx.ellipse(0,my+mh*.35,mw*.35,mh*.22,0,0,Math.PI*2);ctx.fill()}
+  if(activeShape==="lip"){ctx.strokeStyle="#8f5f50";ctx.lineWidth=scale*.008;ctx.beginPath();ctx.ellipse(0,my,mw,mh,0,0,Math.PI*2);ctx.stroke()}
+  ctx.restore();ctx.restore();
  }
  window.drawCharacterForTest=drawCharacter;
+ window.characterRigCapabilitiesForTest=()=>({version:2,joints:["shoulder","elbow","wrist","hip","knee","ankle","neck","head"],visemeShapes:["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"]});
  async function drawTransitionFrame(previous,previousFrame,previousCount,previousGlobal,current,currentFrame,currentCount,currentGlobal,kind,t){
   window.drawFrame(previous,previousFrame,previousCount,previousGlobal,true);
   const outgoing=new Image();outgoing.src=canvas.toDataURL("image/png");await outgoing.decode();
