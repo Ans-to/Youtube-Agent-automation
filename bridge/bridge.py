@@ -9,6 +9,7 @@ import os
 import re
 import pathlib
 import tempfile
+import threading
 import subprocess
 import sys
 import time
@@ -31,6 +32,8 @@ TOKEN_FILE = pathlib.Path(os.environ.get(
 STATE_DIR = pathlib.Path(os.environ.get(
     "AGENT_HQ_STATE_DIR", str(pathlib.Path.home() / ".local/state/offline-agent-hq")
 )).expanduser()
+
+_JSON_REPLACE_LOCK = threading.Lock()
 # Deliberately narrow: never add shell, arbitrary code, package installation, or task execution.
 ALLOWED_ACTIONS = {"status", "self_test", "create_task", "run_task"}
 
@@ -132,7 +135,18 @@ def write_json_atomic(path: pathlib.Path, data: object) -> None:
         with os.fdopen(fd, "w", encoding="utf-8") as stream:
             json.dump(data, stream, ensure_ascii=False, indent=2)
             stream.write("\n")
-        os.replace(temporary_name, path)
+        # Windows may briefly deny replacement while another writer is replacing
+        # the same target. Serialize in-process writers and retry transient sharing
+        # violations; the temp file stays in the target directory for atomicity.
+        with _JSON_REPLACE_LOCK:
+            for attempt in range(8):
+                try:
+                    os.replace(temporary_name, path)
+                    break
+                except PermissionError:
+                    if attempt == 7:
+                        raise
+                    time.sleep(0.01 * (2 ** attempt))
     except Exception:
         try:
             os.unlink(temporary_name)
