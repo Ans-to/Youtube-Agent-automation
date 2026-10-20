@@ -7,6 +7,10 @@ __pycache__/
 *.before-*
 *.broken-patch
 
+# Python virtual environments (keep local runtimes and installed model dependencies out of Git)
+.venv/
+.venv-urdu-tts/
+
 # Secrets and local environment
 .env
 .env.*

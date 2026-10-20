@@ -7,9 +7,14 @@
 (() => {
  const canvas=document.getElementById("frame"),ctx=canvas.getContext("2d",{alpha:false});
  const p={bg:"#0b0b0f",fg:"#f4f2ec",accent:"#c8ff3d",muted:"#a7a7b3",grid:"#24242c"};
- function wrap(text,maxWidth,font){ctx.font=font;const lines=[];let line="";for(const word of String(text||"").split(/\s+/)){const c=line?line+" "+word:word;if(ctx.measureText(c).width>maxWidth&&line){lines.push(line);line=word}else line=c}if(line)lines.push(line);return lines}
- function getCaptionPage(text,maxWidth,font,progress){
-  const all=wrap(text,maxWidth,font),perPage=2,pages=Math.max(1,Math.ceil(all.length/perPage));
+ const RTL_SCRIPT=/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
+ const TEXT_FONT='"Noto Naskh Arabic","Noto Nastaliq Urdu","Nirmala UI",Arial,sans-serif';
+ function isRtlText(text){return RTL_SCRIPT.test(String(text||""))}
+ function textDirection(text,profile){return isRtlText(text)?"rtl":"ltr"}
+ window.textDirectionForTest=function(text){return textDirection(text, "");};
+ function wrap(text,maxWidth,font,direction="ltr"){ctx.font=font;const oldDirection=ctx.direction,oldAlign=ctx.textAlign;ctx.direction=direction;ctx.textAlign=direction==="rtl"?"right":"left";const lines=[];let line="";for(const word of String(text||"").split(/\s+/)){const candidate=line?line+" "+word:word;if(ctx.measureText(candidate).width>maxWidth&&line){lines.push(line);line=word}else line=candidate}if(line)lines.push(line);ctx.direction=oldDirection;ctx.textAlign=oldAlign;return lines}
+ function getCaptionPage(text,maxWidth,font,progress,direction="ltr"){
+  const all=wrap(text,maxWidth,font,direction),perPage=2,pages=Math.max(1,Math.ceil(all.length/perPage));
   const index=Math.min(pages-1,Math.floor(Math.max(0,Math.min(.999999,progress))*pages));
   return {allLines:all,totalPages:pages,pageIndex:index,lines:all.slice(index*perPage,index*perPage+perPage)};
  }
@@ -94,29 +99,128 @@
   }
   ctx.restore();
  }
+
+ function easeSmooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)}
+ function drawCharacter(c,progress,frame){
+  if(!c||c.enabled!==true)return;
+  const portrait=canvas.height>canvas.width,w=canvas.width,h=canvas.height;
+  const scale=Math.min(w,h)*(Number(c.scale)||0.22),cx=w*(Number(c.x)|| (portrait?0.5:0.82)),cy=h*(Number(c.y)||(portrait?0.70:0.56));
+  const bob=Math.sin(frame*0.10)*scale*.018,breath=Math.sin(frame*.055)*scale*.012,gesture=easeSmooth((progress-.15)/.28)*(1-easeSmooth((progress-.68)/.18));
+  const skin=c.skin||"#c58e72",hair=c.hair||"#25212a",shirt=c.shirt||"#6479b8",trousers=c.trousers||"#303746",line=c.outline||"#15151d";
+  const limb=(x1,y1,x2,y2,x3,y3,width,color)=>{ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle=line;ctx.lineWidth=width+scale*.035;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.stroke();ctx.strokeStyle=color;ctx.lineWidth=width;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.lineTo(x3,y3);ctx.stroke()};
+  ctx.save();ctx.translate(cx,cy+bob);
+  // Feet and legs: a restrained alternating walk/idle cycle.
+  const walk=Number(c.walking)===1?Math.sin(frame*.12)*scale*.09:Math.sin(frame*.045)*scale*.012;
+  limb(-scale*.13,scale*.18,-scale*.16+walk,scale*.43, -scale*.19+walk,scale*.65,scale*.085,trousers);
+  limb(scale*.13,scale*.18,scale*.16-walk,scale*.43,scale*.20-walk,scale*.65,scale*.085,trousers);
+  ctx.fillStyle="#171821";ctx.beginPath();ctx.ellipse(-scale*.20+walk,scale*.67,scale*.12,scale*.045,0,0,Math.PI*2);ctx.fill();
+  ctx.beginPath();ctx.ellipse(scale*.21-walk,scale*.67,scale*.12,scale*.045,0,0,Math.PI*2);ctx.fill();
+  // Arms with an eased explanatory gesture.
+  const leftHandX=-scale*.31-gesture*scale*.20,leftHandY=scale*.18-gesture*scale*.24;
+  const rightHandX=scale*.37+gesture*scale*.16,rightHandY=scale*.15-gesture*scale*.26;
+  limb(-scale*.22,-scale*.18,-scale*.35,scale*.02,leftHandX,leftHandY,scale*.065,shirt);
+  limb(scale*.22,-scale*.18,scale*.34+gesture*scale*.10,scale*.02-gesture*scale*.17,rightHandX,rightHandY,scale*.065,shirt);
+  // Hands and fingertips are separate shapes, keeping the gesture silhouette readable.
+  for(const [hx,hy,rotation] of [[leftHandX,leftHandY,-.25],[rightHandX,rightHandY,.20]]){
+   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.012;
+   ctx.beginPath();ctx.ellipse(hx,hy,scale*.055,scale*.043,rotation,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.strokeStyle=skin;ctx.lineWidth=scale*.012;
+   for(let finger=0;finger<3;finger++){
+    const fx=hx+(finger-1)*scale*.022;
+    ctx.beginPath();ctx.moveTo(fx,hy+scale*.012);ctx.lineTo(fx+rotation*scale*.025,hy+scale*.033);ctx.stroke();
+   }
+  }
+  // Torso and neck.
+  ctx.fillStyle=shirt;ctx.strokeStyle=line;ctx.lineWidth=scale*.018;ctx.beginPath();ctx.moveTo(-scale*.21,-scale*.23);ctx.quadraticCurveTo(0,-scale*.31,scale*.21,-scale*.23);ctx.lineTo(scale*.19,scale*.20);ctx.quadraticCurveTo(0,scale*.27,-scale*.19,scale*.20);ctx.closePath();ctx.fill();ctx.stroke();
+  // Collar, seam, pocket, buttons, and restrained fabric highlights add readable clothing structure.
+  ctx.strokeStyle="rgba(244,242,236,0.72)";ctx.lineWidth=scale*.012;ctx.beginPath();ctx.moveTo(-scale*.075,-scale*.255);ctx.lineTo(0,-scale*.19);ctx.lineTo(scale*.075,-scale*.255);ctx.stroke();
+  ctx.strokeStyle="rgba(21,21,29,0.55)";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,-scale*.18);ctx.lineTo(0,scale*.19);ctx.stroke();
+  ctx.strokeStyle="rgba(244,242,236,0.50)";ctx.lineWidth=scale*.010;ctx.strokeRect(-scale*.135,-scale*.075,scale*.07,scale*.075);
+  for(const by of [-scale*.075,scale*.005,scale*.085]){ctx.fillStyle=p.accent;ctx.beginPath();ctx.arc(scale*.025,by,scale*.008,0,Math.PI*2);ctx.fill()}
+  ctx.fillStyle=skin;ctx.fillRect(-scale*.055,-scale*.34+breath,scale*.11,scale*.12);
+  // Head and hair.
+  const headY=-scale*.48+breath+Math.sin(progress*Math.PI*2)*scale*.004,headW=scale*.18,headH=scale*.22;
+  ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.ellipse(0,headY,headW,headH,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+  ctx.fillStyle=hair;ctx.beginPath();ctx.moveTo(-headW*1.02,headY);ctx.quadraticCurveTo(-headW*1.1,headY-headH*1.3,0,headY-headH*1.12);ctx.quadraticCurveTo(headW*1.12,headY-headH*1.1,headW,headY-headH*.2);ctx.lineTo(headW*.55,headY-headH*.36);ctx.lineTo(headW*.18,headY-headH*.13);ctx.lineTo(-headW*.25,headY-headH*.33);ctx.lineTo(-headW*.7,headY-headH*.16);ctx.closePath();ctx.fill();
+  ctx.strokeStyle="rgba(244,242,236,0.24)";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(-headW*.62,headY-headH*.68);ctx.quadraticCurveTo(-headW*.18,headY-headH*1.02,headW*.43,headY-headH*.76);ctx.stroke();
+  // Ears, gaze saccades, expression-aware brows, and a subtle nose line.
+  const blink=(frame%173>168&&frame%173<172)?0.15:1;
+  const gazeX=Math.sin(frame*.031)*headW*.05,gazeY=Math.sin(frame*.019)*headH*.035;
+  const expression=String(c.expression||"confident").toLowerCase();
+  const browLift=expression==="curious"?-headH*.07:(expression==="concerned"?headH*.055:(expression==="focused"?headH*.025:0));
+  for(const ex of [-1,1]){
+   ctx.fillStyle=skin;ctx.strokeStyle=line;ctx.lineWidth=scale*.010;ctx.beginPath();ctx.ellipse(ex*headW*.98,headY+headH*.10,headW*.11,headH*.15,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+   ctx.fillStyle="#f4f2ec";ctx.beginPath();ctx.ellipse(ex*headW*.39,headY,headW*.19,headH*.13*blink,0,0,Math.PI*2);ctx.fill();
+   ctx.fillStyle="#292b39";ctx.beginPath();ctx.arc(ex*headW*.39+gazeX,headY+gazeY,headW*.07,0,Math.PI*2);ctx.fill();
+   ctx.strokeStyle=hair;ctx.lineWidth=scale*.014;ctx.beginPath();ctx.moveTo(ex*headW*.57,headY-headH*.23+browLift);ctx.quadraticCurveTo(ex*headW*.39,headY-headH*.34+browLift,ex*headW*.20,headY-headH*.26+browLift);ctx.stroke();
+  }
+  ctx.strokeStyle="#8f5f50";ctx.lineWidth=scale*.009;ctx.beginPath();ctx.moveTo(0,headY+headH*.03);ctx.lineTo(scale*.008,headY+headH*.20);ctx.stroke()
+  // Smoothly blend viseme geometry between timestamped cues; never snap the mouth shape frame-to-frame.
+  const vis=(Array.isArray(c.visemes)?c.visemes:[]).filter(v=>Number.isFinite(Number(v.t))&&Number(v.t)>=0&&Number(v.t)<=1&&["closed","open","wide","round"].includes(String(v.shape))).slice().sort((a,b)=>Number(a.t)-Number(b.t));
+  const geometry={closed:[.22,.006],open:[.30,.023],wide:[.48,.018],round:[.24,.025]};
+  let mouthW=.27,mouthH=.018;
+  if(vis.length){
+   let before=vis[0],after=vis[vis.length-1];
+   for(let i=0;i<vis.length;i++){if(Number(vis[i].t)<=progress)before=vis[i];if(Number(vis[i].t)>=progress){after=vis[i];break}}
+   const a=geometry[String(before.shape)],b=geometry[String(after.shape)],span=Number(after.t)-Number(before.t);
+   const raw=span>0?Math.max(0,Math.min(1,(progress-Number(before.t))/span)):1,q=raw*raw*(3-2*raw);
+   mouthW=a[0]+(b[0]-a[0])*q;mouthH=a[1]+(b[1]-a[1])*q;
+  }else if(c.speaking===true){
+   const jaw=(.5-.5*Math.cos(2*Math.PI*3.2*progress));
+   mouthW=.23+.06*jaw;mouthH=.006+.017*jaw;
+  }
+  const my=headY+headH*.55,mw=headW*mouthW,mh=scale*mouthH;
+  ctx.fillStyle="#562e32";ctx.beginPath();ctx.ellipse(0,my,mw,mh,0,0,Math.PI*2);ctx.fill();
+  if(mouthH>.019){ctx.fillStyle="#f3e8de";ctx.fillRect(-mw*.65,my-mh*.22,mw*1.3,mh*.28)}
+  ctx.restore();
+ }
+ window.drawCharacterForTest=drawCharacter;
+ async function drawTransitionFrame(previous,previousFrame,previousCount,previousGlobal,current,currentFrame,currentCount,currentGlobal,kind,t){
+  window.drawFrame(previous,previousFrame,previousCount,previousGlobal,true);
+  const outgoing=new Image();outgoing.src=canvas.toDataURL("image/png");await outgoing.decode();
+  window.drawFrame(current,currentFrame,currentCount,currentGlobal,true);
+  const incoming=new Image();incoming.src=canvas.toDataURL("image/png");await incoming.decode();
+  const q=easeSmooth(t),w=canvas.width,h=canvas.height;ctx.save();
+  if(kind==="fade"){ctx.globalAlpha=1-q;ctx.drawImage(outgoing,0,0,w,h);}
+  else if(kind==="wipe-left"||kind==="wipe-right"){const width=w*(1-q);ctx.beginPath();ctx.rect(kind==="wipe-left"?w-width:0,0,width,h);ctx.clip();ctx.drawImage(outgoing,0,0,w,h);}
+  else if(kind==="slide-left"||kind==="slide-right"){
+   ctx.drawImage(outgoing,0,0,w,h);
+   const offset=(1-q)*w*(kind==="slide-left"?1:-1);
+   ctx.drawImage(incoming,offset,0,w,h);
+  }else if(kind==="zoom"){
+   ctx.drawImage(outgoing,0,0,w,h);ctx.globalAlpha=q;ctx.translate(w/2,h/2);
+   const scale=.92+.08*q;ctx.scale(scale,scale);ctx.drawImage(incoming,-w/2,-h/2,w,h);
+  }else{ctx.globalAlpha=1-q;ctx.drawImage(outgoing,0,0,w,h);}
+  ctx.restore();
+ }
+ window.drawTransitionFrame=drawTransitionFrame;
+
  window.setCanvasSize=function(width,height){if(!Number.isInteger(width)||!Number.isInteger(height)||width<320||height<180||width>3840||height>2160)throw new Error("Invalid canvas dimensions");canvas.width=width;canvas.height=height;};
-  window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame){
+  window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame,suppressTransition){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
    const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?w*.66:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
   ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
   for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
   ctx.fillStyle=p.accent;ctx.fillRect(left,eyebrowY-55,Math.max(30,w*.028),6);
-  ctx.font="700 "+Math.max(15,w*.013)+"px Arial";ctx.fillStyle=p.muted;ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
-  const headFont="700 "+fontSize+"px Arial",lines=wrap(scene.headline||"Every frame is code.",textW,headFont);
-  ctx.font=headFont;ctx.fillStyle=p.fg;const lineHeight=fontSize*1.18;
-   if(String(scene.visual_type||"hero").toLowerCase()==="kinetic-type"){
-    let wordIndex=0;lines.slice(0,3).forEach((line,lineIndex)=>{let x=left;for(const word of line.split(/\s+/)){const delay=wordIndex*2,entry=Math.max(0,Math.min(1,(localFrame-delay)/6)),y=headlineY+lineIndex*lineHeight+(1-entry)*Math.min(18,fontSize*.16);ctx.globalAlpha=entry;ctx.fillText(word,x,y);x+=ctx.measureText(word+" ").width;wordIndex++}});ctx.globalAlpha=1;
-   }else{
-    lines.slice(0,3).forEach((line,i)=>{ctx.globalAlpha=Math.min(1,Math.max(0,progress*5-i*.25));ctx.fillText(line,left,headlineY+i*lineHeight)});
-    ctx.globalAlpha=1;
-   }
-  ctx.globalAlpha=1;
-  const subFont="400 "+Math.max(20,w*.023)+"px Arial",sub=wrap(scene.subhead||"",textW,subFont);
-  ctx.font=subFont;ctx.fillStyle=p.muted;sub.slice(0,3).forEach((line,i)=>ctx.fillText(line,left,subY+i*Math.max(27,w*.032)));
-  drawSceneGraphic(scene,progress,globalFrame);ctx.fillStyle="#30303a";ctx.fillRect(left,barY,barW,3);ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);
-   const caption=String(scene.caption||scene.narration||"").trim(),captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px Arial",captionInfo=getCaptionPage(caption,contentW-32,captionFont,progress),captionLines=captionInfo.lines,captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
-   if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.94;ctx.fillStyle="#111119";ctx.fillRect(left,boxY,contentW,boxHeight);ctx.globalAlpha=1;ctx.strokeStyle="#454552";ctx.lineWidth=1;ctx.strokeRect(left,boxY,contentW,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;captionLines.forEach((line,i)=>ctx.fillText(line,left+16,boxY+10+captionSize+i*captionLineHeight));}
+  ctx.font="700 "+Math.max(15,w*.013)+"px "+TEXT_FONT;ctx.fillStyle=p.muted;ctx.direction="ltr";ctx.textAlign="left";ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
+   const headline=String(scene.headline||"Every frame is code."),subhead=String(scene.subhead||""),caption=String(scene.caption||scene.narration||"").trim();
+   const headDirection=textDirection(headline,scene.narration_language),subDirection=textDirection(subhead,scene.narration_language),captionDirection=textDirection(caption,scene.narration_language);
+   const headFont="700 "+fontSize+"px "+TEXT_FONT,lines=wrap(headline,textW,headFont,headDirection),lineX=headDirection==="rtl"?left+textW:left;
+   ctx.font=headFont;ctx.fillStyle=p.fg;ctx.direction=headDirection;ctx.textAlign=headDirection==="rtl"?"right":"left";const lineHeight=fontSize*1.18;
+    if(String(scene.visual_type||"hero").toLowerCase()==="kinetic-type"&&headDirection==="ltr"){
+     let wordIndex=0;lines.slice(0,3).forEach((line,lineIndex)=>{let x=left;for(const word of line.split(/\s+/)){const delay=wordIndex*2,entry=Math.max(0,Math.min(1,(localFrame-delay)/6)),y=headlineY+lineIndex*lineHeight+(1-entry)*Math.min(18,fontSize*.16);ctx.globalAlpha=entry;ctx.fillText(word,x,y);x+=ctx.measureText(word+" ").width;wordIndex++}});ctx.globalAlpha=1;
+    }else{
+     lines.slice(0,3).forEach((line,i)=>{ctx.globalAlpha=Math.min(1,Math.max(0,progress*5-i*.25));ctx.fillText(line,lineX,headlineY+i*lineHeight)});
+     ctx.globalAlpha=1;
+    }
+   ctx.globalAlpha=1;ctx.direction="ltr";ctx.textAlign="left";
+   const subFont="400 "+Math.max(20,w*.023)+"px "+TEXT_FONT,sub=wrap(subhead,textW,subFont,subDirection),subX=subDirection==="rtl"?left+textW:left;
+   ctx.font=subFont;ctx.fillStyle=p.muted;ctx.direction=subDirection;ctx.textAlign=subDirection==="rtl"?"right":"left";sub.slice(0,3).forEach((line,i)=>ctx.fillText(line,subX,subY+i*Math.max(27,w*.032)));ctx.direction="ltr";ctx.textAlign="left";
+   drawSceneGraphic(scene,progress,globalFrame);
+  if(scene.character)drawCharacter(scene.character,progress,globalFrame);ctx.fillStyle="#30303a";ctx.fillRect(left,barY,barW,3);ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);
+   const captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px "+TEXT_FONT,captionInfo=getCaptionPage(caption,contentW-32,captionFont,progress,captionDirection),captionLines=captionInfo.lines,captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
+   if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.94;ctx.fillStyle="#111119";ctx.fillRect(left,boxY,contentW,boxHeight);ctx.globalAlpha=1;ctx.strokeStyle="#454552";ctx.lineWidth=1;ctx.strokeRect(left,boxY,contentW,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;ctx.direction=captionDirection;ctx.textAlign=captionDirection==="rtl"?"right":"left";const captionX=captionDirection==="rtl"?left+contentW-16:left+16;captionLines.forEach((line,i)=>ctx.fillText(line,captionX,boxY+10+captionSize+i*captionLineHeight));ctx.direction="ltr";ctx.textAlign="left";}
    if(String(scene.visual_type||"hero")==="hero"||scene.show_orbit===true){
     ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;
     const cx=w*.84,cy=portrait?h*.22:h*.26,r=Math.min(w,h)*(portrait ? 0.055 : 0.075);
@@ -126,7 +230,7 @@
   ctx.textAlign="right";ctx.fillText("LOCAL RENDER / "+String(Math.round(progress*100)).padStart(3," ")+"%",w-left,footerY);ctx.textAlign="left";
   ctx.fillStyle=p.fg;ctx.font="600 "+Math.max(12,w*.0094)+"px monospace";ctx.fillText("OFFLINE AGENT HQ",left,Math.min(h-24,footerY+Math.max(30,w*.035)));
    const trans=String(scene.transition_in||"none").toLowerCase(),transFrames=Math.max(1,Math.min(60,Number(scene.transition_frames)||12));
-   if(trans!=="none"&&localFrame<transFrames){
+   if(!suppressTransition&&trans!=="none"&&localFrame<transFrames){
     const t=Math.max(0,Math.min(1,localFrame/Math.max(1,transFrames-1))),ease=1-Math.pow(1-t,3);
     if(trans==="fade"){ctx.globalAlpha=1-ease;ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.globalAlpha=1;}
     else if(trans==="wipe-left"||trans==="wipe-right"){const covered=w*(1-ease);ctx.fillStyle=p.bg;ctx.fillRect(trans==="wipe-left"?w-covered:0,0,covered,h);}

@@ -35,7 +35,7 @@ jobs:
           node-version: "22"
 
       - name: Compile Python modules (Python 3.11)
-        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py
 
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
@@ -60,7 +60,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python modules (Python 3.12)
-        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py
 
       - name: Run unit tests (Python 3.12)
         run: python -m unittest discover -s tests -v
@@ -99,7 +99,24 @@ jobs:
           if [ "$code" -eq 0 ]; then echo "Oversized storyboard was unexpectedly accepted"; exit 1; fi
           grep -q "30000-frame render limit" limit-check.log
 
+      - name: Install local English text-to-speech engine
+        run: python -m pip install --upgrade pip piper-tts
+
+      - name: Download pinned English voice model for the end-to-end render
+        env:
+          PIPER_VOICE_REVISION: b145f2ac26522d6a2ccde0164b7b0e48b1e3199c
+        run: |
+          set -eu
+          voice_dir=video_studio/voices/en_US-lessac-medium
+          mkdir -p "$voice_dir"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+          test -s "$voice_dir/en_US-lessac-medium.onnx"
+          test -s "$voice_dir/en_US-lessac-medium.onnx.json"
+
       - name: End-to-end CEO task to rendered MP4 (offline deterministic mode)
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
         run: |
           python - <<'PY'
           import json
@@ -126,7 +143,7 @@ jobs:
               "kind": "youtube_package",
               "title": "CI template demo render smoke test",
               "input": (
-                  "Create a template demo render MP4 for a faceless YouTube video about "
+                  "Narration language: English. Create a template demo render MP4 for a faceless YouTube video about "
                   "CI pipeline smoke testing. Generate the video package and render it; "
                   "this is synthetic smoke-test content, not publication content."
               ),
@@ -166,8 +183,12 @@ jobs:
                        if item.get("tool") == "video_studio"), None)
           if not tool or tool.get("status") != "completed":
               raise SystemExit("CEO pipeline did not successfully run the video builder: " + repr(tool))
+          checks = manifest.get("artifact_checks", [])
+          video_check = next((check for check in checks if check.get("tool") == "video_studio"), None)
+          if not video_check or video_check.get("status") != "passed":
+              raise SystemExit("Post-build artifact verification did not pass: " + repr(video_check))
           package = workspace / "orchestration" / "task-CI-VIDEO-E2E" / "video-production"
-          required = ["script.md", "storyboard.json", "package-status.json", "video.mp4"]
+          required = ["script.md", "storyboard.json", "package-status.json", "video.mp4", "video.srt", "video.vtt", "video.qc.json"]
           missing = [name for name in required if not (package / name).is_file()]
           if missing:
               raise SystemExit("Missing video package artifacts: " + ", ".join(missing))
@@ -192,7 +213,7 @@ jobs:
           PY
 
       - name: Render and validate a 1-second landscape MP4
-        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4
+        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en
 
       - name: Render and validate a 1-second vertical Shorts MP4
-        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4
+        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en

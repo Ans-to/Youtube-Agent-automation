@@ -8,9 +8,197 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "agents"))
 import orchestrate
+import practice
+
+
+class NarrationLanguageRoutingTests(unittest.TestCase):
+    def test_explicit_narration_language_overrides_channel_default(self):
+        cases = {
+            "Narration language: English. Create a CI test video.": "en",
+            "Use voice-over in Urdu with English technical terms.": "ur-en",
+            "Generate subtitles in ur-en.": "ur-en",
+            "Use Urdu narration for this explainer.": "ur-en",
+            "Create an English voice-over.": "en",
+            "Write Urdu subtitles.": "ur-en",
+            "Speak in English.": "en",
+            "Language: en.": "en",
+        }
+        for instruction, expected in cases.items():
+            with self.subTest(instruction=instruction):
+                self.assertEqual(orchestrate.requested_narration_language(instruction), expected)
+
+    def test_ceo_language_policy_reflects_configured_default(self):
+        english = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "en"}}
+        )
+        urdu = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "ur-en"}}
+        )
+        invalid = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "xx"}}
+        )
+        self.assertIn("default narration language is English", english)
+        self.assertIn("Pakistani Urdu", urdu)
+        self.assertIn("unsupported", invalid.lower())
+        self.assertIn("do not silently guess", invalid)
+
+    def test_topic_mentions_do_not_change_the_configured_voice_language(self):
+        for instruction in (
+            "Create a video about Urdu literature.",
+            "Explain English technical writing to Urdu students.",
+            "Compare English and Urdu search tools.",
+            "Build a video about Urdu language history.",
+        ):
+            with self.subTest(instruction=instruction):
+                self.assertIsNone(orchestrate.requested_narration_language(instruction))
+
+
+class SpecialistRetryTests(unittest.TestCase):
+    def test_quality_gate_requires_exactly_one_explicit_verdict(self):
+        self.assertEqual(orchestrate.extract_quality_gate("Review\nOVERALL QUALITY GATE: PASS\n"), "pass")
+        self.assertEqual(orchestrate.extract_quality_gate("Review without a verdict"), "unconfirmed")
+        self.assertEqual(orchestrate.extract_quality_gate("OVERALL QUALITY GATE:\nPASS"), "unconfirmed")
+        self.assertEqual(orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS extra"), "unconfirmed")
+        self.assertEqual(
+            orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS\nOVERALL QUALITY GATE: FAIL"),
+            "unconfirmed",
+        )
+        self.assertEqual(
+            orchestrate.extract_quality_gate("OVERALL QUALITY GATE: PASS\nextra trailing text"),
+            "pass",
+        )
+
+    def test_transient_failure_is_retried_once_and_recorded(self):
+        calls = []
+
+        def flaky_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            if len(calls) == 1:
+                raise TimeoutError("local model timed out")
+            return "Recovered deliverable"
+
+        result, retries = orchestrate.run_role_with_retry(
+            {"id": "AGENT-09"}, "Write the script", "", {}, runner=flaky_runner
+        )
+        self.assertEqual(result, "Recovered deliverable")
+        self.assertEqual(retries, 1)
+        self.assertEqual(len(calls), 2)
+        self.assertIn("AUTOMATIC RECOVERY ATTEMPT 2/2", calls[1])
+        self.assertIn("local model timed out", calls[1])
+
+    def test_deterministic_validation_error_is_not_retried(self):
+        calls = []
+
+        def invalid_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            raise ValueError("Local model response was not valid JSON.")
+
+        with self.assertRaisesRegex(ValueError, "not valid JSON"):
+            orchestrate.run_role_with_retry(
+                {"id": "AGENT-09"}, "Write the script", "", {}, runner=invalid_runner
+            )
+        self.assertEqual(len(calls), 1)
+
+    def test_http_503_is_retried_once(self):
+        calls = []
+
+        def unavailable_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            if len(calls) == 1:
+                raise RuntimeError("HTTP 503 service unavailable")
+            return "Recovered after temporary service failure"
+
+        result, retries = orchestrate.run_role_with_retry(
+            {"id": "AGENT-09"}, "Write the script", "", {}, runner=unavailable_runner
+        )
+        self.assertEqual(result, "Recovered after temporary service failure")
+        self.assertEqual(retries, 1)
+        self.assertEqual(len(calls), 2)
+
+    def test_persistent_failure_stops_after_two_attempts(self):
+        calls = []
+
+        def broken_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            raise TimeoutError("model unavailable")
+
+        with self.assertRaisesRegex(TimeoutError, "model unavailable"):
+            orchestrate.run_role_with_retry(
+                {"id": "AGENT-09"}, "Write the script", "", {}, runner=broken_runner
+            )
+        self.assertEqual(len(calls), 2)
+
+    def test_empty_output_is_retried_and_never_counted_as_success(self):
+        calls = []
+
+        def empty_then_success(role, instruction, context, cfg):
+            calls.append(instruction)
+            return "" if len(calls) == 1 else "Concrete deliverable"
+
+        result, retries = orchestrate.run_role_with_retry(
+            {"id": "AGENT-09"}, "Write the script", "", {}, runner=empty_then_success
+        )
+        self.assertEqual(result, "Concrete deliverable")
+        self.assertEqual(retries, 1)
+        self.assertEqual(len(calls), 2)
+
+
+class MillionCaseRetrySimulationTests(unittest.TestCase):
+    def test_one_million_deterministic_retry_scenarios(self):
+        # Deterministically exercise the real retry wrapper across success, transient
+        # errors, empty outputs, and persistent errors without network/model calls.
+        cases = 1_000_000
+        recovered = 0
+        clean = 0
+        bounded_failures = 0
+        role = {"id": "AGENT-09"}
+        for index in range(cases):
+            mode = index % 4
+            attempts = [0]
+
+            def simulated_runner(_role, _instruction, _context, _cfg):
+                attempts[0] += 1
+                if mode == 0:
+                    if attempts[0] == 1:
+                        raise TimeoutError("simulated transient failure")
+                    return "recovered"
+                if mode == 1:
+                    return "clean"
+                if mode == 2:
+                    raise TimeoutError("simulated persistent failure")
+                return "" if attempts[0] == 1 else "recovered-empty-output"
+
+            try:
+                result, retries = orchestrate.run_role_with_retry(
+                    role, "simulated task", "", {}, runner=simulated_runner
+                )
+                self.assertTrue(result)
+                self.assertLessEqual(attempts[0], 2)
+                self.assertEqual(retries, attempts[0] - 1)
+                if retries:
+                    recovered += 1
+                else:
+                    clean += 1
+            except TimeoutError:
+                self.assertEqual(attempts[0], 2)
+                bounded_failures += 1
+
+        self.assertEqual(cases, 1_000_000)
+        self.assertEqual(recovered, 500_000)
+        self.assertEqual(clean, 250_000)
+        self.assertEqual(bounded_failures, 250_000)
 
 
 class CEODelegationTests(unittest.TestCase):
+    def test_direct_specialist_cli_is_disabled(self):
+        with self.assertRaisesRegex(SystemExit, "Direct specialist execution is disabled"):
+            orchestrate.dispatch.main()
+
+    def test_direct_specialist_practice_cli_is_disabled(self):
+        with patch("sys.argv", ["practice.py", "practice", "--agent", "AGENT-51"]):
+            with self.assertRaisesRegex(SystemExit, "Direct specialist practice is disabled"):
+                practice.main()
+
     def test_heuristic_delegation_is_task_specific_and_has_quality_gate(self):
         assignments, mode = orchestrate.heuristic_assignments(
             "Create a faceless Urdu YouTube video with premium motion graphics and captions"
@@ -21,6 +209,7 @@ class CEODelegationTests(unittest.TestCase):
         self.assertIn("AGENT-51", ids)
         self.assertIn("AGENT-52", ids)
         self.assertIn("AGENT-08", ids)
+        self.assertNotIn("AGENT-13", ids, "Video production must never auto-switch narration to Urdu.")
         self.assertNotIn("AGENT-01", ids)
         self.assertNotIn("AGENT-50", ids)
         self.assertLessEqual(len(ids), 8)
@@ -76,6 +265,10 @@ class CEODelegationTests(unittest.TestCase):
         self.assertEqual(mode, "ceo_model_delegation")
         self.assertEqual([item["agent_id"] for item in assignments], ["AGENT-09", "AGENT-08"])
         self.assertEqual(run_role.call_args.args[0]["id"], "AGENT-01")
+        self.assertIn("voice-over narration and subtitles must be English only", run_role.call_args.args[1])
+        self.assertIn("single point of task intake", run_role.call_args.args[1])
+        self.assertIn("you alone decide which specialists receive work", run_role.call_args.args[1])
+        self.assertIn("Never delegate translation/localization", run_role.call_args.args[1])
 
     def test_ceo_json_parser_filters_approval_and_duplicate_roles(self):
         roles = {item["id"]: item for item in orchestrate.dispatch.load_json(
@@ -181,7 +374,7 @@ class CEODelegationTests(unittest.TestCase):
                 patch.object(orchestrate, "ROOT", root),
                 patch.object(orchestrate, "WORKSPACE", workspace),
                 patch.object(orchestrate, "run_builtin_tools", return_value=[]),
-                patch.object(orchestrate.dispatch, "run_role", side_effect=lambda role, task, context, cfg: "# Draft\\n\\n" + role["id"]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=lambda role, task, context, cfg: "# Draft\n\n" + role["id"]),
             ):
                 destination, manifest = orchestrate.run_pipeline(
                     long_task,
@@ -228,9 +421,9 @@ class CEODelegationTests(unittest.TestCase):
                     later_contexts[role["id"]] = context
                 if role["id"] == "AGENT-02":
                     report_dir = root / "workspace" / "research" / "agent-runs"
-                    report_dir.mkdir(parents=True)
+                    report_dir.mkdir(parents=True, exist_ok=True)
                     report = report_dir / "agent-02-test.md"
-                    report.write_text("# Research saved before timeout\\n\\nPreserved source finding: verify the source date.\\n", encoding="utf-8")
+                    report.write_text("# Research saved before timeout\n\nPreserved source finding: verify the source date.\n", encoding="utf-8")
                     report.with_suffix(".json").write_text(
                         json.dumps({"metadata": {"pages_attempted": 1, "pages_fetched": 1}, "results": []}),
                         encoding="utf-8",
@@ -266,6 +459,86 @@ class CEODelegationTests(unittest.TestCase):
             self.assertIn("agent-02-test.md", failed["research_reports"][0])
             self.assertIn("Preserved source finding", later_contexts["AGENT-03"])
             self.assertEqual(manifest["pipeline"][-1]["quality_gate"], "partial")
+
+    def test_reviewer_partial_triggers_one_repair_and_a_final_re_review(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-repair"
+            calls = []
+            review_count = 0
+
+            def fake_role(role, task, context, cfg):
+                nonlocal review_count
+                agent_id = role["id"]
+                calls.append(agent_id)
+                if agent_id == "AGENT-08":
+                    review_count += 1
+                    if review_count == 1:
+                        return "# Review\n\nMissing required evidence.\n\nOVERALL QUALITY GATE: PARTIAL\n"
+                    return "# Final review\n\nRepair fixed the critical gap.\n\nOVERALL QUALITY GATE: PASS\n"
+                if agent_id == "AGENT-52" and "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
+                    return "# Corrected motion specification\n\nEvidence and acceptance checks added.\n"
+                return "# Deliverable\n\nDraft output from " + agent_id
+
+            with (
+                patch.object(orchestrate, "ROOT", root),
+                patch.object(orchestrate, "WORKSPACE", workspace),
+                patch.object(orchestrate, "run_builtin_tools", return_value=[]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role),
+            ):
+                destination, manifest = orchestrate.run_pipeline(
+                    "Create a YouTube video with professional motion graphics",
+                    output_dir=output,
+                    config={"model": {"enabled": True, "max_output_tokens": 500}},
+                )
+
+            self.assertEqual(review_count, 2)
+            self.assertIn("AGENT-52", calls)
+            self.assertEqual(manifest["quality_gate"], "pass")
+            self.assertEqual(manifest["status"], "draft")
+            self.assertTrue(manifest["repair_attempt"]["attempted"])
+            self.assertEqual(manifest["repair_attempt"]["status"], "completed")
+            self.assertTrue((destination / "99-final-quality-review.md").is_file())
+            self.assertTrue((destination / manifest["repair_attempt"]["repair_file"]).is_file())
+
+    def test_missing_reviewer_verdict_triggers_repair_instead_of_silent_pass(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            workspace.mkdir()
+            output = workspace / "run-unconfirmed"
+            review_count = 0
+
+            def fake_role(role, task, context, cfg):
+                nonlocal review_count
+                if role["id"] == "AGENT-08":
+                    review_count += 1
+                    if review_count == 1:
+                        return "# Review\n\nThe review omitted the required gate line.\n"
+                    return "# Final review\n\nOVERALL QUALITY GATE: PASS\n"
+                if "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
+                    return "# Repaired deliverable\n\nGate evidence added.\n"
+                return "# Deliverable\n\nDraft output."
+
+            with (
+                patch.object(orchestrate, "ROOT", root),
+                patch.object(orchestrate, "WORKSPACE", workspace),
+                patch.object(orchestrate, "run_builtin_tools", return_value=[]),
+                patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role),
+            ):
+                destination, manifest = orchestrate.run_pipeline(
+                    "Create a YouTube video with professional motion graphics",
+                    output_dir=output,
+                    config={"model": {"enabled": True, "max_output_tokens": 500}},
+                )
+
+            self.assertEqual(review_count, 2)
+            self.assertEqual(manifest["quality_gate"], "pass")
+            self.assertEqual(manifest["repair_attempt"]["initial_gate"], "unconfirmed")
+            self.assertEqual(manifest["repair_attempt"]["final_gate"], "pass")
+            self.assertTrue((destination / "99-final-quality-review.md").is_file())
 
     def test_explicit_reviewer_failure_is_preserved_in_pipeline_status(self):
         with tempfile.TemporaryDirectory() as directory:

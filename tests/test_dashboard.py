@@ -49,6 +49,20 @@ class DashboardWorkflowTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "16,000"):
                     dashboard.enqueue_task("Too long", "youtube_package", "x" * 16001)
 
+    def test_running_queue_records_trigger_startup_recovery_sweep(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            queue = Path(directory) / "tasks.json"
+            queue.write_text(json.dumps([{"id": "TASK-9", "status": "running"}]), encoding="utf-8")
+            with patch.object(dashboard, "TASKS", queue):
+                self.assertTrue(dashboard.has_running_tasks())
+                self.assertFalse(dashboard.has_pending_tasks())
+                queue.write_text(json.dumps([{"id": "TASK-9", "status": "needs_human_action"}]), encoding="utf-8")
+                self.assertFalse(dashboard.has_running_tasks())
+
     def test_start_task_runner_launches_background_worker(self):
         from unittest.mock import patch
         with patch.object(dashboard, "RUNNING", False), patch.object(dashboard.threading, "Thread") as thread:
@@ -84,10 +98,23 @@ class DashboardWorkflowTests(unittest.TestCase):
         claimed_after_release, _ = dashboard.try_claim_workflow("another workflow")
         self.assertTrue(claimed_after_release)
 
-    def test_dashboard_exposes_video_product_and_specialist_forms(self):
-        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'action="/practice-agent"', 'value="ALL"', 'name="limit"', 'CEO Command Deck', 'CEO-managed queue', 'Leave blank: CEO chooses the team', 'progressMarkup(t)'):
+    def test_dashboard_exposes_ceo_intake_and_disables_manual_specialist_selection(self):
+        for action in ('action="/generate-video"', 'action="/build-product"', 'action="/run-pipeline"', 'CEO Command Deck', 'CEO-managed queue', 'AGENT-01 (CEO) chooses the specialists', 'Direct specialist runs and manual role selection are disabled', 'progressMarkup(t)'):
             with self.subTest(action=action):
                 self.assertIn(action, dashboard.HTML_PAGE)
+        self.assertNotIn('name="agents"', dashboard.HTML_PAGE)
+        self.assertNotIn('OPTIONAL SPECIALIST OVERRIDE', dashboard.HTML_PAGE)
+        self.assertNotIn('action="/practice-agent"', dashboard.HTML_PAGE)
+        self.assertNotIn('Specialist practice lab', dashboard.HTML_PAGE)
+        self.assertNotIn('practiceAgent', dashboard.HTML_PAGE)
+        self.assertNotIn('trainingInfo', dashboard.HTML_PAGE)
+
+    def test_direct_specialist_route_is_blocked(self):
+        import inspect
+        source = inspect.getsource(dashboard.Handler.do_POST)
+        self.assertIn('if path == "/practice-agent":', source)
+        self.assertIn('Direct specialist execution is disabled', source)
+        self.assertNotIn('agents" / "practice.py', source)
 
     def test_video_and_product_outputs_are_reported_in_state(self):
         state = dashboard.task_state()
