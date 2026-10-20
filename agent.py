@@ -417,10 +417,10 @@ def cycle(task_id=None):
                 print(f"Completed {task_id} -> {task.get('output_file', '')}")
         except Exception as e:
             task.update(status="failed", error=str(e)[:400], completed_at=stamp())
-        finally:
-            task["worker_pid"] = None
             log(f"FAILED {task_id}: {type(e).__name__}: {e}")
             print(f"Failed {task_id}: {type(e).__name__}: {e}")
+        finally:
+            task["worker_pid"] = None
         with task_queue_lock(TASKS):
             latest = load_tasks(TASKS)
             match = next((item for item in latest if str(item.get("id", "")) == task_id), None)
