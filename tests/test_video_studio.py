@@ -32,7 +32,7 @@ class VideoStudioTests(unittest.TestCase):
         approved = {
             "video_studio": {
                 "narration_language": "ur-en",
-                "urdu_tts_command": [],
+                "urdu_tts_command": ["python", "video_studio/urdu_tts_adapter.py", "--manifest", "{manifest_file}"],
                 "kani_speaker_prefix": "speaker-a",
                 "urdu_voice_human_approved": True,
                 "urdu_voice_approved_profile_sha256": fingerprint,
