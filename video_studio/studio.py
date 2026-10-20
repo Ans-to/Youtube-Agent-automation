@@ -142,6 +142,16 @@ def combine_voice(segments, ffmpeg, output):
     run(command, timeout=900)
 
 
+def resolve_narration_language(explicit_language, storyboard, config):
+    """Resolve explicit CLI override, then storyboard profile, then configured channel default."""
+    video_config = config.get("video_studio", {}) if isinstance(config, dict) else {}
+    if not isinstance(video_config, dict):
+        video_config = {}
+    storyboard_language = storyboard.get("narration_language") if isinstance(storyboard, dict) else None
+    configured_language = video_config.get("narration_language", "ur-en")
+    return normalize_narration_language(explicit_language or storyboard_language or configured_language)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--storyboard", default="storyboard.example.json")
@@ -178,8 +188,7 @@ def main():
         if not isinstance(data, dict) or not isinstance(data.get("scenes"), list) or not data["scenes"]:
             raise SystemExit("Storyboard must contain at least one scene.")
         try:
-            video_config = config.get("video_studio", {}) if isinstance(config.get("video_studio", {}), dict) else {}
-            language = normalize_narration_language(args.language or data.get("narration_language") or video_config.get("narration_language", "ur-en"))
+            language = resolve_narration_language(args.language, data, config)
             urdu_tts_command = get_urdu_tts_command(config)
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
