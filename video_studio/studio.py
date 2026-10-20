@@ -141,7 +141,7 @@ def main():
     output = output_arg.resolve() if output_arg.is_absolute() else (BASE / output_arg).resolve()
     output.parent.mkdir(parents=True, exist_ok=True)
     profile_path = output.with_suffix(".capabilities.json")
-    profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     silent = output.with_name(output.stem + ".silent.mp4")
     srt_path, vtt_path = output.with_suffix(".srt"), output.with_suffix(".vtt")
     srt_text, vtt_text = build_subtitles(data)
