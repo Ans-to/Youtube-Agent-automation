@@ -40,6 +40,7 @@ $CompileTargets = @(
     "agent.py", "dashboard.py", "queue_store.py",
     "bridge/bridge.py", "agents/dispatch.py", "agents/orchestrate.py",
     "agents/practice.py", "video_studio/studio.py", "video_studio/production.py",
+    "video_studio/voice_backends.py", "video_studio/urdu_tts_adapter.py", "video_studio/voice_preview.py",
     "video_studio/research.py", "video_studio/validate_render.py",
     "video_studio/validate_frames.py", "video_studio/release_gate.py",
     "video_studio/publish_youtube.py", "product_studio/build_product.py"
@@ -70,4 +71,4 @@ if ($Node -and $Npm) {
 
 Write-Host ""
 Write-Host "Setup checks finished. Run .\start_windows.bat to open Agent HQ." -ForegroundColor Green
-Write-Host "AI model, voice model, and YouTube OAuth are optional and are not downloaded or configured by this script."
+Write-Host "Urdu voice dependencies are optional and are offered by START_HERE.bat. Kani runs in isolated .venv-urdu-tts using Python 3.10-3.12; model and codec weights (~1.5 GB) download on first voice preview/render. English Piper and YouTube OAuth are separate optional setups."

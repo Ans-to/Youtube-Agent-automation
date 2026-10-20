@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Offline Agent HQ: local task queue with constrained specialist stages."""
-import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress, sys
+import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress, sys, os
 from pathlib import Path
 from datetime import datetime
-from queue_store import task_queue_lock, load_tasks, save_tasks
+from queue_store import task_queue_lock, load_tasks, save_tasks, process_is_alive
 from quality_outputs import youtube_package, structured_plan, structured_draft, structured_review
 
 BASE = Path(__file__).resolve().parent
@@ -244,6 +244,19 @@ def process(task, cfg):
                 sections.append("  - Error: " + str(tool["error"]))
     else:
         sections.append("- No additional built-in artifact tool was selected for this task.")
+    sections.extend(["", "## Post-build artifact validation", ""])
+    artifact_checks = manifest.get("artifact_checks", [])
+    if artifact_checks:
+        for check in artifact_checks:
+            sections.append("- " + str(check.get("tool", "artifact")) + ": " + str(check.get("status", "unknown")))
+            for error in check.get("errors", [])[:8]:
+                sections.append("  - " + str(error)[:500])
+            if check.get("reason"):
+                sections.append("  - " + str(check["reason"])[:500])
+    else:
+        sections.append("- No built-in video/product artifact validation was required for this task.")
+    sections.append("")
+
     sections.extend([
         "## Review requirements",
         "",
@@ -326,9 +339,67 @@ def process(task, cfg):
     return path
 
 
+LEGACY_RUNNING_TASK_GRACE_SECONDS = 4 * 60 * 60 + 15 * 60
+
+
+def recover_interrupted_tasks(tasks, now=None, alive_check=None):
+    """Move orphaned running tasks to human review; never replay them automatically.
+
+    Tasks with a recorded worker PID are recovered as soon as that process is gone.
+    Legacy tasks without a PID are held for a 4h15m grace period after started_at.
+    The task's progress/output paths are intentionally preserved.
+    """
+    now = now or datetime.now().astimezone()
+    alive_check = alive_check or process_is_alive
+    recovered = 0
+    for task in tasks:
+        if not isinstance(task, dict) or str(task.get("status", "")).lower() != "running":
+            continue
+
+        pid = task.get("worker_pid")
+        if isinstance(pid, int) and not isinstance(pid, bool) and pid > 0:
+            if alive_check(pid):
+                continue
+            reason = "Recorded task worker process is no longer alive."
+            task["interrupted_worker_pid"] = pid
+        else:
+            started = str(task.get("started_at", "")).strip()
+            if not started:
+                # Missing timestamps cannot be aged safely. Preserve the record for a
+                # human rather than risk replaying work that may have external effects.
+                reason = "Legacy running task has no worker PID or start timestamp; automatic recovery cannot establish whether it is safe to resume."
+            else:
+                try:
+                    started_at = datetime.fromisoformat(started)
+                    if started_at.tzinfo is None:
+                        started_at = started_at.astimezone()
+                    elapsed = (now - started_at).total_seconds()
+                except (TypeError, ValueError, OverflowError):
+                    continue
+                if elapsed < LEGACY_RUNNING_TASK_GRACE_SECONDS:
+                    continue
+                reason = "Legacy running task has no worker PID and exceeded the 4h15m recovery grace period."
+
+        task["status"] = "needs_human_action"
+        task["interrupted_at"] = now.isoformat(timespec="seconds")
+        task["interruption_reason"] = reason
+        task["error"] = reason + " Progress and existing outputs were preserved. Review them before using the explicit retry path."
+        task.pop("worker_pid", None)
+        recovered += 1
+    return recovered
+
+
 def cycle(task_id=None):
     cfg = load(CONFIG, {})
     max_tasks = max(1, min(20, int(cfg.get("runner", {}).get("max_tasks_per_cycle", 3))))
+    # Recover interrupted records under the same cross-process queue lock used by claims.
+    # Recovery only changes state to needs_human_action; it never replays the task.
+    with task_queue_lock(TASKS):
+        queued = load_tasks(TASKS)
+        recovered_count = recover_interrupted_tasks(queued)
+        if recovered_count:
+            save_tasks(TASKS, queued)
+            log(f"Recovered {recovered_count} interrupted task(s) to needs_human_action; no work was replayed")
     count = 0
     requested_task_id = task_id
     while count < max_tasks:
@@ -346,6 +417,7 @@ def cycle(task_id=None):
                 continue
             task["status"] = "running"
             task["started_at"] = stamp()
+            task["worker_pid"] = os.getpid()
             task["error"] = ""
             save_tasks(TASKS, tasks)
         try:
@@ -360,12 +432,15 @@ def cycle(task_id=None):
             task.update(status="failed", error=str(e)[:400], completed_at=stamp())
             log(f"FAILED {task_id}: {type(e).__name__}: {e}")
             print(f"Failed {task_id}: {type(e).__name__}: {e}")
+        finally:
+            task["worker_pid"] = None
         with task_queue_lock(TASKS):
             latest = load_tasks(TASKS)
             match = next((item for item in latest if str(item.get("id", "")) == task_id), None)
             if match is not None:
                 match.update({k: v for k, v in task.items() if k in {
-                    "status", "started_at", "completed_at", "output_file", "error", "research_status"
+                    "status", "started_at", "completed_at", "output_file", "error", "research_status",
+                    "worker_pid", "interrupted_at", "interruption_reason", "interrupted_worker_pid"
                 }})
                 save_tasks(TASKS, latest)
         count += 1

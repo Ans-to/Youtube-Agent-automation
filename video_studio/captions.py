@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Deterministic English subtitle generation and validation for video outputs."""
+"""Language-aware subtitle generation and validation for video outputs."""
 import re
 from pathlib import Path
 
-# Non-Latin scripts commonly used by non-English narration are rejected in this
-# English-only pipeline. Latin-script language identification is prompt/model
-# constrained and still needs human listening review.
+# The English profile rejects common non-Latin scripts. The ur-en profile permits
+# Urdu/Arabic-script text with Latin-script English technical terms. Script checks do
+# not establish naturalness, pronunciation, or spoken-language quality; human review remains required.
 NON_LATIN_SCRIPT = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0900-\u097F\u0400-\u04FF\u4E00-\u9FFF\uAC00-\uD7AF]")
 TIMESTAMP_SRT = re.compile(r"^(\d{2,}:\d{2}:\d{2},\d{3}) --> (\d{2,}:\d{2}:\d{2},\d{3})$")
 
@@ -17,6 +17,59 @@ def validate_english_text(text, label="Narration"):
     if NON_LATIN_SCRIPT.search(value):
         raise ValueError(label + " must be English text; non-Latin script was detected.")
     return value
+
+
+URDU_ARABIC_SCRIPT = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
+UNSUPPORTED_NON_LATIN_SCRIPT = re.compile(
+    r"[\u0370-\u03FF\u0400-\u052F\u0530-\u058F"
+    r"\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F"
+    r"\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF"
+    r"\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F"
+    r"\u0E00-\u0E7F\u0E80-\u0EFF\u1000-\u109F"
+    r"\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]"
+)
+
+
+def normalize_narration_language(language):
+    """Normalize supported production-language profiles without guessing."""
+    value = str(language or "en").strip().lower().replace("_", "-")
+    if value in {"en", "english", "en-us", "en-gb"}:
+        return "en"
+    if value in {"ur", "urdu", "ur-en", "urdu-english", "urdu-with-english-technical-terms", "ur-pk"}:
+        return "ur-en"
+    raise ValueError("Unsupported narration language profile. Use 'en' or 'ur-en'.")
+
+
+def validate_narration_text(text, language="en", label="Narration"):
+    """Validate the declared script profile; mixed Urdu/English is not silently relabelled."""
+    profile = normalize_narration_language(language)
+    if profile == "en":
+        return validate_english_text(text, label)
+    value = str(text or "").strip()
+    if not value:
+        raise ValueError(label + " must not be empty.")
+    if UNSUPPORTED_NON_LATIN_SCRIPT.search(value):
+        raise ValueError(label + " must use Urdu/Arabic script with English technical terms; another writing system was detected.")
+    if not URDU_ARABIC_SCRIPT.search(value):
+        raise ValueError(label + " must contain Urdu text in Arabic script; English-only text is not valid for the ur-en profile.")
+    return value
+
+
+def narration_language_instruction(language):
+    """Prompt rule used by the script/storyboard generator for each supported profile."""
+    profile = normalize_narration_language(language)
+    if profile == "ur-en":
+        return (
+            "NARRATION LANGUAGE: natural conversational Pakistani Urdu, written in Urdu/Arabic script, "
+            "with familiar English technical terms, APIs, product names, code identifiers, and standard "
+            "technology vocabulary preserved in English where that is how Pakistani tech audiences use them. "
+            "Do not produce English-only narration, Hindi/Devanagari, Roman Urdu, or a word-for-word translation. "
+            "Captions must match the Urdu-English mixed narration exactly. "
+        )
+    return (
+        "NARRATION LANGUAGE: clear, natural spoken English only. Do not switch languages based on the topic. "
+        "Captions must match the English narration exactly. "
+    )
 
 
 def validate_english_voice_model(model_path):
@@ -59,15 +112,16 @@ def _stamp(seconds, decimal=","):
     return f"{hours:02d}:{minutes:02d}:{secs:02d}{decimal}{millis:03d}"
 
 
-def build_subtitles(storyboard):
-    """Return (SRT, WebVTT); scene narration duration is preferred when TTS is used."""
+def build_subtitles(storyboard, language=None):
+    """Return (SRT, WebVTT); timing remains approximate unless a true aligner supplied it."""
+    profile = normalize_narration_language(language or storyboard.get("narration_language", "en"))
     scenes = storyboard.get("scenes")
     if not isinstance(scenes, list) or not scenes:
         raise ValueError("Subtitle generation requires at least one scene.")
     cues = []
     cursor = 0.0
     for index, scene in enumerate(scenes, 1):
-        narration = validate_english_text(scene.get("narration", ""), f"Scene {index} narration")
+        narration = validate_narration_text(scene.get("narration", ""), profile, f"Scene {index} narration")
         # Keep on-screen Canvas captions identical to spoken words and sidecar subtitles.
         scene["caption"] = narration
         scene_duration = float(scene.get("duration_seconds", 0))
@@ -100,8 +154,9 @@ def build_subtitles(storyboard):
     return "\n".join(srt_parts).rstrip() + "\n", "\n".join(vtt_parts).rstrip() + "\n"
 
 
-def validate_subtitle_text(srt_text, vtt_text):
-    """Fail closed on empty/invalid subtitle sidecars and malformed time ranges."""
+def validate_subtitle_text(srt_text, vtt_text, language="en"):
+    """Fail closed on invalid sidecars, subtitle timing, and declared-language mismatch."""
+    profile = normalize_narration_language(language)
     # Accept Windows CRLF, classic Mac CR, and UTF-8 BOMs from external subtitle tools.
     srt_text = str(srt_text or "").lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
     vtt_text = str(vtt_text or "").lstrip("\ufeff").replace("\r\n", "\n").replace("\r", "\n")
@@ -111,6 +166,7 @@ def validate_subtitle_text(srt_text, vtt_text):
     if not blocks:
         raise ValueError("SRT file contains no cues.")
     previous_end = -1.0
+    collected_subtitle_text = []
     def seconds(stamp):
         match = re.fullmatch(r"(\d{2,}):(\d{2}):(\d{2}),(\d{3})", stamp)
         if not match:
@@ -127,10 +183,23 @@ def validate_subtitle_text(srt_text, vtt_text):
         start, end = map(seconds, match.groups())
         if start < previous_end - 0.001 or end <= start:
             raise ValueError("Subtitle cues overlap, are unordered, or have invalid duration.")
-        text = validate_english_text(" ".join(lines[2:]), "Subtitle cue")
+        raw_cue_text = " ".join(lines[2:]).strip()
+        if profile == "ur-en":
+            # Individual cues may consist entirely of technical terms in English.
+            # Validate Urdu script at track level rather than rejecting such a cue.
+            if not raw_cue_text:
+                raise ValueError("Subtitle cue must not be empty.")
+            if UNSUPPORTED_NON_LATIN_SCRIPT.search(raw_cue_text):
+                raise ValueError("Subtitle cue contains a writing system incompatible with the Urdu-English profile.")
+            text = raw_cue_text
+            collected_subtitle_text.append(text)
+        else:
+            text = validate_english_text(raw_cue_text, "Subtitle cue")
         if len(text) > 1000:
             raise ValueError("Subtitle cue exceeds the 1000-character limit.")
         previous_end = end
+    if profile == "ur-en" and not URDU_ARABIC_SCRIPT.search(" ".join(collected_subtitle_text)):
+        raise ValueError("Urdu-English subtitle track must contain Urdu-script text, not English-only captions.")
     vtt_blocks = [block for block in vtt_text.strip().split("\n\n") if block.strip()]
     if not vtt_blocks or vtt_blocks[0].strip() != "WEBVTT":
         raise ValueError("WebVTT header is missing or malformed.")

@@ -16,7 +16,8 @@ sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(ROOT))
 from agent import post_local_model
 from research import research as collect_research, render_markdown as render_research_markdown
-from captions import validate_english_text, validate_english_voice_model
+from captions import normalize_narration_language, narration_language_instruction, validate_narration_text, validate_english_voice_model
+from voice_backends import get_urdu_tts_command, require_urdu_voice_human_approval, urdu_voice_human_approved, urdu_voice_profile_sha256
 from release_gate import validate_qc_report
 
 
@@ -106,14 +107,14 @@ def model_json(prompt, cfg, max_tokens):
     return parse_json_response(content, "Local model")
 
 
-def create_outline(topic, source_notes, cfg, target_minutes, scene_count, fmt):
+def create_outline(topic, source_notes, cfg, target_minutes, scene_count, fmt, language):
     prompt = (
         "Create the outline for a faceless YouTube narration package. Return JSON with keys "
         "title, description, thesis, sections. sections must contain 4–8 objects with name, purpose, "
         "key_points (array), and visual_direction. No full script yet. "
         "Topic: " + topic + "\nFormat: " + fmt + "\nTarget duration minutes: " + str(target_minutes)
         + "\nPlanned scene count: " + str(scene_count)
-        + "\nNarration language: ENGLISH ONLY. Use natural, clear spoken English; never use Urdu or any other language. All subtitles must match the English narration exactly.\n"
+        + narration_language_instruction(language) + "\n"
         "Quality rules: create a coherent narrative arc; avoid filler, clickbait, invented numbers, unsupported certainty, "
         "and repeated talking points. Explain what evidence is needed. If source notes are present, use only what they support; "
         "otherwise clearly mark factual claims for later verification.\n"
@@ -144,19 +145,19 @@ def create_outline(topic, source_notes, cfg, target_minutes, scene_count, fmt):
     return outline
 
 
-def create_scene(topic, outline, section, source_notes, cfg, index, total, target_words, previous_scene):
+def create_scene(topic, outline, section, source_notes, cfg, index, total, target_words, previous_scene, language):
     visual_list = ", ".join(sorted(VISUAL_TYPES))
     prompt = (
         "Write exactly one production-ready scene for a faceless technology explainer. Return a JSON object with keys "
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
         "Choose transition_in intentionally: none for a clean hard cut; fade for a temporal bridge; wipe-left/right for a directional reveal; slide-left/right for spatial movement; zoom for a motivated scale transition. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
-        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional visemes [{t:0..1,shape:closed|open|wide|round}]. Keep appearance consistent across scenes. These approximate cues are not forced-aligned to speech.\\n"
+        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional expression (confident, focused, curious, or concerned). Keep appearance consistent across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
         "Section: " + json.dumps(section, ensure_ascii=False) + "\n"
         "Target narration length: approximately " + str(target_words) + " whitespace-separated words. "
-        "Write all narration and captions in clear natural English only. Keep headline compact and subhead informative. "
+        narration_language_instruction(language) + "Keep headline compact and subhead informative. "
         "Narration should move the argument forward, not repeat prior scenes. Use pauses and plain language, not stage directions. "
         "Do not invent citations, dates, measurements, attributed quotations, or claims of web research. "
         "If evidence is missing, explicitly say what needs verification within narration or unresolved_notes. "
@@ -173,8 +174,9 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         if not isinstance(scene.get(key), str) or not scene[key].strip():
             raise ValueError("Scene " + str(index) + " is missing required text field: " + key)
         scene[key] = scene[key].strip()[:12000 if key == "narration" else 240]
-    scene["narration"] = validate_english_text(scene["narration"], "Scene " + str(index) + " narration")
+    scene["narration"] = validate_narration_text(scene["narration"], language, "Scene " + str(index) + " narration")
     scene["caption"] = scene["narration"]
+    scene["narration_language"] = language
     visual_type = str(scene.get("visual_type", "hero")).lower()
     if visual_type not in VISUAL_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported visual_type: " + visual_type)
@@ -238,6 +240,52 @@ def fallback(topic):
             "scenes": scenes}
 
 
+def character_alignment_summary(storyboard):
+    """Report character/viseme evidence without confusing authored cues with audio timing."""
+    scenes = storyboard.get("scenes", []) if isinstance(storyboard, dict) else []
+    if not isinstance(scenes, list):
+        scenes = []
+    enabled_characters = []
+    audio_energy_cued = []
+    unverified_cued = []
+    audio_energy_label = "audio-energy-gated grapheme approximation; not forced phoneme alignment"
+    unverified_label = "preauthored/model-supplied cues not validated against final audio; not forced phoneme alignment"
+    for scene in scenes:
+        if not isinstance(scene, dict):
+            continue
+        character = scene.get("character")
+        if not isinstance(character, dict) or character.get("enabled") is not True:
+            continue
+        enabled_characters.append(character)
+        visemes = character.get("visemes")
+        if not isinstance(visemes, list) or not visemes:
+            continue
+        if character.get("viseme_alignment") == audio_energy_label:
+            audio_energy_cued.append(character)
+        else:
+            unverified_cued.append(character)
+
+    total_cued = len(audio_energy_cued) + len(unverified_cued)
+    if audio_energy_cued and unverified_cued:
+        method = "mixed audio-energy approximations and preauthored/unverified cues; not forced phoneme alignment"
+    elif audio_energy_cued:
+        method = audio_energy_label
+    elif unverified_cued:
+        method = unverified_label
+    else:
+        method = "no generated character viseme cues"
+
+    return {
+        "character_scenes": len(enabled_characters),
+        "viseme_cued_character_scenes": total_cued,
+        "audio_energy_gated_viseme_scenes": len(audio_energy_cued),
+        "preauthored_or_unverified_viseme_scenes": len(unverified_cued),
+        "phoneme_aligned": False,
+        "viseme_alignment_method": method,
+    }
+
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--topic", required=True)
@@ -249,8 +297,31 @@ def main():
     parser.add_argument("--scenes", type=int, help="Override scene count (1–100); defaults to about 3 scenes per minute.")
     parser.add_argument("--render", action="store_true", help="Render final storyboard to MP4.")
     parser.add_argument("--render-template", action="store_true", help="Explicitly permit a short, clearly labelled template demo without AI generation.")
-    parser.add_argument("--with-voice", action="store_true", help="Add local Piper narration (requires --render and PIPER_MODEL).")
+    parser.add_argument("--with-voice", action="store_true", help="Add narration using the selected local voice backend.")
+    parser.add_argument("--language", choices=["en", "ur-en"], help="Narration language profile; defaults to config.json video_studio.narration_language (ur-en when unset).")
     args = parser.parse_args()
+    cfg = load_config()
+    video_config = cfg.get("video_studio", {}) if isinstance(cfg.get("video_studio", {}), dict) else {}
+    kani_speaker_prefix = video_config.get("kani_speaker_prefix", "")
+    try:
+        language = normalize_narration_language(args.language or video_config.get("narration_language", "ur-en"))
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+    language_label = "Urdu + English technical terms" if language == "ur-en" else "English"
+    try:
+        if language == "ur-en":
+            if not isinstance(kani_speaker_prefix, str):
+                raise ValueError("config.json video_studio.kani_speaker_prefix must be text.")
+            urdu_tts_command = get_urdu_tts_command(cfg)
+            voice_profile_sha256 = urdu_voice_profile_sha256(cfg)
+            voice_profile_human_approved = urdu_voice_human_approved(cfg)
+        else:
+            # Urdu TTS configuration is not a dependency of explicit English production.
+            urdu_tts_command = []
+            voice_profile_sha256 = None
+            voice_profile_human_approved = False
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     topic = args.topic.strip()
     if not topic or len(topic) > 500:
         raise SystemExit("Topic must be 1–500 characters.")
@@ -259,15 +330,27 @@ def main():
         raise SystemExit("Target minutes must be between 0.25 and 16 to stay within renderer resource limits.")
     if args.with_voice and not args.render:
         raise SystemExit("--with-voice requires --render.")
+    piper = shutil.which("piper")
+    voice_model = os.environ.get("PIPER_MODEL", "").strip()
     if args.render or args.render_template:
-        piper = shutil.which("piper")
-        voice_model = os.environ.get("PIPER_MODEL", "").strip()
-        if not piper or not voice_model:
-            raise SystemExit("Final renders require Piper and PIPER_MODEL pointing to a verified English voice model. Silent output is reserved for explicit studio smoke tests.")
-        try:
-            validate_english_voice_model(voice_model)
-        except ValueError as exc:
-            raise SystemExit(str(exc)) from exc
+        if language == "ur-en":
+            try:
+                require_urdu_voice_human_approval(cfg)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
+        if language == "en":
+            if not piper or not voice_model:
+                raise SystemExit("English narration requires Piper and PIPER_MODEL pointing to a verified English voice model; silent output is not an acceptable fallback.")
+            try:
+                validate_english_voice_model(voice_model)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
+        elif not urdu_tts_command:
+            raise SystemExit(
+                "No Urdu-English voice adapter command could be resolved. An empty command should select the bundled "
+                "Kani + NeMo adapter; check config.json, video_studio/urdu_tts_adapter.py, and the optional "
+                "video_studio/requirements-urdu-tts.txt dependencies. English Piper, eSpeak, and silent audio will not be substituted."
+            )
     target_seconds = target_minutes * 60
     default_scenes = max(4, math.ceil(target_minutes * 3))
     scene_count = args.scenes if args.scenes is not None else default_scenes
@@ -276,7 +359,6 @@ def main():
         raise SystemExit("Scene count must be between " + str(minimum_scenes) + " and 100 for the requested target duration.")
     if target_seconds > 1000 or round(target_seconds * 30) > 30000:
         raise SystemExit("Target duration exceeds the renderer's supported limits.")
-    cfg = load_config()
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
     manual_source_notes = read_source(args.source_file)
     source_notes = manual_source_notes
@@ -297,23 +379,25 @@ def main():
         raise SystemExit("No local model is enabled. This produces only a 20-second template, not the requested full video. Use --render-template only for a demo.")
     if args.render_template and model_enabled:
         raise SystemExit("--render-template is only for the deterministic no-model demo. Use --render for model-generated content.")
+    if not model_enabled and language == "ur-en":
+        raise SystemExit("Urdu-English script generation requires the configured local language model. Refusing to present the English-only offline scaffold or template demo as Urdu-English content.")
 
     if model_enabled:
         if source_notes:
-            outline = create_outline(topic, source_notes, cfg, target_minutes, scene_count, args.format)
+            outline = create_outline(topic, source_notes, cfg, target_minutes, scene_count, args.format, language)
         else:
-            outline = create_outline(topic, "", cfg, target_minutes, scene_count, args.format)
+            outline = create_outline(topic, "", cfg, target_minutes, scene_count, args.format, language)
         section_list = outline["sections"]
         scenes = []
         previous = {"headline": "", "summary": "Opening scene; no previous scene."}
         words_per_scene = max(12, round(target_minutes * 125 / scene_count))
         for index in range(1, scene_count + 1):
             section = section_list[min(len(section_list) - 1, (index - 1) * len(section_list) // scene_count)]
-            scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count, words_per_scene, previous)
+            scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count, words_per_scene, previous, language)
             words = len(scene["narration"].split())
             if words < max(8, int(words_per_scene * 0.65)):
                 scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count,
-                                     words_per_scene * 2, previous)
+                                     words_per_scene * 2, previous, language)
                 if len(scene["narration"].split()) < max(8, int(words_per_scene * 0.65)):
                     raise ValueError("Scene " + str(index) + " narration remained too short after retry; no final package was marked ready.")
             scene["duration_seconds"] = target_seconds / scene_count
@@ -335,7 +419,8 @@ def main():
         actual_target_seconds = sum(float(scene["duration_seconds"]) for scene in scenes)
 
     for scene_index, scene in enumerate(scenes, 1):
-        scene["narration"] = validate_english_text(scene.get("narration", ""), "Scene " + str(scene_index) + " narration")
+        scene["narration_language"] = language
+        scene["narration"] = validate_narration_text(scene.get("narration", ""), language, "Scene " + str(scene_index) + " narration")
         scene["caption"] = scene["narration"]
 
     workspace_root = (ROOT / "workspace").resolve()
@@ -354,7 +439,7 @@ def main():
         (output_dir / "research.md").write_text(research_markdown, encoding="utf-8")
         (output_dir / "research.json").write_text(json.dumps({"metadata": research_metadata, "results": research_results}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     storyboard = {
-        "title": title, "width": 1080 if args.format == "shorts" else 1920,
+        "title": title, "narration_language": language, "width": 1080 if args.format == "shorts" else 1920,
         "height": 1920 if args.format == "shorts" else 1080, "fps": 30,
         "scenes": scenes,
     }
@@ -366,14 +451,24 @@ def main():
         "target_seconds": target_seconds, "storyboard_seconds": sum(float(s["duration_seconds"]) for s in scenes),
         "narration_words": actual_words, "generated_by": generated_by,
         "duration_target_met": bool(model_enabled),
-        "narration_language": "English", "subtitles_required": True,
+        "narration_language": language_label, "subtitles_required": True,
         "publishable": False,
         "source_notes_provided": bool(manual_source_notes), "web_research_performed": bool(research_metadata),
         "research_result_count": len(research_results),
         "standalone_web_research_performed": bool(research_metadata),
         "research_independently_verified": False,
         "human_review_required": True, "published": False,
-        "note": ("Model output is a draft; factual claims still need review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
+        "human_voice_review_status": (
+            "not_applicable_to_urdu_voice_gate" if language == "en"
+            else ("approved_for_current_profile" if voice_profile_human_approved else "pending_or_stale")
+        ),
+        "voice_naturalness_verified": bool(language == "ur-en" and voice_profile_human_approved),
+        "target_adult_male_voice_verified": bool(language == "ur-en" and voice_profile_human_approved),
+        "kani_speaker_prefix_configured": bool(kani_speaker_prefix.strip()),
+        "speaker_identity_human_reviewed": bool(language == "ur-en" and voice_profile_human_approved),
+        "approved_voice_profile_sha256": voice_profile_sha256 if (language == "ur-en" and voice_profile_human_approved) else None,
+        "forced_phoneme_alignment": False,
+        "note": ("Model output is a draft; factual claims and the actual rendered voice still need human review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
     }
     (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Draft package:", output_dir)
@@ -390,12 +485,13 @@ def main():
         if aligned_storyboard.is_file():
             (output_dir / "storyboard.json").write_text(aligned_storyboard.read_text(encoding="utf-8"), encoding="utf-8")
             aligned = json.loads(aligned_storyboard.read_text(encoding="utf-8"))
+            status["character_animation"] = character_alignment_summary(aligned)
             status["storyboard_seconds"] = sum(float(scene["duration_seconds"]) for scene in aligned["scenes"])
             status["rendered_duration_seconds"] = status["storyboard_seconds"]
             status["duration_target_met"] = abs(status["rendered_duration_seconds"] - target_seconds) <= 1 / 30
-            status["narration_alignment"] = "per-scene English audio; scene-level subtitle cues emitted as SRT and WebVTT"
+            status["narration_alignment"] = "per-scene " + language_label + " audio; scene-level subtitle cues emitted as SRT and WebVTT"
             status["subtitle_files"] = ["video.srt", "video.vtt"]
-            status["voice_language"] = "English"
+            status["voice_language"] = language_label
             (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             aligned_storyboard.unlink(missing_ok=True)
     elif args.render_template:
@@ -405,13 +501,14 @@ def main():
         aligned_storyboard = output_dir / "video.storyboard.json"
         if aligned_storyboard.is_file():
             aligned = json.loads(aligned_storyboard.read_text(encoding="utf-8"))
+            status["character_animation"] = character_alignment_summary(aligned)
             (output_dir / "storyboard.json").write_text(json.dumps(aligned, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
             status["storyboard_seconds"] = sum(float(scene["duration_seconds"]) for scene in aligned["scenes"])
             status["rendered_duration_seconds"] = status["storyboard_seconds"]
             status["duration_target_met"] = abs(status["rendered_duration_seconds"] - target_seconds) <= 1 / 30
-            status["narration_alignment"] = "per-scene English audio; SRT/WebVTT generated and validated"
+            status["narration_alignment"] = "per-scene " + language_label + " audio; SRT/WebVTT generated and validated"
             aligned_storyboard.unlink(missing_ok=True)
-        status["voice_language"] = "English"
+        status["voice_language"] = language_label
         status["subtitles_required"] = True
         status["subtitle_files"] = ["video.srt", "video.vtt"]
         (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")

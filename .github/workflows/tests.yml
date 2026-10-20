@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -33,11 +32,13 @@ jobs:
         with:
           node-version: "22"
       - name: Compile Python modules
-        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py
+        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
       - name: Validate storyboard JSON
         run: python -m json.tool video_studio/storyboard.example.json
+      - name: Validate example configuration JSON
+        run: python -m json.tool config.example.json > /dev/null
       - name: Validate specialist roster and skillbooks JSON
         run: |
           python -m json.tool agents/roster.json > /dev/null
@@ -45,7 +46,7 @@ jobs:
       - name: Build offline product prototype in template mode
         run: python product_studio/build_product.py --title "CI Utility" --idea "A local utility smoke test"
       - name: Generate video script and storyboard in template mode
-        run: python video_studio/production.py --topic "CI video package smoke test" --out workspace/ci-video-package
+        run: python video_studio/production.py --topic "CI video package smoke test" --language en --out workspace/ci-video-package
       - name: Run unit tests
         run: python -m unittest discover -s tests -v
   docker-test:
@@ -72,13 +73,28 @@ jobs:
         with:
           node-version: "22"
       - name: Install FFmpeg
-        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg fonts-noto-core
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
       - name: Audit renderer dependencies
         working-directory: video_studio
         run: npm audit --audit-level=high
+      - name: Render mixed Urdu-English RTL text without audio
+        working-directory: video_studio
+        run: |
+          node render.js storyboard.urdu-smoke.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          manifest = json.loads(Path("render-manifest.json").read_text(encoding="utf-8"))
+          assert manifest["width"] == 640 and manifest["height"] == 360, manifest
+          assert manifest["frame_count"] == 2 and manifest["scene_count"] == 1, manifest
+          for index in range(2):
+              frame = Path("frames") / ("frame-%06d.png" % index)
+              assert frame.is_file() and frame.stat().st_size > 1024, frame
+          print("Urdu/English RTL renderer smoke test passed:", manifest["frame_count"], "frames")
+          PY
       - name: Reject invalid transition before browser launch
         working-directory: video_studio
         run: |
@@ -98,7 +114,7 @@ jobs:
           if [ "$code" -eq 0 ]; then echo "Oversized storyboard was unexpectedly accepted"; exit 1; fi
           grep -q "30000-frame render limit" limit-check.log
       - name: Render and validate a 1-second landscape MP4
-        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4
+        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en
         working-directory: .
       - name: Verify normalized transition type and applied frame count
         run: |
@@ -116,7 +132,7 @@ jobs:
               assert manifest["transitions"][index] == record, manifest["transitions"][index]
           PY
       - name: Render and validate a 1-second vertical Shorts MP4
-        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4
+        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
         working-directory: .
       - name: Verify subtitles exist for both render profiles
         run: |
@@ -177,13 +193,13 @@ jobs:
       - name: Render voiced landscape prototype with English subtitles
         run: |
           export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx"
-          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --with-voice
-          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo-shorts.json --output outputs/motion-character-transition-shorts.mp4 --with-voice
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --language en --with-voice
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo-shorts.json --output outputs/motion-character-transition-shorts.mp4 --language en --with-voice
       - name: Run topic-to-video production pipeline with English narration
         env:
           PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
         run: |
-          python video_studio/production.py --topic "How a video rendering pipeline works" --format long --target-minutes 0.25 --scenes 4 --out workspace/ci-production-package --render-template
+          python video_studio/production.py --topic "How a video rendering pipeline works" --format long --language en --target-minutes 0.25 --scenes 4 --out workspace/ci-production-package --render-template
       - name: Validate landscape and Shorts audio, subtitles, and quality
         run: |
           set -eu

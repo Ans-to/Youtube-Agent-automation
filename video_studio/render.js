@@ -45,6 +45,11 @@ async function main(){
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   const wrapCheck=await page.evaluate(()=>window.measureWrappedLines("word ".repeat(80),180,"16px Arial"));
   if(!Number.isInteger(wrapCheck)||wrapCheck<2)throw new Error("Text wrapping regression: long text did not wrap to multiple lines.");
+  const directionCheck=await page.evaluate(()=>({
+   urdu:window.textDirectionForTest("یہ Python API ہے"),
+   english:window.textDirectionForTest("English API")
+  }));
+  if(directionCheck.urdu!=="rtl"||directionCheck.english!=="ltr")throw new Error("Script-direction regression: Urdu must be RTL and English LTR. "+JSON.stringify(directionCheck));
   const captionCheck=await page.evaluate(()=>{
    const text=Array.from({length:80},(_,i)=>"captionword"+i).join(" ");
    const info=window.captionPageForTest(text,180,"16px Arial",0.5);

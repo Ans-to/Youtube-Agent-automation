@@ -11,6 +11,48 @@ import orchestrate
 import practice
 
 
+class NarrationLanguageRoutingTests(unittest.TestCase):
+    def test_explicit_narration_language_overrides_channel_default(self):
+        cases = {
+            "Narration language: English. Create a CI test video.": "en",
+            "Use voice-over in Urdu with English technical terms.": "ur-en",
+            "Generate subtitles in ur-en.": "ur-en",
+            "Use Urdu narration for this explainer.": "ur-en",
+            "Create an English voice-over.": "en",
+            "Write Urdu subtitles.": "ur-en",
+            "Speak in English.": "en",
+            "Language: en.": "en",
+        }
+        for instruction, expected in cases.items():
+            with self.subTest(instruction=instruction):
+                self.assertEqual(orchestrate.requested_narration_language(instruction), expected)
+
+    def test_ceo_language_policy_reflects_configured_default(self):
+        english = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "en"}}
+        )
+        urdu = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "ur-en"}}
+        )
+        invalid = orchestrate.configured_narration_language_instruction(
+            {"video_studio": {"narration_language": "xx"}}
+        )
+        self.assertIn("default narration language is English", english)
+        self.assertIn("Pakistani Urdu", urdu)
+        self.assertIn("unsupported", invalid.lower())
+        self.assertIn("do not silently guess", invalid)
+
+    def test_topic_mentions_do_not_change_the_configured_voice_language(self):
+        for instruction in (
+            "Create a video about Urdu literature.",
+            "Explain English technical writing to Urdu students.",
+            "Compare English and Urdu search tools.",
+            "Build a video about Urdu language history.",
+        ):
+            with self.subTest(instruction=instruction):
+                self.assertIsNone(orchestrate.requested_narration_language(instruction))
+
+
 class SpecialistRetryTests(unittest.TestCase):
     def test_quality_gate_requires_exactly_one_explicit_verdict(self):
         self.assertEqual(orchestrate.extract_quality_gate("Review\nOVERALL QUALITY GATE: PASS\n"), "pass")
@@ -43,6 +85,35 @@ class SpecialistRetryTests(unittest.TestCase):
         self.assertEqual(len(calls), 2)
         self.assertIn("AUTOMATIC RECOVERY ATTEMPT 2/2", calls[1])
         self.assertIn("local model timed out", calls[1])
+
+    def test_deterministic_validation_error_is_not_retried(self):
+        calls = []
+
+        def invalid_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            raise ValueError("Local model response was not valid JSON.")
+
+        with self.assertRaisesRegex(ValueError, "not valid JSON"):
+            orchestrate.run_role_with_retry(
+                {"id": "AGENT-09"}, "Write the script", "", {}, runner=invalid_runner
+            )
+        self.assertEqual(len(calls), 1)
+
+    def test_http_503_is_retried_once(self):
+        calls = []
+
+        def unavailable_runner(role, instruction, context, cfg):
+            calls.append(instruction)
+            if len(calls) == 1:
+                raise RuntimeError("HTTP 503 service unavailable")
+            return "Recovered after temporary service failure"
+
+        result, retries = orchestrate.run_role_with_retry(
+            {"id": "AGENT-09"}, "Write the script", "", {}, runner=unavailable_runner
+        )
+        self.assertEqual(result, "Recovered after temporary service failure")
+        self.assertEqual(retries, 1)
+        self.assertEqual(len(calls), 2)
 
     def test_persistent_failure_stops_after_two_attempts(self):
         calls = []
@@ -119,6 +190,71 @@ class MillionCaseRetrySimulationTests(unittest.TestCase):
 
 
 class CEODelegationTests(unittest.TestCase):
+    def _prepare_video_artifacts(self, root, package_status):
+        package_dir = Path(root) / "workspace" / "task-TST" / "video-production"
+        package_dir.mkdir(parents=True)
+        (package_dir / "script.md").write_text("# Test video script\nA reviewed sample.\n", encoding="utf-8")
+        (package_dir / "storyboard.json").write_text(json.dumps({
+            "width": 1920, "height": 1080, "fps": 30,
+            "scenes": [{"headline": "Test", "duration_seconds": 1.0}],
+        }), encoding="utf-8")
+        (package_dir / "package-status.json").write_text(
+            json.dumps(package_status), encoding="utf-8"
+        )
+        return package_dir
+
+    def test_urdu_video_artifact_fails_if_human_voice_approval_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status = {
+                "publishable": False,
+                "published": False,
+                "human_review_required": True,
+                "narration_language": "Urdu + English technical terms",
+                "human_voice_review_status": "pending_or_stale",
+                "voice_naturalness_verified": False,
+                "target_adult_male_voice_verified": False,
+                "speaker_identity_human_reviewed": False,
+                "approved_voice_profile_sha256": None,
+            }
+            self._prepare_video_artifacts(tmp, status)
+            result = {
+                "tool": "video_studio",
+                "status": "completed",
+                "artifact_dir": "workspace/task-TST/video-production",
+                "render_expected": False,
+            }
+            checks = orchestrate.verify_artifact_tool_runs([result], project_root=tmp)
+            self.assertEqual(checks[0]["status"], "failed")
+            self.assertEqual(result["status"], "failed")
+            errors = " ".join(checks[0]["errors"])
+            self.assertIn("human voice approval", errors)
+            self.assertIn("adult-male voice", errors)
+            self.assertIn("voice-profile SHA-256", errors)
+
+    def test_urdu_video_artifact_requires_all_voice_review_flags_and_profile_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status = {
+                "publishable": False,
+                "published": False,
+                "human_review_required": True,
+                "narration_language": "Urdu + English technical terms",
+                "human_voice_review_status": "approved_for_current_profile",
+                "voice_naturalness_verified": True,
+                "target_adult_male_voice_verified": True,
+                "speaker_identity_human_reviewed": True,
+                "approved_voice_profile_sha256": "a" * 64,
+            }
+            self._prepare_video_artifacts(tmp, status)
+            result = {
+                "tool": "video_studio",
+                "status": "completed",
+                "artifact_dir": "workspace/task-TST/video-production",
+                "render_expected": False,
+            }
+            checks = orchestrate.verify_artifact_tool_runs([result], project_root=tmp)
+            self.assertEqual(checks[0]["status"], "passed")
+            self.assertEqual(result["status"], "completed")
+
     def test_direct_specialist_cli_is_disabled(self):
         with self.assertRaisesRegex(SystemExit, "Direct specialist execution is disabled"):
             orchestrate.dispatch.main()

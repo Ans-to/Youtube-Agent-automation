@@ -58,6 +58,7 @@ class AgentTests(unittest.TestCase):
             tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
             statuses = {task["id"]: task["status"] for task in tasks}
             self.assertEqual(statuses, {"TASK-1": "pending", "TASK-2": "completed"})
+            self.assertIsNone(next(task for task in tasks if task["id"] == "TASK-2").get("worker_pid"))
 
     def test_cycle_processes_multiple_tasks_when_no_id_is_selected(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -73,6 +74,72 @@ class AgentTests(unittest.TestCase):
                 self.assertEqual(agent.cycle(), 2)
             tasks = json.loads(tasks_path.read_text(encoding="utf-8"))
             self.assertTrue(all(task["status"] == "completed" for task in tasks))
+
+    def test_interrupted_dead_worker_moves_to_human_action_without_replay(self):
+        from datetime import datetime
+        now = datetime.now().astimezone()
+        task = {
+            "id": "TASK-8", "status": "running", "worker_pid": 24680,
+            "started_at": now.isoformat(), "output_file": "workspace/orchestration/task-TASK-8/result.md"
+        }
+        recovered = agent.recover_interrupted_tasks([task], now=now, alive_check=lambda pid: False)
+        self.assertEqual(recovered, 1)
+        self.assertEqual(task["status"], "needs_human_action")
+        self.assertEqual(task["output_file"], "workspace/orchestration/task-TASK-8/result.md")
+        self.assertEqual(task["interrupted_worker_pid"], 24680)
+        self.assertNotIn("worker_pid", task)
+        self.assertIn("explicit retry", task["error"].lower())
+
+    def test_cycle_persists_orphan_recovery_without_replaying_task(self):
+        from datetime import datetime
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            queue = root / "tasks.json"
+            task = {
+                "id": "TASK-12", "title": "Interrupted task", "kind": "plan",
+                "input": "Do not replay me automatically.", "status": "running",
+                "worker_pid": 24682, "started_at": datetime.now().astimezone().isoformat(),
+                "output_file": "workspace/orchestration/task-TASK-12/existing-result.md"
+            }
+            queue.write_text(json.dumps([task]), encoding="utf-8")
+            with patch.object(agent, "TASKS", queue), patch.object(agent, "CONFIG", root / "config.json"), \
+                 patch.object(agent, "LOGS", root / "logs"), patch.object(agent, "process_is_alive", return_value=False), \
+                 patch.object(agent, "run_ceo_pipeline", side_effect=AssertionError("Interrupted work must not be replayed")):
+                self.assertEqual(agent.cycle(), 0)
+            saved = json.loads(queue.read_text(encoding="utf-8"))[0]
+            self.assertEqual(saved["status"], "needs_human_action")
+            self.assertEqual(saved["output_file"], "workspace/orchestration/task-TASK-12/existing-result.md")
+            self.assertEqual(saved["interrupted_worker_pid"], 24682)
+            self.assertIn("Progress and existing outputs were preserved", saved["error"])
+
+    def test_interrupted_task_with_live_worker_is_not_touched(self):
+        from datetime import datetime
+        now = datetime.now().astimezone()
+        task = {"id": "TASK-9", "status": "running", "worker_pid": 24681, "started_at": now.isoformat()}
+        recovered = agent.recover_interrupted_tasks([task], now=now, alive_check=lambda pid: True)
+        self.assertEqual(recovered, 0)
+        self.assertEqual(task["status"], "running")
+        self.assertEqual(task["worker_pid"], 24681)
+
+    def test_legacy_running_task_uses_four_hour_fifteen_minute_grace(self):
+        from datetime import datetime, timedelta
+        now = datetime.now().astimezone()
+        task = {
+            "id": "TASK-10", "status": "running",
+            "started_at": (now - timedelta(seconds=agent.LEGACY_RUNNING_TASK_GRACE_SECONDS - 60)).isoformat()
+        }
+        self.assertEqual(agent.recover_interrupted_tasks([task], now=now, alive_check=lambda pid: False), 0)
+        self.assertEqual(task["status"], "running")
+        task["started_at"] = (now - timedelta(seconds=agent.LEGACY_RUNNING_TASK_GRACE_SECONDS + 60)).isoformat()
+        self.assertEqual(agent.recover_interrupted_tasks([task], now=now, alive_check=lambda pid: False), 1)
+        self.assertEqual(task["status"], "needs_human_action")
+
+    def test_legacy_running_task_with_invalid_timestamp_is_preserved(self):
+        from datetime import datetime
+        task = {"id": "TASK-11", "status": "running", "started_at": "not-a-timestamp"}
+        self.assertEqual(agent.recover_interrupted_tasks([task], now=datetime.now().astimezone(), alive_check=lambda pid: False), 0)
+        self.assertEqual(task["status"], "running")
 
     def test_local_model_rejects_non_loopback_and_userinfo_urls(self):
         for url in ("http://example.com:8080/v1/chat/completions",

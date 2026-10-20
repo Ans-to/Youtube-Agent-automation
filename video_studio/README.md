@@ -1,39 +1,85 @@
 # Offline Agent HQ — deterministic video studio
 
-This module renders local MP4s from JSON storyboards using deterministic Canvas2D in headless Chromium and FFmpeg. Final production renders use an English Piper voice and always emit English subtitles in SRT and WebVTT; captions are also drawn into the frames. The YouTube uploader is separate and approval-gated.
+This module renders MP4s from JSON storyboards using Canvas2D in headless Chromium and FFmpeg. The production language profile is configurable and defaults to **Pakistani Urdu narration written in Urdu/Arabic script, preserving common English technical terms** (ur-en). English narration is supported only when explicitly requested. SRT/WebVTT subtitle text follows the narration profile. The YouTube uploader is separate and approval-gated.
 
 ## Requirements
+
 - Python 3.10 or newer
 - Node.js LTS
-- FFmpeg and ffprobe available on PATH
+- FFmpeg and ffprobe on PATH
 - A Windows PC is recommended; PNG-frame rendering is CPU- and storage-intensive.
-- Required for final production renders: Piper CLI plus a verified English voice model and matching `.onnx.json` config. Silent rendering is for visual smoke tests only.
-- Every render requires English narration text and emits validated `.srt` and `.vtt` subtitle sidecars.
+- For English voice: Piper CLI plus a verified English model and matching .onnx.json config.
+- For Urdu-English voice: the repository includes a KaniTTS adapter and pins the Urdu fine-tuned model revision. Choose the optional CPU-only Urdu voice dependency setup in START_HERE.bat; the model and codec weights are downloaded on first render (roughly 1.5 GB per upstream setup guidance), not committed to Git.
+- The model card labels the fine-tuned model Apache-2.0, but the upstream/base model and dependencies must also be reviewed before commercial redistribution or use. A technically generated WAV is not proof of natural pronunciation. Missing dependencies, invalid audio, or silence block the render; English Piper is never substituted.
+- Rendering writes matching SRT/WebVTT sidecars and uses script-aware RTL layout for Urdu captions. This does not guarantee natural pronunciation, voice quality, or phoneme-accurate lip-sync.
 - Optional YouTube upload: Google OAuth desktop client JSON and the dependencies in requirements-publish.txt.
 
 ## Windows setup
-Open PowerShell in this directory and run:
+Open PowerShell in this directory and run this explicitly English, silent renderer smoke demo:
 
     npm install
-    python studio.py --storyboard storyboard.example.json --output outputs\offline-agent-hq-demo.mp4
+    python studio.py --storyboard storyboard.example.json --output outputs\offline-agent-hq-demo.mp4 --language en
 
 Puppeteer downloads a compatible Chromium build during npm install. If your network blocks this, install a supported Chrome/Chromium build and configure Puppeteer to use it.
 
-## English narration and subtitles (local, no paid API)
+## Narration languages and local voice backends
 
-Final production renders must use English narration. The CI pipeline downloads the MIT-licensed Piper `en_US-lessac-medium` model from a pinned Hugging Face revision and verifies its SHA-256 before synthesis. Voice models and config files are not committed to the repository.
+The default production profile is ur-en: conversational Pakistani Urdu in Urdu/Arabic script, retaining familiar English technical terms such as API names, product names, and code identifiers. Use --language en only when English narration is explicitly requested (the CI smoke-test fixture does this). The language profile is stored in the storyboard and package status, and subtitle validation checks that the track contains Urdu-script text rather than merely labelling English as Urdu.
 
-1. Install Piper TTS in the active Python environment: `python -m pip install piper-tts`.
-2. Download an English voice model and its matching `.onnx.json` config. Review the voice model card and license before redistribution.
-3. Set `PIPER_MODEL` to the absolute path to the English `.onnx` file. The adjacent config must identify a language code beginning with `en`.
+English voice setup:
 
-PowerShell example:
+1. Install Piper in the selected Python environment: python -m pip install piper-tts.
+2. Download an English voice model and matching .onnx.json config. Review the exact model's license and model card before use.
+3. Set PIPER_MODEL to the absolute path to the .onnx file. Its adjacent config must identify a language code starting with en.
 
-    $env:PIPER_MODEL = "C:\\path\\to\\en_US-lessac-medium.onnx"
-    python studio.py --storyboard storyboard.motion-character-demo.json --output outputs\\english-demo.mp4 --with-voice
-    python validate_render.py outputs\\english-demo.mp4 --require-audio
+PowerShell example for an explicitly English render:
 
-Every render also writes matching `.srt` and `.vtt` subtitle files. Subtitle text is derived from the English narration, timed across each scene's measured speech duration, and checked for valid, ordered cues. This is scene/phrase-level timing, not forced word alignment. The validator checks audio presence, signal level, clipping, dimensions, frame rate, and duration; it cannot certify naturalness, pronunciation, factual correctness, or lip-sync. Human listening and visual review remain required.
+    $env:PIPER_MODEL = "C:\path\to\en_US-lessac-medium.onnx"
+    python video_studio/production.py --topic "How AI agents work" --format shorts --language en --render
+
+Urdu-English voice setup:
+
+The bundled KaniTTS adapter is selected automatically when video_studio.urdu_tts_command is left as an empty array in config.json; this is the default in config.example.json. Run START_HERE.bat and approve the optional CPU-only Urdu TTS dependency install. The adapter loads the pinned KaniTTS Urdu snapshot once per video and synthesizes scenes sequentially to limit memory use. The first render needs internet access and enough disk space for the Urdu model and codec caches (roughly 1.5 GB per upstream setup guidance). CPU generation can be slow on an 8 GB machine.
+
+Before enabling production renders, create an isolated WAV preview (this does not create an MP4 and does not approve the voice):
+
+    python video_studio/voice_preview.py --text "آج ہم Python API کو step by step سمجھیں گے۔" --output workspace/urdu-voice-preview.wav
+
+The first preview downloads the configured model and codec if they are not cached. The command writes a sidecar `workspace/urdu-voice-preview.wav.preview.json` with the WAV hash, voice-profile fingerprint, technical audio report, and pending-review status. Change `video_studio.kani_speaker_prefix` in your local `config.json` only to try a documented/testable speaker prefix, create a new preview with a different filename, and listen to each result.
+
+**Human voice approval is required before any Urdu-English production render.** The default configuration keeps `video_studio.urdu_voice_human_approved` false. Listen to the exact WAV yourself and check that it is intelligible Pakistani Urdu, preserves English technical terms, and sounds like the required natural adult-male voice. Only then run the separate interactive approval command printed by the preview tool; for the example above:
+
+    python video_studio/voice_preview.py --approve-existing workspace/urdu-voice-preview.wav
+
+Type the exact word `APPROVE` only after you have personally listened and accepted that sample. The approval command verifies the preview sidecar, WAV SHA-256, current adapter/model/revision/speaker-profile fingerprint, and audio validity before it updates local `config.json`. Generating a preview never approves anything. Changing the model, adapter source/requirements, or speaker prefix invalidates approval. This is a human attestation, not an automated quality measurement. If the model or speaker identity is unsuitable, do not approve or release the video. Never commit local config or tokens.
+
+A custom adapter may be configured in config.json (never commit this file). Its command is an argument array, not a shell string, and must contain either {manifest_file} for a batch adapter or both {text_file} and {output_file} for a per-scene adapter. For example:
+
+    {
+      "video_studio": {
+        "narration_language": "ur-en",
+        "urdu_tts_command": ["python", "path/to/your_adapter.py", "--input", "{text_file}", "--output", "{output_file}"]
+      }
+    }
+
+The custom adapter path above is a contract example, not the default engine. The bundled adapter follows the upstream Kani inference path: a causal model generates speech-code tokens, then NeMo NanoCodec decodes them to audio. The fine-tuned Urdu model card labels the model Apache-2.0; review the base-model, NVIDIA codec, and dependency licenses before commercial use. Final rendering is blocked when the backend fails or produces invalid/silent WAV output. Human listening review remains mandatory; this integration does **not** prove production-quality Urdu narration.
+
+Speaker identity is deliberately not inferred. The default Kani adapter does not force an unverified speaker label. You may set `video_studio.kani_speaker_prefix` in your local config only to a prefix documented or tested for this exact fine-tuned model; that value is passed to the bundled adapter as a text prefix. No adult-male speaker prefix is currently verified by this repository. Human-listen-test the actual rendered sample before treating the adult-male voice requirement as met.
+
+## Urdu voice source ledger
+
+Implementation references inspected on **2026-10-20**:
+
+- [KaniTTS upstream basic example](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/README.md): documents the Python 3.10–3.12 setup range, model/codec pairing, Transformers 4.57.1, and first-run model downloads. Decision: pin the documented API/dependency family and isolate it from the main Agent HQ interpreter.
+- [Kani token generator](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/generation/generator.py): supplies the causal-model token-generation pattern, generation parameters, and human/text prompt format. Decision: use the model's speech-code output rather than a generic Transformers TTS pipeline.
+- [Kani NanoCodec decoder](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/audio/player.py) and [token constants](https://github.com/nineninesix-ai/kani-tts/blob/main/examples/basic/config.py): document the four-codebook offsets, special token IDs, 22.05 kHz output, and `AudioCodecModel.decode(tokens=..., tokens_len=...)`. Decision: implement the decoder path and add dependency-free tests for token interval validation and codebook offsets.
+- [NeMo NanoCodec model](https://huggingface.co/nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps): the decoder selected by the upstream example. Decision: load it once per batch and reject malformed or effectively silent WAV output.
+- [Pinned Urdu fine-tune](https://huggingface.co/mahwizzzz/kani-tts-400m-ur): used by the bundled adapter at revision `6f758dcedff6f33d74dacebab2876b3e536b8c89`. Its speaker identity, adult-male quality, and Urdu-English pronunciation are **not verified by code or model metadata alone**. Decision: expose a local speaker-prefix option, provide an audio-only preview, and require human approval fingerprinted to the selected adapter/model/prefix before production rendering.
+
+These are implementation references, not proof that the selected Urdu fine-tune is a suitable adult-male voice on Windows/CPU. If the isolated dependency install or human audio review fails, keep the voice approval flag false and do not release an Urdu-English production video.
+
+Subtitles are derived from narration text and timed within measured scene durations. The current subtitle timing is scene/phrase-level rather than forced word alignment. RTL layout improves Urdu text presentation but does not prove accurate punctuation, pronunciation, or natural voice quality.
+
 ## Device-aware rendering
 
 Inspect the machine profile before a render:
@@ -44,17 +90,17 @@ Inspect the machine profile before a render:
 The profiler uses only Python's standard library and supported OS probes. It reports RAM, CPU count, free disk space, GPU detection, a conservative encoder thread count, and a single-heavy-job policy. Every render writes a `.capabilities.json` sidecar next to the output. The profile never silently lowers requested resolution or frame rate; low-memory rendering can be slower and may still fail if the requested project exceeds available resources. The renderer also takes a cross-process lock before touching shared frame, manifest, or voice-intermediate paths; simultaneous render requests wait instead of corrupting one another.
 
 ## Generate a topic package
-From the repository root, run:
+
+From the repository root:
 
     python video_studio/production.py --topic "How AI agents work" --format long
     python video_studio/production.py --topic "How AI agents work" --format shorts
-    python video_studio/production.py --topic "How AI agents work" --format long --render
 
-With no enabled local model, this creates a clearly marked 20-second template, not a researched script. Rendering that demo requires the explicit `--render-template` flag. If a compatible OpenAI-style local inference server is enabled in config.json, the builder creates a structured outline and then generates each scene in a separate local-model request to support 15-minute long-form scripts. It checks scene count and minimum narration length before packaging. The model output is still a draft and does not independently verify factual claims.
+The language profile is read from config.json (video_studio.narration_language); the default channel profile is ur-en. Set --language en for an explicitly English package. With no enabled local language model, the builder refuses to present the generic offline scaffold as researched Urdu-English content. If Urdu-English mode is chosen, final rendering also requires the configured compatible local voice adapter. For an English final render, provide a verified English Piper model and use:
 
-Scene narration captions are paginated into readable two-line cards, while SRT and WebVTT sidecars are generated for every render. Narration is English-only. The production command refuses final rendering unless an English Piper model is configured; it automatically enables voice synthesis and creates subtitle sidecars. Use --format shorts for a 1080×1920 vertical storyboard or --format long for 1920×1080 landscape. Review script.md, storyboard.json, video.mp4, video.srt, and video.vtt manually.
+    python video_studio/production.py --topic "How AI agents work" --format shorts --language en --render
 
-
+The builder uses separate model calls for outline and scene generation, verifies minimum narration length, and writes script.md, storyboard.json, and package-status.json. The output remains a draft until claims are checked and human review is recorded. A CI template render is only a pipeline smoke test; it does not demonstrate real-model content generation or Urdu TTS.
 
 ## Research-first source discovery
 
@@ -94,7 +140,7 @@ This is a deterministic starter renderer, not a professional editor or anime rig
 
 The agent's creative/QA contract is in:
 - [Professional Motion Design Director](skills/PRO_MOTION_DIRECTOR.md): transition selection, easing, staging, typography, audio-led pacing, review rubric, and render QA.
-- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, viseme-aligned lip sync, English narration, and acceptance tests.
+- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, audio-aligned lip sync, selected-language narration, and acceptance tests.
 
 **Important status distinction:** the renderer now includes a more detailed procedural presenter (hands/fingers, clothing details, gaze, brows, expressions, blinking, and secondary head motion), but it is not a production-quality skeletal or anime rig. Piper output is not automatically natural-sounding. Direct `studio.py` renders can be silent when used for visual smoke tests; the `production.py` final-render path requires a verified English Piper model and generates SRT/WebVTT subtitles.
 
@@ -103,7 +149,7 @@ Recommended implementation order:
 2. Add voice-model selection and audio QA. Reject missing, test-only, or clipped speech; align scene duration to speech rather than trimming speech to scene duration.
 3. Add a separate licensed 2D skeletal character pipeline, phrase-level facial motion and phoneme/viseme timing; composite transparent character renders into the existing edit.
 4. Integrate a fail-closed multimodal reviewer, objective frame/audio checks, timestamped defects, and exact-output hashes.
-5. Keep the topic-to-video package builder in CI: script, storyboard, English TTS, SRT/WebVTT, MP4 validation, and strict technical QC must all pass before accepting a change.
+5. Keep the topic-to-video package builder in CI: script, storyboard, the explicitly selected language's TTS, SRT/WebVTT, MP4 validation, and strict technical QC must all pass before accepting a change. English-only CI smoke renders do not certify Urdu voice output.
 
 Research references and evaluation criteria are documented in the two skill files. A prompt alone cannot train a model to professional skill; the workflow needs suitable models/assets, repeated renders, measured defects, and regression tests.
 
@@ -113,9 +159,9 @@ The renderer has an optional procedural 2D presenter layer (`scene.character`) w
 
 Scene transitions composite previous and incoming frames with eased fade, directional wipe, slide-left/right, and zoom transitions. Transition frames are bounded to the scene length and configured frame limit. Choose a transition for editorial meaning; use `none` for a deliberate hard cut.
 
-Landscape and vertical regression storyboards are provided at `storyboard.motion-character-demo.json` and `storyboard.motion-character-demo-shorts.json`. GitHub Actions renders both with English TTS and validates their subtitle sidecars and audio.
+Landscape and vertical regression storyboards are provided at `storyboard.motion-character-demo.json` and `storyboard.motion-character-demo-shorts.json`. Existing renderer smoke fixtures use English TTS where configured; these are technical tests, not proof of natural Urdu voice quality.
 
     npm install
-    python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4
+    python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4 --language en
 
-This command produces English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
+This command can produce English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.

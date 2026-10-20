@@ -1,0 +1,21 @@
+{
+  "title": "Urdu RTL renderer smoke test",
+  "narration_language": "ur-en",
+  "width": 640,
+  "height": 360,
+  "fps": 2,
+  "scenes": [
+    {
+      "narration_language": "ur-en",
+      "duration_seconds": 1,
+      "eyebrow": "RTL TEXT / URDU + ENGLISH",
+      "headline": "یہ ایک Python tutorial ہے",
+      "subhead": "API اور automation کو آسانی سے سمجھیں",
+      "narration": "آج ہم Python API اور automation کے بارے میں سیکھیں گے۔",
+      "caption": "آج ہم Python API اور automation کے بارے میں سیکھیں گے۔",
+      "visual_type": "hero",
+      "graphic_label": "URDU RTL",
+      "transition_in": "none"
+    }
+  ]
+}

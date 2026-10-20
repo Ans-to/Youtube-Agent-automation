@@ -142,6 +142,75 @@ if ($LASTEXITCODE -ne 0) {
     throw "Project dependency setup failed. See the error above."
 }
 
+$UrduTtsAnswer = Read-Host "Install optional CPU-only Urdu voice dependencies into an isolated .venv-urdu-tts? Model and codec weights add roughly 1.5 GB on first use [y/N]"
+if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
+    # Keep NeMo/Transformers/PyTorch isolated from Agent HQ's main Python runtime.
+    # Kani's upstream example documents Python 3.10–3.12; probe installed interpreters
+    # explicitly because "py -3" may select Python 3.13 even when Python 3.12 is installed.
+    $VoicePythonSelector = $null
+    $VoicePythonCommand = $null
+    $VoicePythonVersion = $null
+
+    if (Has-Command "py") {
+        foreach ($Candidate in @("3.12", "3.11", "3.10")) {
+            $DetectedVersion = (& py "-$Candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
+            if ($LASTEXITCODE -eq 0 -and $DetectedVersion -eq $Candidate) {
+                $VoicePythonSelector = "-$Candidate"
+                $VoicePythonCommand = "py"
+                $VoicePythonVersion = $DetectedVersion
+                break
+            }
+        }
+    }
+
+    if (-not $VoicePythonCommand -and (Has-Command "python")) {
+        $DetectedVersion = (& python -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
+        if ($LASTEXITCODE -eq 0 -and $DetectedVersion -in @("3.10", "3.11", "3.12")) {
+            $VoicePythonCommand = "python"
+            $VoicePythonVersion = $DetectedVersion
+        }
+    }
+
+    if (-not $VoicePythonCommand) {
+        throw "Kani TTS dependencies require Python 3.10, 3.11, or 3.12. Install Python 3.12 side-by-side and rerun START_HERE.bat. Agent HQ's core runtime may continue using another supported Python version; the Urdu voice environment is separate."
+    }
+
+    $UrduVenvRoot = Join-Path $Root ".venv-urdu-tts"
+    $UrduVenvPython = Join-Path $UrduVenvRoot "Scripts\python.exe"
+
+    if (-not (Test-Path $UrduVenvPython)) {
+        Write-Host "Creating isolated Urdu TTS environment with Python $VoicePythonVersion..." -ForegroundColor Cyan
+        if ($VoicePythonCommand -eq "py") {
+            & py $VoicePythonSelector -m venv $UrduVenvRoot
+        } else {
+            & python -m venv $UrduVenvRoot
+        }
+        if ($LASTEXITCODE -ne 0 -or -not (Test-Path $UrduVenvPython)) {
+            throw "Could not create .venv-urdu-tts with Python $VoicePythonVersion."
+        }
+    } else {
+        $ExistingVoiceVersion = (& $UrduVenvPython -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
+        if ($LASTEXITCODE -ne 0 -or $ExistingVoiceVersion -notin @("3.10", "3.11", "3.12")) {
+            throw "The existing .venv-urdu-tts does not use a supported Python 3.10–3.12 interpreter. It was left untouched. Back up or remove that dedicated virtual-environment folder and rerun START_HERE.bat."
+        }
+        Write-Host "Reusing isolated Urdu TTS environment with Python $ExistingVoiceVersion." -ForegroundColor DarkGray
+    }
+
+    & $UrduVenvPython -m pip install --upgrade pip
+    if ($LASTEXITCODE -ne 0) { throw "Could not update pip inside .venv-urdu-tts." }
+    & $UrduVenvPython -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+    if ($LASTEXITCODE -ne 0) { throw "CPU-only PyTorch install failed inside .venv-urdu-tts. Urdu voice remains unavailable; see video_studio/README.md." }
+    & $UrduVenvPython -m pip install -r (Join-Path $Root "video_studio\requirements-urdu-tts.txt")
+    if ($LASTEXITCODE -ne 0) { throw "Urdu TTS dependencies did not finish installing inside .venv-urdu-tts. The main Agent HQ Python environment was not modified." }
+
+    & $UrduVenvPython -c "import torch, transformers; from nemo.collections.tts.models import AudioCodecModel; print('Urdu TTS runtime imports OK; torch=' + torch.__version__ + '; transformers=' + transformers.__version__)"
+    if ($LASTEXITCODE -ne 0) { throw "Kani/NeMo runtime import verification failed. Urdu voice remains unavailable; keep the approval flag false and inspect the error above." }
+
+    Write-Host "Isolated Urdu voice dependencies installed and import-checked. The pinned Urdu model and codec weights download on first preview/render; allow roughly 1.5 GB of cache plus runtime memory." -ForegroundColor Green
+} else {
+    Write-Warning "Skipped Urdu voice dependencies. Urdu-English voice previews and production renders will fail with a clear missing-dependency error until the optional runtime is installed."
+}
+
 function Get-OllamaModelList {
     # Try the existing Ollama service first. If installed but not running,
     # start its local server and retry once instead of downloading blindly.

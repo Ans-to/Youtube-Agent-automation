@@ -49,6 +49,20 @@ class DashboardWorkflowTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, "16,000"):
                     dashboard.enqueue_task("Too long", "youtube_package", "x" * 16001)
 
+    def test_running_queue_records_trigger_startup_recovery_sweep(self):
+        import json
+        import tempfile
+        from pathlib import Path
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as directory:
+            queue = Path(directory) / "tasks.json"
+            queue.write_text(json.dumps([{"id": "TASK-9", "status": "running"}]), encoding="utf-8")
+            with patch.object(dashboard, "TASKS", queue):
+                self.assertTrue(dashboard.has_running_tasks())
+                self.assertFalse(dashboard.has_pending_tasks())
+                queue.write_text(json.dumps([{"id": "TASK-9", "status": "needs_human_action"}]), encoding="utf-8")
+                self.assertFalse(dashboard.has_running_tasks())
+
     def test_start_task_runner_launches_background_worker(self):
         from unittest.mock import patch
         with patch.object(dashboard, "RUNNING", False), patch.object(dashboard.threading, "Thread") as thread:
