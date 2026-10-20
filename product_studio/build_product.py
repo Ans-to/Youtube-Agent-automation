@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Build a local-first single-file digital-product prototype for human review."""
-import argparse, html, json, re, shutil, urllib.request, urllib.error, urllib.parse, ipaddress, zipfile
+import argparse, html, json, re, shutil, urllib.request, urllib.error, urllib.parse, ipaddress, zipfile, sys
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
 BASE=Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "tools"))
+from path_utils import canonical_path, is_within
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
@@ -87,9 +89,9 @@ def main():
     except (FileNotFoundError,json.JSONDecodeError):cfg={}
     source_notes=""
     if a.source_file:
-        notes_path=Path(a.source_file).expanduser().resolve()
-        workspace_root=(ROOT/"workspace").resolve()
-        if notes_path==workspace_root or workspace_root not in notes_path.parents or not notes_path.is_file():raise SystemExit("Source notes must be an existing file inside workspace.")
+        notes_path=canonical_path(a.source_file)
+        workspace_root=canonical_path(ROOT/"workspace")
+        if not is_within(notes_path, workspace_root, allow_equal=False) or not notes_path.is_file():raise SystemExit("Source notes must be an existing file inside workspace.")
         if notes_path.suffix.lower() not in {".txt",".md",".json"} or notes_path.stat().st_size>2_000_000:raise SystemExit("Source notes must be .txt, .md, or .json and no larger than 2 MB.")
         source_notes=notes_path.read_text(encoding="utf-8",errors="replace")[:50000]
     generated=local_html(idea,title,cfg,source_notes)
@@ -100,11 +102,11 @@ def main():
     source=source[:head.end()]+csp+source[head.end():]
     risks=scan_risks(source)
     if risks: raise SystemExit("Product HTML rejected by static safety gate: "+", ".join(risks))
-    workspace_root=(ROOT/"workspace").resolve()
-    output_base=(ROOT/a.out).resolve()
-    if output_base!=workspace_root and workspace_root not in output_base.parents: raise SystemExit("Output directory must remain inside the project workspace.")
-    out=(output_base/slugify(title)).resolve()
-    if output_base not in out.parents: raise SystemExit("Unsafe product output path.")
+    workspace_root=canonical_path(ROOT/"workspace")
+    output_base=canonical_path(ROOT/a.out)
+    if not is_within(output_base, workspace_root): raise SystemExit("Output directory must remain inside the project workspace.")
+    out=canonical_path(output_base/slugify(title))
+    if not is_within(out, output_base, allow_equal=False): raise SystemExit("Unsafe product output path.")
     out.mkdir(parents=True,exist_ok=True)
     (out/"index.html").write_text(source,encoding="utf-8")
     (out/"README.md").write_text("# "+title+"\n\n## Product idea\n"+idea+"\n\n## Status\nPrototype generated locally. Review functionality, accessibility, security, and licensing before selling.\n\n## Validation notes\n"+("- Potential external/network patterns found: "+", ".join(risks) if risks else "Basic static scan found no configured external-network patterns; this is not a security audit.")+"\n",encoding="utf-8")
