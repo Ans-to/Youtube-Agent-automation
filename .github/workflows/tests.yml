@@ -99,20 +99,80 @@ jobs:
           if [ "$code" -eq 0 ]; then echo "Oversized storyboard was unexpectedly accepted"; exit 1; fi
           grep -q "30000-frame render limit" limit-check.log
 
-      - name: End-to-end template package to landscape MP4
-        run: python video_studio/production.py --topic "CI video package-to-MP4 end-to-end smoke test" --out workspace/ci-video-package --render-template
-
-      - name: Verify generated package artifacts and render metadata
+      - name: End-to-end CEO task to rendered MP4 (offline deterministic mode)
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
-          package = Path("workspace/ci-video-package")
+          import agent
+          import dispatch
+
+          root = Path.cwd()
+          workspace = root / "workspace"
+          workspace.mkdir(parents=True, exist_ok=True)
+          (workspace / "ci-source-notes.md").write_text(
+              "# Synthetic CI source notes\n\n"
+              "This is synthetic test material. It verifies orchestration and rendering only; "
+              "it is not factual research or publication content.\n",
+              encoding="utf-8",
+          )
+          (workspace / "ci-config.json").write_text(
+              json.dumps({"model": {"enabled": False}, "runner": {"max_tasks_per_cycle": 1}}),
+              encoding="utf-8",
+          )
+          queue = workspace / "ci-task-queue.json"
+          queue.write_text(json.dumps([{
+              "id": "CI-VIDEO-E2E",
+              "kind": "youtube_package",
+              "title": "CI template demo render smoke test",
+              "input": (
+                  "Create a template demo render MP4 for a faceless YouTube video about "
+                  "CI pipeline smoke testing. Generate the video package and render it; "
+                  "this is synthetic smoke-test content, not publication content."
+              ),
+              "context_file": "workspace/ci-source-notes.md",
+              "status": "pending",
+          }], indent=2), encoding="utf-8")
+
+          # Isolate smoke-test state from the normal queue/config and make network research
+          # explicitly unavailable, so the test is deterministic and needs no API keys.
+          agent.TASKS = queue
+          agent.CONFIG = workspace / "ci-config.json"
+          agent.OUTPUTS = workspace / "ci-outputs"
+          dispatch.collect_web_research = None
+          processed = agent.cycle("CI-VIDEO-E2E")
+          if processed != 1:
+              raise SystemExit("CEO queue runner did not process the synthetic video task")
+          print("PASS: CEO queue runner processed the synthetic task")
+          PY
+
+      - name: Verify CEO orchestration and rendered video artifacts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          workspace = root / "workspace"
+          task_output = workspace / "ci-outputs" / "CI-VIDEO-E2E.md"
+          if not task_output.is_file() or task_output.stat().st_size == 0:
+              raise SystemExit("CEO task result was not written")
+          destination = workspace / "orchestration" / "task-CI-VIDEO-E2E"
+          manifest_path = destination / "pipeline-status.json"
+          if not manifest_path.is_file():
+              raise SystemExit("CEO pipeline manifest is missing")
+          manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+          tool = next((item for item in manifest.get("tool_runs", [])
+                       if item.get("tool") == "video_studio"), None)
+          if not tool or tool.get("status") != "completed":
+              raise SystemExit("CEO pipeline did not successfully run the video builder: " + repr(tool))
+          package = workspace / "orchestration" / "task-CI-VIDEO-E2E" / "video-production"
           required = ["script.md", "storyboard.json", "package-status.json", "video.mp4"]
           missing = [name for name in required if not (package / name).is_file()]
           if missing:
-              raise SystemExit("Missing end-to-end package artifacts: " + ", ".join(missing))
-          if (package / "video.mp4").stat().st_size <= 0:
+              raise SystemExit("Missing video package artifacts: " + ", ".join(missing))
+          video = package / "video.mp4"
+          if video.stat().st_size <= 0:
               raise SystemExit("End-to-end MP4 is empty")
           status = json.loads((package / "package-status.json").read_text(encoding="utf-8"))
           storyboard = json.loads((package / "storyboard.json").read_text(encoding="utf-8"))
@@ -124,7 +184,11 @@ jobs:
               raise SystemExit("End-to-end landscape storyboard has unexpected dimensions")
           if len(storyboard.get("scenes", [])) != 4:
               raise SystemExit("End-to-end template storyboard should contain four scenes")
-          print("PASS: script, storyboard, status, and validated MP4 were produced from one generated package")
+          if manifest.get("external_actions_performed") is not False:
+              raise SystemExit("Synthetic end-to-end test must not report external actions")
+          print("PASS: agent queue -> CEO delegation -> specialist stages -> video builder -> validated MP4")
+          print("Pipeline status:", manifest.get("status"), "| Quality gate:", manifest.get("quality_gate"))
+          print("Template-only output; not a publishable AI-generated video.")
           PY
 
       - name: Render and validate a 1-second landscape MP4
