@@ -229,11 +229,49 @@ jobs:
           print("Honest status: partial; semantic quality gate unconfirmed; template-only; not publishable.")
           PY
 
-      - name: Render and validate a 10-second landscape MP4 (1-second scenes)
-        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en
+      - name: Render narrated 30 fps landscape MP4 with character cues
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en --with-voice
 
-      - name: Render and validate a 10-second vertical Shorts MP4 (1-second scenes)
-        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
+      - name: Render narrated 30 fps vertical Shorts MP4 with character cues
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en --with-voice
+
+      - name: Verify narrated character cues and smoke outputs exist
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("video_studio/outputs")
+          alignment = "audio-energy-gated grapheme approximation; not forced phoneme alignment"
+          for name in ("ci-smoke.storyboard.json", "ci-smoke-shorts.storyboard.json"):
+              path = root / name
+              if not path.is_file():
+                  raise SystemExit("Generated voice-aligned storyboard is missing: " + str(path))
+              data = json.loads(path.read_text(encoding="utf-8"))
+              characters = [
+                  scene["character"] for scene in data.get("scenes", [])
+                  if isinstance(scene, dict)
+                  and isinstance(scene.get("character"), dict)
+                  and scene["character"].get("enabled") is True
+              ]
+              if len(characters) < 3:
+                  raise SystemExit(name + " did not retain the three expected enabled character scenes")
+              for index, character in enumerate(characters, 1):
+                  cues = character.get("visemes")
+                  if not isinstance(cues, list) or len(cues) < 3:
+                      raise SystemExit(name + " character " + str(index) + " has no useful audio-driven cue sequence")
+                  if character.get("viseme_alignment") != alignment:
+                      raise SystemExit(name + " character " + str(index) + " has missing or misleading alignment metadata")
+              print("PASS:", name, "contains", len(characters), "audio-energy-gated character scenes")
+          for name in ("ci-smoke.mp4", "ci-smoke-shorts.mp4"):
+              path = root / name
+              if not path.is_file() or path.stat().st_size == 0:
+                  raise SystemExit("Smoke MP4 missing or empty: " + str(path))
+          PY
 
       - name: Verify landscape and Shorts smoke outputs exist for artifact retention
         # Use the default success() condition: cancellation or an earlier render failure
@@ -261,6 +299,12 @@ jobs:
             workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.vtt
             workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.qc.json
             video_studio/outputs/ci-smoke.mp4
+            video_studio/outputs/ci-smoke.srt
+            video_studio/outputs/ci-smoke.vtt
+            video_studio/outputs/ci-smoke.storyboard.json
             video_studio/outputs/ci-smoke-shorts.mp4
+            video_studio/outputs/ci-smoke-shorts.srt
+            video_studio/outputs/ci-smoke-shorts.vtt
+            video_studio/outputs/ci-smoke-shorts.storyboard.json
           if-no-files-found: error
           retention-days: 7
