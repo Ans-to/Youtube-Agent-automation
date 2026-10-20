@@ -236,7 +236,8 @@ jobs:
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
 
       - name: Verify landscape and Shorts smoke outputs exist for artifact retention
-        if: always()
+        # Use the default success() condition: cancellation or an earlier render failure
+        # must not turn missing outputs into a misleading secondary failure.
         run: |
           test -s video_studio/outputs/ci-smoke.mp4 || { echo "Landscape smoke MP4 missing; artifact paths or render output changed."; exit 1; }
           test -s video_studio/outputs/ci-smoke-shorts.mp4 || { echo "Vertical Shorts smoke MP4 missing; artifact paths or render output changed."; exit 1; }
