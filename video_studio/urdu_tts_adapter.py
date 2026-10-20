@@ -10,12 +10,15 @@ from array import array
 import json
 import math
 import os
+import re
 from pathlib import Path
 import sys
 import wave
 
 DEFAULT_MODEL_ID = "mahwizzzz/kani-tts-400m-ur"
 DEFAULT_MODEL_REVISION = "6f758dcedff6f33d74dacebab2876b3e536b8c89"
+DEFAULT_CODEC_MODEL_ID = "nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps"
+DEFAULT_CODEC_REVISION = "main"
 MAX_MANIFEST_BYTES = 2_000_000
 MAX_ITEMS = 300
 MAX_TEXT_CHARS = 6000
@@ -31,6 +34,7 @@ def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
     try:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
+        from huggingface_hub import snapshot_download
         from nemo.collections.tts.models import AudioCodecModel
     except ImportError as exc:
         raise RuntimeError(
@@ -71,9 +75,23 @@ def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
         )
         model.to("cpu")
         model.eval()
-        codec = AudioCodecModel.from_pretrained(
-            "nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps"
-        ).eval()
+        codec_model_id = os.environ.get("AGENTHQ_URDU_TTS_CODEC", DEFAULT_CODEC_MODEL_ID).strip() or DEFAULT_CODEC_MODEL_ID
+        requested_codec_revision = os.environ.get(
+            "AGENTHQ_URDU_TTS_CODEC_REVISION", DEFAULT_CODEC_REVISION
+        ).strip() or DEFAULT_CODEC_REVISION
+        print("Resolving NanoCodec " + codec_model_id + " at revision " + requested_codec_revision, flush=True)
+        codec_snapshot = Path(snapshot_download(
+            repo_id=codec_model_id,
+            revision=requested_codec_revision,
+        )).resolve()
+        resolved_codec_revision = codec_snapshot.name
+        if not re.fullmatch(r"[0-9a-f]{40}", resolved_codec_revision):
+            raise RuntimeError(
+                "Hugging Face did not return an immutable 40-character NanoCodec commit revision; "
+                "refusing to approve an unpinned codec snapshot."
+            )
+        print("NanoCodec resolved immutable revision: " + resolved_codec_revision, flush=True)
+        codec = AudioCodecModel.from_pretrained(str(codec_snapshot)).eval()
         codec.to("cpu")
     except Exception as exc:
         raise RuntimeError(
@@ -86,6 +104,12 @@ def load_pipeline(model_id=DEFAULT_MODEL_ID, revision=DEFAULT_MODEL_REVISION):
 
     class KaniUrduPipeline:
         """Generate one speech waveform per text with a single resident model+codec."""
+
+        def __init__(self):
+            self.resolved_codec_model = codec_model_id
+            self.resolved_codec_revision = resolved_codec_revision
+            self.model_id = model_id
+            self.model_revision = revision
 
         def __call__(self, text):
             speaker_prefix = os.environ.get("AGENTHQ_KANI_SPEAKER_PREFIX", "").strip()
