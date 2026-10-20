@@ -46,7 +46,7 @@ Research and assess viable options before selecting a path. Relevant starting po
 Do not add a dependency merely because it exists; confirm maintenance, supported OS, license, installation size, CPU/RAM, language coverage, and integration feasibility on this project's target Windows 10 / 8 GB RAM profile.
 
 ### D. Narration, audio, and synchronization
-- Audit installed/available TTS engines and actual language/voice models. User requires a natural adult male voice speaking Urdu with English technical terms; do not claim the requirement is met without listening to a generated sample.
+- Audit installed/available TTS engines and actual language/voice models. The mandatory production language is English for both narration and subtitles on every topic, including Pakistan- or Urdu-related topics. Prefer a natural adult voice; do not claim the requirement is met without listening to a generated sample. Never switch narration or subtitles to Urdu.
 - Research Urdu-capable local/open models and hosted alternatives, but keep the default cost-free/local-first unless a required capability is demonstrably impossible. Verify model license, language coverage, RAM, inference speed, and pronunciation.
 - If no suitable voice is installed, report a clear blocker and the exact model/setup required. Never quietly use eSpeak or silent audio as a substitute for production narration.
 - Normalize loudness, remove clipping, control peaks, avoid abrupt cuts, mix music/SFX beneath speech, and verify audio stream, duration, silence, and A/V sync. Use an actual audio file for lip-sync generation.
