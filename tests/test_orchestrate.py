@@ -11,6 +11,28 @@ import orchestrate
 import practice
 
 
+class NarrationLanguageRoutingTests(unittest.TestCase):
+    def test_explicit_narration_language_overrides_channel_default(self):
+        cases = {
+            "Narration language: English. Create a CI test video.": "en",
+            "Use voice-over in Urdu with English technical terms.": "ur-en",
+            "Generate subtitles in ur-en.": "ur-en",
+            "Language: en.": "en",
+        }
+        for instruction, expected in cases.items():
+            with self.subTest(instruction=instruction):
+                self.assertEqual(orchestrate.requested_narration_language(instruction), expected)
+
+    def test_topic_mentions_do_not_change_the_configured_voice_language(self):
+        for instruction in (
+            "Create a video about Urdu literature.",
+            "Explain English technical writing to Urdu students.",
+            "Compare English and Urdu search tools.",
+        ):
+            with self.subTest(instruction=instruction):
+                self.assertIsNone(orchestrate.requested_narration_language(instruction))
+
+
 class SpecialistRetryTests(unittest.TestCase):
     def test_quality_gate_requires_exactly_one_explicit_verdict(self):
         self.assertEqual(orchestrate.extract_quality_gate("Review\nOVERALL QUALITY GATE: PASS\n"), "pass")
