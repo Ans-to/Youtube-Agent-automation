@@ -94,7 +94,13 @@
   }else if(type==="waveform"){
     rounded(gx,gy,gw,gh,14,panel,line);
     const count=portrait?32:24,barGap=gw/(count*1.7),barWidth=Math.max(2,barGap*.68),mid=gy+gh*.52;
-    for(let i=0;i<count;i++){const amplitude=(.12+.35*Math.abs(Math.sin(i*.57+frame*.09)))*(0.45+0.55*progress),bh=amplitude*gh;const x=gx+gw*.06+i*(barGap*1.5);ctx.globalAlpha=.5+.5*(i/count);ctx.fillStyle=i/count<progress?accent:muted;ctx.fillRect(x,mid-bh/2,barWidth,bh)}
+    const envelope=Array.isArray(scene.audio_envelope)?scene.audio_envelope:[];
+    for(let i=0;i<count;i++){
+      const envelopeIndex=envelope.length?Math.max(0,Math.min(envelope.length-1,Math.round(progress*(envelope.length-1)+(i-(count-1)/2)))):0;
+      const energy=envelope.length?clamp(Number(envelope[envelopeIndex])||0,0,1):Math.abs(Math.sin(i*.57+frame*.09));
+      const amplitude=envelope.length?.08+.42*energy:(.12+.35*energy)*(0.45+0.55*progress),bh=amplitude*gh,x=gx+gw*.06+i*(barGap*1.5);
+      ctx.globalAlpha=.5+.5*(i/count);ctx.fillStyle=i/count<progress?accent:muted;ctx.fillRect(x,mid-bh/2,barWidth,bh)
+    }
     ctx.globalAlpha=1;
   }else{
     const cx=gx+gw*.5,cy=gy+gh*.48,r=Math.min(gw,gh)*(.22+.025*Math.sin(frame*.09));
