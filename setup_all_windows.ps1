@@ -176,11 +176,7 @@ if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
     }
 
     $UrduVenvRoot = Join-Path $Root ".venv-urdu-tts"
-    if ($IsWindows -eq $false) {
-        $UrduVenvPython = Join-Path $UrduVenvRoot "bin/python"
-    } else {
-        $UrduVenvPython = Join-Path $UrduVenvRoot "Scripts/python.exe"
-    }
+    $UrduVenvPython = Join-Path $UrduVenvRoot "Scripts\python.exe"
 
     if (-not (Test-Path $UrduVenvPython)) {
         Write-Host "Creating isolated Urdu TTS environment with Python $VoicePythonVersion..." -ForegroundColor Cyan
