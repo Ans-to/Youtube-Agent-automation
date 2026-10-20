@@ -4,7 +4,7 @@ Set-Location $Root
 
 Write-Host ""
 Write-Host "Offline Agent HQ - Windows Urdu voice setup" -ForegroundColor Cyan
-Write-Host "This installs Piper (CPU/ONNX Runtime) in an isolated .venv-urdu-tts."
+Write-Host "This installs Piper (CPU/ONNX Runtime) in an isolated .venv-piper-urdu."
 Write-Host "It does not modify the main Agent HQ Python environment or config.json."
 Write-Host "The Pakistani Urdu male Fasih model is about 64 MB and downloads on first preview."
 Write-Host ""
@@ -29,29 +29,29 @@ if (($Major -lt 3) -or (($Major -eq 3) -and ($Minor -lt 9))) {
     throw "Piper requires Python 3.9 or newer; detected $VersionText."
 }
 
-$VenvRoot = Join-Path $Root ".venv-urdu-tts"
+$VenvRoot = Join-Path $Root ".venv-piper-urdu"
 $VenvPython = Join-Path $VenvRoot "Scripts\python.exe"
 if (-not (Test-Path $VenvPython)) {
     Write-Host "Creating isolated voice environment with Python $VersionText..." -ForegroundColor Cyan
     & $PythonCommand @PythonArgs -m venv $VenvRoot
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path $VenvPython)) {
-        throw "Could not create .venv-urdu-tts with Python $VersionText."
+        throw "Could not create .venv-piper-urdu with Python $VersionText."
     }
 } else {
     $ExistingVersion = (& $VenvPython -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')").Trim()
-    if ($LASTEXITCODE -ne 0) { throw "Could not inspect the existing .venv-urdu-tts interpreter." }
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect the existing .venv-piper-urdu interpreter." }
     $ExistingParts = $ExistingVersion.Split(".")
     if ([int]$ExistingParts[0] -lt 3 -or ([int]$ExistingParts[0] -eq 3 -and [int]$ExistingParts[1] -lt 9)) {
-        throw "The existing .venv-urdu-tts is older than Python 3.9. It was left untouched; rename that dedicated environment and rerun this installer."
+        throw "The existing .venv-piper-urdu is older than Python 3.9. It was left untouched; rename that dedicated environment and rerun this installer."
     }
     Write-Host "Reusing isolated voice environment (Python $ExistingVersion)." -ForegroundColor DarkGray
 }
 
 & $VenvPython -m pip install --upgrade pip
-if ($LASTEXITCODE -ne 0) { throw "Could not update pip inside .venv-urdu-tts." }
+if ($LASTEXITCODE -ne 0) { throw "Could not update pip inside .venv-piper-urdu." }
 
 & $VenvPython -m pip install -r (Join-Path $Root "video_studio\requirements-urdu-tts.txt")
-if ($LASTEXITCODE -ne 0) { throw "Piper/ONNX dependencies failed to install inside .venv-urdu-tts. The main Agent HQ Python was not changed." }
+if ($LASTEXITCODE -ne 0) { throw "Piper/ONNX dependencies failed to install inside .venv-piper-urdu. The main Agent HQ Python was not changed." }
 
 & $VenvPython (Join-Path $Root "video_studio\piper_urdu_tts_adapter.py") --check-dependencies
 if ($LASTEXITCODE -ne 0) { throw "Piper runtime import verification failed. Inspect the error above; Urdu voice remains unavailable." }
