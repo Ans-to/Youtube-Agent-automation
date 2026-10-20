@@ -24,6 +24,21 @@ def slug(value):
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")[:48] or "project"
 
 
+def requested_narration_language(text):
+    """Return an explicit output-language override, or None to use configured channel default.
+
+    A topic mentioning Urdu/English alone must not switch voice-over language. Recognize
+    explicit narration, voice-over, subtitle, caption, or 'language: ...' instructions.
+    """
+    match = re.search(
+        r"(?i)(?:\\b(?:narration|voice(?:[\\s-]?over)?|subtitles?|captions?)\\s+(?:language\\s*[:=]\\s*|in\\s+)|\\blanguage\\s*[:=]\\s*)(english|en|urdu(?:\\s*[-+&]\\s*english)?|ur(?:\\s*[-+&]\\s*en)?)\\b",
+        str(text or ""),
+    )
+    if not match:
+        return None
+    return "en" if match.group(1).strip().lower() in {"english", "en"} else "ur-en"
+
+
 def extract_quality_gate(text):
     """Accept a quality verdict only when exactly one explicit gate line is present."""
     matches = re.findall(
@@ -275,10 +290,9 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
                    "--topic", topic, "--format", fmt, "--out", relative_out]
-        explicit_language = re.search(
-            r"(?i)(?:\b(?:narration|voice(?:[\s-]?over)?|subtitles?|captions?)\s+(?:language\s*[:=]\s*|in\s+)|\blanguage\s*[:=]\s*)(english|en|urdu(?:\s*[-+&]\s*english)?|ur(?:\s*[-+&]\s*en)?)\b",
-            intent_text,
-        )
+        language_override = requested_narration_language(intent_text)
+        if language_override:
+            command.extend(["--language", language_override])
         if explicit_language:
             language_token = explicit_language.group(1).lower()
             command.extend(["--language", "en" if language_token in {"english", "en"} else "ur-en"])
