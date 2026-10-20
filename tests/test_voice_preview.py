@@ -1,6 +1,11 @@
+import hashlib
+import json
+import math
+import struct
 import sys
 import tempfile
 import unittest
+import wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -9,6 +14,102 @@ import voice_preview
 
 
 class VoicePreviewPathTests(unittest.TestCase):
+    def _write_preview_wav(self, path, duration=0.6):
+        sample_rate = 22050
+        frame_count = int(sample_rate * duration)
+        with wave.open(str(path), "wb") as output:
+            output.setnchannels(1)
+            output.setsampwidth(2)
+            output.setframerate(sample_rate)
+            frames = []
+            for index in range(frame_count):
+                sample = int(8000 * math.sin(2 * math.pi * 440 * index / sample_rate))
+                frames.append(struct.pack("<h", sample))
+            output.writeframes(b"".join(frames))
+
+    def _write_sidecar(self, preview, workspace, config, profile_hash=None):
+        sidecar = voice_preview.sidecar_path_for(preview)
+        metadata = {
+            "schema_version": 1,
+            "status": "awaiting_human_review",
+            "preview_relative_path": preview.resolve().relative_to(workspace.resolve()).as_posix(),
+            "audio_sha256": hashlib.sha256(preview.read_bytes()).hexdigest(),
+            "voice_profile_sha256": profile_hash or voice_preview.urdu_voice_profile_sha256(config),
+            "human_approved": False,
+        }
+        sidecar.write_text(json.dumps(metadata), encoding="utf-8")
+        return sidecar
+
+    def _custom_profile(self, speaker_prefix="speaker-a"):
+        return {
+            "video_studio": {
+                "narration_language": "ur-en",
+                "urdu_tts_command": ["python", "workspace/custom_urdu_adapter.py", "--manifest", "{manifest_file}"],
+                "kani_speaker_prefix": speaker_prefix,
+                "urdu_voice_human_approved": False,
+                "urdu_voice_approved_profile_sha256": "",
+            }
+        }
+
+    def test_preview_sidecar_and_voice_fingerprint_validate_when_unchanged(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            workspace = project / "workspace"
+            workspace.mkdir()
+            preview = workspace / "preview.wav"
+            self._write_preview_wav(preview)
+            config = self._custom_profile()
+            sidecar = self._write_sidecar(preview, workspace, config)
+
+            result = voice_preview.validate_preview_artifact(preview, config, workspace=workspace)
+            self.assertEqual(result["preview_path"], preview.resolve())
+            self.assertEqual(result["sidecar_path"], sidecar.resolve())
+            self.assertEqual(result["voice_profile_sha256"], voice_preview.urdu_voice_profile_sha256(config))
+            self.assertGreater(result["audio_report"]["duration_seconds"], 0.5)
+            self.assertFalse(result["metadata"]["human_approved"])
+
+    def test_preview_sidecar_rejects_modified_wav_hash(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            workspace = project / "workspace"
+            workspace.mkdir()
+            preview = workspace / "preview.wav"
+            self._write_preview_wav(preview)
+            config = self._custom_profile()
+            self._write_sidecar(preview, workspace, config)
+            with preview.open("ab") as stream:
+                stream.write(b"changed")
+            with self.assertRaisesRegex(ValueError, "changed after synthesis"):
+                voice_preview.validate_preview_artifact(preview, config, workspace=workspace)
+
+    def test_preview_sidecar_rejects_changed_voice_profile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            workspace = project / "workspace"
+            workspace.mkdir()
+            preview = workspace / "preview.wav"
+            self._write_preview_wav(preview)
+            original_config = self._custom_profile("speaker-a")
+            self._write_sidecar(preview, workspace, original_config)
+            changed_config = self._custom_profile("speaker-b")
+            with self.assertRaisesRegex(ValueError, "profile changed after this preview"):
+                voice_preview.validate_preview_artifact(preview, changed_config, workspace=workspace)
+
+    def test_preview_sidecar_rejects_wrong_relative_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            workspace = project / "workspace"
+            workspace.mkdir()
+            preview = workspace / "preview.wav"
+            self._write_preview_wav(preview)
+            config = self._custom_profile()
+            sidecar = self._write_sidecar(preview, workspace, config)
+            metadata = json.loads(sidecar.read_text(encoding="utf-8"))
+            metadata["preview_relative_path"] = "different.wav"
+            sidecar.write_text(json.dumps(metadata), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "path no longer matches"):
+                voice_preview.validate_preview_artifact(preview, config, workspace=workspace)
+
     def test_workspace_prefixed_output_resolves_from_project_root(self):
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
