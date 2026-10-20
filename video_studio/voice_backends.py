@@ -21,7 +21,7 @@ def load_project_config(project_root):
 
 
 def urdu_voice_profile_sha256(config):
-    """Fingerprint the configured Urdu TTS route, pinned model/revision, and speaker prefix."""
+    """Fingerprint the configured Urdu TTS route, pinned model, and executable adapter."""
     root = config.get("video_studio", {}) if isinstance(config, dict) else {}
     if not isinstance(root, dict):
         raise ValueError("config.json video_studio settings must be an object.")
@@ -38,17 +38,26 @@ def urdu_voice_profile_sha256(config):
     module_path = Path(__file__).resolve()
     project_root = module_path.parents[1]
     if not command:
-        # These constants are metadata only; importing the adapter does not load PyTorch/NeMo.
-        from urdu_tts_adapter import DEFAULT_MODEL_ID, DEFAULT_MODEL_REVISION
-        model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", DEFAULT_MODEL_ID).strip() or DEFAULT_MODEL_ID
-        revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", DEFAULT_MODEL_REVISION).strip() or DEFAULT_MODEL_REVISION
-        route = "bundled-kani-nanocodec"
-        codec_model = "nvidia/nemo-nano-codec-22khz-0.6kbps-12.5fps"
+        from piper_urdu_tts_adapter import (
+            DEFAULT_MODEL_ID,
+            DEFAULT_MODEL_REVISION,
+            MODEL_MD5,
+            CONFIG_MD5,
+        )
+        model_id = os.environ.get("AGENTHQ_PIPER_URDU_MODEL_PATH", "").strip() or DEFAULT_MODEL_ID
+        revision = DEFAULT_MODEL_REVISION
+        route = "bundled-piper-onnx-cpu"
+        codec_model = "none; Piper ONNX Runtime"
         source_paths = [
             module_path,
-            module_path.with_name("urdu_tts_adapter.py"),
+            module_path.with_name("piper_urdu_tts_adapter.py"),
             module_path.with_name("requirements-urdu-tts.txt"),
         ]
+        voice_artifact_hashes = {"onnx_md5": MODEL_MD5, "config_md5": CONFIG_MD5}
+        # The model is pinned and downloaded with these checksums. Do not fingerprint
+        # local cache presence, or approval would change merely because first use
+        # populated the model cache after the audio preview was generated.
+        speaker_profile = "Fasih Pakistani Urdu male voice (single speaker)"
     else:
         model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", "custom-adapter").strip() or "custom-adapter"
         revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", "external-model-unspecified").strip()
@@ -61,6 +70,8 @@ def urdu_voice_profile_sha256(config):
                 if not candidate.is_absolute():
                     candidate = project_root / candidate
                 source_paths.append(candidate.resolve())
+        voice_artifact_hashes = {}
+        speaker_profile = prefix.strip()
 
     for source_path in source_paths:
         label = str(source_path.resolve().relative_to(project_root)) if source_path.resolve().is_relative_to(project_root) else source_path.name
@@ -70,13 +81,14 @@ def urdu_voice_profile_sha256(config):
             source_hashes[label] = "unavailable"
 
     payload = {
-        "schema_version": 2,
+        "schema_version": 3,
         "route": route,
         "command": command,
         "model_id": model_id,
         "model_revision": revision,
+        "voice_artifact_hashes": voice_artifact_hashes,
         "codec_model": codec_model,
-        "speaker_prefix": prefix.strip(),
+        "speaker_profile": speaker_profile,
         "source_sha256": source_hashes,
     }
     canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
@@ -115,10 +127,10 @@ def require_urdu_voice_human_approval(config):
 
 
 def builtin_urdu_tts_command():
-    """Use the isolated Urdu TTS interpreter when installed, else the active interpreter."""
+    """Use the isolated Piper Urdu interpreter when installed, else show its setup error."""
     module = Path(__file__).resolve()
     project_root = module.parents[1]
-    adapter = module.with_name("urdu_tts_adapter.py")
+    adapter = module.with_name("piper_urdu_tts_adapter.py")
     if sys.platform == "win32":
         candidates = [project_root / ".venv-urdu-tts" / "Scripts" / "python.exe"]
     else:
