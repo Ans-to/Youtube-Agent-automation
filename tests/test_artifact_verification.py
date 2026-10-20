@@ -147,6 +147,28 @@ class ArtifactVerificationTests(unittest.TestCase):
         self.assertEqual(checks[0]["status"], "failed")
         self.assertTrue(any("SHA-256 does not match" in error for error in checks[0]["errors"]))
 
+        # Duplicate IDs make scene citations ambiguous even when both text hashes are valid.
+        research_data["results"][0]["page_text"] = page_text
+        research_data["results"].append(dict(research_data["results"][0]))
+        research_path.write_text(json.dumps(research_data), encoding="utf-8")
+        research_data["metadata"]["pages_fetched"] = 2
+        research_path.write_text(json.dumps(research_data), encoding="utf-8")
+        status["research_evidence"]["fetched_page_count"] = 2
+        status_path.write_text(json.dumps(status), encoding="utf-8")
+        checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
+        self.assertEqual(checks[0]["status"], "failed")
+        self.assertTrue(any("duplicate fetched source ID" in error for error in checks[0]["errors"]))
+
+        # A count in metadata cannot override the number of traceable source pages.
+        research_data["results"] = research_data["results"][:1]
+        research_data["metadata"]["pages_fetched"] = 8
+        research_path.write_text(json.dumps(research_data), encoding="utf-8")
+        status["research_evidence"]["fetched_page_count"] = 1
+        status_path.write_text(json.dumps(status), encoding="utf-8")
+        checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
+        self.assertEqual(checks[0]["status"], "failed")
+        self.assertTrue(any("fetched-page count" in error for error in checks[0]["errors"]))
+
     def test_render_is_failed_when_mp4_subtitles_or_quality_report_are_missing(self):
         result, _ = self.write_video_package(rendered=True)
         package = self.root / result["artifact_dir"]
