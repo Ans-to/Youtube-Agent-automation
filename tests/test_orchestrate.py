@@ -93,11 +93,12 @@ class SpecialistRetryTests(unittest.TestCase):
             calls.append(instruction)
             raise ValueError("Local model response was not valid JSON.")
 
-        with self.assertRaisesRegex(ValueError, "not valid JSON"):
+        with self.assertRaisesRegex(ValueError, "not valid JSON") as raised:
             orchestrate.run_role_with_retry(
                 {"id": "AGENT-09"}, "Write the script", "", {}, runner=invalid_runner
             )
         self.assertEqual(len(calls), 1)
+        self.assertEqual(getattr(raised.exception, "retry_count", None), 0)
 
     def test_http_503_is_retried_once(self):
         calls = []
@@ -122,11 +123,12 @@ class SpecialistRetryTests(unittest.TestCase):
             calls.append(instruction)
             raise TimeoutError("model unavailable")
 
-        with self.assertRaisesRegex(TimeoutError, "model unavailable"):
+        with self.assertRaisesRegex(TimeoutError, "model unavailable") as raised:
             orchestrate.run_role_with_retry(
                 {"id": "AGENT-09"}, "Write the script", "", {}, runner=broken_runner
             )
         self.assertEqual(len(calls), 2)
+        self.assertEqual(getattr(raised.exception, "retry_count", None), 1)
 
     def test_empty_output_is_retried_and_never_counted_as_success(self):
         calls = []
