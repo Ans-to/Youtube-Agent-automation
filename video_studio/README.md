@@ -12,6 +12,10 @@ This module renders MP4s from JSON storyboards using Canvas2D in headless Chromi
 - For Urdu-English voice on Windows/CPU: the default is Piper TTS with the pinned Pakistani Urdu voice **Fasih v2** (medium, single-speaker). Run `powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup_urdu_tts_windows.ps1` to install Piper/ONNX Runtime into isolated `.venv-piper-urdu`. The approximately 65 MB voice model is downloaded and checked against its published size and MD5. Its v2 sidecar is derived locally from a separately checksum-verified v1 sidecar plus the published v2 phoneme-map additions.
 - The Piper software is GPL-3.0-or-later and the pinned voice repository is MIT-licensed; review both separately before redistributing the software or voice assets. A technically generated WAV is not proof of natural pronunciation. Missing dependencies, invalid audio, or silence block the render; English voice models and silent audio are never substituted for Urdu-English narration.
 - Rendering writes matching SRT/WebVTT sidecars and uses script-aware RTL layout for Urdu captions. This does not guarantee natural pronunciation, voice quality, or phoneme-accurate lip-sync.
+
+## Character rig and mouth-shape scope
+
+The Canvas2D presenter currently uses a procedural articulated 2D rig (renderer contract v2): separate upper/lower arm and leg segments with shoulder, elbow, wrist, hip, knee, and ankle pivots; a layered torso/head; hands; head tilt; gaze/blink/expression changes; and ten reusable mouth geometry profiles (closed, open, wide, round, teeth, tongue, sibilant, lip, open-wide, and open-round). Character cues use normalized scene timestamps. The default cue builder is still an audio-energy/grapheme approximation, not a phoneme aligner, so this is **not true phoneme-aligned lip-sync**. It is also not a finished hand-drawn anime asset pack or a rig-editor workflow; review rendered motion and character continuity before release.
 - Optional YouTube upload: Google OAuth desktop client JSON and the dependencies in requirements-publish.txt.
 
 ## Windows setup
