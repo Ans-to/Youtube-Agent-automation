@@ -251,11 +251,18 @@
   // Character is a background performance layer; all type and information graphics render above it.
   if(scene.character)drawCharacter(scene.character,progress,globalFrame);
   ctx.fillStyle=p.accent;ctx.fillRect(left,eyebrowY-55,Math.max(30,w*.028),6);
-  ctx.font="700 "+Math.max(15,w*.013)+"px "+TEXT_FONT;ctx.fillStyle=p.muted;ctx.direction="ltr";ctx.textAlign="left";ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
+  ctx.font="700 "+Math.max(15,w*.013)+"px "+TEXT_FONT;ctx.fillStyle=p.accent;ctx.direction="ltr";ctx.textAlign="left";ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
    const headline=String(scene.headline||"Every frame is code."),subhead=String(scene.subhead||""),caption=String(scene.caption||scene.narration||"").trim();
    const headDirection=textDirection(headline,scene.narration_language),subDirection=textDirection(subhead,scene.narration_language),captionDirection=textDirection(caption,scene.narration_language);
-   const headFont="700 "+fontSize+"px "+TEXT_FONT,lines=wrap(headline,textW,headFont,headDirection),lineX=headDirection==="rtl"?left+textW:left;
-   ctx.font=headFont;ctx.fillStyle=p.fg;ctx.direction=headDirection;ctx.textAlign=headDirection==="rtl"?"right":"left";const lineHeight=fontSize*1.18;
+   let fittedFontSize=fontSize,headFont="700 "+fittedFontSize+"px "+TEXT_FONT,lines=wrap(headline,textW,headFont,headDirection);
+   const minimumHeadlineSize=Math.max(22,portrait?34:30);
+   while(lines.length>3&&fittedFontSize>minimumHeadlineSize){
+    fittedFontSize=Math.max(minimumHeadlineSize,fittedFontSize*.9);
+    headFont="700 "+fittedFontSize+"px "+TEXT_FONT;
+    lines=wrap(headline,textW,headFont,headDirection);
+   }
+   const lineX=headDirection==="rtl"?left+textW:left;
+   ctx.font=headFont;ctx.fillStyle=p.fg;ctx.direction=headDirection;ctx.textAlign=headDirection==="rtl"?"right":"left";const lineHeight=fittedFontSize*1.18;
     if(String(scene.visual_type||"hero").toLowerCase()==="kinetic-type"&&headDirection==="ltr"){
      let wordIndex=0;lines.slice(0,3).forEach((line,lineIndex)=>{let x=left;for(const word of line.split(/\s+/)){const delay=wordIndex*2,entry=Math.max(0,Math.min(1,(localFrame-delay)/6)),y=headlineY+lineIndex*lineHeight+(1-entry)*Math.min(18,fontSize*.16);ctx.globalAlpha=entry;ctx.fillText(word,x,y);x+=ctx.measureText(word+" ").width;wordIndex++}});ctx.globalAlpha=1;
     }else{
