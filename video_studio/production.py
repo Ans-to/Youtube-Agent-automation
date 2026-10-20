@@ -17,7 +17,7 @@ sys.path.insert(0, str(ROOT))
 from agent import post_local_model
 from research import research as collect_research, render_markdown as render_research_markdown
 from captions import normalize_narration_language, narration_language_instruction, validate_narration_text, validate_english_voice_model
-from voice_backends import get_urdu_tts_command, require_urdu_voice_human_approval
+from voice_backends import get_urdu_tts_command, require_urdu_voice_human_approval, urdu_voice_human_approved, urdu_voice_profile_sha256
 from release_gate import validate_qc_report
 
 
@@ -294,6 +294,8 @@ def main():
     language_label = "Urdu + English technical terms" if language == "ur-en" else "English"
     try:
         urdu_tts_command = get_urdu_tts_command(cfg)
+        voice_profile_sha256 = urdu_voice_profile_sha256(cfg)
+        voice_profile_human_approved = urdu_voice_human_approved(cfg)
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
     topic = args.topic.strip()
@@ -432,11 +434,15 @@ def main():
         "standalone_web_research_performed": bool(research_metadata),
         "research_independently_verified": False,
         "human_review_required": True, "published": False,
-        "human_voice_review_status": "pending",
-        "voice_naturalness_verified": False,
-        "target_adult_male_voice_verified": False,
+        "human_voice_review_status": (
+            "not_applicable_to_urdu_voice_gate" if language == "en"
+            else ("approved_for_current_profile" if voice_profile_human_approved else "pending_or_stale")
+        ),
+        "voice_naturalness_verified": bool(language == "ur-en" and voice_profile_human_approved),
+        "target_adult_male_voice_verified": bool(language == "ur-en" and voice_profile_human_approved),
         "kani_speaker_prefix_configured": bool(kani_speaker_prefix.strip()),
-        "speaker_identity_human_reviewed": False,
+        "speaker_identity_human_reviewed": bool(language == "ur-en" and voice_profile_human_approved),
+        "approved_voice_profile_sha256": voice_profile_sha256 if (language == "ur-en" and voice_profile_human_approved) else None,
         "forced_phoneme_alignment": False,
         "note": ("Model output is a draft; factual claims and the actual rendered voice still need human review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
     }
