@@ -147,6 +147,7 @@ def main():
     parser.add_argument("--storyboard", default="storyboard.example.json")
     parser.add_argument("--output", default="outputs/offline-agent-hq-demo.mp4")
     parser.add_argument("--with-voice", action="store_true", help="Synthesize the storyboard's declared language using the configured local backend")
+    parser.add_argument("--language", choices=["en", "ur-en"], help="Override narration language; defaults to storyboard then config.json video_studio.narration_language (ur-en when unset)")
     parser.add_argument("--keep-frames", action="store_true", help="Keep PNG frames after a successful MP4 render")
     parser.add_argument("--print-capabilities", action="store_true", help="Print detected device profile and exit")
     args = parser.parse_args()
@@ -177,7 +178,8 @@ def main():
         if not isinstance(data, dict) or not isinstance(data.get("scenes"), list) or not data["scenes"]:
             raise SystemExit("Storyboard must contain at least one scene.")
         try:
-            language = normalize_narration_language(data.get("narration_language", "en"))
+            video_config = config.get("video_studio", {}) if isinstance(config.get("video_studio", {}), dict) else {}
+            language = normalize_narration_language(args.language or data.get("narration_language") or video_config.get("narration_language", "ur-en"))
             urdu_tts_command = get_urdu_tts_command(config)
         except ValueError as exc:
             raise SystemExit(str(exc)) from exc
