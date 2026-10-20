@@ -799,7 +799,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 + "- Stage: " + str(index) + " of " + str(len(assignments)) + "\n"
                 + "- Error type: " + type(exc).__name__ + "\n"
                 + "- Error: " + str(exc)[:1000] + "\n"
-                + "- Retry attempts completed: " + str(failed_retry_count) + "\n"
+                + "- Retry attempts used: " + str(failed_retry_count) + "\n"
                 + "- Research status before failure: " + failure_research_status + "\n"
                 + "- Research pages fetched before failure: " + str(research_pages_fetched) + "\n"
                 + "- Research reports: \n" + report_listing + "\n\n"
