@@ -223,6 +223,22 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     scene["narration"] = validate_narration_text(scene["narration"], language, "Scene " + str(index) + " narration")
     scene["caption"] = scene["narration"]
     scene["narration_language"] = language
+    # Presenter performance is part of every scene, not an optional disconnected segment.
+    character = scene.get("character")
+    if not isinstance(character, dict):
+        character = {}
+    character.setdefault("enabled", True)
+    character.setdefault("speaking", True)
+    character.setdefault("x", 0.84)
+    character.setdefault("y", 0.63)
+    character.setdefault("scale", 0.245)
+    character.setdefault("walking", 0)
+    character.setdefault("expression", ("curious", "confident", "focused", "concerned")[index % 4])
+    character.setdefault("pose", ("explain", "point", "think", "explain")[index % 4])
+    character.setdefault("shirt", "#6479b8")
+    character.setdefault("hair", "#25212a")
+    character.setdefault("skin", "#c58e72")
+    scene["character"] = character
     source_refs = scene.get("source_refs", [])
     if not isinstance(source_refs, list) or not all(isinstance(value, str) for value in source_refs):
         raise ValueError("Scene " + str(index) + " source_refs must be an array of source ID strings.")
@@ -309,6 +325,16 @@ def fallback(topic):
          "visual_type": "timeline", "timeline_events": ["QUESTION", "BUILD", "CHECK", "REVIEW"],
          "transition_in": "wipe-right", "transition_frames": 10},
     ]
+    # Fallback previews must exercise the integrated character/graphics composition.
+    for index, scene in enumerate(scenes):
+        scene["character"] = {
+            "enabled": True, "speaking": True, "x": 0.84, "y": 0.63,
+            "scale": 0.245, "walking": 0,
+            "expression": ("curious", "confident", "focused", "concerned")[index % 4],
+            "pose": ("explain", "point", "think", "explain")[index % 4],
+            "skin": "#c58e72", "hair": "#25212a", "shirt": "#6479b8",
+            "trousers": "#303746",
+        }
     return {"title": topic[:90],
             "description": "Offline template package. Research and verify factual claims before publication.",
             "thesis": topic,
