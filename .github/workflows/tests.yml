@@ -216,9 +216,17 @@ jobs:
               raise SystemExit("End-to-end template storyboard should contain four scenes")
           if manifest.get("external_actions_performed") is not False:
               raise SystemExit("Synthetic end-to-end test must not report external actions")
-          print("PASS: agent queue -> CEO delegation -> specialist stages -> video builder -> validated MP4")
-          print("Pipeline status:", manifest.get("status"), "| Quality gate:", manifest.get("quality_gate"))
-          print("Template-only output; not a publishable AI-generated video.")
+          # CI is intentionally running without an AI model. Treat that as a
+          # successful deterministic render smoke test, not as a completed,
+          # semantically reviewed production task.
+          if manifest.get("status") != "partial":
+              raise SystemExit("Template-only pipeline must remain partial, not claim completion: " + repr(manifest.get("status")))
+          if manifest.get("quality_gate") != "unconfirmed":
+              raise SystemExit("Template-only pipeline must not claim a semantic quality verdict: " + repr(manifest.get("quality_gate")))
+          if manifest.get("research_pages_independently_verified") is not False:
+              raise SystemExit("Pipeline must not claim independent source verification in this synthetic test")
+          print("PASS: CEO queue -> delegation -> builder -> verified MP4 artifacts")
+          print("Honest status: partial; semantic quality gate unconfirmed; template-only; not publishable.")
           PY
 
       - name: Render and validate a 1-second landscape MP4
