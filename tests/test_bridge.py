@@ -20,6 +20,16 @@ class BridgeTests(unittest.TestCase):
         self.assertIn("TRAINING.md", checked)
 
 
+    def test_get_file_reads_the_configured_inbox_branch(self):
+        with patch.object(bridge, "BRANCH", "mobile-agent-inbox"), patch.object(
+            bridge, "api_get", return_value={"type": "dir"}
+        ) as api:
+            bridge.get_file("bridge/requests", "token")
+        api.assert_called_once_with(
+            "/repos/" + bridge.REPO + "/contents/bridge/requests?ref=mobile-agent-inbox",
+            "token",
+        )
+
     def test_create_local_task_adds_approved_bounded_task_atomically(self):
         import json
         import tempfile
