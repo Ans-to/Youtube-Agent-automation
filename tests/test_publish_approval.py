@@ -51,6 +51,23 @@ class PublishApprovalTests(unittest.TestCase):
             video, metadata, approval = self.make_package(directory)
             self.assertEqual(validate_approval(approval, video.resolve(), metadata), metadata)
 
+    def test_rejects_reuse_of_approval_after_successful_upload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video, metadata, approval = self.make_package(directory)
+            approval["upload"] = {
+                "uploaded": True,
+                "video_id": "already-uploaded-id",
+                "privacy": "private",
+            }
+            with self.assertRaisesRegex(ValueError, "already been used for an upload"):
+                validate_approval(approval, video.resolve(), metadata)
+
+    def test_does_not_reject_incomplete_upload_record(self):
+        with tempfile.TemporaryDirectory() as directory:
+            video, metadata, approval = self.make_package(directory)
+            approval["upload"] = {"uploaded": False}
+            self.assertEqual(validate_approval(approval, video.resolve(), metadata), metadata)
+
     def test_rejects_changed_metadata(self):
         with tempfile.TemporaryDirectory() as directory:
             video, metadata, approval = self.make_package(directory)
