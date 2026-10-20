@@ -1,5 +1,7 @@
 """Safe command selection for bundled and explicitly configured local Urdu TTS backends."""
+import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -18,31 +20,71 @@ def load_project_config(project_root):
     return data
 
 
-def urdu_voice_human_approved(config):
-    """Return whether a human explicitly approved this exact local Urdu voice setup.
+def urdu_voice_profile_sha256(config):
+    """Fingerprint the configured Urdu TTS route, pinned model/revision, and speaker prefix."""
+    root = config.get("video_studio", {}) if isinstance(config, dict) else {}
+    if not isinstance(root, dict):
+        raise ValueError("config.json video_studio settings must be an object.")
+    prefix = root.get("kani_speaker_prefix", "")
+    if not isinstance(prefix, str):
+        raise ValueError("config.json video_studio.kani_speaker_prefix must be text.")
+    command = root.get("urdu_tts_command", [])
+    if command is None:
+        command = []
+    if not isinstance(command, list) or any(not isinstance(part, str) for part in command):
+        raise ValueError("config.json video_studio.urdu_tts_command must be an array of strings.")
 
-    This is a release gate, not a claim that a speaker is male or natural. Approval is
-    intended only after listening to a real sample and checking Urdu pronunciation,
-    retained English technical terms, and the required adult-male voice.
-    """
+    if not command:
+        # These constants are metadata only; importing the adapter does not load PyTorch/NeMo.
+        from urdu_tts_adapter import DEFAULT_MODEL_ID, DEFAULT_MODEL_REVISION
+        model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", DEFAULT_MODEL_ID).strip() or DEFAULT_MODEL_ID
+        revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", DEFAULT_MODEL_REVISION).strip() or DEFAULT_MODEL_REVISION
+        route = "bundled-kani-nanocodec"
+    else:
+        model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", "custom-adapter").strip() or "custom-adapter"
+        revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", "external-model-unspecified").strip()
+        route = "custom-adapter"
+
+    payload = {
+        "schema_version": 1,
+        "route": route,
+        "command": command,
+        "model_id": model_id,
+        "model_revision": revision,
+        "speaker_prefix": prefix.strip(),
+    }
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def urdu_voice_human_approved(config):
+    """Return true only when a human approval matches the current Urdu voice profile."""
     root = config.get("video_studio", {}) if isinstance(config, dict) else {}
     if not isinstance(root, dict):
         raise ValueError("config.json video_studio settings must be an object.")
     value = root.get("urdu_voice_human_approved", False)
     if not isinstance(value, bool):
         raise ValueError("config.json video_studio.urdu_voice_human_approved must be true or false.")
-    return value
+    approved_profile = root.get("urdu_voice_approved_profile_sha256", "")
+    if not isinstance(approved_profile, str):
+        raise ValueError("config.json video_studio.urdu_voice_approved_profile_sha256 must be text.")
+    if not value:
+        return False
+    current_profile = urdu_voice_profile_sha256(config)
+    return approved_profile.strip().lower() == current_profile
 
 
 
 def require_urdu_voice_human_approval(config):
-    """Raise until a human has approved the actual local Urdu voice sample."""
+    """Raise until a human has approved the exact currently configured Urdu voice profile."""
+    current_profile = urdu_voice_profile_sha256(config)
     if not urdu_voice_human_approved(config):
         raise ValueError(
-            "Urdu-English production render is blocked pending human voice approval. "
-            "Listen to a real rendered sample and review adult-male voice identity, Urdu pronunciation, "
-            "and English technical terms; then set video_studio.urdu_voice_human_approved=true in config.json. "
-            "This setting is a human gate, not an automated proof of voice quality."
+            "Urdu-English production render is blocked pending human voice approval for the current voice profile. "
+            "Run video_studio/voice_preview.py and listen to the WAV for adult-male voice identity, Urdu pronunciation, "
+            "and English technical terms. Then set video_studio.urdu_voice_human_approved=true and "
+            "video_studio.urdu_voice_approved_profile_sha256 to this exact SHA-256 in config.json: "
+            + current_profile + ". The fingerprint becomes invalid when the model, adapter, or speaker prefix changes."
         )
 
 
