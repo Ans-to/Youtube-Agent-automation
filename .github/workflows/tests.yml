@@ -15,67 +15,70 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.11", "3.12"]
+  pipeline:
+    # One Linux runner runs all checks sequentially. This preserves coverage while
+    # reducing runner startups and private-repository Actions-minute consumption.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Set up Python
+
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.11"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - name: Compile Python modules
+
+      - name: Compile Python modules (Python 3.11)
         run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
+
       - name: Validate storyboard JSON
         run: python -m json.tool video_studio/storyboard.example.json
+
       - name: Validate specialist roster and skillbooks JSON
         run: |
           python -m json.tool agents/roster.json > /dev/null
           python -m json.tool agents/skillbooks.json > /dev/null
+
       - name: Build offline product prototype in template mode
         run: python product_studio/build_product.py --title "CI Utility" --idea "A local utility smoke test"
-      - name: Generate video script and storyboard in template mode
-        run: python video_studio/production.py --topic "CI video package smoke test" --out workspace/ci-video-package
-      - name: Run unit tests
-        run: python -m unittest discover -s tests -v
-  docker-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Run complete unit-test suite inside a clean Python container
-        run: docker run --rm --user "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/workspace" -w /workspace python:3.12-slim python -m unittest discover -s tests -v
 
-  render-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-      - name: Set up Python
+      - name: Run unit tests (Python 3.11)
+        run: python -m unittest discover -s tests -v
+
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22"
+
+      - name: Compile Python modules (Python 3.12)
+        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+
+      - name: Run unit tests (Python 3.12)
+        run: python -m unittest discover -s tests -v
+
+      - name: Run complete unit-test suite inside a clean Python container
+        run: docker run --rm --user "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/workspace" -w /workspace python:3.12-slim python -m unittest discover -s tests -v
+
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
+
       - name: Audit renderer dependencies
         working-directory: video_studio
         run: npm audit --audit-level=high
+
       - name: Reject invalid transition before browser launch
         working-directory: video_studio
         run: |
@@ -85,6 +88,7 @@ jobs:
           set -e
           if [ "$code" -eq 0 ]; then echo "Invalid transition was unexpectedly accepted"; exit 1; fi
           grep -q "Unsupported transition_in" invalid-transition.log
+
       - name: Reject oversized storyboard before allocating frames
         working-directory: video_studio
         run: |
@@ -94,9 +98,37 @@ jobs:
           set -e
           if [ "$code" -eq 0 ]; then echo "Oversized storyboard was unexpectedly accepted"; exit 1; fi
           grep -q "30000-frame render limit" limit-check.log
+
+      - name: End-to-end template package to landscape MP4
+        run: python video_studio/production.py --topic "CI video package-to-MP4 end-to-end smoke test" --out workspace/ci-video-package --render-template
+
+      - name: Verify generated package artifacts and render metadata
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          package = Path("workspace/ci-video-package")
+          required = ["script.md", "storyboard.json", "package-status.json", "video.mp4"]
+          missing = [name for name in required if not (package / name).is_file()]
+          if missing:
+              raise SystemExit("Missing end-to-end package artifacts: " + ", ".join(missing))
+          if (package / "video.mp4").stat().st_size <= 0:
+              raise SystemExit("End-to-end MP4 is empty")
+          status = json.loads((package / "package-status.json").read_text(encoding="utf-8"))
+          storyboard = json.loads((package / "storyboard.json").read_text(encoding="utf-8"))
+          if status.get("generated_by") != "deterministic_template":
+              raise SystemExit("CI must exercise explicit no-model template mode")
+          if status.get("publishable") is not False or status.get("published") is not False:
+              raise SystemExit("Smoke test package must never be marked publishable or published")
+          if (storyboard.get("width"), storyboard.get("height")) != (1920, 1080):
+              raise SystemExit("End-to-end landscape storyboard has unexpected dimensions")
+          if len(storyboard.get("scenes", [])) != 4:
+              raise SystemExit("End-to-end template storyboard should contain four scenes")
+          print("PASS: script, storyboard, status, and validated MP4 were produced from one generated package")
+          PY
+
       - name: Render and validate a 1-second landscape MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4
-        working-directory: .
+
       - name: Render and validate a 1-second vertical Shorts MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4
-        working-directory: .
