@@ -1,7 +1,9 @@
-# Optional local Urdu voice runtime. Install PyTorch from its CPU-only wheel index first
-# on Windows so setup does not pull a CUDA build onto an 8 GB CPU-constrained PC.
+# Install CPU-only PyTorch first on Windows (see setup_all_windows.ps1), then install this file.
+# KaniTTS 2 / LFM2 currently documents Transformers 4.57.1 for this model family.
 torch>=2.6.0,<3.0
-transformers>=4.57.1,<5.0
+transformers==4.57.1
+kani-tts
 huggingface_hub>=0.35.0,<2.0
 safetensors>=0.6.2,<1.0
 numpy>=1.26.0,<3.0
+soundfile>=0.12.1,<1.0
