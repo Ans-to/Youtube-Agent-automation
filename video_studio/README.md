@@ -33,6 +33,15 @@ PowerShell example:
     python validate_render.py outputs\\english-demo.mp4 --require-audio
 
 Every render also writes matching `.srt` and `.vtt` subtitle files. Subtitle text is derived from the English narration, timed across each scene's measured speech duration, and checked for valid, ordered cues. This is scene/phrase-level timing, not forced word alignment. The validator checks audio presence, signal level, clipping, dimensions, frame rate, and duration; it cannot certify naturalness, pronunciation, factual correctness, or lip-sync. Human listening and visual review remain required.
+## Device-aware rendering
+
+Inspect the machine profile before a render:
+
+    python video_studio/studio.py --print-capabilities
+    python video_studio/capabilities.py --json
+
+The profiler uses only Python's standard library and supported OS probes. It reports RAM, CPU count, free disk space, GPU detection, a conservative encoder thread count, and a single-heavy-job policy. Every render writes a `.capabilities.json` sidecar next to the output. The profile never silently lowers requested resolution or frame rate; low-memory rendering can be slower and may still fail if the requested project exceeds available resources.
+
 ## Generate a topic package
 From the repository root, run:
 
