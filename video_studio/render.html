@@ -43,11 +43,14 @@
     const items=nodes.length?nodes:["INPUT","PROCESS","OUTPUT"],gap=gh*.07,nh=(gh-gap*(items.length-1))/items.length;
     ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.globalAlpha=.75;
     items.forEach((item,i)=>{
-      const y=gy+i*(nh+gap),barW=gw*.90,x=gx+(gw-barW)/2;
-      if(i>0){ctx.beginPath();ctx.moveTo(gx+gw*.5,y-gap);ctx.lineTo(gx+gw*.5,y-2);ctx.stroke();ctx.beginPath();ctx.moveTo(gx+gw*.5-5,y-7);ctx.lineTo(gx+gw*.5,y-2);ctx.lineTo(gx+gw*.5+5,y-7);ctx.stroke()}
+      const nodeProgress=easeSmooth(clamp((progress-i*.17)/.28,0,1));
+      const y=gy+i*(nh+gap)+(1-nodeProgress)*Math.min(18,nh*.22),barW=gw*.90*nodeProgress,x=gx+(gw-barW)/2;
+      ctx.save();ctx.globalAlpha=nodeProgress;
+      if(i>0&&nodeProgress>.02){ctx.beginPath();ctx.moveTo(gx+gw*.5,y-gap);ctx.lineTo(gx+gw*.5,y-2);ctx.stroke();ctx.beginPath();ctx.moveTo(gx+gw*.5-5,y-7);ctx.lineTo(gx+gw*.5,y-2);ctx.lineTo(gx+gw*.5+5,y-7);ctx.stroke()}
       rounded(x,y,barW,nh,8,panel,line);
       ctx.fillStyle=accent;ctx.fillRect(x,y,4,nh);
       label(item,gx+gw*.5,y+nh*.58,Math.max(12,Math.min(19,gw*.055)),fg,"600");
+      ctx.restore();
     });
     ctx.globalAlpha=1;
   }else if(type==="timeline"){
@@ -68,7 +71,7 @@
     for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(gx+12+i*12,gy+gh*.07,3,0,Math.PI*2);ctx.fillStyle=[p.accent,"#ff9a72","#77d7ff"][i];ctx.fill()}
     const lines=Array.isArray(scene.code_lines)?scene.code_lines.slice(0,6):["function render(frame) {","  drawScene(frame);","  return output;","}"];
     const fs=Math.max(10,Math.min(14,gw*.032)),start=gy+gh*.27;
-    lines.forEach((ln,i)=>{ctx.font=fs+"px monospace";ctx.fillStyle=i===0?accent:(i%2?fg:muted);ctx.fillText(String(ln).slice(0,48),gx+12,start+i*fs*1.45)});
+    lines.forEach((ln,i)=>{const lineT=easeSmooth(clamp((progress-i*.12)/.24,0,1));ctx.save();ctx.globalAlpha=lineT;ctx.font=fs+"px monospace";ctx.fillStyle=i===0?accent:(i%2?fg:muted);ctx.fillText(String(ln).slice(0,48),gx+12+(1-lineT)*10,start+i*fs*1.45);ctx.restore()});
     if(Math.floor(frame/12)%2===0){ctx.fillStyle=accent;ctx.fillRect(gx+12,Math.min(gy+gh-7,start+lines.length*fs*1.45),8,2)}
   }else if(type==="quote"){
     rounded(gx,gy,gw,gh,14,panel,line);
