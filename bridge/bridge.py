@@ -139,12 +139,12 @@ def write_json_atomic(path: pathlib.Path, data: object) -> None:
         # the same target. Serialize in-process writers and retry transient sharing
         # violations; the temp file stays in the target directory for atomicity.
         with _JSON_REPLACE_LOCK:
-            for attempt in range(8):
+            for attempt in range(3):
                 try:
                     os.replace(temporary_name, path)
                     break
                 except PermissionError:
-                    if attempt == 7:
+                    if attempt == 2:
                         raise
                     time.sleep(0.01 * (2 ** attempt))
     except Exception:
