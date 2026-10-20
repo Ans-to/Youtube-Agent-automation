@@ -16,5 +16,9 @@
   "dashboard": {
     "host": "127.0.0.1",
     "port": 8765
+  },
+  "video_studio": {
+    "narration_language": "ur-en",
+    "urdu_tts_command": []
   }
 }
