@@ -259,14 +259,21 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
         aligned_seconds = target_frames / fps
         scene["duration_seconds"] = aligned_seconds
         character = scene.get("character")
-        if isinstance(character, dict) and character.get("enabled") is True and not character.get("visemes"):
-            character["visemes"] = build_audio_gated_visemes(
-                scene.get("narration", ""), raw, aligned_seconds
-            )
-            character["viseme_alignment"] = (
-                "audio-energy-gated grapheme approximation; not forced phoneme alignment"
-            )
-            character["speaking"] = True
+        if isinstance(character, dict) and character.get("enabled") is True:
+            if not character.get("visemes"):
+                character["visemes"] = build_audio_gated_visemes(
+                    scene.get("narration", ""), raw, aligned_seconds
+                )
+                character["viseme_alignment"] = (
+                    "audio-energy-gated grapheme approximation; not forced phoneme alignment"
+                )
+                character["speaking"] = True
+            else:
+                # Never trust model/user-provided metadata to claim audio alignment.
+                # Existing cues are retained for visuals but are explicitly unverified.
+                character["viseme_alignment"] = (
+                    "preauthored/model-supplied cues not validated against final audio; not forced phoneme alignment"
+                )
             scene["viseme_alignment"] = character["viseme_alignment"]
         normalized = voice_dir / ("segment-%03d.wav" % index)
         run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw),
