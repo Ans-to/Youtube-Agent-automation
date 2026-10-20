@@ -77,7 +77,7 @@ def main() -> int:
 
     results.append(run_step(
         "Python syntax compilation",
-        [sys.executable, "-m", "compileall", "-q", "dashboard.py", "agent.py", "queue_store.py", "agents", "video_studio"],
+        [sys.executable, "-m", "compileall", "-q", "dashboard.py", "agent.py", "queue_store.py", "agents", "video_studio", "tools"],
         timeout=180,
     ))
     results.append(run_step(
