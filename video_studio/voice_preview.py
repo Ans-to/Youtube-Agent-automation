@@ -17,6 +17,7 @@ WORKSPACE = (ROOT / "workspace").resolve()
 sys.path.insert(0, str(ROOT / "video_studio"))
 from captions import validate_narration_text
 from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command
+from urdu_tts_adapter import inspect_wav
 
 
 def resolve_preview_output(path, workspace=WORKSPACE, project_root=ROOT):
@@ -111,14 +112,19 @@ def generate_voice_preview(text, output, overwrite=False):
             print(result.stderr.rstrip(), file=sys.stderr)
         if result.returncode != 0:
             raise RuntimeError("Urdu voice preview adapter failed with exit code " + str(result.returncode) + ".")
-        if not temp_output.is_file() or temp_output.stat().st_size < 1024:
-            raise RuntimeError("Voice adapter did not create a usable preview WAV.")
-        # Adapter's own WAV validator already checks sample rate, duration and silence.
-        # Copy only after it succeeds so a failed preview never replaces the destination.
+        try:
+            audio_report = inspect_wav(temp_output)
+        except (OSError, ValueError, RuntimeError) as exc:
+            raise RuntimeError(
+                "Voice preview did not pass PCM16, duration, and non-silence checks: " + str(exc)
+            ) from exc
+        # Copy only after technical audio validation succeeds so a failed preview never
+        # replaces the selected destination.
         import shutil
         shutil.copy2(temp_output, destination)
 
     print("Voice preview created:", destination)
+    print("Audio check:", json.dumps(audio_report, ensure_ascii=False))
     print("Human review still required: voice identity, naturalness, Urdu pronunciation, and English technical terms.")
     print("Only after listening to this WAV should you set video_studio.urdu_voice_human_approved=true.")
     return destination
