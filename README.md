@@ -81,15 +81,24 @@ The bridge client is `bridge/bridge.py`. It reads a GitHub token from:
 
 Use a token restricted to this repository with **Contents: read and write** permission. Save it only on the phone; never commit it, print it, or paste it into a chat. The bridge needs read access to poll requests and write access to create sanitized result files. If write access is unavailable, tasks can still produce local results but GitHub reporting will fail.
 
-One-shot poll:
+One-shot poll (default branch is `main`):
 ```sh
 python bridge/bridge.py
 ```
 
-Poll every 30 seconds:
+For the separate mobile inbox branch, set the branch explicitly before polling. On Android/Termux:
 ```sh
+export AGENT_HQ_BRANCH=mobile-agent-inbox
 python bridge/bridge.py --watch --interval=30
 ```
+
+On Windows PowerShell:
+```powershell
+$env:AGENT_HQ_BRANCH = "mobile-agent-inbox"
+python bridge/bridge.py --watch --interval=30
+```
+
+The branch variable controls both request reads and sanitized result writes. The bridge never changes branches or writes to `main` when this variable is set.
 
 Stop watch mode with Ctrl+C. Before approving a `run_task` request, inspect the local task queue and confirm the exact task is safe to run. Do not queue a task that contains secrets or private personal data.
 
