@@ -91,8 +91,12 @@ class ResearchTests(unittest.TestCase):
                                      search_fn=fake_search, page_fetch_fn=fake_page)
         self.assertEqual(metadata["engine"], "DuckDuckGo HTML (no API key)")
         self.assertFalse(metadata["verified"])
+        self.assertEqual(metadata["source_provenance_schema"], 1)
         self.assertEqual(metadata["pages_fetched"], 2)
         self.assertEqual(results[0]["page_text"], "Evidence text from a test fixture.")
+        self.assertEqual(results[0]["requested_domain"], "example.com")
+        self.assertEqual(results[0]["final_domain"], "example.com")
+        self.assertEqual(len(results[0]["page_text_sha256"]), 64)
         self.assertEqual(metadata["result_count"], 2)
         self.assertEqual(len(results), 2)
 
