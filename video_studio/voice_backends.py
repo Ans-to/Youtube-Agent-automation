@@ -18,6 +18,22 @@ def load_project_config(project_root):
     return data
 
 
+def urdu_voice_human_approved(config):
+    """Return whether a human explicitly approved this exact local Urdu voice setup.
+
+    This is a release gate, not a claim that a speaker is male or natural. Approval is
+    intended only after listening to a real sample and checking Urdu pronunciation,
+    retained English technical terms, and the required adult-male voice.
+    """
+    root = config.get("video_studio", {}) if isinstance(config, dict) else {}
+    if not isinstance(root, dict):
+        raise ValueError("config.json video_studio settings must be an object.")
+    value = root.get("urdu_voice_human_approved", False)
+    if not isinstance(value, bool):
+        raise ValueError("config.json video_studio.urdu_voice_human_approved must be true or false.")
+    return value
+
+
 def builtin_urdu_tts_command():
     """Run the bundled CPU adapter using this exact Python interpreter."""
     adapter = Path(__file__).resolve().with_name("urdu_tts_adapter.py")
