@@ -3,6 +3,7 @@ import math
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import wave
 from pathlib import Path
 
@@ -40,8 +41,10 @@ class UrduTtsAdapterTests(unittest.TestCase):
             manifest = root / "manifest.json"
             manifest.write_text(json.dumps({"items": items}), encoding="utf-8")
             fake = FakeTtsPipeline()
-            reports = adapter.synthesize_manifest(manifest, pipeline_instance=fake)
+            with patch.object(adapter, "load_pipeline", return_value=fake) as load_model:
+                reports = adapter.synthesize_manifest(manifest)
 
+            load_model.assert_called_once()
             self.assertEqual(len(fake.calls), 2)
             self.assertEqual(len(reports), 2)
             for item, report in zip(items, reports):
