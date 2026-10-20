@@ -8,9 +8,11 @@ import json
 import os
 import re
 import pathlib
+import tempfile
 import subprocess
 import sys
 import time
+import threading
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -31,6 +33,7 @@ STATE_DIR = pathlib.Path(os.environ.get(
     "AGENT_HQ_STATE_DIR", str(pathlib.Path.home() / ".local/state/offline-agent-hq")
 )).expanduser()
 # Deliberately narrow: never add shell, arbitrary code, package installation, or task execution.
+_ATOMIC_WRITE_LOCK = threading.RLock()
 ALLOWED_ACTIONS = {"status", "self_test", "create_task", "run_task"}
 
 
@@ -123,12 +126,29 @@ def claim_request(request_id: str, state_dir: pathlib.Path, request_sha256: str)
 
 
 def write_json_atomic(path: pathlib.Path, data: object) -> None:
-    """Write JSON via same-directory replacement to avoid truncated state files."""
-    path = pathlib.Path(path)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    temporary.replace(path)
-
+    """Atomically persist JSON; serialize in-process replacements and retry transient Windows sharing errors."""
+    path = pathlib.Path(path).resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with _ATOMIC_WRITE_LOCK:
+        fd, temporary_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as stream:
+                json.dump(data, stream, ensure_ascii=False, indent=2)
+                stream.write("\n")
+            for attempt in range(12):
+                try:
+                    os.replace(temporary_name, path)
+                    return
+                except PermissionError:
+                    if attempt == 11:
+                        raise
+                    time.sleep(0.025 * (attempt + 1))
+        except Exception:
+            try:
+                os.unlink(temporary_name)
+            except OSError:
+                pass
+            raise
 
 def valid_request_id(value: object) -> bool:
     """Restrict IDs so they cannot escape the local or repository result folders."""
