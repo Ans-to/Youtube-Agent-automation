@@ -2,7 +2,7 @@ name: Project checks
 
 on:
   push:
-    branches: [main, 'video-studio/**']
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -11,12 +11,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: project-checks-${{ github.ref }}
+  group: project-checks-${{ github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       matrix:
         python-version: ["3.11", "3.12"]
@@ -49,6 +50,7 @@ jobs:
         run: python -m unittest discover -s tests -v
   docker-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -57,6 +59,7 @@ jobs:
 
   render-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
@@ -135,6 +138,7 @@ jobs:
 
   demo-artifact:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
