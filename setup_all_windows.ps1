@@ -142,7 +142,7 @@ if ($LASTEXITCODE -ne 0) {
     throw "Project dependency setup failed. See the error above."
 }
 
-$UrduTtsAnswer = Read-Host "Install optional CPU-only Urdu voice dependencies now? The first Urdu render also downloads about 740 MB of model weights [y/N]"
+$UrduTtsAnswer = Read-Host "Install optional CPU-only Urdu voice dependencies now? The first Urdu render also downloads model and codec weights (roughly 1.5 GB per upstream guidance) [y/N]"
 if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
     if (Has-Command "py") {
         & py -3 -m pip install --upgrade pip
@@ -158,7 +158,7 @@ if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
         & python -m pip install -r (Join-Path $Root "video_studio\requirements-urdu-tts.txt")
     }
     if ($LASTEXITCODE -ne 0) { throw "Urdu TTS dependencies did not finish installing. Do not treat Urdu video generation as ready yet." }
-    Write-Host "Local Urdu voice dependencies installed. The pinned ~740 MB model will download on its first Urdu render." -ForegroundColor Green
+    Write-Host "Local Urdu voice dependencies installed. The pinned Urdu model and codec weights will download on the first Urdu render; allow roughly 1.5 GB of cache and additional runtime memory." -ForegroundColor Green
 } else {
     Write-Warning "Skipped Urdu voice dependencies. Urdu-English final renders will stop safely until these dependencies are installed."
 }
