@@ -17,6 +17,7 @@ sys.path.insert(0, str(ROOT))
 from agent import post_local_model
 from research import research as collect_research, render_markdown as render_research_markdown
 from captions import validate_english_text, validate_english_voice_model
+from release_gate import validate_qc_report
 
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
@@ -75,8 +76,7 @@ def run_strict_quality_audit(output_dir):
     if result.returncode != 0:
         raise RuntimeError("strict quality audit returned exit code " + str(result.returncode))
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    if report.get("strict") is not True or report.get("passed") is not True or report.get("warnings") != []:
-        raise RuntimeError("strict quality report is missing, non-passing, or contains warnings")
+    validate_qc_report(report, video_path)
     return report
 
 
