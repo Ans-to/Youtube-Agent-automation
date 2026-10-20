@@ -12,6 +12,7 @@ from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
+sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(ROOT))
 from agent import post_local_model
 from research import research as collect_research, render_markdown as render_research_markdown
