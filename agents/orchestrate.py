@@ -276,7 +276,7 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
                    "--topic", topic, "--format", fmt, "--out", relative_out]
         explicit_language = re.search(
-            r"(?i)\\b(?:narration|voice|subtitle)?\\s*language\\s*[:=]\\s*(english|en|urdu(?:\\s*[-+&]\\s*english)?|ur(?:\\s*[-+&]\\s*en)?)\\b",
+            r"(?i)\b(?:narration|voice|subtitle)?\s*language\s*[:=]\s*(english|en|urdu(?:\s*[-+&]\s*english)?|ur(?:\s*[-+&]\s*en)?)\b",
             intent_text,
         )
         if explicit_language:
