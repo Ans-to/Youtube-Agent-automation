@@ -180,8 +180,18 @@ def create_outline(topic, source_notes, cfg, target_minutes, scene_count, fmt, l
     return outline
 
 
-def create_scene(topic, outline, section, source_notes, cfg, index, total, target_words, previous_scene, language):
+def create_scene(topic, outline, section, source_notes, cfg, index, total, target_words, previous_scene, language, available_source_ids=None):
     visual_list = ", ".join(sorted(VISUAL_TYPES))
+    available_source_ids = [
+        str(source_id).strip().upper()
+        for source_id in (available_source_ids or [])
+        if isinstance(source_id, str) and source_id.strip()
+    ]
+    source_reference_instruction = (
+        "Available fetched source IDs: " + (", ".join(available_source_ids) or "(none)") + ". "
+        "Return source_refs as an array containing only IDs from this list that directly support factual claims in this scene. "
+        "Never cite a search snippet as evidence. If no fetched source supports a factual claim, leave source_refs empty and explain the gap in unresolved_notes. "
+    )
     prompt = (
         "Write exactly one production-ready scene for a faceless technology explainer. Return a JSON object with keys "
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
@@ -195,7 +205,8 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         + narration_language_instruction(language) + "Keep headline compact and subhead informative. "
         "Narration should move the argument forward, not repeat prior scenes. Use pauses and plain language, not stage directions. "
         "Do not invent citations, dates, measurements, attributed quotations, or claims of web research. "
-        "If evidence is missing, explicitly say what needs verification within narration or unresolved_notes. "
+        + source_reference_instruction
+        + "If evidence is missing, explicitly say what needs verification within narration or unresolved_notes. "
         "Visual metadata rules: diagram -> visual_nodes array; timeline -> timeline_events array; stat -> stat_value and stat_label; "
         "comparison -> comparison_left_title, comparison_right_title, comparison_left and comparison_right arrays; "
         "code -> code_lines array; quote -> quote and quote_source only when supplied evidence supports the quote; "
@@ -212,6 +223,21 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     scene["narration"] = validate_narration_text(scene["narration"], language, "Scene " + str(index) + " narration")
     scene["caption"] = scene["narration"]
     scene["narration_language"] = language
+    source_refs = scene.get("source_refs", [])
+    if not isinstance(source_refs, list) or not all(isinstance(value, str) for value in source_refs):
+        raise ValueError("Scene " + str(index) + " source_refs must be an array of source ID strings.")
+    source_refs = list(dict.fromkeys(value.strip().upper() for value in source_refs if value.strip()))
+    unknown_refs = [value for value in source_refs if value not in available_source_ids]
+    if unknown_refs:
+        raise ValueError("Scene " + str(index) + " cites unavailable or unfetched source IDs: " + ", ".join(unknown_refs))
+    scene["source_refs"] = source_refs
+    if source_refs:
+        scene["evidence_status"] = "source_linked_requires_review"
+    else:
+        scene["evidence_status"] = "needs_human_verification"
+        unresolved = scene.get("unresolved_notes", [])
+        if isinstance(unresolved, list) and not unresolved:
+            scene["unresolved_notes"] = ["No explicit fetched-source reference; verify factual claims before publication."]
     visual_type = str(scene.get("visual_type", "hero")).lower()
     if visual_type not in VISUAL_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported visual_type: " + visual_type)
@@ -420,6 +446,17 @@ def main():
     if not model_enabled and language == "ur-en":
         raise SystemExit("Urdu-English script generation requires the configured local language model. Refusing to present the English-only offline scaffold or template demo as Urdu-English content.")
 
+    available_source_ids = [
+        str(item.get("source_id"))
+        for item in research_results
+        if isinstance(item, dict)
+        and isinstance(item.get("source_id"), str)
+        and item.get("fetch_status") == "fetched"
+        and isinstance(item.get("page_text"), str)
+        and item.get("page_text").strip()
+        and item.get("page_text_sha256")
+    ]
+
     if model_enabled:
         if source_notes:
             outline = create_outline(topic, source_notes, cfg, target_minutes, scene_count, args.format, language)
@@ -431,11 +468,11 @@ def main():
         words_per_scene = max(12, round(target_minutes * 125 / scene_count))
         for index in range(1, scene_count + 1):
             section = section_list[min(len(section_list) - 1, (index - 1) * len(section_list) // scene_count)]
-            scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count, words_per_scene, previous, language)
+            scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count, words_per_scene, previous, language, available_source_ids)
             words = len(scene["narration"].split())
             if words < max(8, int(words_per_scene * 0.65)):
                 scene = create_scene(topic, outline, section, source_notes, cfg, index, scene_count,
-                                     words_per_scene * 2, previous, language)
+                                     words_per_scene * 2, previous, language, available_source_ids)
                 if len(scene["narration"].split()) < max(8, int(words_per_scene * 0.65)):
                     raise ValueError("Scene " + str(index) + " narration remained too short after retry; no final package was marked ready.")
             scene["duration_seconds"] = target_seconds / scene_count
@@ -469,9 +506,19 @@ def main():
     script_body = str(content.get("script", ""))
     title = str(content.get("title", topic))[:100]
     desc = str(content.get("description", ""))
+    evidence_map_lines = ["## Scene evidence map (not narration)", ""]
+    for scene_index, scene in enumerate(scenes, start=1):
+        refs = scene.get("source_refs", [])
+        unresolved = scene.get("unresolved_notes", [])
+        evidence_map_lines.append(
+            "- Scene " + str(scene_index) + ": " + str(scene.get("evidence_status", "needs_human_verification"))
+            + "; sources: " + (", ".join(refs) if refs else "none")
+            + "; unresolved: " + (" | ".join(unresolved) if unresolved else "none recorded")
+        )
+    evidence_map = "\n\n" + "\n".join(evidence_map_lines) if model_enabled else ""
     source_section = "\n\n## Supplied source notes and CEO specialist research (unverified)\n" + manual_source_notes[:50000] if manual_source_notes else "\n\n## Source verification\nNo curated source notes were supplied. Verify factual claims before publication."
     research_section = "\n\n## Web research leads (not independently verified)\n" + research_markdown if research_markdown else ""
-    script_md = "# " + title + "\n\n" + desc + "\n\n## Narration draft\n" + script_body + source_section + research_section + "\n"
+    script_md = "# " + title + "\n\n" + desc + "\n\n## Narration draft\n" + script_body + evidence_map + source_section + research_section + "\n"
     (output_dir / "script.md").write_text(script_md, encoding="utf-8")
     if research_metadata:
         (output_dir / "research.md").write_text(research_markdown, encoding="utf-8")
@@ -495,6 +542,12 @@ def main():
         "research_result_count": len(research_results),
         "standalone_web_research_performed": bool(research_metadata),
         "research_evidence": research_evidence_summary,
+        "scene_evidence_mapping": (
+            "source_linked_with_human_review" if model_enabled and all(scene.get("source_refs") for scene in scenes)
+            else ("requires_human_verification" if model_enabled else "not_applicable_to_template")
+        ),
+        "scenes_with_source_refs": sum(bool(scene.get("source_refs")) for scene in scenes),
+        "scenes_without_source_refs": sum(not bool(scene.get("source_refs")) for scene in scenes),
         "research_independently_verified": False,
         "human_review_required": True, "published": False,
         "human_voice_review_status": (
