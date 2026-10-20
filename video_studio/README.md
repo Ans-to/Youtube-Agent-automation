@@ -58,11 +58,11 @@ Scene narration captions are paginated into readable two-line cards, while SRT a
 
 ## Free source discovery (optional)
 
-Add `--research` to collect public DuckDuckGo search-result titles, links, snippets, and bounded extracted text from public webpages without an API key:
+Every model-generated package runs web research by default: up to five complementary public search queries, up to eight search results per query, and up to eight bounded public-page fetches, without an API key. Use `--research` to force research even for the deterministic offline template demo:
 
     python video_studio/production.py --topic "How AI agents work" --format long --research
 
-The package includes `research.md` and `research.json`. The collector attempts to fetch up to the requested number of public text pages, extracts a bounded amount of readable content, validates public IP addresses and redirect targets, and records fetch failures. Search snippets and extracted page text are **not automatic verification**: check publication dates, prefer primary sources, corroborate important claims, and confirm that sources actually support the statements before publishing. Common secrets and direct identifiers are redacted from search queries. The collector does not guarantee that the search provider or target websites will always be available. You may also provide curated local notes using `--source-file workspace/source-notes.md`.
+The package includes `research.md` and `research.json`. The collector extracts a bounded amount of readable content, validates public IP addresses and redirect targets, and records fetch failures. If research fails for model-generated content, package generation stops instead of silently falling back to an unresearched script. Search snippets and extracted page text are **not automatic verification**: check publication dates, prefer primary sources, corroborate important claims, and confirm that sources actually support the statements before publishing. Common secrets and direct identifiers are redacted from search queries. The collector does not guarantee that the search provider or target websites will always be available. You may also provide curated local notes using `--source-file workspace/source-notes.md`.
 
 ## Explicit release approval and YouTube upload
 Review the script, storyboard, and rendered video. From the repository root:
@@ -87,7 +87,7 @@ Copy storyboard.example.json and change title, canvas size, fps, scenes, duratio
 The renderer writes frames under `video_studio/frames/` and a render manifest beside the renderer. It validates field-specific array sizes to prevent silent truncation (4 diagram nodes, 4 timeline events, 3 comparison bullets per side, 6 code lines, and 2–6 chart values/labels). PNG frames are deleted after a successful MP4 render to conserve storage; pass `--keep-frames` to retain them. It sizes the Canvas2D drawing buffer to the requested storyboard dimensions, including 1080×1920 Shorts. Rendering is capped at 1000 seconds and 30000 frames to limit storage use. `ffprobe` is required and validates H.264, duration, exact dimensions, frame rate, and requested audio presence.
 
 ## Current limits
-This is a deterministic starter renderer, not a professional editor or anime rig system. It draws typography, grids, progress bars, geometric accents, and a procedural 2D presenter. Eased fade, wipe, slide, and zoom transitions are supported. Advanced skeletal character rigs, forced phoneme alignment, source-grounded long-form research, and automatic YouTube publishing remain outside the current implementation. Publishing is approval-gated; the code cannot promise monetization or income.
+This is a deterministic starter renderer, not a professional editor or anime rig system. It draws typography, grids, progress bars, geometric accents, and a procedural 2D presenter. Eased fade, wipe, slide, and zoom transitions are supported. Advanced skeletal character rigs, forced phoneme alignment, independent claim-by-claim fact verification, and automatic YouTube publishing remain outside the current implementation. Publishing is approval-gated; the code cannot promise monetization or income.
 
 ## Professional motion-design and character roadmap
 
