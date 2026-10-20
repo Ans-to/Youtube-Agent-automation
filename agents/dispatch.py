@@ -20,6 +20,9 @@ except Exception:
     sanitize_research_query = lambda value: str(value or '')[:500]
 BASE=Path(__file__).resolve().parent
 ROOT=BASE.parent
+if str(ROOT / "tools") not in sys.path:
+    sys.path.insert(0, str(ROOT / "tools"))
+from path_utils import safe_relative_path
 ROSTER=BASE/"roster.json"
 SKILLBOOK=BASE/"skillbooks.json"
 MOTION_ROLES={"AGENT-19","AGENT-20","AGENT-21","AGENT-22","AGENT-23","AGENT-24","AGENT-25","AGENT-31","AGENT-32","AGENT-33","AGENT-41","AGENT-42","AGENT-51","AGENT-52"}
@@ -125,7 +128,7 @@ def save_research_report(agent_id, markdown, metadata=None, sources=None):
         "metadata": metadata or {},
         "results": sources or [],
     }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return str(report_path.relative_to(ROOT)), str(json_path.relative_to(ROOT))
+    return str(safe_relative_path(report_path, ROOT)), str(safe_relative_path(json_path, ROOT))
 
 
 def run_role(role,task,context,cfg,perform_research=True):
