@@ -10,6 +10,45 @@ SPEC.loader.exec_module(bridge)
 
 
 class BridgeTests(unittest.TestCase):
+    def test_seen_request_state_rejects_corrupt_or_invalid_state(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory) / "seen-request-ids.json"
+            self.assertEqual(bridge.load_seen_request_ids(state), set())
+            state.write_text("{broken", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "refusing to process requests"):
+                bridge.load_seen_request_ids(state)
+            state.write_text('{"not": "a list"}', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "invalid"):
+                bridge.load_seen_request_ids(state)
+            state.write_text('["../unsafe"]', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "invalid"):
+                bridge.load_seen_request_ids(state)
+            state.write_text('["request-1", "request-1"]', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "invalid"):
+                bridge.load_seen_request_ids(state)
+
+    def test_request_replay_state_blocks_completed_and_interrupted_requests(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(bridge.request_replay_state("request-1", root), "new")
+            (root / "request-1.processing.json").write_text("{}", encoding="utf-8")
+            self.assertEqual(bridge.request_replay_state("request-1", root), "interrupted")
+            (root / "request-1.result.json").write_text("{}", encoding="utf-8")
+            self.assertEqual(bridge.request_replay_state("request-1", root), "completed")
+
+    def test_claim_request_is_exclusive_and_atomic(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as directory:
+            self.assertTrue(bridge.claim_request("request-1", Path(directory), "a" * 64))
+            self.assertFalse(bridge.claim_request("request-1", Path(directory), "b" * 64))
+            marker = json.loads((Path(directory) / "request-1.processing.json").read_text(encoding="utf-8"))
+            self.assertEqual(marker["request_sha256"], "a" * 64)
+
     def test_self_test_covers_practice_and_motion_documents(self):
         with patch.object(bridge, "PROJECT", ROOT):
             result = bridge.run_self_test()
