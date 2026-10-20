@@ -18,6 +18,7 @@ from captions import build_subtitles, normalize_narration_language, validate_nar
 from capabilities import profile_device
 from voice_backends import get_urdu_tts_command, load_project_config, resolve_urdu_tts_command, require_urdu_voice_human_approval
 from render_lock import render_lock
+from audio_design import render_sound_design
 
 
 def run(command, cwd=BASE, timeout=1800, **kwargs):
@@ -457,8 +458,26 @@ def main():
         if args.with_voice:
             combined = voice_dir / "combined.wav"
             combine_voice(segments, ffmpeg, combined)
+            # Add a quiet, deterministic locally generated underscore and scene cues.
+            # No external music/SFX assets are downloaded; the narration stays foregrounded.
+            sound_design = voice_dir / "sound-design.wav"
+            mixed_voice = voice_dir / "voice-with-sound-design.wav"
+            voice_duration = probe_duration(ffprobe, combined)
+            sound_report = render_sound_design(
+                sound_design, voice_duration,
+                [float(scene["duration_seconds"]) for scene in data["scenes"]],
+            )
+            run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning",
+                 "-i", str(combined), "-i", str(sound_design),
+                 "-filter_complex",
+                 "[0:a]volume=1.0[voice];[1:a]volume=0.75[bed];"
+                 "[voice][bed]amix=inputs=2:duration=first:dropout_transition=2:normalize=0,"
+                 "alimiter=limit=0.95[outa]",
+                 "-map", "[outa]", "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le",
+                 str(mixed_voice)])
+            print("Procedural sound design:", json.dumps(sound_report))
             run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-i", str(silent),
-                 "-i", str(combined), "-map", "0:v:0", "-map", "1:a:0",
+                 "-i", str(mixed_voice), "-map", "0:v:0", "-map", "1:a:0",
                  "-c:v", "copy", "-c:a", "aac", "-b:a", "160k", "-shortest",
                  "-movflags", "+faststart", str(output)])
             silent.unlink(missing_ok=True)
