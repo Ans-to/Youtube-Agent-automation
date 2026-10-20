@@ -94,6 +94,7 @@ class ResearchTests(unittest.TestCase):
         self.assertEqual(metadata["source_provenance_schema"], 1)
         self.assertEqual(metadata["pages_fetched"], 2)
         self.assertEqual(results[0]["page_text"], "Evidence text from a test fixture.")
+        self.assertEqual(results[0]["source_id"], "S1")
         self.assertEqual(results[0]["requested_domain"], "example.com")
         self.assertEqual(results[0]["final_domain"], "example.com")
         self.assertEqual(len(results[0]["page_text_sha256"]), 64)
