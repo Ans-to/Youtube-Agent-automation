@@ -57,7 +57,15 @@ def urdu_voice_profile_sha256(config):
         # The model is pinned and downloaded with these checksums. Do not fingerprint
         # local cache presence, or approval would change merely because first use
         # populated the model cache after the audio preview was generated.
-        speaker_profile = "Fasih Pakistani Urdu male voice (single speaker)"
+        custom_model_path = os.environ.get("AGENTHQ_PIPER_URDU_MODEL_PATH", "").strip()
+        if custom_model_path:
+            custom_model = Path(custom_model_path).expanduser().resolve()
+            custom_config = Path(str(custom_model) + ".json")
+            voice_artifact_hashes = {
+                "onnx_sha256": hashlib.sha256(custom_model.read_bytes()).hexdigest() if custom_model.is_file() else "unavailable",
+                "config_sha256": hashlib.sha256(custom_config.read_bytes()).hexdigest() if custom_config.is_file() else "unavailable",
+            }
+        speaker_profile = "Fasih Pakistani Urdu male voice (single speaker)" if not custom_model_path else "custom local Piper voice"
     else:
         model_id = os.environ.get("AGENTHQ_URDU_TTS_MODEL", "custom-adapter").strip() or "custom-adapter"
         revision = os.environ.get("AGENTHQ_URDU_TTS_REVISION", "external-model-unspecified").strip()
