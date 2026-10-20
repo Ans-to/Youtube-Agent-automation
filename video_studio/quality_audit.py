@@ -82,7 +82,10 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
               "duration_seconds": duration, "video": videos[0],
               "audio_stream_count": len(audios), "checks": {},
               "warnings": [], "passed": True, "strict": bool(strict)}
-    code, log = run_filter(ffmpeg, path, video_filter="blackdetect=d=0.10:pix_th=0.10")
+    # The studio intentionally uses a near-black branded background (#0b0b0f).
+    # A 0.10 pixel threshold mislabels this designed dark slate as a black frame.
+    # Keep the duration heuristic strict but reserve detection for genuinely near-zero pixels.
+    code, log = run_filter(ffmpeg, path, video_filter="blackdetect=d=0.10:pix_th=0.025")
     if code:
         raise ValueError("FFmpeg black-frame detector failed: " + log[-1000:])
     black = intervals(log, r"black_start:([0-9.]+)", r"black_end:([0-9.]+)")
