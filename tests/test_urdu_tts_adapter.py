@@ -24,6 +24,19 @@ class FakeTtsPipeline:
         }
 
 
+class FakeKaniTTS:
+    def __init__(self):
+        self.calls = []
+
+    def __call__(self, text):
+        self.calls.append(text)
+        waveform = [0.18 * math.sin(index * 0.071) for index in range(7000)]
+        return waveform, text
+
+    def save_audio(self, audio, output_path):
+        adapter.write_wav(output_path, audio, 22050)
+
+
 class UrduTtsAdapterTests(unittest.TestCase):
     def test_manifest_synthesizes_all_scenes_with_one_loaded_pipeline(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -54,6 +67,23 @@ class UrduTtsAdapterTests(unittest.TestCase):
                     self.assertEqual(audio.getsampwidth(), 2)
                     self.assertEqual(audio.getframerate(), 22050)
                     self.assertEqual(audio.getnframes(), 6000)
+
+    def test_documented_kanitts_waveform_and_save_audio_api(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            text_path = root / "voice.txt"
+            output_path = root / "voice.wav"
+            text_path.write_text("یہ Python API کا sample ہے۔", encoding="utf-8")
+            manifest = root / "manifest.json"
+            manifest.write_text(json.dumps({"items": [
+                {"text_file": str(text_path), "output_file": str(output_path)}
+            ]}), encoding="utf-8")
+            model = FakeKaniTTS()
+            report = adapter.synthesize_manifest(manifest, pipeline_instance=model)
+            self.assertEqual(len(model.calls), 1)
+            self.assertTrue(output_path.is_file())
+            self.assertEqual(report[0]["samples_per_channel"], 7000)
+            self.assertGreater(report[0]["rms"], 0)
 
     def test_silence_fails_closed_instead_of_writing_a_silent_voiceover(self):
         with tempfile.TemporaryDirectory() as tmp:
