@@ -52,18 +52,44 @@ jobs:
               config = json.load(stream)
           assert config.get("language", {}).get("code", "").startswith("en"), config.get("language")
           PY
-      - name: Run a rendered video through normal CEO intake
-        env:
-          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
-        run: |
-          python agents/orchestrate.py --task "Create and render a template demo video about deterministic software testing" --out workspace/ci-ceo-e2e
-      - name: Verify CEO aggregation and release artifacts
+      - name: Submit a task through the persistent Agent HQ queue
         run: |
           python - <<'PY'
           import json
           from pathlib import Path
 
-          root = Path("workspace/ci-ceo-e2e")
+          queue = Path("tasks.json")
+          assert not queue.exists(), "Expected a clean CI checkout without a pre-existing task queue"
+          task = {
+              "id": "TASK-9001",
+              "title": "Video: CI software-testing template demo",
+              "kind": "youtube_package",
+              "input": (
+                  "Create and render a template demo video about deterministic software testing. "
+                  "This is an explicitly labelled smoke-test demo, not a model-generated final video."
+              ),
+              "status": "pending",
+              "research_status": "pending"
+          }
+          queue.write_text(json.dumps([task], ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+          PY
+      - name: Run the queued task through Agent HQ and the CEO
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: |
+          python agent.py --once --task-id TASK-9001
+      - name: Verify queue result, CEO aggregation, and release artifacts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          tasks = json.loads(Path("tasks.json").read_text(encoding="utf-8"))
+          assert len(tasks) == 1 and tasks[0].get("id") == "TASK-9001", tasks
+          task = tasks[0]
+          assert task.get("status") in {"completed", "needs_human_action"}, task
+          assert task.get("output_file"), task
+          root = Path("workspace/orchestration/task-TASK-9001")
           manifest_path = root / "pipeline-status.json"
           assert manifest_path.is_file(), "CEO pipeline manifest missing"
           manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -78,14 +104,15 @@ jobs:
           assert video_runs[0].get("status") == "completed", video_runs[0]
           package = root / "video-production"
           for name in ("script.md", "storyboard.json", "package-status.json", "video.mp4", "video.srt", "video.vtt", "video.qc.json"):
-              path = package / name
-              assert path.is_file() and path.stat().st_size > 0, f"Missing/empty artifact: {path}"
+              artifact = package / name
+              assert artifact.is_file() and artifact.stat().st_size > 0, f"Missing/empty artifact: {artifact}"
           status = json.loads((package / "package-status.json").read_text(encoding="utf-8"))
           assert status.get("voice_language") == "English", status
           assert status.get("quality_audit_passed") is True, status
           assert status.get("human_review_required") is True, status
           assert status.get("published") is False, status
           print(json.dumps({
+              "queue_task_status": task.get("status"),
               "pipeline_status": manifest.get("status"),
               "delegation_mode": manifest.get("delegation_mode"),
               "specialist_stages": len(manifest["pipeline"]),
@@ -93,10 +120,11 @@ jobs:
               "artifact_directory": str(package),
               "rendered_duration_seconds": status.get("rendered_duration_seconds"),
               "technical_qa": status.get("status"),
-              "human_review_required": status.get("human_review_required")
+              "human_review_required": status.get("human_review_required"),
+              "published": status.get("published")
           }, indent=2))
           PY
-          python video_studio/validate_render.py workspace/ci-ceo-e2e/video-production/video.mp4 --require-audio
+          python video_studio/validate_render.py workspace/orchestration/task-TASK-9001/video-production/video.mp4 --require-audio
       - name: Upload CEO pipeline evidence
         if: always()
         uses: actions/upload-artifact@v7
