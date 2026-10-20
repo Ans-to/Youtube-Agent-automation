@@ -10,9 +10,11 @@ import sys
 from pathlib import Path
 
 BASE = Path(__file__).resolve().parent
+ROOT = BASE.parent
 sys.path.insert(0, str(BASE))
-from captions import build_subtitles, validate_english_text, validate_english_voice_model, validate_subtitle_text
+from captions import build_subtitles, normalize_narration_language, validate_narration_text, validate_english_voice_model, validate_subtitle_text
 from capabilities import profile_device
+from voice_backends import get_urdu_tts_command, load_project_config, resolve_urdu_tts_command
 from render_lock import render_lock
 
 
@@ -31,28 +33,44 @@ def probe_duration(ffprobe, path):
     return duration
 
 
-def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps):
-    validate_english_voice_model(model)
+def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", config=None):
+    profile = normalize_narration_language(language)
+    config = config or {}
+    command_template = get_urdu_tts_command(config) if profile == "ur-en" else None
+    if profile == "en":
+        validate_english_voice_model(model)
+    elif not command_template:
+        raise ValueError("Urdu-English narration requires a configured local video_studio.urdu_tts_command adapter.")
     voice_dir = BASE / "voice_segments"
     shutil.rmtree(voice_dir, ignore_errors=True)
     voice_dir.mkdir(parents=True)
     segments = []
     for index, scene in enumerate(data["scenes"]):
-        narration = validate_english_text(scene.get("narration", ""), "Scene " + str(index + 1) + " narration")
+        narration = validate_narration_text(scene.get("narration", ""), profile, "Scene " + str(index + 1) + " narration")
         scene["caption"] = narration
         raw = voice_dir / ("raw-%03d.wav" % index)
-        if narration:
+        if profile == "en":
             run([piper, "--model", model, "--output_file", str(raw)],
                 input=(narration + "\n").encode("utf-8"), timeout=300)
-            spoken_duration = probe_duration(ffprobe, raw)
-            scene["narration_duration_seconds"] = spoken_duration
         else:
-            original = float(scene["duration_seconds"])
-            run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
-                 "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo",
-                 "-t", str(original), "-c:a", "pcm_s16le", str(raw)])
-            spoken_duration = 0.0
-            scene["narration_duration_seconds"] = float(scene["duration_seconds"])
+            text_file = voice_dir / ("narration-%03d.txt" % index)
+            text_file.write_text(narration + "\n", encoding="utf-8")
+            command = resolve_urdu_tts_command(command_template, text_file, raw)
+            print("+", " ".join(command), flush=True)
+            result = subprocess.run(
+                command, cwd=str(ROOT), capture_output=True, text=True,
+                timeout=600, check=False,
+            )
+            if result.stdout:
+                print(result.stdout.rstrip(), flush=True)
+            if result.stderr:
+                print(result.stderr.rstrip(), file=sys.stderr, flush=True)
+            if result.returncode != 0:
+                raise RuntimeError("Urdu TTS adapter failed for scene " + str(index + 1) + " with exit code " + str(result.returncode) + ".")
+            if not raw.is_file() or raw.stat().st_size == 0:
+                raise RuntimeError("Urdu TTS adapter reported success but did not create a non-empty WAV for scene " + str(index + 1) + ".")
+        spoken_duration = probe_duration(ffprobe, raw)
+        scene["narration_duration_seconds"] = spoken_duration
         target_seconds = max(float(scene["duration_seconds"]), spoken_duration + 0.45)
         target_frames = max(1, math.ceil(target_seconds * fps))
         aligned_seconds = target_frames / fps
@@ -85,11 +103,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--storyboard", default="storyboard.example.json")
     parser.add_argument("--output", default="outputs/offline-agent-hq-demo.mp4")
-    parser.add_argument("--with-voice", action="store_true", help="Use local Piper CLI and PIPER_MODEL path")
+    parser.add_argument("--with-voice", action="store_true", help="Synthesize the storyboard's declared language using the configured local backend")
     parser.add_argument("--keep-frames", action="store_true", help="Keep PNG frames after a successful MP4 render")
     parser.add_argument("--print-capabilities", action="store_true", help="Print detected device profile and exit")
     args = parser.parse_args()
     profile = profile_device(BASE)
+    try:
+        config = load_project_config(ROOT)
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
     if args.print_capabilities:
         print(json.dumps(profile, indent=2))
         return
@@ -102,8 +124,6 @@ def main():
         if not ffmpeg or not ffprobe:
             raise SystemExit("FFmpeg and ffprobe are required and must be available on PATH.")
         piper, model = shutil.which("piper"), os.environ.get("PIPER_MODEL", "").strip()
-        if args.with_voice and (not piper or not model or not Path(model).is_file()):
-            raise SystemExit("Voice requested, but Piper or a valid PIPER_MODEL file is missing.")
 
         storyboard = Path(args.storyboard).expanduser().resolve()
         if not storyboard.is_file():
@@ -113,8 +133,20 @@ def main():
         data = json.loads(storyboard.read_text(encoding="utf-8"))
         if not isinstance(data, dict) or not isinstance(data.get("scenes"), list) or not data["scenes"]:
             raise SystemExit("Storyboard must contain at least one scene.")
+        try:
+            language = normalize_narration_language(data.get("narration_language", "en"))
+            urdu_tts_command = get_urdu_tts_command(config)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        if language == "ur-en" and not args.with_voice:
+            raise SystemExit("Urdu-English video output cannot be rendered silently; configure a suitable local Urdu TTS adapter and pass --with-voice.")
+        if args.with_voice and language == "en" and (not piper or not model or not Path(model).is_file()):
+            raise SystemExit("English voice requested, but Piper or a valid PIPER_MODEL file is missing.")
+        if args.with_voice and language == "ur-en" and not urdu_tts_command:
+            raise SystemExit("Urdu-English voice requested, but config.json video_studio.urdu_tts_command is empty.")
+        data["narration_language"] = language
         for index, scene in enumerate(data["scenes"], 1):
-            scene["narration"] = validate_english_text(scene.get("narration", ""), "Scene " + str(index) + " narration")
+            scene["narration"] = validate_narration_text(scene.get("narration", ""), language, "Scene " + str(index) + " narration")
             scene["caption"] = scene["narration"]
         fps = int(data.get("fps", 30))
         if not 1 <= fps <= 60:
@@ -127,7 +159,7 @@ def main():
         if args.with_voice:
             if not any(str(scene.get("narration", "")).strip() for scene in data["scenes"]):
                 raise SystemExit("No narration text exists in the storyboard.")
-            generated_storyboard, voice_dir, segments = prepare_voice(data, piper, model, ffmpeg, ffprobe, fps)
+            generated_storyboard, voice_dir, segments = prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language, config)
             render_storyboard = generated_storyboard
 
         run([node, "render.js", str(render_storyboard)], timeout=3600)
@@ -146,8 +178,8 @@ def main():
         profile_path.write_text(json.dumps(profile, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         silent = output.with_name(output.stem + ".silent.mp4")
         srt_path, vtt_path = output.with_suffix(".srt"), output.with_suffix(".vtt")
-        srt_text, vtt_text = build_subtitles(data)
-        subtitle_report = validate_subtitle_text(srt_text, vtt_text)
+        srt_text, vtt_text = build_subtitles(data, language=language)
+        subtitle_report = validate_subtitle_text(srt_text, vtt_text, language=language)
         srt_path.write_text(srt_text, encoding="utf-8")
         vtt_path.write_text(vtt_text, encoding="utf-8")
         print("Subtitle validation:", json.dumps(subtitle_report))
@@ -187,8 +219,8 @@ def main():
         if generated_storyboard:
             generated_storyboard.unlink(missing_ok=True)
         print("SUCCESS:", output)
-        print("English subtitles (SRT):", srt_path)
-        print("English subtitles (WebVTT):", vtt_path)
+        print(language + " subtitles (SRT):", srt_path)
+        print(language + " subtitles (WebVTT):", vtt_path)
         print("Duration:", manifest["duration_seconds"], "seconds")
         print("Frames:", manifest["frame_count"])
         print("Local MP4 only: this pipeline does not upload or publish content.")
