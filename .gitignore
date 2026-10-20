@@ -10,6 +10,7 @@ __pycache__/
 # Python virtual environments (keep local runtimes and installed model dependencies out of Git)
 .venv/
 .venv-urdu-tts/
+.venv-piper-urdu/
 
 # Secrets and local environment
 .env
