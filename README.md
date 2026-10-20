@@ -137,7 +137,7 @@ All supported queued task kinds run through the CEO-led pipeline. Put non-sensit
 
 ## Adaptive device profile and quality-first sequential rendering
 
-Before a render, `video_studio/studio.py` detects available RAM, CPU count, disk space, and supported GPU information using standard-library probes. It selects conservative encoding thread limits and writes a `.capabilities.json` sidecar next to the video. Run `python video_studio/studio.py --print-capabilities` to inspect the profile without rendering. Heavy render/model stages should remain sequential by default (`max_parallel_heavy_jobs: 1`). The profiler never silently reduces the requested resolution or frame rate: low-resource machines may take longer, and jobs can still fail if they exceed available memory or disk space. A detected GPU is not proof that every AI model supports it.
+Before a render, `video_studio/studio.py` detects available RAM, CPU count, disk space, and supported GPU information using standard-library probes. It selects conservative encoding thread limits and writes a `.capabilities.json` sidecar next to the video. Run `python video_studio/studio.py --print-capabilities` to inspect the profile without rendering. A cross-process lock now serializes video renders that share frames/manifests, preventing concurrent renders from corrupting one another. Keep heavy model stages sequential by default as well (`max_parallel_heavy_jobs: 1`); the render lock does not globally serialize every model task. The profiler never silently reduces the requested resolution or frame rate: low-resource machines may take longer, and jobs can still fail if they exceed available memory or disk space. A detected GPU is not proof that every AI model supports it.
 
 ## Tests
 
