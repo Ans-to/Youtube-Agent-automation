@@ -131,7 +131,11 @@ class ResearchTests(unittest.TestCase):
         def fake_search(query):
             return SAMPLE_HTML if "sample" in query else ""
         def fake_page(url):
-            return {"fetch_status": "fetched", "page_title": "Sample page", "page_text": "Evidence text from a test fixture."}
+            return {
+                "fetch_status": "fetched", "page_title": "Sample page", "page_text": "Evidence text from a test fixture.",
+                "published_date": "2026-10-12", "published_date_source": "article:published_time",
+                "modified_date": "2026-10-18",
+            }
         metadata, results = research("sample topic", queries=["sample topic"], max_results=2,
                                      search_fn=fake_search, page_fetch_fn=fake_page)
         self.assertEqual(metadata["engine"], "DuckDuckGo HTML (no API key)")
