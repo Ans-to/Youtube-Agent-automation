@@ -65,8 +65,9 @@ jobs:
               "title": "Video: CI software-testing template demo",
               "kind": "youtube_package",
               "input": (
+                  "Narration language: English for this CI smoke-test fixture only. "
                   "Create and render a template demo video about deterministic software testing. "
-                  "This is an explicitly labelled smoke-test demo, not a model-generated final video."
+                  "This is an explicitly labelled smoke-test demo, not a model-generated final video and does not certify Urdu TTS."
               ),
               "status": "pending",
               "research_status": "pending"
