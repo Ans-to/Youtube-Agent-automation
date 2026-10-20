@@ -31,6 +31,7 @@ __pycache__/
 
 # Video renderer runtime artifacts
 /video_studio/node_modules/
+/video_studio/voices/
 /video_studio/frames/
 /video_studio/outputs/
 /video_studio/render-manifest.json
