@@ -88,7 +88,7 @@ class ArtifactVerificationTests(unittest.TestCase):
         self.assertEqual(checks[0]["status"], "failed")
         self.assertTrue(any("research.md" in error or "research.json" in error for error in checks[0]["errors"]))
 
-    def test_model_generated_package_accepts_hash_bound_research_provenance(self):
+    def test_model_generated_package_validates_hash_and_scene_source_refs(self):
         result, package = self.write_video_package()
         page_text = "Fetched evidence from an independent source."
         digest = hashlib.sha256(page_text.encode("utf-8")).hexdigest()
@@ -129,6 +129,12 @@ class ArtifactVerificationTests(unittest.TestCase):
         status_path.write_text(json.dumps(status), encoding="utf-8")
         checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
         self.assertEqual(checks[0]["status"], "passed", checks[0]["errors"])
+
+        storyboard["scenes"][0]["source_refs"] = ["S99"]
+        storyboard_path.write_text(json.dumps(storyboard), encoding="utf-8")
+        checks = orchestrate.verify_artifact_tool_runs([result], project_root=self.root)
+        self.assertEqual(checks[0]["status"], "failed")
+        self.assertTrue(any("S99" in error for error in checks[0]["errors"]))
 
     def test_render_is_failed_when_mp4_subtitles_or_quality_report_are_missing(self):
         result, _ = self.write_video_package(rendered=True)
