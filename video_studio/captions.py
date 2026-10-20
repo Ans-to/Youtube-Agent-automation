@@ -3,9 +3,9 @@
 import re
 from pathlib import Path
 
-# Non-Latin scripts commonly used by non-English narration are rejected in this
-# English-only pipeline. Latin-script language identification is prompt/model
-# constrained and still needs human listening review.
+# The English profile rejects common non-Latin scripts. The ur-en profile permits
+# Urdu/Arabic-script text with Latin-script English technical terms. Script checks do
+# not establish naturalness, pronunciation, or spoken-language quality; human review remains required.
 NON_LATIN_SCRIPT = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\u0900-\u097F\u0400-\u04FF\u4E00-\u9FFF\uAC00-\uD7AF]")
 TIMESTAMP_SRT = re.compile(r"^(\d{2,}:\d{2}:\d{2},\d{3}) --> (\d{2,}:\d{2}:\d{2},\d{3})$")
 
@@ -19,14 +19,14 @@ def validate_english_text(text, label="Narration"):
     return value
 
 
-URDU_ARABIC_SCRIPT = re.compile(r"[\\u0600-\\u06FF\\u0750-\\u077F\\u08A0-\\u08FF]")
+URDU_ARABIC_SCRIPT = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
 UNSUPPORTED_NON_LATIN_SCRIPT = re.compile(
-    r"[\\u0370-\\u03FF\\u0400-\\u052F\\u0530-\\u058F"
-    r"\\u0900-\\u097F\\u0980-\\u09FF\\u0A00-\\u0A7F"
-    r"\\u0A80-\\u0AFF\\u0B00-\\u0B7F\\u0B80-\\u0BFF"
-    r"\\u0C00-\\u0C7F\\u0C80-\\u0CFF\\u0D00-\\u0D7F"
-    r"\\u0E00-\\u0E7F\\u0E80-\\u0EFF\\u1000-\\u109F"
-    r"\\u3040-\\u30FF\\u3400-\\u9FFF\\uAC00-\\uD7AF]"
+    r"[\u0370-\u03FF\u0400-\u052F\u0530-\u058F"
+    r"\u0900-\u097F\u0980-\u09FF\u0A00-\u0A7F"
+    r"\u0A80-\u0AFF\u0B00-\u0B7F\u0B80-\u0BFF"
+    r"\u0C00-\u0C7F\u0C80-\u0CFF\u0D00-\u0D7F"
+    r"\u0E00-\u0E7F\u0E80-\u0EFF\u1000-\u109F"
+    r"\u3040-\u30FF\u3400-\u9FFF\uAC00-\uD7AF]"
 )
 
 
