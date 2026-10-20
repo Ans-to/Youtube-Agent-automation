@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Offline Agent HQ: local task queue with constrained specialist stages."""
-import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress, sys
+import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress, sys, os
 from pathlib import Path
 from datetime import datetime
 from queue_store import task_queue_lock, load_tasks, save_tasks, process_is_alive
@@ -404,7 +404,7 @@ def cycle(task_id=None):
                 continue
             task["status"] = "running"
             task["started_at"] = stamp()
-            task["worker_pid"] = __import__("os").getpid()
+            task["worker_pid"] = os.getpid()
             task["error"] = ""
             save_tasks(TASKS, tasks)
         try:
