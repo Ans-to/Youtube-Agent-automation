@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+_AUTO_DISK = object()
+
 
 def _memory_total_bytes():
     """Return physical RAM bytes when detectable, otherwise None."""
@@ -107,13 +109,13 @@ def _detect_gpu():
     }
 
 
-def profile_device(base_path=None, cpu_count=None, total_memory_bytes=None, gpu=None, free_disk_bytes=None):
+def profile_device(base_path=None, cpu_count=None, total_memory_bytes=None, gpu=None, free_disk_bytes=_AUTO_DISK):
     """Return a stable, JSON-safe capability profile; arguments allow deterministic tests."""
     cpu_count = max(1, int(cpu_count if cpu_count is not None else (os.cpu_count() or 1)))
     total_memory_bytes = _memory_total_bytes() if total_memory_bytes is None else int(total_memory_bytes)
     gpu = _detect_gpu() if gpu is None else dict(gpu)
     base_path = Path(base_path or Path.cwd()).expanduser()
-    if free_disk_bytes is None:
+    if free_disk_bytes is _AUTO_DISK:
         try:
             free_disk_bytes = shutil.disk_usage(base_path).free
         except OSError:
