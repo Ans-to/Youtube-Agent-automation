@@ -2,7 +2,7 @@ name: Project checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'video-studio/**']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -22,17 +22,17 @@ jobs:
         python-version: ["3.11", "3.12"]
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python-version }}
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Compile Python modules
-        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
+        run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
       - name: Validate storyboard JSON
@@ -51,7 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Run complete unit-test suite inside a clean Python container
         run: docker run --rm --user "$(id -u):$(id -g)" -v "$GITHUB_WORKSPACE:/workspace" -w /workspace python:3.12-slim python -m unittest discover -s tests -v
 
@@ -59,13 +59,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "22"
       - name: Install FFmpeg
@@ -97,6 +97,141 @@ jobs:
       - name: Render and validate a 1-second landscape MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4
         working-directory: .
+      - name: Verify normalized transition type and applied frame count
+        run: |
+          python - <<'PY'
+          import json
+          with open("video_studio/render-manifest.json", encoding="utf-8") as stream:
+              manifest = json.load(stream)
+          expected = {
+              1: {"scene": 2, "type": "wipe-left", "frames": 2},
+              4: {"scene": 5, "type": "slide-left", "frames": 2},
+              5: {"scene": 6, "type": "slide-right", "frames": 2},
+              6: {"scene": 7, "type": "zoom", "frames": 2},
+          }
+          for index, record in expected.items():
+              assert manifest["transitions"][index] == record, manifest["transitions"][index]
+          PY
       - name: Render and validate a 1-second vertical Shorts MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4
         working-directory: .
+      - name: Verify subtitles exist for both render profiles
+        run: |
+          test -s video_studio/outputs/ci-smoke.srt
+          test -s video_studio/outputs/ci-smoke.vtt
+          test -s video_studio/outputs/ci-smoke-shorts.srt
+          test -s video_studio/outputs/ci-smoke-shorts.vtt
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "video_studio")
+          from captions import validate_subtitle_text
+          for stem in ("ci-smoke", "ci-smoke-shorts"):
+              base = Path("video_studio/outputs") / stem
+              report = validate_subtitle_text(base.with_suffix(".srt").read_text(encoding="utf-8"),
+                                              base.with_suffix(".vtt").read_text(encoding="utf-8"))
+              assert report["cue_count"] >= 1, report
+          PY
+
+  demo-artifact:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+      - name: Install renderer dependencies
+        working-directory: video_studio
+        run: npm install
+      - name: Install local English TTS engine
+        run: python -m pip install --upgrade pip piper-tts
+      - name: Download pinned MIT-licensed English voice model
+        env:
+          PIPER_VOICE_REVISION: b145f2ac26522d6a2ccde0164b7b0e48b1e3199c
+        run: |
+          set -eu
+          voice_dir=video_studio/voices/en_US-lessac-medium
+          mkdir -p "$voice_dir"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
+          curl --fail --location --retry 3 --output "$voice_dir/en_US-lessac-medium.onnx.json" "https://huggingface.co/rhasspy/piper-voices/resolve/$PIPER_VOICE_REVISION/en/en_US/lessac/medium/en_US-lessac-medium.onnx.json"
+          printf '%s  %s\n' '5efe09e69902187827af646e1a6e9d269dee769f9877d17b16b1b46eeaaf019f' "$voice_dir/en_US-lessac-medium.onnx" | sha256sum --check
+          python -m json.tool "$voice_dir/en_US-lessac-medium.onnx.json" > /dev/null
+          python - "$voice_dir/en_US-lessac-medium.onnx.json" <<'PY'
+          import json, sys
+          with open(sys.argv[1], encoding="utf-8") as f:
+              config = json.load(f)
+          assert config.get("language", {}).get("code", "").startswith("en"), config.get("language")
+          PY
+      - name: Render voiced landscape prototype with English subtitles
+        run: |
+          export PIPER_MODEL="$GITHUB_WORKSPACE/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx"
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo.json --output outputs/motion-character-transition-demo.mp4 --with-voice
+          python video_studio/studio.py --storyboard video_studio/storyboard.motion-character-demo-shorts.json --output outputs/motion-character-transition-shorts.mp4 --with-voice
+      - name: Run topic-to-video production pipeline with English narration
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: |
+          python video_studio/production.py --topic "How a video rendering pipeline works" --format long --target-minutes 0.25 --scenes 4 --out workspace/ci-production-package --render-template
+      - name: Validate landscape and Shorts audio, subtitles, and quality
+        run: |
+          set -eu
+          python video_studio/validate_render.py video_studio/outputs/motion-character-transition-demo.mp4 --width 1280 --height 720 --fps 30 --require-audio
+          python video_studio/validate_render.py video_studio/outputs/motion-character-transition-shorts.mp4 --width 720 --height 1280 --fps 30 --require-audio
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, "video_studio")
+          from captions import validate_subtitle_text
+          for stem in ("motion-character-transition-demo", "motion-character-transition-shorts"):
+              base = Path("video_studio/outputs") / stem
+              srt, vtt = base.with_suffix(".srt"), base.with_suffix(".vtt")
+              assert srt.is_file() and srt.stat().st_size > 0, srt
+              assert vtt.is_file() and vtt.stat().st_size > 0, vtt
+              report = validate_subtitle_text(srt.read_text(encoding="utf-8"), vtt.read_text(encoding="utf-8"))
+              assert report["cue_count"] >= 3, report
+              print(stem, report)
+          PY
+          python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-demo.mp4 --strict --report video_studio/outputs/motion-character-transition-demo.qc.json
+          python video_studio/quality_audit.py video_studio/outputs/motion-character-transition-shorts.mp4 --strict --report video_studio/outputs/motion-character-transition-shorts.qc.json
+          python video_studio/validate_render.py workspace/ci-production-package/video.mp4 --width 1920 --height 1080 --fps 30 --require-audio
+          test -s workspace/ci-production-package/video.srt
+          test -s workspace/ci-production-package/video.vtt
+          python video_studio/quality_audit.py workspace/ci-production-package/video.mp4 --strict --report workspace/ci-production-package/video.qc.json
+          python - <<'PY'
+          import json
+          with open("workspace/ci-production-package/package-status.json", encoding="utf-8") as f:
+              status = json.load(f)
+          assert status.get("voice_language") == "English", status
+          assert status.get("subtitles_required") is True, status
+          assert status.get("rendered_duration_seconds", 0) > 0, status
+          PY
+      - name: Upload landscape and Shorts release candidates
+        uses: actions/upload-artifact@v7
+        with:
+          name: english-voice-subtitled-motion-prototypes
+          path: |
+            video_studio/outputs/motion-character-transition-demo.mp4
+            video_studio/outputs/motion-character-transition-demo.srt
+            video_studio/outputs/motion-character-transition-demo.vtt
+            video_studio/outputs/motion-character-transition-demo.qc.json
+            video_studio/outputs/motion-character-transition-shorts.mp4
+            video_studio/outputs/motion-character-transition-shorts.srt
+            video_studio/outputs/motion-character-transition-shorts.vtt
+            video_studio/outputs/motion-character-transition-shorts.qc.json
+            workspace/ci-production-package/script.md
+            workspace/ci-production-package/storyboard.json
+            workspace/ci-production-package/package-status.json
+            workspace/ci-production-package/video.mp4
+            workspace/ci-production-package/video.srt
+            workspace/ci-production-package/video.vtt
+            workspace/ci-production-package/video.qc.json
+          if-no-files-found: error
+          retention-days: 7

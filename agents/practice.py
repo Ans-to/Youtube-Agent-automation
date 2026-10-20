@@ -249,6 +249,11 @@ def main():
 
     args = parser.parse_args()
     if args.command == "practice":
+        raise SystemExit(
+            "Direct specialist practice is disabled as a public entrypoint. "
+            "Submit the training goal through AGENT-01 (CEO), which chooses the specialists."
+        )
+    if args.command == "practice":
         if args.limit is not None and (not args.all or not 1 <= args.limit <= 51):
             raise SystemExit("--limit is valid only with --all and must be between 1 and 51.")
         if args.task is not None and (not args.task.strip() or len(args.task) > 6000):

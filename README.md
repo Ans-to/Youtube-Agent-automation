@@ -135,6 +135,10 @@ Request IDs must contain only letters, digits, hyphens, or underscores and must 
 
 All supported queued task kinds run through the CEO-led pipeline. Put non-sensitive `.txt`, `.md`, or `.json` reference files in `workspace/`. Inspect all outputs before relying on them.
 
+## Adaptive device profile and quality-first sequential rendering
+
+Before a render, `video_studio/studio.py` detects available RAM, CPU count, disk space, and supported GPU information using standard-library probes. It selects conservative encoding thread limits and writes a `.capabilities.json` sidecar next to the video. Run `python video_studio/studio.py --print-capabilities` to inspect the profile without rendering. Heavy render/model stages should remain sequential by default (`max_parallel_heavy_jobs: 1`). The profiler never silently reduces the requested resolution or frame rate: low-resource machines may take longer, and jobs can still fail if they exceed available memory or disk space. A detected GPU is not proof that every AI model supports it.
+
 ## Tests
 
 Run locally:
@@ -155,7 +159,7 @@ GitHub Actions runs these checks on pushes and pull requests to `main`.
 
 ## Video studio (new starter module)
 
-The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, waveform, kinetic-typography, and animated bar-chart compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
+The `video_studio/` folder includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, English-only Piper narration for final production renders, and required SRT/WebVTT subtitles. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, waveform, kinetic-typography, and animated bar-chart compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
 
 The CEO can invoke `video_studio/production.py` for a clear video request. The builder uses supplied CEO/specialist research notes when available; standalone use supports `--research` to collect public search results and extract bounded page text without an API key. With a configured loopback model, it creates a multi-scene script and storyboard; without a model, it creates a clearly labelled deterministic template package. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4. The script never uploads or publishes automatically.
 

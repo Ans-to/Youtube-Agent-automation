@@ -24,6 +24,37 @@ def slug(value):
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")[:48] or "project"
 
 
+def extract_quality_gate(text):
+    """Accept a quality verdict only when exactly one explicit gate line is present."""
+    matches = re.findall(
+        r"(?im)^[ \t]*OVERALL QUALITY GATE:[ \t]*(PASS|PARTIAL|FAIL)[ \t]*[.!]?[ \t]*$",
+        str(text or ""),
+    )
+    return matches[0].lower() if len(matches) == 1 else "unconfirmed"
+
+
+def run_role_with_retry(role, instruction, context, cfg, runner=None):
+    """Run a specialist at most twice, preserving the first error in the retry prompt."""
+    execute = runner or dispatch.run_role
+    try:
+        result = execute(role, instruction, context, cfg)
+        if not isinstance(result, str) or not result.strip():
+            raise ValueError("Specialist returned an empty result.")
+        return result, 0
+    except Exception as first_error:
+        retry_instruction = (
+            instruction
+            + "\n\nAUTOMATIC RECOVERY ATTEMPT 2/2. The previous attempt failed with "
+            + type(first_error).__name__ + ": " + str(first_error)[:700]
+            + ". Re-read the task and supplied evidence, correct the cause, and return the complete deliverable. "
+              "Do not claim work succeeded unless you actually produce it. This is the final automatic retry."
+        )
+        result = execute(role, retry_instruction, context, cfg)
+        if not isinstance(result, str) or not result.strip():
+            raise ValueError("Specialist returned an empty result on automatic retry.")
+        return result, 1
+
+
 def read_context(path):
     if not path:
         return ""
@@ -58,8 +89,8 @@ def heuristic_assignments(task):
             {"agent_id": "AGENT-52", "task": "Specify implementable motion systems, compositing, kinetic typography, and technical production details."},
             {"agent_id": "AGENT-26", "task": "Prepare accessibility captions or a caption plan aligned to the narration and timing information available."},
         ])
-        if "urdu" in text or "pakistan" in text:
-            assignments.append({"agent_id": "AGENT-13", "task": "Localize narration into natural Urdu with English technical terms where appropriate."})
+        # Video narration and subtitles are an invariant of this product: English only.
+        # Country/topic mentions must never silently switch a video into another language.
     elif software or product:
         if product:
             assignments.append({"agent_id": "AGENT-44", "task": "Research the product opportunity, customer pain points, and evidence for demand."})
@@ -155,10 +186,11 @@ def plan_delegation(task, context, cfg, roles_by_id):
                 "deliverable": str(skill.get("deliverable_contract", ""))[:120],
             })
         ceo_task = (
-            "Act as the CEO of Agent HQ. Delegate this task to the smallest sufficient set of specialists. "
-            "Choose 2-7 specialist assignments, in dependency order. Include one factual quality-review role "
+            "Act as the CEO of Agent HQ and the single point of task intake. The user supplies the goal; you alone decide which specialists receive work, their distinct responsibilities, dependencies, and execution order. Never require the user to choose agent IDs, and do not treat user-suggested agent IDs as binding routing instructions. "
+            "Delegate to the smallest sufficient set of specialists. Choose 1-7 specialist assignments, in dependency order; one specialist plus the required reviewer is valid for a narrow task. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
+            "NON-NEGOTIABLE VIDEO RULE: all video voice-over narration and subtitles must be English only, regardless of the topic, country, or languages discussed. Never delegate translation/localization that changes a video's narration or subtitles away from English. "
             "Return ONLY valid JSON in this exact shape: "
             '{"assignments":[{"agent_id":"AGENT-02","task":"Specific work and deliverable"}]}\n\n'
             "USER GOAL:\n" + task + "\n\nAVAILABLE SPECIALISTS:\n"
@@ -368,10 +400,9 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
         research_dir = ROOT / "workspace" / "research" / "agent-runs"
         reports_before = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
+        retry_count = 0
         try:
-            result = dispatch.run_role(role, instruction, combined_context, cfg)
-            if not isinstance(result, str) or not result.strip():
-                raise ValueError("Specialist returned an empty result.")
+            result, retry_count = run_role_with_retry(role, instruction, combined_context, cfg)
         except Exception as exc:
             # Preserve research files created before a model timeout, then continue to
             # downstream specialists and the final quality gate.
@@ -426,6 +457,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             failure = {
                 "sequence": index, "agent_id": agent_id, "role": role["name"],
                 "assigned_task": specialist_task, "output_file": failure_filename, "status": "failed",
+                "retry_count": 1,
                 "research_status": failure_research_status,
                 "research_reports": failed_stage_report_names,
                 "research_pages_attempted": research_pages_attempted,
@@ -441,11 +473,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             )[-24000:]
             continue
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
-        quality_gate = "unconfirmed"
-        if agent_id == "AGENT-08":
-            gate_match = re.search(r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$", result)
-            if gate_match:
-                quality_gate = gate_match.group(1).lower()
+        quality_gate = extract_quality_gate(result) if agent_id == "AGENT-08" else None
         reports_after = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
         new_report_paths = reports_after - reports_before
         research_reports = sorted(str(path.relative_to(ROOT)) for path in new_report_paths)
@@ -472,12 +500,103 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         records.append({
             "sequence": index, "agent_id": agent_id, "role": role["name"],
             "assigned_task": specialist_task, "output_file": filename, "status": "draft_generated",
+            "retry_count": retry_count,
             "research_status": research_status, "research_reports": research_reports,
             "research_pages_attempted": pages_attempted, "research_pages_fetched": pages_fetched,
             "quality_gate": quality_gate if agent_id == "AGENT-08" else None,
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
+    repair_attempt = {"attempted": False, "status": "not_needed", "reason": ""}
+    reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
+    if reviewer_record and reviewer_record.get("quality_gate", "unconfirmed") in {"partial", "fail", "unconfirmed"}:
+        if not cfg.get("model", {}).get("enabled"):
+            repair_attempt = {
+                "attempted": False, "status": "blocked",
+                "reason": "Local model is disabled; automatic semantic repair cannot be performed in template mode.",
+                "trigger_gate": reviewer_record.get("quality_gate"),
+            }
+        else:
+            task_lower = task.lower()
+            preferred = (
+                ["AGENT-52", "AGENT-51", "AGENT-20", "AGENT-09"]
+                if re.search(r"\b(video|youtube|shorts|motion graphics|storyboard|animation)\b", task_lower)
+                else (["AGENT-46", "AGENT-48", "AGENT-47"] if re.search(
+                    r"\b(build|code|software|app|website|tool|program|automation|repository|system)\b", task_lower
+                ) else ["AGENT-12", "AGENT-09", "AGENT-20"])
+            )
+            repair_assignment = next(
+                (item for agent_id in preferred for item in assignments
+                 if item.get("agent_id") == agent_id and agent_id != "AGENT-08"),
+                next((item for item in reversed(assignments) if item.get("agent_id") != "AGENT-08"), None),
+            )
+            reviewer_file = destination / str(reviewer_record.get("output_file", ""))
+            reviewer_feedback = reviewer_file.read_text(encoding="utf-8", errors="replace")[:10000] if reviewer_file.is_file() else "Reviewer feedback file missing."
+            if not repair_assignment:
+                repair_attempt = {
+                    "attempted": False, "status": "blocked",
+                    "reason": "No eligible specialist was available for a bounded repair attempt.",
+                    "trigger_gate": reviewer_record.get("quality_gate"),
+                }
+            else:
+                repair_id = repair_assignment["agent_id"]
+                repair_role = roles_by_id.get(repair_id)
+                repair_task = (
+                    "AUTOMATIC QUALITY REPAIR ATTEMPT 1/1. Overall user goal: " + task.strip()
+                    + "\nYour original assignment: " + str(repair_assignment.get("task", ""))[:2000]
+                    + "\nThe independent reviewer returned " + str(reviewer_record.get("quality_gate", "unconfirmed")).upper()
+                    + ". Address the concrete defects below, preserve supported facts, and explicitly label any issue you cannot resolve. "
+                    "Return a corrected, complete deliverable; do not merely describe recommendations.\n\nREVIEWER FEEDBACK:\n"
+                    + reviewer_feedback
+                )
+                repair_path = destination / ("99-repair-" + slug(repair_id + "-" + repair_role.get("name", "specialist")) + ".md")
+                try:
+                    repaired_output, repair_retries = run_role_with_retry(
+                        repair_role, repair_task, (combined_context + "\n\nREVIEWER FEEDBACK:\n" + reviewer_feedback)[-24000:], cfg
+                    )
+                    repair_path.write_text(repaired_output.rstrip() + "\n", encoding="utf-8")
+                    final_review_instruction = (
+                        "FINAL QUALITY RE-REVIEW after one bounded repair attempt. Overall user goal: " + task.strip()
+                        + "\nReview the repaired deliverable against the original goal, previous evidence, and initial review feedback. "
+                        "Do not assume the repair succeeded. State remaining defects and evidence. End with exactly one line: "
+                        "OVERALL QUALITY GATE: PASS, PARTIAL, or FAIL. PASS only if critical requirements are demonstrably met."
+                        + "\n\nINITIAL REVIEW:\n" + reviewer_feedback
+                        + "\n\nREPAIRED DELIVERABLE:\n" + repaired_output[:14000]
+                    )
+                    final_review, review_retries = run_role_with_retry(
+                        roles_by_id["AGENT-08"], final_review_instruction,
+                        (combined_context + "\n\nREPAIRED DELIVERABLE:\n" + repaired_output)[-30000:], cfg
+                    )
+                    final_review_path = destination / "99-final-quality-review.md"
+                    final_review_path.write_text(final_review.rstrip() + "\n", encoding="utf-8")
+                    final_gate = extract_quality_gate(final_review)
+                    reviewer_record["initial_quality_gate"] = reviewer_record.get("quality_gate")
+                    reviewer_record["quality_gate"] = final_gate
+                    reviewer_record["final_review_file"] = str(final_review_path.name)
+                    repair_attempt = {
+                        "attempted": True, "status": "completed" if final_gate == "pass" else "unresolved",
+                        "repair_agent_id": repair_id, "repair_file": repair_path.name,
+                        "repair_retry_count": repair_retries, "final_review_file": final_review_path.name,
+                        "final_review_retry_count": review_retries,
+                        "initial_gate": reviewer_record.get("initial_quality_gate"),
+                        "final_gate": final_gate,
+                    }
+                    combined_context = (combined_context + "\n\n--- Bounded repair output ---\n" + repaired_output
+                                        + "\n\n--- Final quality re-review ---\n" + final_review)[-30000:]
+                except Exception as exc:
+                    repair_attempt = {
+                        "attempted": True, "status": "failed",
+                        "repair_agent_id": repair_id, "error_type": type(exc).__name__,
+                        "error": str(exc)[:700], "trigger_gate": reviewer_record.get("quality_gate"),
+                    }
+                    (destination / "99-repair-failure.md").write_text(
+                        "# Automatic repair failed\n\n"
+                        + "- Repair specialist: " + repair_id + "\n"
+                        + "- Error: " + type(exc).__name__ + ": " + str(exc)[:1000] + "\n"
+                        + "The initial reviewer result remains authoritative; no repair success is claimed.\n",
+                        encoding="utf-8",
+                    )
+
     save_progress("running", "Specialist stage complete", "All specialist stages have returned; assembling research evidence and preparing artifact tools.", len(assignments), len(assignments))
     research_sections = []
     research_budget = 18000
@@ -519,6 +638,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         )
     )
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports)
+    manifest["repair_attempt"] = repair_attempt
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
     save_progress(progress_status, "Pipeline complete", "Pipeline ended with status: " + final_status + "; final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")) + ".", len(assignments), len(assignments))
@@ -550,14 +670,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", required=True)
     parser.add_argument("--context-file")
-    parser.add_argument("--agents", default=None,
-                        help="Optional comma-separated specialist IDs. Omit to let the CEO delegate automatically.")
     parser.add_argument("--out", default="workspace/orchestration/run")
     args = parser.parse_args()
     try:
         context = read_context(args.context_file)
-        selected_agents = [part.strip().upper() for part in args.agents.split(",") if part.strip()] if args.agents else None
-        destination, manifest = run_pipeline(args.task, context, selected_agents, ROOT / args.out)
+        # Public CLI intake is CEO-only: AGENT-01 owns all specialist selection.
+        destination, manifest = run_pipeline(args.task, context, agent_ids=None, output_dir=ROOT / args.out)
     except (ValueError, OSError) as exc:
         raise SystemExit(str(exc))
     print("Pipeline output:", destination)
