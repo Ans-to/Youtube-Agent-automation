@@ -48,6 +48,34 @@ class QueueStoreTests(unittest.TestCase):
                     self.assertTrue(queue_store.process_is_alive(987654321))
                 windows_probe.assert_called_once_with(987654321)
 
+    def test_windows_native_probe_distinguishes_running_and_exited_processes(self):
+        from unittest.mock import Mock
+
+        for wait_result, expected in ((0x00000102, True), (0x00000000, False)):
+            with self.subTest(wait_result=wait_result):
+                kernel32 = Mock()
+                kernel32.OpenProcess.return_value = 123
+                kernel32.WaitForSingleObject.return_value = wait_result
+                with patch.object(queue_store.ctypes, "WinDLL", return_value=kernel32, create=True):
+                    self.assertEqual(queue_store._windows_process_is_alive(987654321), expected)
+                kernel32.OpenProcess.assert_called_once_with(0x00100000, False, 987654321)
+                kernel32.WaitForSingleObject.assert_called_once_with(123, 0)
+                kernel32.CloseHandle.assert_called_once_with(123)
+
+    def test_windows_native_probe_handles_missing_and_unreadable_processes_safely(self):
+        from unittest.mock import Mock
+
+        cases = ((87, False), (1168, False), (5, True), (1234, True))
+        for winerror, expected in cases:
+            with self.subTest(winerror=winerror):
+                kernel32 = Mock()
+                kernel32.OpenProcess.return_value = 0
+                with patch.object(queue_store.ctypes, "WinDLL", return_value=kernel32, create=True):
+                    with patch.object(queue_store.ctypes, "get_last_error", return_value=winerror, create=True):
+                        self.assertEqual(queue_store._windows_process_is_alive(987654321), expected)
+                kernel32.WaitForSingleObject.assert_not_called()
+                kernel32.CloseHandle.assert_not_called()
+
     def test_rejects_non_list_queue(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "tasks.json"
