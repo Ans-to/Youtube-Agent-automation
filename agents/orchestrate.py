@@ -33,8 +33,27 @@ def extract_quality_gate(text):
     return matches[0].lower() if len(matches) == 1 else "unconfirmed"
 
 
+def is_retryable_error(error):
+    """Return true only for failures plausibly fixed by one bounded repeat."""
+    if isinstance(error, (TimeoutError, ConnectionError)):
+        return True
+    message = str(error or "").strip().lower()
+    if isinstance(error, ValueError) and message == "specialist returned an empty result.":
+        # A model may transiently return an empty completion; the retry prompt can recover.
+        return True
+    transient_markers = (
+        "timed out", "timeout", "temporarily unavailable", "temporary failure",
+        "connection reset", "connection aborted", "connection refused",
+        "remote disconnected", "rate limit", "too many requests",
+        "http 429", "http 500", "http 502", "http 503", "http 504",
+        "status 429", "status 500", "status 502", "status 503", "status 504",
+        "server busy", "try again later",
+    )
+    return any(marker in message for marker in transient_markers)
+
+
 def run_role_with_retry(role, instruction, context, cfg, runner=None):
-    """Run a specialist at most twice, preserving the first error in the retry prompt."""
+    """Retry one plausibly transient failure; never repeat deterministic errors unchanged."""
     execute = runner or dispatch.run_role
     try:
         result = execute(role, instruction, context, cfg)
@@ -42,6 +61,8 @@ def run_role_with_retry(role, instruction, context, cfg, runner=None):
             raise ValueError("Specialist returned an empty result.")
         return result, 0
     except Exception as first_error:
+        if not is_retryable_error(first_error):
+            raise
         retry_instruction = (
             instruction
             + "\n\nAUTOMATIC RECOVERY ATTEMPT 2/2. The previous attempt failed with "
