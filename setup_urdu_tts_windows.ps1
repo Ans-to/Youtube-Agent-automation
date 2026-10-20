@@ -16,7 +16,7 @@ if (Get-Command py -ErrorAction SilentlyContinue) {
     # Prefer a version explicitly listed by the Piper package, rather than silently
     # choosing a newer interpreter. Fall back to the installed default only if needed.
     foreach ($Candidate in @("3.13", "3.12", "3.11", "3.10", "3.9")) {
-        $DetectedVersion = (& py "-$Candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null).Trim()
+        $DetectedVersion = (& py "-$Candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null | Out-String).Trim()
         if ($LASTEXITCODE -eq 0 -and $DetectedVersion -eq $Candidate) {
             $PythonCommand = "py"
             $PythonArgs = @("-$Candidate")
@@ -25,7 +25,7 @@ if (Get-Command py -ErrorAction SilentlyContinue) {
         }
     }
     if (-not $PythonCommand) {
-        $DetectedVersion = (& py -3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null).Trim()
+        $DetectedVersion = (& py -3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>$null | Out-String).Trim()
         if ($LASTEXITCODE -eq 0) {
             $PythonCommand = "py"
             $PythonArgs = @("-3")
