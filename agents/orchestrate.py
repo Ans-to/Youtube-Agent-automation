@@ -110,7 +110,7 @@ def heuristic_assignments(task):
             {"agent_id": "AGENT-52", "task": "Specify implementable motion systems, compositing, kinetic typography, and technical production details."},
             {"agent_id": "AGENT-26", "task": "Prepare accessibility captions or a caption plan aligned to the narration and timing information available."},
         ])
-        # Video narration and subtitles are an invariant of this product: English only.
+        # Language is an explicit production profile; do not silently replace Urdu-English with English.
         # Country/topic mentions must never silently switch a video into another language.
     elif software or product:
         if product:
@@ -211,7 +211,10 @@ def plan_delegation(task, context, cfg, roles_by_id):
             "Delegate to the smallest sufficient set of specialists. Choose 1-7 specialist assignments, in dependency order; one specialist plus the required reviewer is valid for a narrow task. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
-            "NON-NEGOTIABLE VIDEO RULE: all video voice-over narration and subtitles must be English only, regardless of the topic, country, or languages discussed. Never delegate translation/localization that changes a video's narration or subtitles away from English. "
+            "VIDEO LANGUAGE RULE: preserve the narration_language setting explicitly requested in the task or video_studio config. "
+            "When no profile is requested, the channel default is natural Pakistani Urdu written in Urdu/Arabic script with English technical terms preserved. "
+            "If a task explicitly requests English, use English. Never silently change the selected language to another language. "
+            "The renderer must reject a missing/incompatible voice backend rather than claim that narration was synthesized. "
             "Return ONLY valid JSON in this exact shape: "
             '{"assignments":[{"agent_id":"AGENT-02","task":"Specific work and deliverable"}]}\n\n'
             "USER GOAL:\n" + task + "\n\nAVAILABLE SPECIALISTS:\n"
@@ -272,6 +275,13 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
                    "--topic", topic, "--format", fmt, "--out", relative_out]
+        explicit_language = re.search(
+            r"(?i)\\b(?:narration|voice|subtitle)?\\s*language\\s*[:=]\\s*(english|en|urdu(?:\\s*[-+&]\\s*english)?|ur(?:\\s*[-+&]\\s*en)?)\\b",
+            intent_text,
+        )
+        if explicit_language:
+            language_token = explicit_language.group(1).lower()
+            command.extend(["--language", "en" if language_token in {"english", "en"} else "ur-en"])
         if source_path is not None:
             command.extend(["--source-file", str(source_path)])
         else:
@@ -284,6 +294,9 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             if re.search(r"\b(with voice|with local narration|piper narration)\b", intent_lower):
                 command.append("--with-voice")
         elif render_requested and template_demo:
+            # Only an explicitly labelled English CI/demo request should override the
+            # configured language. Otherwise production.py uses config and fails closed
+            # when the selected profile has no compatible voice backend.
             command.extend(["--render", "--render-template"])
         elif render_requested and not model_enabled:
             results.append({
