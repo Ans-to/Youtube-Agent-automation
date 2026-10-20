@@ -55,6 +55,35 @@ class UrduTtsAdapterTests(unittest.TestCase):
                     self.assertEqual(audio.getframerate(), 22050)
                     self.assertEqual(audio.getnframes(), 6000)
 
+    def test_kani_speech_token_section_decodes_four_codebook_offsets(self):
+        base = adapter.DEFAULT_MODEL_REVISION
+        tokenizer_length = 64400
+        audio_start = tokenizer_length + 10
+        codebook_size = 4032
+        expected = [1, 2, 3, 4]
+        encoded = [
+            audio_start + codebook_size * index + value
+            for index, value in enumerate(expected)
+        ]
+        output = [1, tokenizer_length + 1, *encoded, tokenizer_length + 2, tokenizer_length + 6]
+        self.assertEqual(
+            adapter.extract_kani_audio_codebook_rows(output),
+            [expected],
+        )
+
+    def test_kani_token_parser_rejects_missing_markers_and_partial_frames(self):
+        with self.assertRaisesRegex(ValueError, "speech-token section"):
+            adapter.extract_kani_audio_codebook_rows([1, 2, 3, 4])
+        with self.assertRaisesRegex(ValueError, "not divisible by four"):
+            adapter.extract_kani_audio_codebook_rows([64401, 64411, 64402])
+
+    def test_kani_token_parser_rejects_invalid_codebook_values(self):
+        with self.assertRaisesRegex(ValueError, "invalid codebook token"):
+            adapter.extract_kani_audio_codebook_rows(
+                [64401, 64410 + 4032, 64410 + 4032 + 1,
+                 64410 + 8064 + 1, 64410 + 12096 + 1, 64402]
+            )
+
     def test_silence_fails_closed_instead_of_writing_a_silent_voiceover(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / "silent.wav"
