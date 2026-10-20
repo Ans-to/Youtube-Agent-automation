@@ -520,6 +520,18 @@ def main():
             scene.setdefault("caption", scene["narration"])
             scenes.append(scene)
             previous = {"headline": scene["headline"], "summary": scene["narration"][-800:]}
+        # Allocate each scene's screen time from its actual spoken text instead of
+        # forcing every scene to the same duration. Punctuation adds a small pause budget.
+        pacing_weights = []
+        for scene in scenes:
+            narration = str(scene.get("narration", "")).strip()
+            words = max(1, len(narration.split()))
+            pauses = narration.count(",") * 0.18 + narration.count(";") * 0.24 + narration.count(":") * 0.20
+            pauses += sum(narration.count(mark) for mark in ".!?") * 0.28
+            pacing_weights.append(max(1.0, words / 2.25 + pauses))
+        pacing_total = sum(pacing_weights) or 1.0
+        for scene, weight in zip(scenes, pacing_weights):
+            scene["duration_seconds"] = round(target_seconds * weight / pacing_total, 3)
         script_text = "\n\n".join("[" + str(i + 1) + "] " + scene["narration"] for i, scene in enumerate(scenes))
         required_words = max(80, int(target_minutes * 100))
         if len(script_text.split()) < required_words:
