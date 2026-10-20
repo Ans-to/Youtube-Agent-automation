@@ -235,6 +235,12 @@ jobs:
       - name: Render and validate a 1-second vertical Shorts MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
 
+      - name: Verify landscape and Shorts smoke outputs exist for artifact retention
+        if: always()
+        run: |
+          test -s video_studio/outputs/ci-smoke.mp4 || { echo "Landscape smoke MP4 missing; artifact paths or render output changed."; exit 1; }
+          test -s video_studio/outputs/ci-smoke-shorts.mp4 || { echo "Vertical Shorts smoke MP4 missing; artifact paths or render output changed."; exit 1; }
+
       # Keep generated smoke-test outputs available for human inspection.
       # The test content is synthetic and must never be used for publication.
       - name: Upload rendered QA artifacts for inspection
@@ -255,5 +261,5 @@ jobs:
             workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.qc.json
             video_studio/outputs/ci-smoke.mp4
             video_studio/outputs/ci-smoke-shorts.mp4
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 7
