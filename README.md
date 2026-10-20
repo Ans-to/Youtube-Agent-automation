@@ -81,17 +81,39 @@ The bridge client is `bridge/bridge.py`. It reads a GitHub token from:
 
 Use a token restricted to this repository with **Contents: read and write** permission. Save it only on the phone; never commit it, print it, or paste it into a chat. The bridge needs read access to poll requests and write access to create sanitized result files. If write access is unavailable, tasks can still produce local results but GitHub reporting will fail.
 
-One-shot poll:
+One-shot poll (default branch is `main`):
 ```sh
 python bridge/bridge.py
 ```
 
-Poll every 30 seconds:
+For the separate mobile inbox branch, set the branch explicitly before polling. On Android/Termux:
 ```sh
+export AGENT_HQ_BRANCH=mobile-agent-inbox
 python bridge/bridge.py --watch --interval=30
 ```
 
+On Windows PowerShell:
+```powershell
+$env:AGENT_HQ_BRANCH = "mobile-agent-inbox"
+python bridge/bridge.py --watch --interval=30
+```
+
+The branch variable controls both request reads and sanitized result writes. The bridge never changes branches or writes to `main` when this variable is set.
+
 Stop watch mode with Ctrl+C. Before approving a `run_task` request, inspect the local task queue and confirm the exact task is safe to run. Do not queue a task that contains secrets or private personal data.
+
+### Mobile task intake without merging PR #11
+
+A separate operational branch, `mobile-agent-inbox`, is available for requests created from the GitHub mobile app. It is intentionally based on `main` and kept separate from PR #11 so prompts/results do not become part of the integration PR.
+
+- Open [the mobile inbox instructions](https://github.com/Ans-to/Youtube-Agent-automation/blob/mobile-agent-inbox/bridge/requests/README.md) on the `mobile-agent-inbox` branch.
+- Add a new JSON request under `bridge/requests/` with `action: "create_task"`, `approved: true`, and bounded `title`, `kind`, and `input` fields.
+- The `mobile-bridge-runtime` branch is a runnable snapshot of the current integration code for the Android/Termux bridge; it is separate from PR #11 and is not a merge. Configure it to poll/write only the inbox branch using `AGENT_HQ_BRANCH=mobile-agent-inbox`.
+- The bridge creates a local pending task atomically. It does not start the task when it is created. A task only runs when the local queue runner is started or a separately approved, allowed run request is processed.
+- The phone and PC still have separate local queues and output folders. A task queued on the phone is not automatically transferred to the PC; for PC processing later, run the bridge on the PC against the same inbox branch or recreate the task in its local queue.
+- The mobile bridge does not accept shell commands or arbitrary code. Video rendering may be too resource-intensive for Android; queue video tasks on mobile and render on the Windows PC when available.
+
+Do not put secrets, credentials, confidential source material, or sensitive personal information into GitHub request files. Even on a private repository, committed prompt text remains in Git history. Keep `mobile-agent-inbox` separate; do not merge it into `main`.
 
 ### Request protocol
 
@@ -135,15 +157,25 @@ Request IDs must contain only letters, digits, hyphens, or underscores and must 
 
 All supported queued task kinds run through the CEO-led pipeline. Put non-sensitive `.txt`, `.md`, or `.json` reference files in `workspace/`. Inspect all outputs before relying on them.
 
+## Adaptive device profile and quality-first sequential rendering
+
+Before a render, `video_studio/studio.py` detects available RAM, CPU count, disk space, and supported GPU information using standard-library probes. It selects conservative encoding thread limits and writes a `.capabilities.json` sidecar next to the video. Run `python video_studio/studio.py --print-capabilities` to inspect the profile without rendering. A cross-process lock now serializes video renders that share frames/manifests, preventing concurrent renders from corrupting one another. Keep heavy model stages sequential by default as well (`max_parallel_heavy_jobs: 1`); the render lock does not globally serialize every model task. The profiler never silently reduces the requested resolution or frame rate: low-resource machines may take longer, and jobs can still fail if they exceed available memory or disk space. A detected GPU is not proof that every AI model supports it.
+
 ## Tests
 
-Run locally:
+Run the portable quality gate from the repository root in Windows PowerShell, Command Prompt, Linux, or macOS:
+
 ```sh
-python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/orchestrate.py video_studio/studio.py video_studio/production.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py
-python -m unittest discover -s tests -v
+python tools/run_quality_gate.py
 ```
 
-GitHub Actions runs these checks on pushes and pull requests to `main`.
+That compiles project Python, runs the full unit-test suite, checks renderer JavaScript syntax when Node.js is installed, and prints the device-capability profile. For actual landscape and vertical MP4 renders, use the stricter end-to-end mode after installing Node.js, FFmpeg/FFprobe, and the renderer's Puppeteer dependency:
+
+```sh
+python tools/run_quality_gate.py --render-smoke --report workspace/local-quality-gate-report.json
+```
+
+The script exits non-zero if a required check fails and can save a JSON report. GitHub Actions checks run for pull requests to `main`, pushes to `main`, and manual runs from the Actions tab. If Actions usage limits block hosted runs, execute the local gate in the imported repository workspace.
 
 ## Privacy and security
 
@@ -155,7 +187,7 @@ GitHub Actions runs these checks on pushes and pull requests to `main`.
 
 ## Video studio (new starter module)
 
-The `video_studio/` folder now includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, and an optional local Piper narration path. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, waveform, kinetic-typography, and animated bar-chart compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
+The `video_studio/` folder includes a JSON storyboard, deterministic Canvas2D renderer (Puppeteer/Chromium), FFmpeg encoder, English-only Piper narration for final production renders, and required SRT/WebVTT subtitles. See `video_studio/README.md` for Windows setup. The renderer supports hero, statistic, diagram, timeline, comparison, code, quote, waveform, kinetic-typography, and animated bar-chart compositions, scene-level captions, and deterministic fade/wipe transitions. It is a reusable motion-graphics starter, not a complete professional nonlinear editor or anime-rig engine.
 
 The CEO can invoke `video_studio/production.py` for a clear video request. The builder uses supplied CEO/specialist research notes when available; standalone use supports `--research` to collect public search results and extract bounded page text without an API key. With a configured loopback model, it creates a multi-scene script and storyboard; without a model, it creates a clearly labelled deterministic template package. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4. The script never uploads or publishes automatically.
 
@@ -180,7 +212,7 @@ Example:
 python video_studio/production.py --topic "How AI agents work" --format long --research --source-file workspace/source-notes.md --render
 ```
 
-Add `--with-voice` only after installing Piper and setting `PIPER_MODEL` to a local voice model file. Use `--target-minutes 8` to change the duration. YouTube upload still requires explicit video-and-metadata approval and Google OAuth; content is never auto-published.
+For Urdu-English narration on Windows, run `powershell -NoProfile -ExecutionPolicy Bypass -File .\\setup_urdu_tts_windows.ps1`, generate and listen to the audio-only preview, then use `--with-voice` only after the exact voice profile has been approved in `config.json`. For explicitly English narration (`--language en`), install Piper and set `PIPER_MODEL` to a verified English voice model. Use `--target-minutes 8` to change the duration. YouTube upload still requires explicit video-and-metadata approval and Google OAuth; content is never auto-published.
 
 ## Specialist practice and human-reviewed improvement
 
@@ -245,8 +277,6 @@ For MP4 rendering, install Node.js LTS and FFmpeg as described in \`video_studio
 ### Important cross-device limitation
 
 This is a local-first web app, not a hosted service. If you start Agent HQ separately on the PC and phone, they have separate task queues, configuration, and output folders. The installed web app does not synchronize data between devices. The local dashboard is intentionally restricted to loopback; do not change it to \`0.0.0.0\` or expose it to the public internet. A shared multi-device deployment would need a separately designed authenticated server and encrypted data synchronization.
-
-
 
 ## ADHD-friendly agent output style
 

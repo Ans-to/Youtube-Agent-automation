@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 """Run a sequential, local-model specialist pipeline with a persistent audit trail."""
 import argparse
+import hashlib
 import json
 import re
 import sys
 import subprocess
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -22,6 +24,112 @@ DEFAULT_PIPELINE = [
 
 def slug(value):
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")[:48] or "project"
+
+
+def requested_narration_language(text):
+    """Return an explicit narration/subtitle language override, or None.
+
+    Avoid switching because a topic merely mentions English or Urdu. Match language words
+    only when tied to narration, voice-over, subtitles/captions, or an explicit in-language
+    instruction.
+    """
+    value = str(text or "")
+    language_token = r"(english|en|urdu(?:\s*[-+&]\s*english)?|ur(?:\s*[-+&]\s*en)?)"
+    patterns = (
+        r"(?i)\b(?:narration|voice(?:[\s-]?over)?|subtitles?|captions?)\s+(?:language\s*[:=]\s*|in\s+)" + language_token + r"\b",
+        r"(?i)\blanguage\s*[:=]\s*" + language_token + r"\b",
+        r"(?i)\b" + language_token + r"\s+(?:narration|voice[\s-]?over|subtitles?|captions?)\b",
+        r"(?i)\b(?:speak|narrate|read|use)\s+(?:it\s+)?in\s+" + language_token + r"\b",
+    )
+    selected = None
+    for pattern in patterns:
+        match = re.search(pattern, value)
+        if match:
+            selected = match.group(1)
+            break
+    if not selected:
+        return None
+    return "en" if selected.strip().lower() in {"english", "en"} else "ur-en"
+
+
+def configured_narration_language_instruction(config):
+    """Describe the configured narration profile for the CEO prompt without guessing."""
+    video_config = config.get("video_studio", {}) if isinstance(config, dict) else {}
+    if not isinstance(video_config, dict):
+        return "The configured narration-language section is invalid; report the configuration error instead of guessing."
+    value = str(video_config.get("narration_language", "ur-en")).strip().lower().replace("_", "-")
+    if value in {"en", "english", "en-us", "en-gb"}:
+        return "The configured default narration language is English. Use English narration and subtitles unless the user explicitly asks for another supported profile."
+    if value in {"ur", "urdu", "ur-en", "urdu-english", "urdu-with-english-technical-terms", "ur-pk"}:
+        return "The configured default narration language is Pakistani Urdu written in Urdu/Arabic script, with common English technical terms preserved. Use that profile unless the user explicitly requests English."
+    return "The configured narration_language value " + repr(value) + " is unsupported. Report this configuration error and do not silently guess or substitute a language."
+
+
+def extract_quality_gate(text):
+    """Accept a quality verdict only when exactly one explicit gate line is present."""
+    matches = re.findall(
+        r"(?im)^[ \t]*OVERALL QUALITY GATE:[ \t]*(PASS|PARTIAL|FAIL)[ \t]*[.!]?[ \t]*$",
+        str(text or ""),
+    )
+    return matches[0].lower() if len(matches) == 1 else "unconfirmed"
+
+
+def is_retryable_error(error):
+    """Return true only for failures plausibly fixed by one bounded repeat."""
+    if isinstance(error, (TimeoutError, ConnectionError)):
+        return True
+    message = str(error or "").strip().lower()
+    if isinstance(error, ValueError) and message == "specialist returned an empty result.":
+        # A model may transiently return an empty completion; the retry prompt can recover.
+        return True
+    transient_markers = (
+        "timed out", "temporarily unavailable", "temporary failure",
+        "connection reset", "connection aborted", "connection refused",
+        "remote disconnected", "rate limit", "too many requests",
+        "http 429", "http 500", "http 502", "http 503", "http 504",
+        "status 429", "status 500", "status 502", "status 503", "status 504",
+        "server busy", "try again later",
+    )
+    return any(marker in message for marker in transient_markers)
+
+
+def run_role_with_retry(role, instruction, context, cfg, runner=None):
+    """Retry one plausibly transient failure; never repeat deterministic errors unchanged."""
+    execute = runner or dispatch.run_role
+    try:
+        result = execute(role, instruction, context, cfg)
+        if not isinstance(result, str) or not result.strip():
+            raise ValueError("Specialist returned an empty result.")
+        return result, 0
+    except Exception as first_error:
+        if not is_retryable_error(first_error):
+            # Preserve the original exception type while recording that no retry ran.
+            try:
+                first_error.retry_count = 0
+            except Exception:
+                pass
+            raise
+        retry_instruction = (
+            instruction
+            + "\n\nAUTOMATIC RECOVERY ATTEMPT 2/2. The previous attempt failed with "
+            + type(first_error).__name__ + ": " + str(first_error)[:700]
+            + ". Re-read the task and supplied evidence, correct the cause, and return the complete deliverable. "
+              "Do not claim work succeeded unless you actually produce it. This is the final automatic retry."
+        )
+        try:
+            result = execute(role, retry_instruction, context, cfg)
+        except Exception as retry_error:
+            # The second exception is still surfaced unchanged for existing callers.
+            try:
+                retry_error.retry_count = 1
+            except Exception:
+                pass
+            raise
+        if not isinstance(result, str) or not result.strip():
+            retry_error = ValueError("Specialist returned an empty result on automatic retry.")
+            retry_error.retry_count = 1
+            raise retry_error
+        return result, 1
 
 
 def read_context(path):
@@ -58,8 +166,8 @@ def heuristic_assignments(task):
             {"agent_id": "AGENT-52", "task": "Specify implementable motion systems, compositing, kinetic typography, and technical production details."},
             {"agent_id": "AGENT-26", "task": "Prepare accessibility captions or a caption plan aligned to the narration and timing information available."},
         ])
-        if "urdu" in text or "pakistan" in text:
-            assignments.append({"agent_id": "AGENT-13", "task": "Localize narration into natural Urdu with English technical terms where appropriate."})
+        # Language is an explicit production profile; do not silently replace Urdu-English with English.
+        # Country/topic mentions must never silently switch a video into another language.
     elif software or product:
         if product:
             assignments.append({"agent_id": "AGENT-44", "task": "Research the product opportunity, customer pain points, and evidence for demand."})
@@ -155,10 +263,15 @@ def plan_delegation(task, context, cfg, roles_by_id):
                 "deliverable": str(skill.get("deliverable_contract", ""))[:120],
             })
         ceo_task = (
-            "Act as the CEO of Agent HQ. Delegate this task to the smallest sufficient set of specialists. "
-            "Choose 2-7 specialist assignments, in dependency order. Include one factual quality-review role "
+            "Act as the CEO of Agent HQ and the single point of task intake. The user supplies the goal; you alone decide which specialists receive work, their distinct responsibilities, dependencies, and execution order. Never require the user to choose agent IDs, and do not treat user-suggested agent IDs as binding routing instructions. "
+            "Delegate to the smallest sufficient set of specialists. Choose 1-7 specialist assignments, in dependency order; one specialist plus the required reviewer is valid for a narrow task. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
+            "VIDEO LANGUAGE RULE: preserve the explicit language requested by the user. "
+            "Voice-over narration and subtitles must follow the explicit request or configured default; never silently substitute English or Urdu. "
+            "Never delegate translation/localization as a standalone task. "
+            + configured_narration_language_instruction(cfg) + " "
+            "The renderer must reject a missing/incompatible voice backend rather than claim that narration was synthesized. "
             "Return ONLY valid JSON in this exact shape: "
             '{"assignments":[{"agent_id":"AGENT-02","task":"Specific work and deliverable"}]}\n\n'
             "USER GOAL:\n" + task + "\n\nAVAILABLE SPECIALISTS:\n"
@@ -219,6 +332,9 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         relative_out = output.resolve().relative_to(ROOT).as_posix()
         command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
                    "--topic", topic, "--format", fmt, "--out", relative_out]
+        language_override = requested_narration_language(intent_text)
+        if language_override:
+            command.extend(["--language", language_override])
         if source_path is not None:
             command.extend(["--source-file", str(source_path)])
         else:
@@ -231,6 +347,9 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             if re.search(r"\b(with voice|with local narration|piper narration)\b", intent_lower):
                 command.append("--with-voice")
         elif render_requested and template_demo:
+            # Only an explicitly labelled English CI/demo request should override the
+            # configured language. Otherwise production.py uses config and fails closed
+            # when the selected profile has no compatible voice backend.
             command.extend(["--render", "--render-template"])
         elif render_requested and not model_enabled:
             results.append({
@@ -240,6 +359,8 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
             })
         tool_result = _run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400)
         tool_result["generation_mode"] = "local_model" if model_enabled else ("explicit_template_demo" if template_demo and render_requested else "deterministic_template")
+        tool_result["render_requested"] = render_requested
+        tool_result["render_expected"] = bool(render_requested and (model_enabled or template_demo))
         if not model_enabled:
             tool_result["note"] = "No local model is enabled: script and storyboard are deterministic scaffolding, not a researched or AI-written final video."
         results.append(tool_result)
@@ -287,6 +408,298 @@ def _run_fixed_tool(name, command, destination, relative_out, timeout):
             "error": type(exc).__name__ + ": " + str(exc)[:500],
         }
 
+
+
+def verify_artifact_tool_runs(tool_runs, project_root=None):
+    """Independently verify files emitted by the built-in video and product builders.
+
+    A zero exit code is necessary but not sufficient: missing, malformed, or
+    unsafe artifacts convert a nominally successful builder run to a failure.
+    All artifact paths must remain beneath this project's workspace directory.
+    """
+    root = Path(project_root or ROOT).expanduser().resolve()
+    workspace_root = (root / "workspace").resolve()
+    checks = []
+
+    def nonempty_file(path):
+        return path.is_file() and path.stat().st_size > 0
+
+    def require_file(directory, name, errors):
+        path = directory / name
+        if not nonempty_file(path):
+            errors.append("Missing or empty artifact: " + name)
+        return path
+
+    for result in tool_runs or []:
+        tool = str(result.get("tool", ""))
+        if tool not in {"video_studio", "product_studio"}:
+            continue
+
+        check = {
+            "tool": tool,
+            "artifact_dir": str(result.get("artifact_dir", "")),
+            "status": "skipped",
+            "checks": [],
+            "errors": [],
+        }
+        if result.get("status") != "completed":
+            check["reason"] = "Builder did not report success; its failure or blocked status is preserved."
+            checks.append(check)
+            continue
+
+        artifact_value = str(result.get("artifact_dir", "")).strip()
+        target = (root / artifact_value).resolve() if artifact_value else root
+        errors = check["errors"]
+
+        if target == workspace_root or workspace_root not in target.parents:
+            errors.append("Artifact path is missing or escapes the project workspace.")
+        elif not target.is_dir():
+            errors.append("Artifact output directory does not exist.")
+        elif tool == "video_studio":
+            script = require_file(target, "script.md", errors)
+            storyboard_path = require_file(target, "storyboard.json", errors)
+            status_path = require_file(target, "package-status.json", errors)
+
+            if nonempty_file(script) and not script.read_text(encoding="utf-8", errors="replace").strip():
+                errors.append("Video script contains no usable text.")
+
+            storyboard = None
+            if nonempty_file(storyboard_path):
+                try:
+                    storyboard = json.loads(storyboard_path.read_text(encoding="utf-8"))
+                    if not isinstance(storyboard, dict):
+                        raise ValueError("Storyboard must be a JSON object.")
+                    width, height, fps = storyboard.get("width"), storyboard.get("height"), storyboard.get("fps")
+                    if not isinstance(storyboard.get("scenes"), list) or not 1 <= len(storyboard["scenes"]) <= 100:
+                        errors.append("Storyboard must contain 1–100 scenes.")
+                    if not isinstance(width, int) or isinstance(width, bool) or not 320 <= width <= 3840:
+                        errors.append("Storyboard width is missing or outside renderer limits.")
+                    if not isinstance(height, int) or isinstance(height, bool) or not 180 <= height <= 2160:
+                        errors.append("Storyboard height is missing or outside renderer limits.")
+                    if not isinstance(fps, int) or isinstance(fps, bool) or not 1 <= fps <= 60:
+                        errors.append("Storyboard frame rate is missing or outside renderer limits.")
+                except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                    errors.append("Storyboard JSON could not be validated: " + str(exc)[:250])
+
+            package_status = None
+            if nonempty_file(status_path):
+                try:
+                    package_status = json.loads(status_path.read_text(encoding="utf-8"))
+                    if not isinstance(package_status, dict):
+                        raise ValueError("Package status must be a JSON object.")
+                    if package_status.get("publishable") is not False:
+                        errors.append("Video package must remain non-publishable pending human approval.")
+                    if package_status.get("published") is not False:
+                        errors.append("Video package must not claim that it has been published.")
+                    if package_status.get("human_review_required") is not True:
+                        errors.append("Video package must explicitly require human review.")
+                except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                    errors.append("Package-status JSON could not be validated: " + str(exc)[:250])
+
+            check["checks"].append("script_storyboard_package_status")
+            traceable_source_ids = set()
+            if package_status and package_status.get("web_research_performed") is True:
+                research_md = require_file(target, "research.md", errors)
+                research_json_path = require_file(target, "research.json", errors)
+                if nonempty_file(research_md) and not research_md.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("Research report is empty.")
+                if nonempty_file(research_json_path):
+                    try:
+                        research_data = json.loads(research_json_path.read_text(encoding="utf-8"))
+                        if not isinstance(research_data, dict):
+                            raise ValueError("Research report must be a JSON object.")
+                        research_metadata = research_data.get("metadata")
+                        research_results = research_data.get("results")
+                        if not isinstance(research_metadata, dict) or not isinstance(research_results, list):
+                            raise ValueError("Research metadata/results have invalid types.")
+                        if research_metadata.get("source_provenance_schema") != 1:
+                            errors.append("Research report lacks the required source-provenance schema.")
+                        if research_metadata.get("verified") is not False:
+                            errors.append("Research metadata must not overclaim independent verification.")
+                        fetched_count = 0
+                        fetched_domains = set()
+                        fetched_hashes = set()
+                        seen_fetched_source_ids = set()
+                        for source in research_results:
+                            if not isinstance(source, dict):
+                                errors.append("Research results must contain only JSON objects.")
+                                continue
+                            # Publication dates are untrusted page metadata. Validate their shape
+                            # without treating them as proof that a claim is current or true.
+                            for date_key in ("published_date", "published_date_source", "modified_date"):
+                                date_value = source.get(date_key)
+                                if date_value is not None and (
+                                    not isinstance(date_value, str) or not date_value.strip() or len(date_value) > 100
+                                ):
+                                    errors.append("Research source has invalid " + date_key + " metadata.")
+                            if source.get("fetch_status") != "fetched":
+                                continue
+                            page_text = source.get("page_text")
+                            digest_value = source.get("page_text_sha256")
+                            domain = source.get("final_domain")
+                            if not isinstance(page_text, str) or not page_text.strip():
+                                continue
+                            if (not isinstance(digest_value, str) or len(digest_value) != 64
+                                    or any(char not in "0123456789abcdef" for char in digest_value.lower())):
+                                errors.append("Fetched research source is missing a valid extracted-text SHA-256.")
+                                continue
+                            actual_text_hash = hashlib.sha256(page_text.encode("utf-8")).hexdigest()
+                            if actual_text_hash != digest_value:
+                                errors.append("Research extracted-text SHA-256 does not match the saved page text.")
+                                continue
+                            if not isinstance(domain, str) or not domain.strip():
+                                errors.append("Fetched research source is missing its final domain.")
+                                continue
+                            source_id = source.get("source_id")
+                            if not isinstance(source_id, str) or not re.fullmatch(r"S[1-9][0-9]*", source_id):
+                                errors.append("Fetched research source is missing a valid stable source ID.")
+                                continue
+                            if source_id in seen_fetched_source_ids:
+                                errors.append("Research report contains duplicate fetched source ID: " + source_id)
+                                continue
+                            seen_fetched_source_ids.add(source_id)
+                            fetched_count += 1
+                            fetched_domains.add(domain.lower().rstrip("."))
+                            fetched_hashes.add(digest_value)
+                            traceable_source_ids.add(source_id)
+                        if research_metadata.get("pages_fetched") != fetched_count:
+                            errors.append("Research metadata fetched-page count does not match traceable fetched sources.")
+                        if fetched_count < 1:
+                            errors.append("Research was marked complete without any fetched, traceable source-page text.")
+                        summary = package_status.get("research_evidence")
+                        if not isinstance(summary, dict):
+                            errors.append("Package status is missing the research evidence summary.")
+                        else:
+                            if summary.get("fetched_page_count") != fetched_count:
+                                errors.append("Package research evidence page count does not match research.json.")
+                            if summary.get("independent_domain_count") != len(fetched_domains):
+                                errors.append("Package research domain count does not match research.json.")
+                            if summary.get("domains") != sorted(fetched_domains):
+                                errors.append("Package research domain list does not match research.json.")
+                            if summary.get("page_text_sha256") != sorted(fetched_hashes):
+                                errors.append("Package research text-digest list does not match research.json.")
+                            expected_research_status = "multiple_domains_fetched" if len(fetched_domains) > 1 else "single_domain_only"
+                            if summary.get("status") != expected_research_status:
+                                errors.append("Package research evidence status does not match the fetched domains.")
+                            if summary.get("independently_verified") is not False:
+                                errors.append("Package research summary must not claim independent verification.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Research JSON could not be validated: " + str(exc)[:250])
+                check["checks"].append("research_source_text_provenance_and_manifest_parity")
+            if package_status and package_status.get("generated_by") == "local_model_multi_pass" and isinstance(storyboard, dict):
+                for scene_index, scene in enumerate(storyboard.get("scenes", []), start=1):
+                    if not isinstance(scene, dict):
+                        errors.append("Scene " + str(scene_index) + " must be an object before evidence can be validated.")
+                        continue
+                    refs = scene.get("source_refs")
+                    if not isinstance(refs, list) or not all(isinstance(ref, str) for ref in refs):
+                        errors.append("Scene " + str(scene_index) + " must contain a source_refs array.")
+                        continue
+                    unknown_refs = [ref for ref in refs if ref not in traceable_source_ids]
+                    if unknown_refs:
+                        errors.append("Scene " + str(scene_index) + " cites unavailable or unfetched source IDs: " + ", ".join(unknown_refs))
+                    evidence_status = scene.get("evidence_status")
+                    unresolved = scene.get("unresolved_notes")
+                    if refs and evidence_status != "source_linked_requires_review":
+                        errors.append("Scene " + str(scene_index) + " has source references but lacks the correct review status.")
+                    if not refs and evidence_status != "needs_human_verification":
+                        errors.append("Scene " + str(scene_index) + " without source references must be marked for human verification.")
+                    if not refs and (not isinstance(unresolved, list) or not unresolved):
+                        errors.append("Scene " + str(scene_index) + " without source references must record unresolved verification notes.")
+                check["checks"].append("scene_level_source_reference_validation")
+            if result.get("render_expected") is True:
+                video = require_file(target, "video.mp4", errors)
+                srt = require_file(target, "video.srt", errors)
+                vtt = require_file(target, "video.vtt", errors)
+                qc_path = require_file(target, "video.qc.json", errors)
+                if nonempty_file(video) and video.stat().st_size < 1024:
+                    errors.append("Rendered MP4 is too small to be a valid release candidate.")
+                if package_status and package_status.get("quality_audit_passed") is not True:
+                    errors.append("Rendered video does not have a passing strict technical quality audit.")
+                if package_status and package_status.get("status") != "technical_qa_passed_waiting_for_human_review":
+                    errors.append("Rendered video package is not in the expected post-QA review state.")
+                if nonempty_file(qc_path):
+                    try:
+                        qc_report = json.loads(qc_path.read_text(encoding="utf-8"))
+                        if not isinstance(qc_report, dict):
+                            raise ValueError("Quality report must be a JSON object.")
+                        if qc_report.get("strict") is not True or qc_report.get("passed") is not True:
+                            errors.append("Technical QA report is not a strict passing report.")
+                        if nonempty_file(video):
+                            digest = hashlib.sha256()
+                            with video.open("rb") as video_stream:
+                                for chunk in iter(lambda: video_stream.read(1024 * 1024), b""):
+                                    digest.update(chunk)
+                            actual_hash = digest.hexdigest()
+                            if qc_report.get("video_sha256") != actual_hash:
+                                errors.append("Technical QA report hash does not match the rendered MP4.")
+                            if package_status and package_status.get("quality_report_video_sha256") != actual_hash:
+                                errors.append("Package status hash does not match the rendered MP4.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Technical QA JSON could not be validated: " + str(exc)[:250])
+                if nonempty_file(srt) and not srt.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("SRT subtitle file is empty.")
+                if nonempty_file(vtt) and not vtt.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("WebVTT subtitle file is empty.")
+                check["checks"].append("mp4_subtitles_strict_qc_and_hash")
+            check["checks"].append("release_safety_flags")
+        elif tool == "product_studio":
+            candidates = sorted(
+                child for child in target.iterdir()
+                if child.is_dir() and (child / "product-status.json").is_file()
+            )
+            if len(candidates) != 1:
+                errors.append("Expected exactly one generated product directory with product-status.json.")
+            else:
+                product_dir = candidates[0]
+                index_path = require_file(product_dir, "index.html", errors)
+                readme_path = require_file(product_dir, "README.md", errors)
+                status_path = require_file(product_dir, "product-status.json", errors)
+                if nonempty_file(index_path):
+                    html_text = index_path.read_text(encoding="utf-8", errors="replace")
+                    if "<html" not in html_text.lower() or "<head" not in html_text.lower():
+                        errors.append("Product prototype is not a complete HTML document.")
+                if nonempty_file(status_path):
+                    try:
+                        package_status = json.loads(status_path.read_text(encoding="utf-8"))
+                        if not isinstance(package_status, dict):
+                            raise ValueError("Product status must be a JSON object.")
+                        if package_status.get("status") != "draft":
+                            errors.append("Product prototype must be marked as a draft.")
+                        if package_status.get("published") is not False:
+                            errors.append("Product prototype must not claim publication.")
+                        if package_status.get("human_review_required") is not True:
+                            errors.append("Product prototype must explicitly require human review.")
+                        risks = package_status.get("external_patterns_found")
+                        if not isinstance(risks, list) or risks:
+                            errors.append("Product prototype static safety scan did not pass cleanly.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Product-status JSON could not be validated: " + str(exc)[:250])
+                archive_path = target / (product_dir.name + ".zip")
+                require_file(target, archive_path.name, errors)
+                if nonempty_file(archive_path):
+                    try:
+                        with zipfile.ZipFile(archive_path) as archive:
+                            if archive.testzip() is not None:
+                                errors.append("Product ZIP archive failed its CRC integrity check.")
+                            if not any(name.endswith("/index.html") for name in archive.namelist()):
+                                errors.append("Product ZIP archive does not contain index.html.")
+                    except (OSError, zipfile.BadZipFile) as exc:
+                        errors.append("Product ZIP archive could not be validated: " + str(exc)[:250])
+                if nonempty_file(readme_path) and not readme_path.read_text(encoding="utf-8", errors="replace").strip():
+                    errors.append("Product README is empty.")
+                check["checks"].append("html_readme_product_status_and_archive")
+                check["product_directory"] = product_dir.relative_to(root).as_posix()
+
+        if errors:
+            check["status"] = "failed"
+            result["status"] = "failed"
+            result["artifact_validation_errors"] = list(errors)
+            result["error"] = "Post-build artifact validation failed: " + "; ".join(errors[:8])
+        else:
+            check["status"] = "passed"
+        checks.append(check)
+    return checks
 
 def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None):
     if not isinstance(task, str) or not task.strip() or len(task) > 20000:
@@ -368,11 +781,11 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
         research_dir = ROOT / "workspace" / "research" / "agent-runs"
         reports_before = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
+        retry_count = 0
         try:
-            result = dispatch.run_role(role, instruction, combined_context, cfg)
-            if not isinstance(result, str) or not result.strip():
-                raise ValueError("Specialist returned an empty result.")
+            result, retry_count = run_role_with_retry(role, instruction, combined_context, cfg)
         except Exception as exc:
+            failed_retry_count = int(getattr(exc, "retry_count", 0))
             # Preserve research files created before a model timeout, then continue to
             # downstream specialists and the final quality gate.
             reports_after_failure = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
@@ -415,6 +828,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
                 + "- Stage: " + str(index) + " of " + str(len(assignments)) + "\n"
                 + "- Error type: " + type(exc).__name__ + "\n"
                 + "- Error: " + str(exc)[:1000] + "\n"
+                + "- Retry attempts used: " + str(failed_retry_count) + "\n"
                 + "- Research status before failure: " + failure_research_status + "\n"
                 + "- Research pages fetched before failure: " + str(research_pages_fetched) + "\n"
                 + "- Research reports: \n" + report_listing + "\n\n"
@@ -426,6 +840,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             failure = {
                 "sequence": index, "agent_id": agent_id, "role": role["name"],
                 "assigned_task": specialist_task, "output_file": failure_filename, "status": "failed",
+                "retry_count": failed_retry_count,
                 "research_status": failure_research_status,
                 "research_reports": failed_stage_report_names,
                 "research_pages_attempted": research_pages_attempted,
@@ -441,11 +856,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             )[-24000:]
             continue
         (destination / filename).write_text(result.rstrip() + "\n", encoding="utf-8")
-        quality_gate = "unconfirmed"
-        if agent_id == "AGENT-08":
-            gate_match = re.search(r"(?im)^\s*OVERALL QUALITY GATE:\s*(PASS|PARTIAL|FAIL)\s*[.!]?\s*$", result)
-            if gate_match:
-                quality_gate = gate_match.group(1).lower()
+        quality_gate = extract_quality_gate(result) if agent_id == "AGENT-08" else None
         reports_after = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
         new_report_paths = reports_after - reports_before
         research_reports = sorted(str(path.relative_to(ROOT)) for path in new_report_paths)
@@ -472,12 +883,104 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         records.append({
             "sequence": index, "agent_id": agent_id, "role": role["name"],
             "assigned_task": specialist_task, "output_file": filename, "status": "draft_generated",
+            "retry_count": retry_count,
             "research_status": research_status, "research_reports": research_reports,
             "research_pages_attempted": pages_attempted, "research_pages_fetched": pages_fetched,
             "quality_gate": quality_gate if agent_id == "AGENT-08" else None,
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
         })
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
+    repair_attempt = {"attempted": False, "status": "not_needed", "reason": ""}
+    reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
+    if reviewer_record and reviewer_record.get("quality_gate", "unconfirmed") in {"partial", "fail", "unconfirmed"}:
+        if not cfg.get("model", {}).get("enabled"):
+            repair_attempt = {
+                "attempted": False, "status": "blocked",
+                "reason": "Local model is disabled; automatic semantic repair cannot be performed in template mode.",
+                "trigger_gate": reviewer_record.get("quality_gate"),
+            }
+        else:
+            task_lower = task.lower()
+            preferred = (
+                ["AGENT-52", "AGENT-51", "AGENT-20", "AGENT-09"]
+                if re.search(r"\b(video|youtube|shorts|motion graphics|storyboard|animation)\b", task_lower)
+                else (["AGENT-46", "AGENT-48", "AGENT-47"] if re.search(
+                    r"\b(build|code|software|app|website|tool|program|automation|repository|system)\b", task_lower
+                ) else ["AGENT-12", "AGENT-09", "AGENT-20"])
+            )
+            repair_assignment = next(
+                (item for agent_id in preferred for item in assignments
+                 if item.get("agent_id") == agent_id and agent_id != "AGENT-08"),
+                next((item for item in reversed(assignments) if item.get("agent_id") != "AGENT-08"), None),
+            )
+            reviewer_file = destination / str(reviewer_record.get("output_file", ""))
+            reviewer_feedback = reviewer_file.read_text(encoding="utf-8", errors="replace")[:10000] if reviewer_file.is_file() else "Reviewer feedback file missing."
+            if not repair_assignment:
+                repair_attempt = {
+                    "attempted": False, "status": "blocked",
+                    "reason": "No eligible specialist was available for a bounded repair attempt.",
+                    "trigger_gate": reviewer_record.get("quality_gate"),
+                }
+            else:
+                repair_id = repair_assignment["agent_id"]
+                repair_role = roles_by_id.get(repair_id)
+                repair_task = (
+                    "AUTOMATIC QUALITY REPAIR ATTEMPT 1/1. Overall user goal: " + task.strip()
+                    + "\nYour original assignment: " + str(repair_assignment.get("task", ""))[:2000]
+                    + "\nThe independent reviewer returned " + str(reviewer_record.get("quality_gate", "unconfirmed")).upper()
+                    + ". Address the concrete defects below, preserve supported facts, and explicitly label any issue you cannot resolve. "
+                    "Return a corrected, complete deliverable; do not merely describe recommendations.\n\nREVIEWER FEEDBACK:\n"
+                    + reviewer_feedback
+                )
+                repair_path = destination / ("99-repair-" + slug(repair_id + "-" + repair_role.get("name", "specialist")) + ".md")
+                try:
+                    repaired_output, repair_retries = run_role_with_retry(
+                        repair_role, repair_task, (combined_context + "\n\nREVIEWER FEEDBACK:\n" + reviewer_feedback)[-24000:], cfg
+                    )
+                    repair_path.write_text(repaired_output.rstrip() + "\n", encoding="utf-8")
+                    final_review_instruction = (
+                        "FINAL QUALITY RE-REVIEW after one bounded repair attempt. Overall user goal: " + task.strip()
+                        + "\nReview the repaired deliverable against the original goal, previous evidence, and initial review feedback. "
+                        "Do not assume the repair succeeded. State remaining defects and evidence. End with exactly one line: "
+                        "OVERALL QUALITY GATE: PASS, PARTIAL, or FAIL. PASS only if critical requirements are demonstrably met."
+                        + "\n\nINITIAL REVIEW:\n" + reviewer_feedback
+                        + "\n\nREPAIRED DELIVERABLE:\n" + repaired_output[:14000]
+                    )
+                    final_review, review_retries = run_role_with_retry(
+                        roles_by_id["AGENT-08"], final_review_instruction,
+                        (combined_context + "\n\nREPAIRED DELIVERABLE:\n" + repaired_output)[-30000:], cfg
+                    )
+                    final_review_path = destination / "99-final-quality-review.md"
+                    final_review_path.write_text(final_review.rstrip() + "\n", encoding="utf-8")
+                    final_gate = extract_quality_gate(final_review)
+                    reviewer_record["initial_quality_gate"] = reviewer_record.get("quality_gate")
+                    reviewer_record["quality_gate"] = final_gate
+                    reviewer_record["final_review_file"] = str(final_review_path.name)
+                    repair_attempt = {
+                        "attempted": True, "status": "completed" if final_gate == "pass" else "unresolved",
+                        "repair_agent_id": repair_id, "repair_file": repair_path.name,
+                        "repair_retry_count": repair_retries, "final_review_file": final_review_path.name,
+                        "final_review_retry_count": review_retries,
+                        "initial_gate": reviewer_record.get("initial_quality_gate"),
+                        "final_gate": final_gate,
+                    }
+                    combined_context = (combined_context + "\n\n--- Bounded repair output ---\n" + repaired_output
+                                        + "\n\n--- Final quality re-review ---\n" + final_review)[-30000:]
+                except Exception as exc:
+                    repair_attempt = {
+                        "attempted": True, "status": "failed",
+                        "repair_agent_id": repair_id, "error_type": type(exc).__name__,
+                        "error": str(exc)[:700], "failed_call_retry_count": int(getattr(exc, "retry_count", 0)),
+                        "trigger_gate": reviewer_record.get("quality_gate"),
+                    }
+                    (destination / "99-repair-failure.md").write_text(
+                        "# Automatic repair failed\n\n"
+                        + "- Repair specialist: " + repair_id + "\n"
+                        + "- Error: " + type(exc).__name__ + ": " + str(exc)[:1000] + "\n"
+                        + "The initial reviewer result remains authoritative; no repair success is claimed.\n",
+                        encoding="utf-8",
+                    )
+
     save_progress("running", "Specialist stage complete", "All specialist stages have returned; assembling research evidence and preparing artifact tools.", len(assignments), len(assignments))
     research_sections = []
     research_budget = 18000
@@ -506,6 +1009,8 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     )[:40000]
     save_progress("running", "Artifact generation", "Specialist stages finished; building selected artifacts and preparing the final quality status.", len(assignments), len(assignments))
     tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
+    save_progress("running", "Post-build artifact validation", "Verifying generated files, media, strict QA reports, and release-safety metadata.")
+    artifact_checks = verify_artifact_tool_runs(tool_runs, project_root=ROOT)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     required_tool_blocked = any(item.get("status") == "blocked" for item in tool_runs)
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
@@ -518,14 +1023,15 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             )
         )
     )
-    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports)
+    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks)
+    manifest["repair_attempt"] = repair_attempt
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
     save_progress(progress_status, "Pipeline complete", "Pipeline ended with status: " + final_status + "; final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")) + ".", len(assignments), len(assignments))
     return destination, manifest
 
 
-def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None):
+def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None, artifact_checks=None):
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task.strip(),
@@ -534,6 +1040,7 @@ def build_manifest(task, records, cfg, status, delegation_mode="unspecified", as
         "ceo_assignments": assignments or [],
         "ceo_research_reports": ceo_research_reports or [],
         "tool_runs": tool_runs or [],
+        "artifact_checks": artifact_checks or [],
         "quality_gate": next((item.get("quality_gate") or "unconfirmed" for item in records if item.get("agent_id") == "AGENT-08"), "unconfirmed"),
         "status": status,
         "model_enabled": bool(cfg.get("model", {}).get("enabled")),
@@ -550,14 +1057,12 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--task", required=True)
     parser.add_argument("--context-file")
-    parser.add_argument("--agents", default=None,
-                        help="Optional comma-separated specialist IDs. Omit to let the CEO delegate automatically.")
     parser.add_argument("--out", default="workspace/orchestration/run")
     args = parser.parse_args()
     try:
         context = read_context(args.context_file)
-        selected_agents = [part.strip().upper() for part in args.agents.split(",") if part.strip()] if args.agents else None
-        destination, manifest = run_pipeline(args.task, context, selected_agents, ROOT / args.out)
+        # Public CLI intake is CEO-only: AGENT-01 owns all specialist selection.
+        destination, manifest = run_pipeline(args.task, context, agent_ids=None, output_dir=ROOT / args.out)
     except (ValueError, OSError) as exc:
         raise SystemExit(str(exc))
     print("Pipeline output:", destination)

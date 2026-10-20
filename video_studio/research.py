@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Collect free web-search leads without API keys; sources are not automatically verified."""
 import argparse
+import hashlib
 import ipaddress
 import json
 import urllib.error
@@ -169,9 +170,29 @@ class PageTextParser(HTMLParser):
         self.in_title = False
         self.title_parts = []
         self.parts = []
+        self.published_date = ""
+        self.modified_date = ""
+        self.date_source = ""
 
     def handle_starttag(self, tag, attrs):
         tag = tag.lower()
+        attrs = {str(key).lower(): str(value or "").strip() for key, value in attrs}
+        if tag == "meta":
+            key = (attrs.get("property") or attrs.get("name") or attrs.get("itemprop") or "").lower()
+            value = attrs.get("content", "")[:100]
+            if value and key in {
+                "article:published_time", "datepublished", "citation_publication_date",
+                "dc.date", "dc.date.issued", "date"
+            } and not self.published_date:
+                self.published_date = value
+                self.date_source = key
+            elif value and key in {"article:modified_time", "datemodified", "last-modified"} and not self.modified_date:
+                self.modified_date = value
+        if tag == "time" and attrs.get("datetime"):
+            value = attrs["datetime"][:100]
+            if value and not self.published_date:
+                self.published_date = value
+                self.date_source = "time[datetime]"
         if tag == "title":
             self.in_title = True
         if tag in self.SKIP:
@@ -237,7 +258,13 @@ def fetch_page(url, timeout=12, opener=None):
                 text = text[:MAX_PAGE_TEXT]
             if not text:
                 return {"fetch_status": "empty", "page_title": title, "page_text": "", "fetch_error": "No readable page text extracted"}
-            return {"fetch_status": "fetched", "page_title": title, "page_text": text, "final_url": final_url, "truncated": truncated}
+            return {
+                "fetch_status": "fetched", "page_title": title, "page_text": text,
+                "final_url": final_url, "truncated": truncated,
+                "published_date": parser.published_date or None,
+                "published_date_source": parser.date_source or None,
+                "modified_date": parser.modified_date or None,
+            }
     except (OSError, ValueError, urllib.error.URLError, TimeoutError, UnicodeError) as exc:
         return {"fetch_status": "failed", "page_title": "", "page_text": "", "fetch_error": type(exc).__name__ + ": " + str(exc)[:180]}
 
@@ -333,7 +360,19 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
         elif item.get("page_title"):
             item["page_title"] = item["page_title"][:300]
         item["page_text"] = str(item.get("page_text", ""))[:MAX_PAGE_TEXT]
+        requested_domain = (urllib.parse.urlsplit(item["url"]).hostname or "").lower()
+        final_url = item.get("final_url") or item["url"]
+        final_domain = (urllib.parse.urlsplit(final_url).hostname or "").lower()
+        item["requested_domain"] = requested_domain
+        item["final_domain"] = final_domain
+        item["page_text_sha256"] = (
+            hashlib.sha256(item["page_text"].encode("utf-8")).hexdigest()
+            if item.get("fetch_status") == "fetched" else None
+        )
     all_results = page_targets + [item for item in all_results if item["url"] not in selected_urls]
+    # Stable, per-report source IDs make scene-level evidence references auditable.
+    for source_index, item in enumerate(all_results, start=1):
+        item["source_id"] = "S" + str(source_index)
 
     fetched_count = sum(1 for item in all_results if item.get("fetch_status") == "fetched")
     metadata = {
@@ -347,7 +386,8 @@ def research(topic, queries=None, max_results=5, search_fn=fetch_search_html, pa
         "search_errors": errors,
         "page_errors": page_errors,
         "verified": False,
-        "note": "Search leads and page text are collected for analysis, but claims are not independently fact-checked. Check source authority, publication dates, context, and corroboration.",
+        "source_provenance_schema": 1,
+        "note": "Search leads and page text are collected for analysis, but claims are not independently fact-checked. Domain fields and text digests support traceability; they do not establish source authority or claim truth. Check publication dates, context, and corroboration.",
     }
     return metadata, all_results
 
@@ -364,13 +404,20 @@ def render_markdown(metadata, results, max_page_text=2500):
         "",
     ]
     for index, item in enumerate(results, start=1):
+        source_id = str(item.get("source_id") or ("S" + str(index)))
         lines.extend([
-            "## [S" + str(index) + "] " + item["title"],
+            "## [" + source_id + "] " + item["title"],
             "- URL: " + item["url"],
+            "- Requested domain: " + str(item.get("requested_domain", "")),
+            "- Final domain: " + str(item.get("final_domain", item.get("requested_domain", ""))),
+            "- Extracted text SHA-256: " + str(item.get("page_text_sha256") or "(Not available; page text was not fetched.)"),
             "- Search query: " + item["query"],
             "- Search snippet: " + (item["snippet"] or "(No snippet was returned.)"),
             "- Page fetch status: " + str(item.get("fetch_status", "not_attempted")),
             "- Page title: " + str(item.get("page_title", "")),
+            "- Publication date (page metadata; not independently verified): " + str(item.get("published_date") or "(Not exposed by page metadata.)"),
+            "- Publication date field: " + str(item.get("published_date_source") or "(Unknown.)"),
+            "- Modified date (page metadata; not independently verified): " + str(item.get("modified_date") or "(Not exposed by page metadata.)"),
             "- Extracted page text: " + ((str(item.get("page_text", ""))[:max(0, int(max_page_text))]) or "(No page text extracted.)"),
             "",
         ])
@@ -401,6 +448,7 @@ def main():
         raise SystemExit("Research output must remain inside the project workspace.")
     try:
         metadata, results = research(args.query, max_results=args.max_results)
+
     except (ValueError, RuntimeError, OSError, urllib.error.URLError) as exc:
         raise SystemExit("Research failed: " + str(exc))
     output.parent.mkdir(parents=True, exist_ok=True)

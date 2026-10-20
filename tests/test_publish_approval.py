@@ -1,3 +1,4 @@
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,17 @@ class PublishApprovalTests(unittest.TestCase):
         script.write_text("approved narration", encoding="utf-8")
         storyboard = root / "storyboard.json"
         storyboard.write_text("{\"scenes\": []}", encoding="utf-8")
+        qc_report_path = root / "video.qc.json"
+        qc_report = {
+            "file": str(video.resolve()),
+            "video_sha256": sha256(video),
+            "duration_seconds": 12.5,
+            "audio_stream_count": 1,
+            "warnings": [],
+            "passed": True,
+            "strict": True,
+        }
+        qc_report_path.write_text(json.dumps(qc_report), encoding="utf-8")
         metadata = {
             "title": "Approved title",
             "description": "Approved description",
@@ -28,6 +40,8 @@ class PublishApprovalTests(unittest.TestCase):
             "video_sha256": sha256(video),
             "script_sha256": sha256(script),
             "storyboard_sha256": sha256(storyboard),
+            "quality_audit_passed": True,
+            "qc_report_sha256": sha256(qc_report_path),
             "approved_metadata": {**metadata, "tags": list(metadata["tags"])},
         }
         return video, metadata, approval

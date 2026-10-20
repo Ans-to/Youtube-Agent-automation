@@ -1,0 +1,10 @@
+# Optional legacy Kani + NeMo Urdu TTS backend; NOT the Windows default.
+# The built-in Windows setup uses requirements-urdu-tts.txt (Piper + ONNX Runtime).
+# Kani documents Python 3.10–3.12. Install CPU-only PyTorch separately before this file.
+nemo_toolkit[tts]==2.4.0
+transformers==4.57.1
+accelerate>=0.26.0,<2.0
+huggingface_hub>=0.35.0,<2.0
+safetensors>=0.6.2,<1.0
+numpy<2.0
+scipy>=1.10,<2.0

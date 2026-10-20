@@ -15,17 +15,51 @@ def sha256(path):
     return digest.hexdigest()
 
 
+
+def validate_qc_report(report, video):
+    """Reject missing, non-strict, warning-bearing, or mismatched QA reports."""
+    if not isinstance(report, dict):
+        raise ValueError("Quality report must be a JSON object.")
+    if report.get("strict") is not True:
+        raise ValueError("A strict quality-audit report is required.")
+    if report.get("passed") is not True:
+        raise ValueError("The quality audit did not pass.")
+    warnings = report.get("warnings")
+    if not isinstance(warnings, list) or warnings:
+        raise ValueError("Quality report contains warnings or has an invalid warnings field.")
+    try:
+        duration = float(report.get("duration_seconds", 0))
+        audio_count = int(report.get("audio_stream_count", 0))
+    except (TypeError, ValueError):
+        raise ValueError("Quality report has invalid duration/audio metadata.")
+    if duration <= 0:
+        raise ValueError("Quality report duration must be greater than zero.")
+    if audio_count < 1:
+        raise ValueError("The final video must contain an audio stream.")
+    if report.get("video_sha256") != sha256(video):
+        raise ValueError("Quality report does not match the exact video file.")
+    return True
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--package", required=True)
     args = parser.parse_args()
     root = Path(args.package).resolve()
     video = root / "video.mp4"
-    for item in (root / "script.md", root / "storyboard.json", video):
+    qc_path = root / "video.qc.json"
+    for item in (root / "script.md", root / "storyboard.json", video, qc_path):
         if not item.is_file():
             raise SystemExit("Required package file missing: " + item.name)
 
+    try:
+        qc_report = json.loads(qc_path.read_text(encoding="utf-8"))
+        validate_qc_report(qc_report, video)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise SystemExit("Strict technical QA failed; approval is blocked: " + str(exc))
+
     print("Package:", root)
+    print("Strict technical QA: PASS")
     video_hash = sha256(video)
     script_path = root / "script.md"
     storyboard_path = root / "storyboard.json"
@@ -59,6 +93,8 @@ def main():
         "video_sha256": video_hash,
         "script_sha256": script_hash,
         "storyboard_sha256": storyboard_hash,
+        "quality_audit_passed": True,
+        "qc_report_sha256": sha256(qc_path),
         "approved_metadata": metadata,
         "script_reviewed": True,
         "storyboard_reviewed": True,
@@ -69,6 +105,7 @@ def main():
     if status_path.is_file():
         status = json.loads(status_path.read_text(encoding="utf-8"))
         status.update({"status": "approved_for_upload", "human_review_required": False,
+                       "quality_audit_passed": True, "qc_report_sha256": record["qc_report_sha256"],
                        "publishing_performed": False, "approved_at": record["approved_at"]})
         status_path.write_text(json.dumps(status, indent=2) + "\n", encoding="utf-8")
     print("Approval record written:", root / "release-approval.json")

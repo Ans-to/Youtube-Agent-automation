@@ -12,13 +12,14 @@ async function main(){
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
  const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform","kinetic-type","bar-chart"]);
- const transitionTypes=new Set(["none","fade","wipe-left","wipe-right"]);
+ const transitionTypes=new Set(["none","fade","wipe-left","wipe-right","slide-left","slide-right","zoom"]);
  for(const [index,scene] of s.scenes.entries()){
   if(!scene||typeof scene!=="object"||Array.isArray(scene))throw new Error("Scene "+index+" must be a JSON object.");
   const kind=String(scene.visual_type||"hero").toLowerCase();
   if(!visualTypes.has(kind))throw new Error("Unsupported visual_type in scene "+index+": "+kind);
   const transition=String(scene.transition_in||"none").toLowerCase();
   if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
+  scene.transition_in=transition;
   if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
   for(const key of ["headline","eyebrow","subhead","narration","caption"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
   for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
@@ -44,6 +45,23 @@ async function main(){
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   const wrapCheck=await page.evaluate(()=>window.measureWrappedLines("word ".repeat(80),180,"16px Arial"));
   if(!Number.isInteger(wrapCheck)||wrapCheck<2)throw new Error("Text wrapping regression: long text did not wrap to multiple lines.");
+  const directionCheck=await page.evaluate(()=>({
+   urdu:window.textDirectionForTest("یہ Python API ہے"),
+   english:window.textDirectionForTest("English API")
+  }));
+  if(directionCheck.urdu!=="rtl"||directionCheck.english!=="ltr")throw new Error("Script-direction regression: Urdu must be RTL and English LTR. "+JSON.stringify(directionCheck));
+  const rigCheck=await page.evaluate(()=>window.characterRigCapabilitiesForTest());
+  const requiredJoints=["shoulder","elbow","wrist","hip","knee","ankle","neck","head"];
+  const requiredVisemes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
+  if(!rigCheck||rigCheck.version!==2||!requiredJoints.every(x=>rigCheck.joints.includes(x))||!requiredVisemes.every(x=>rigCheck.visemeShapes.includes(x)))throw new Error("Character-rig capability regression: "+JSON.stringify(rigCheck));
+  const rigDrawCheck=await page.evaluate(()=>{
+   const shapes=window.characterRigCapabilitiesForTest().visemeShapes;
+   for(const shape of shapes){
+    window.drawCharacterForTest({enabled:true,x:0.5,y:0.5,scale:0.2,expression:"curious",pose:"explain",visemes:[{t:0,shape},{t:1,shape}]},0.5,42);
+   }
+   const canvas=document.getElementById("frame");return {shapes_drawn:shapes.length,canvas_width:canvas.width,canvas_height:canvas.height};
+  });
+  if(!rigDrawCheck||rigDrawCheck.shapes_drawn!==requiredVisemes.length||rigDrawCheck.canvas_width!==w||rigDrawCheck.canvas_height!==h)throw new Error("Character-rig draw smoke check failed: "+JSON.stringify(rigDrawCheck));
   const captionCheck=await page.evaluate(()=>{
    const text=Array.from({length:80},(_,i)=>"captionword"+i).join(" ");
    const info=window.captionPageForTest(text,180,"16px Arial",0.5);
@@ -53,17 +71,26 @@ async function main(){
   });
   if(captionCheck.totalPages<2||captionCheck.firstIndex!==0||captionCheck.lastIndex!==captionCheck.totalPages-1)throw new Error("Caption pagination regression: long narration is not split across readable pages.");
   let total=0;
+  const transitionRecords=[];
   for(let si=0;si<s.scenes.length;si++){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
    if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("scene duration must be >0 and <=600 seconds");
    const count=Math.max(1,Math.round(sec*fps));
+   const previous=si>0?s.scenes[si-1]:null;
+   const requested=Number(scene.transition_frames)||12;
+   const transitionFrames=previous&&scene.transition_in!=="none"?Math.min(count,Math.max(1,Math.min(60,Math.round(requested)))):0;
+   transitionRecords.push({scene:si+1,type:scene.transition_in,frames:transitionFrames});
+   const previousCount=previous?Math.max(1,Math.round(Number(previous.duration_seconds)*fps)):0;
    for(let lf=0;lf<count;lf++){
-    await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,total);
+    if(transitionFrames&&lf<transitionFrames){
+     const t=transitionFrames<=1?1:lf/(transitionFrames-1);
+     await page.evaluate((prev,pf,pc,pg,cur,cf,cc,cg,kind,progress)=>window.drawTransitionFrame(prev,pf,pc,pg,cur,cf,cc,cg,kind,progress),previous,previousCount-1,previousCount,Math.max(0,total-1),scene,lf,count,total,String(scene.transition_in),t);
+    }else{ await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,total); }
     await page.screenshot({path:path.join(dir,"frame-"+String(total).padStart(6,"0")+".png"),type:"png"});total++;
    }
    console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
   }
-  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,generated_at:new Date().toISOString()},null,2)+"\n");
+  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,generated_at:new Date().toISOString()},null,2)+"\n");
   console.log("Rendered "+total+" frames to "+dir);
  }finally{await browser.close()}
 }

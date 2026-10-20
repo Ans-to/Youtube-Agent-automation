@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Upload an explicitly approved local MP4 to YouTube; OAuth and confirmation are required."""
-import argparse,hashlib,json
+import argparse,hashlib,json,sys
 from datetime import datetime,timezone
 from pathlib import Path
+
+BASE=Path(__file__).resolve().parent
+if str(BASE) not in sys.path:sys.path.insert(0,str(BASE))
+from release_gate import validate_qc_report
 
 def sha256(path):
  h=hashlib.sha256()
@@ -27,6 +31,18 @@ def validate_approval(approval, video, requested):
   raise ValueError("Script changed after approval; review and approve the package again.")
  if approval.get("storyboard_sha256")!=sha256(storyboard_path):
   raise ValueError("Storyboard changed after approval; review and approve the package again.")
+ qc_path=video.parent/"video.qc.json"
+ if not qc_path.is_file():
+  raise ValueError("Strict video.qc.json report is required beside the approved video.")
+ if approval.get("quality_audit_passed") is not True:
+  raise ValueError("Approval record does not attest to a passing strict quality audit.")
+ if approval.get("qc_report_sha256")!=sha256(qc_path):
+  raise ValueError("Quality report changed after approval; rerun strict QA and approve again.")
+ try:
+  qc_report=json.loads(qc_path.read_text(encoding="utf-8"))
+  validate_qc_report(qc_report,video)
+ except (OSError,json.JSONDecodeError,ValueError) as exc:
+  raise ValueError("Strict video quality audit is no longer valid: "+str(exc))
  approved=approval.get("approved_metadata")
  if not isinstance(approved,dict):
   raise ValueError("Approval is missing metadata review; recreate approval with release_gate.py.")

@@ -142,6 +142,16 @@ if ($LASTEXITCODE -ne 0) {
     throw "Project dependency setup failed. See the error above."
 }
 
+$UrduTtsAnswer = Read-Host "Install Piper + CPU ONNX Runtime into isolated .venv-piper-urdu? The ~64 MB Pakistani Urdu voice downloads on first preview [y/N]"
+if ($UrduTtsAnswer.Trim().ToLowerInvariant() -in @("y", "yes")) {
+    & powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File (Join-Path $Root "setup_urdu_tts_windows.ps1")
+    if ($LASTEXITCODE -ne 0) {
+        throw "Urdu voice setup failed. The main Agent HQ Python environment was not modified; see setup_urdu_tts_windows.ps1 output."
+    }
+} else {
+    Write-Warning "Skipped Urdu voice dependencies. Run setup_urdu_tts_windows.ps1 later; the audio preview and Urdu-English production render remain blocked until Piper is installed."
+}
+
 function Get-OllamaModelList {
     # Try the existing Ollama service first. If installed but not running,
     # start its local server and retry once instead of downloading blindly.
