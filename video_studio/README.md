@@ -65,7 +65,7 @@ Every model-generated package runs web research by default: up to five complemen
 The package includes `research.md` and `research.json`. The collector extracts a bounded amount of readable content, validates public IP addresses and redirect targets, and records fetch failures. If research fails for model-generated content, package generation stops instead of silently falling back to an unresearched script. Search snippets and extracted page text are **not automatic verification**: check publication dates, prefer primary sources, corroborate important claims, and confirm that sources actually support the statements before publishing. Common secrets and direct identifiers are redacted from search queries. The collector does not guarantee that the search provider or target websites will always be available. You may also provide curated local notes using `--source-file workspace/source-notes.md`.
 
 ## Explicit release approval and YouTube upload
-Review the script, storyboard, and rendered video. From the repository root, run a strict technical audit first, then request human approval:
+Review the script, storyboard, and rendered video. The production pipeline automatically runs strict technical QA after rendering and writes `video.qc.json`. If you rendered the MP4 outside the production pipeline, create that report manually, then request human approval from the repository root:
 
     python video_studio/quality_audit.py workspace/generated/video.mp4 --strict --report workspace/generated/video.qc.json
     python video_studio/release_gate.py --package workspace/generated
