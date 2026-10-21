@@ -12,7 +12,7 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
 
 ## Architecture and maintenance
 
-See [the architecture and maintenance guide](docs/ARCHITECTURE.md) for module boundaries, configuration overrides, error-handling conventions, state management rules, the sandboxed tool layer, and the staged refactoring plan.
+See the [roadmap](docs/ROADMAP.md) for the honest gap to professional motion design and general task automation, and [the architecture and maintenance guide](docs/ARCHITECTURE.md) for module boundaries, configuration overrides, error-handling conventions, state management rules, the sandboxed tool layer, and the staged refactoring plan.
 
 **The rules are enforced, not just described.** [docs/NORTH_STAR.md](docs/NORTH_STAR.md) is the project's contract: no paid services, no API keys, loopback-only inference, deterministic local rendering, writes confined to `workspace/`, and approval gates on irreversible actions. `python tools/check_invariants.py` fails the build if first-party code starts depending on a billable service, commits a credential-shaped literal, points the model at a non-loopback endpoint, or removes a safety mechanism.
 
