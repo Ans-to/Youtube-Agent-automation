@@ -94,6 +94,30 @@ class ResearchPolicyTests(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "visual audit failed; release is blocked"):
                     run_strict_quality_audit(output_dir)
 
+    def test_template_technical_smoke_does_not_claim_visual_release_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output_dir = Path(directory)
+            video = output_dir / "video.mp4"
+            video.write_bytes(b"video bytes " * 100)
+            report = {
+                "file": str(video.resolve()),
+                "video_sha256": file_sha256(video),
+                "duration_seconds": 12.5,
+                "audio_stream_count": 1,
+                "warnings": [],
+                "passed": True,
+                "strict": True,
+                "checks": {},
+            }
+            report_path = output_dir / "video.qc.json"
+            report_path.write_text(json.dumps(report), encoding="utf-8")
+            completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
+            with patch("video_studio.production.subprocess.run", return_value=completed), \
+                 patch("video_studio.production.run_visual_audit", side_effect=AssertionError("demo must not call visual model")):
+                result = run_strict_quality_audit(output_dir, visual_required=False)
+            self.assertFalse(result["release_eligible"])
+            self.assertEqual(result["checks"]["visual_audit"]["status"], "NOT_RUN_TEMPLATE_DEMO_ONLY")
+
     def test_automatic_quality_audit_blocks_nonzero_exit(self):
         with tempfile.TemporaryDirectory() as directory:
             completed = subprocess.CompletedProcess(args=[], returncode=1, stdout="", stderr="audit failed")
