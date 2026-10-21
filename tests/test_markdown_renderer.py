@@ -8,6 +8,7 @@ class MarkdownRendererTests(unittest.TestCase):
         rendered = render_markdown_safe("# Title\n\n- **safe**\n\n<script>alert(1)</script>")
         self.assertIn("<h1>Title</h1>", rendered)
         self.assertIn("<ul>", rendered)
+        self.assertIn("<li><strong>safe</strong></li>", rendered)
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", rendered)
         self.assertNotIn("<script>", rendered)
 
@@ -20,6 +21,17 @@ class MarkdownRendererTests(unittest.TestCase):
         rendered = render_markdown_safe('<img src=x onerror="alert(1)">')
         self.assertNotIn("<img", rendered)
         self.assertIn("&lt;img", rendered)
+
+    def test_inline_emphasis_and_code_are_safe(self):
+        rendered = render_markdown_safe("A *small* **bold** word and `<script>`")
+        self.assertIn("<em>small</em>", rendered)
+        self.assertIn("<strong>bold</strong>", rendered)
+        self.assertIn("<code>&lt;script&gt;</code>", rendered)
+        self.assertNotIn("<script>", rendered)
+
+    def test_none_and_non_string_input_are_handled_predictably(self):
+        self.assertEqual(render_markdown_safe(None), "")
+        self.assertIn("<p>42</p>", render_markdown_safe(42))
 
 
 if __name__ == "__main__":
