@@ -51,6 +51,20 @@ class MultiTopicRegressionCorpusTests(unittest.TestCase):
         self.assertGreaterEqual(len(visual_types), 7)
         self.assertGreaterEqual(len(transitions), 5)
 
+    def test_scene_padding_allows_one_frame_of_quantization_but_keeps_voice_coverage_strict(self):
+        # A 0.25s measured pad is expected when 0.22s is rounded to the next 30fps frame.
+        self.assertIsNone(regression.pacing_failure_reason(1, 0.250, 0.91))
+        self.assertIsNone(regression.pacing_failure_reason(2, 0.258, 0.90))
+
+        # A real overrun or insufficient speech coverage must still fail closed.
+        self.assertIsNotNone(regression.pacing_failure_reason(3, 0.270, 0.91))
+        self.assertIsNotNone(regression.pacing_failure_reason(4, 0.220, 0.87))
+        self.assertIsNotNone(regression.pacing_failure_reason(5, float("nan"), 0.91))
+        self.assertAlmostEqual(
+            regression.MAX_ACCEPTED_PADDING_SECONDS,
+            regression.MAX_SCENE_PADDING_SECONDS + 1.0 / regression.FPS + 0.005,
+        )
+
     def test_invalid_duplicate_or_short_script_corpus_fails_closed(self):
         duplicate = json.loads(json.dumps(self.corpus))
         duplicate["topics"][1]["niche"] = duplicate["topics"][0]["niche"]
