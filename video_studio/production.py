@@ -64,8 +64,12 @@ def parse_json_response(content, label):
 
 
 
-def run_strict_quality_audit(output_dir):
-    """Run independent technical and vision QA; missing evidence blocks release."""
+def run_strict_quality_audit(output_dir, visual_required=True):
+    """Run strict technical QA and, for real releases, mandatory vision QA.
+
+    The explicit no-model template demo can exercise the technical render pipeline, but
+    its report remains ineligible for release because no visual audit was performed.
+    """
     video_path = output_dir / "video.mp4"
     report_path = output_dir / "video.qc.json"
     storyboard_path = output_dir / "storyboard.json"
@@ -81,23 +85,33 @@ def run_strict_quality_audit(output_dir):
     if result.returncode != 0:
         raise RuntimeError("strict technical quality audit returned exit code " + str(result.returncode))
     report = json.loads(report_path.read_text(encoding="utf-8"))
-    try:
-        visual_report = run_visual_audit(video_path, storyboard_path, output_dir, ROOT / "config.json")
-    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
-        raise RuntimeError("Independent multimodal visual audit failed; release is blocked: " + str(exc)) from exc
-    visual_path = output_dir / "visual-audit.json"
-    report["visual_audit_sha256"] = file_sha256(visual_path)
     checks = report.setdefault("checks", {})
     if not isinstance(checks, dict):
         raise RuntimeError("Technical audit checks are malformed; release is blocked.")
-    checks["visual_audit"] = {
-        "status": visual_report["status"],
-        "score": visual_report["overall_score"],
-        "model_id": visual_report["model_id"],
-        "sample_count": visual_report["sample_count"],
-        "sha256": report["visual_audit_sha256"],
-    }
-    report["passed"] = report.get("passed") is True and visual_report.get("status") == "PASS"
+    if visual_required:
+        try:
+            visual_report = run_visual_audit(video_path, storyboard_path, output_dir, ROOT / "config.json")
+        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+            raise RuntimeError("Independent multimodal visual audit failed; release is blocked: " + str(exc)) from exc
+        visual_path = output_dir / "visual-audit.json"
+        report["visual_audit_sha256"] = file_sha256(visual_path)
+        checks["visual_audit"] = {
+            "status": visual_report["status"],
+            "score": visual_report["overall_score"],
+            "model_id": visual_report["model_id"],
+            "sample_count": visual_report["sample_count"],
+            "sha256": report["visual_audit_sha256"],
+        }
+        report["passed"] = report.get("passed") is True and visual_report.get("status") == "PASS"
+        report["release_eligible"] = report["passed"] is True
+    else:
+        # Only a deliberately requested template/demo may skip the vision model.
+        # The release gate rejects this report because visual-audit.json is absent.
+        checks["visual_audit"] = {
+            "status": "NOT_RUN_TEMPLATE_DEMO_ONLY",
+            "reason": "Template rendering smoke test; not an end-product quality verdict.",
+        }
+        report["release_eligible"] = False
     report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     # Keep any review template bound to the final, completed QC report.
     template_path = output_dir / "creative-review.template.json"
@@ -108,7 +122,8 @@ def run_strict_quality_audit(output_dir):
             template_path.write_text(json.dumps(template, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         except (OSError, json.JSONDecodeError) as exc:
             raise RuntimeError("Could not refresh creative-review template binding; release is blocked.") from exc
-    validate_qc_report(report, video_path)
+    if visual_required:
+        validate_qc_report(report, video_path)
     return report
 
 
@@ -670,7 +685,7 @@ def main():
 
     if args.render or args.render_template:
         try:
-            qc_report = run_strict_quality_audit(output_dir)
+            qc_report = run_strict_quality_audit(output_dir, visual_required=not args.render_template)
             status.update({
                 "status": "technical_qa_passed_waiting_for_human_review",
                 "quality_audit_passed": True,
