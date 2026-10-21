@@ -79,6 +79,25 @@ async function main(){
  try{
   const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
   await page.goto("file://"+path.resolve(__dirname,"render.html"),{waitUntil:"load"});await page.setViewport({width:w,height:h,deviceScaleFactor:1});
+  // Chrome treats a file:// page as an opaque origin and refuses to fetch the
+  // @font-face files beside it, so a clean machine renders in a system font.
+  // Hand the page the same bundled files as data URLs instead: no origin rules
+  // apply, nothing is downloaded, and the typography promise still holds.
+  const fontFiles=[["Inter",400,"inter-latin-400-normal.woff2"],["Inter",500,"inter-latin-500-normal.woff2"],
+   ["Inter",600,"inter-latin-600-normal.woff2"],["Inter",700,"inter-latin-700-normal.woff2"],
+   ["Inter",800,"inter-latin-800-normal.woff2"],["Space Grotesk",400,"space-grotesk-latin-400-normal.woff2"],
+   ["Space Grotesk",500,"space-grotesk-latin-500-normal.woff2"],["Space Grotesk",600,"space-grotesk-latin-600-normal.woff2"],
+   ["Space Grotesk",700,"space-grotesk-latin-700-normal.woff2"]];
+  const fontPayload=fontFiles.map(([family,weight,file])=>({family,weight,
+   url:"data:font/woff2;base64,"+fs.readFileSync(path.join(__dirname,"fonts",file)).toString("base64")}));
+  await page.evaluate(async faces=>{
+   for(const face of faces){
+    const loaded=new FontFace(face.family,"url("+face.url+")",{style:"normal",weight:String(face.weight)});
+    await loaded.load();
+    document.fonts.add(loaded);
+   }
+   await document.fonts.ready;
+  },fontPayload);
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   if(s.style)await page.evaluate(style=>window.setStyle(style),s.style);
   await page.evaluate(rate=>window.setFrameRate(rate),fps);
