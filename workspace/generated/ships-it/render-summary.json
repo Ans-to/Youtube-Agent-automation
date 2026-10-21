@@ -1,0 +1,462 @@
+{
+  "title": "I Don't Edit Video. I Compile It.",
+  "source": "video_studio/films/character_ships_it.mjs",
+  "canvas": {
+    "width": 3840,
+    "height": 2160,
+    "fps": 30
+  },
+  "frames": {
+    "count": 954
+  },
+  "elapsed_seconds": 456.2,
+  "motion_spec": {
+    "frames_measured": 953,
+    "mean_delta": 0.972,
+    "median_delta": 0.604,
+    "p90_delta": 1.492,
+    "static_share": 0.2875,
+    "baseline_mean_delta": 0.819,
+    "baseline_static_share": 0.514,
+    "gate": {
+      "min_mean": 0.95,
+      "max_static": 0.34
+    },
+    "status": "passed",
+    "statement": "MOTION SPEC: PASSED - mean frame delta 0.97 (baseline 0.82), 28.7% near-static frames (baseline 51.4%, limit 34%)"
+  },
+  "audit": {
+    "status": "INCOMPLETE",
+    "statement": "AUDIT STATUS: INCOMPLETE - No violations detected, but 13 rule(s) could not be verified: TQ-LIPSYNC, BS-PROFANITY, BS-CONTROVERSY, CS-VIOLENCE, CS-WEAPONS, CS-SELFHARM, CS-CONTRABAND, CS-HATE-SPEECH, CS-ADULT, BS-SENTIMENT, LE-CHILDREN, LE-MUSIC, LE-CLIPS.",
+    "summary": {
+      "findings": 0,
+      "rules_total": 22,
+      "passed": 7,
+      "flagged": 0,
+      "unverified": 12,
+      "manual": 1,
+      "not_applicable": 2,
+      "attested": 0
+    }
+  },
+  "soundtrack": {
+    "duration_seconds": 31.8,
+    "sfx_cue_count": 19,
+    "sample_rate": 24000
+  },
+  "voice": {
+    "backend": "arena neural voice",
+    "voice": "arena neural voice",
+    "duration_seconds": 28.688,
+    "line_count": 8,
+    "path": "/home/user/Youtube-Agent-automation/workspace/generated/ships-it/voice/voiceover.wav",
+    "reused": true
+  },
+  "mix": {
+    "path": "/home/user/Youtube-Agent-automation/workspace/generated/ships-it/mix.wav",
+    "sample_rate": 24000,
+    "duration_seconds": 31.8,
+    "duck_depth_db": 8.5,
+    "duck_trigger_share": 0.6255,
+    "mean_duck_db": -5.01,
+    "voice_to_bed_db": 5.8,
+    "peak": 0.8617
+  },
+  "validation": {
+    "valid": true,
+    "frame_count": 954,
+    "width": 3840,
+    "height": 2160,
+    "format": "jpg"
+  },
+  "outputs": [
+    {
+      "path": "/home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-3840x2160.mp4",
+      "bytes": 48692368,
+      "sha256": "fcae5b77c71be36b6c3512f2bf969c8023c19b91d7d2bc37490ccb73a957c75a",
+      "probe": {
+        "available": true,
+        "duration_seconds": 31.8,
+        "video": {
+          "codec": "h264",
+          "width": 3840,
+          "height": 2160,
+          "fps": "30/1"
+        },
+        "audio": {
+          "codec": "aac",
+          "channels": 1,
+          "sample_rate": "48000"
+        }
+      }
+    },
+    {
+      "path": "/home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-1080p.mp4",
+      "bytes": 11446883,
+      "sha256": "ebd4c2a0ce700748e9671ccf751128f37ff95a0c1f4e88e5dcb29b7cff1b2ea1",
+      "probe": {
+        "available": true,
+        "duration_seconds": 31.8,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080,
+          "fps": "30/1"
+        },
+        "audio": {
+          "codec": "aac",
+          "channels": 1,
+          "sample_rate": "48000"
+        }
+      }
+    }
+  ],
+  "timeline": {
+    "title": "I Don't Edit Video. I Compile It.",
+    "duration_seconds": 31.8,
+    "fps": 30,
+    "canvas": {
+      "width": 3840,
+      "height": 2160
+    },
+    "shots": [
+      {
+        "id": "A",
+        "label": "walk-in",
+        "start": 0,
+        "end": 1.7499999999999998,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "chapter",
+          "hud"
+        ]
+      },
+      {
+        "id": "C1",
+        "label": "cold open",
+        "start": 1.7499999999999998,
+        "end": 3.394,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:timeline",
+          "hud"
+        ]
+      },
+      {
+        "id": "C2",
+        "label": "thesis",
+        "start": 3.394,
+        "end": 5.108,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:compile",
+          "hud"
+        ]
+      },
+      {
+        "id": "C3",
+        "label": "pipeline",
+        "start": 5.108,
+        "end": 10.206,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:pipeline",
+          "hud"
+        ]
+      },
+      {
+        "id": "C4",
+        "label": "raster",
+        "start": 10.206,
+        "end": 14.557,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:raster",
+          "hud"
+        ]
+      },
+      {
+        "id": "C5",
+        "label": "mix",
+        "start": 14.557,
+        "end": 18.062,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:mix",
+          "hud"
+        ]
+      },
+      {
+        "id": "C6",
+        "label": "audit",
+        "start": 18.062,
+        "end": 22.455,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:audit",
+          "hud"
+        ]
+      },
+      {
+        "id": "C7",
+        "label": "local",
+        "start": 22.455,
+        "end": 26.332,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:stack",
+          "hud"
+        ]
+      },
+      {
+        "id": "C8",
+        "label": "ship",
+        "start": 26.332,
+        "end": 31.8,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "panel:ship",
+          "hud"
+        ]
+      },
+      {
+        "id": "Z",
+        "label": "wave-out",
+        "start": 29.587999999999997,
+        "end": 31.8,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "hud",
+          "vignette"
+        ]
+      }
+    ],
+    "motion": {
+      "rig": "two-bone IK, spring settle, viseme timeline",
+      "linear_interpolation": false,
+      "text_animates_in_and_out": true,
+      "camera_moves_every_shot": true,
+      "background_motion": "continuous"
+    },
+    "score": [
+      {
+        "kind": "swell",
+        "at": 0.05,
+        "length": 1.8,
+        "gain": 0.18
+      },
+      {
+        "kind": "click",
+        "at": 0.42,
+        "length": 0.05,
+        "gain": 0.16
+      },
+      {
+        "kind": "swell",
+        "at": 3.394,
+        "length": 1,
+        "gain": 0.07
+      },
+      {
+        "kind": "swell",
+        "at": 5.108,
+        "length": 1,
+        "gain": 0.07
+      },
+      {
+        "kind": "swell",
+        "at": 10.206,
+        "length": 1,
+        "gain": 0.07
+      },
+      {
+        "kind": "swell",
+        "at": 14.557,
+        "length": 1,
+        "gain": 0.07
+      },
+      {
+        "kind": "swell",
+        "at": 18.062,
+        "length": 1,
+        "gain": 0.07
+      },
+      {
+        "kind": "swell",
+        "at": 22.455,
+        "length": 1,
+        "gain": 0.07
+      },
+      {
+        "kind": "swell",
+        "at": 26.332,
+        "length": 1,
+        "gain": 0.07
+      },
+      {
+        "kind": "click",
+        "at": 2.03,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "click",
+        "at": 3.874,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "click",
+        "at": 5.588,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "click",
+        "at": 10.686,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "click",
+        "at": 15.037,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "click",
+        "at": 18.542,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "click",
+        "at": 22.935,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "click",
+        "at": 26.812,
+        "length": 0.05,
+        "gain": 0.12
+      },
+      {
+        "kind": "whoosh",
+        "at": 29.438,
+        "length": 0.8,
+        "gain": 0.2
+      },
+      {
+        "kind": "impact",
+        "at": 31.62,
+        "length": 0.5,
+        "gain": 0.28
+      }
+    ],
+    "speech": [
+      {
+        "text": "I DON'T EDIT VIDEO",
+        "label": "COLD OPEN",
+        "start": 2.05,
+        "end": 3.344
+      },
+      {
+        "text": "I COMPILE IT",
+        "label": "THESIS",
+        "start": 3.894,
+        "end": 4.988
+      },
+      {
+        "text": "BRIEF \u2192 DIRECTION \u2192 FRAMES",
+        "label": "PIPELINE",
+        "start": 5.608,
+        "end": 9.986
+      },
+      {
+        "text": "EVERY FRAME IS CODE",
+        "label": "RASTER",
+        "start": 10.706,
+        "end": 14.317
+      },
+      {
+        "text": "SOUND, MIXED BY NUMBER",
+        "label": "MIX",
+        "start": 15.057,
+        "end": 17.862
+      },
+      {
+        "text": "THE FILM AUDITS ITSELF",
+        "label": "AUDIT",
+        "start": 18.562,
+        "end": 22.175
+      },
+      {
+        "text": "NO CLOUD. NO RENDER FARM.",
+        "label": "LOCAL",
+        "start": 22.955,
+        "end": 26.112
+      },
+      {
+        "text": "THE REPO SHIPS THE VIDEO",
+        "label": "SHIP",
+        "start": 26.832,
+        "end": 28.688
+      }
+    ],
+    "lip_sync": {
+      "events": 58,
+      "source": "audio envelope x viseme timeline",
+      "envelope": true
+    },
+    "voice": {
+      "timing_source": "lines.json",
+      "duration_seconds": 28.69,
+      "lip_sync": "measured",
+      "envelope": true
+    },
+    "motion_gate": {
+      "min_mean": 0.95,
+      "max_static": 0.34
+    }
+  }
+}

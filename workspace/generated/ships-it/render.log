@@ -1,0 +1,45 @@
+[render]    voice present: voiceover.wav (arena neural voice, 28.69s, 8 lines)
+[render] == 1/8 render frames
+[render] $ /usr/local/bin/node /home/user/Youtube-Agent-automation/video_studio/films/character_ships_it.mjs --out /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames --width 3840 --height 2160 --fps 30 --quality 92 --voice-lines /home/user/Youtube-Agent-automation/workspace/generated/ships-it/voice/lines.json
+[render]    954 frames at 3840x2160
+[render] == 2/8 soundtrack
+[render]    19 sfx cues, 31.8s
+[render] == 3/8 mix voice over score
+[render]    duck 8.5 dB, voice 5.8 dB above the bed, peak 0.86
+[render] == 4/8 validate frames
+[render] $ /usr/bin/python3 /home/user/Youtube-Agent-automation/video_studio/validate_frames.py --frames /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames --manifest /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/manifest.json
+[render] == 5/8 encode
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/mix.wav -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -movflags +faststart -threads 1 -x264-params rc-lookahead=8:ref=1:bframes=2 -c:a aac -b:a 192k -ar 48000 -shortest -r 30 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-3840x2160.mp4
+[render]    single-pass encode was killed; retrying in 6 segments
+[render]    encoding 6 segments
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -start_number 0 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -frames:v 159 -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -threads 2 -x264-params rc-lookahead=4:ref=1:bframes=0 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/segments/part-000.mp4
+[render]    part 1/6: frames 0-158
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -start_number 159 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -frames:v 159 -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -threads 2 -x264-params rc-lookahead=4:ref=1:bframes=0 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/segments/part-001.mp4
+[render]    part 2/6: frames 159-317
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -start_number 318 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -frames:v 159 -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -threads 2 -x264-params rc-lookahead=4:ref=1:bframes=0 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/segments/part-002.mp4
+[render]    part 3/6: frames 318-476
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -start_number 477 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -frames:v 159 -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -threads 2 -x264-params rc-lookahead=4:ref=1:bframes=0 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/segments/part-003.mp4
+[render]    part 4/6: frames 477-635
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -start_number 636 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -frames:v 159 -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -threads 2 -x264-params rc-lookahead=4:ref=1:bframes=0 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/segments/part-004.mp4
+[render]    part 5/6: frames 636-794
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -start_number 795 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -frames:v 159 -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -threads 2 -x264-params rc-lookahead=4:ref=1:bframes=0 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/segments/part-005.mp4
+[render]    part 6/6: frames 795-953
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -f concat -safe 0 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/segments/concat.txt -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/mix.wav -c:v copy -c:a aac -b:a 192k -ar 48000 -shortest -movflags +faststart /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-3840x2160.mp4
+[render]    master film-3840x2160.mp4 (46.4 MB, segmented)
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -framerate 30 -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/frames/frame-%06d.jpg -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/mix.wav -vf scale=-2:1080:flags=lanczos -c:v libx264 -preset medium -crf 21 -pix_fmt yuv420p -movflags +faststart -c:a aac -b:a 160k -ar 48000 -shortest -r 30 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-1080p.mp4
+[render]    delivery film-1080p.mp4 (10.9 MB)
+[render] == 6/8 measure motion
+[render] $ /usr/local/bin/ffmpeg -hide_banner -loglevel error -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-1080p.mp4 -vf tblend=all_mode=difference,signalstats,metadata=print:key=lavfi.signalstats.YAVG:file=/home/user/Youtube-Agent-automation/workspace/generated/ships-it/build/.motion-stats.txt -f null -
+[render]    MOTION SPEC: PASSED - mean frame delta 0.97 (baseline 0.82), 28.7% near-static frames (baseline 51.4%, limit 34%)
+[render] $ /usr/local/bin/ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate,channels,sample_rate -of json /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-1080p.mp4
+[render] == 7/8 content audit
+[render]    AUDIT STATUS: INCOMPLETE - No violations detected, but 13 rule(s) could not be verified: TQ-LIPSYNC, BS-PROFANITY, BS-CONTROVERSY, CS-VIOLENCE, CS-WEAPONS, CS-SELFHARM, CS-CONTRABAND, CS-HATE-SPEECH, CS-ADULT, BS-SENTIMENT, LE-CHILDREN, LE-MUSIC, LE-CLIPS.
+[render] $ /usr/local/bin/ffmpeg -y -hide_banner -loglevel error -i /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-1080p.mp4 -vf fps=0.3145,scale=480:-2:flags=lanczos,tile=5x2:padding=6:color=0x101010 -frames:v 1 /home/user/Youtube-Agent-automation/workspace/generated/ships-it/contact-sheet.jpg
+[render] $ /usr/local/bin/ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate,channels,sample_rate -of json /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-3840x2160.mp4
+[render] $ /usr/local/bin/ffprobe -v error -show_entries format=duration,size:stream=codec_name,width,height,r_frame_rate,channels,sample_rate -of json /home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-1080p.mp4
+
+FILM: I Don't Edit Video. I Compile It. | 954 frames | 456.2 s
+MOTION SPEC: PASSED - mean frame delta 0.97 (baseline 0.82), 28.7% near-static frames (baseline 51.4%, limit 34%)
+AUDIT STATUS: INCOMPLETE - No violations detected, but 13 rule(s) could not be verified: TQ-LIPSYNC, BS-PROFANITY, BS-CONTROVERSY, CS-VIOLENCE, CS-WEAPONS, CS-SELFHARM, CS-CONTRABAND, CS-HATE-SPEECH, CS-ADULT, BS-SENTIMENT, LE-CHILDREN, LE-MUSIC, LE-CLIPS.
+OUTPUT: film-3840x2160.mp4 46.4 MB
+OUTPUT: film-1080p.mp4 10.9 MB
