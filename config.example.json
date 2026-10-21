@@ -22,6 +22,29 @@
     "urdu_tts_command": [],
     "kani_speaker_prefix": "",
     "urdu_voice_human_approved": false,
-    "urdu_voice_approved_profile_sha256": ""
+    "urdu_voice_approved_profile_sha256": "",
+    "auditor": {
+      "enabled": false,
+      "frame_sample_fps": 1.0,
+      "max_frames": 120,
+      "tesseract_path": "",
+      "profanity_terms": [],
+      "competitor_brands": [],
+      "required_disclosures": [],
+      "asr": {
+        "enabled": true,
+        "model_size": "small",
+        "device": "cpu",
+        "compute_type": "int8",
+        "language": null
+      },
+      "vision_model": {
+        "enabled": false,
+        "base_url": "http://127.0.0.1:8080/v1/chat/completions",
+        "model": "local-vision-model",
+        "timeout_seconds": 120,
+        "batch_size": 6
+      }
+    }
   }
 }
