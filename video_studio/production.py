@@ -86,7 +86,13 @@ def run_strict_quality_audit(output_dir):
     audit_report = build_multimodal_audit_report({
         "video": str(video_path),
         "duration_seconds": report["duration_seconds"],
-        "coverage": {"dead_air_black_screen": "complete"},
+        "coverage": {
+            "dead_air_black_screen": "complete",
+            "photosensitivity": (
+                "complete" if report.get("checks", {}).get("photosensitivity", {}).get("available")
+                else "failed"
+            ),
+        },
         "findings": technical_findings(report),
     })
     audit_path = output_dir / "video.audit.json"
