@@ -10,6 +10,10 @@ The project is designed for a low-cost phone-first setup. It uses Python's stand
 - **Android:** use the Termux steps below.
 - **Mobile/PC behavior and limitations:** read [MOBILE_PC_GUIDE.md](MOBILE_PC_GUIDE.md). The dashboard is responsive, but separate local installs do not automatically synchronize, and the loopback-only dashboard is not remotely exposed.
 
+## Architecture and maintenance
+
+See [the architecture and maintenance guide](docs/ARCHITECTURE.md) for module boundaries, configuration overrides, error-handling conventions, state management rules, and the staged refactoring plan.
+
 ## What is implemented
 
 - **Local dashboard:** mobile-friendly command deck at `http://127.0.0.1:8765`.
