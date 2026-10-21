@@ -208,7 +208,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "visual_type must be one of: " + visual_list + ".\n"
         "Choose transition_in intentionally: none for a clean hard cut; fade for a temporal bridge; wipe-left/right for a directional reveal; slide-left/right for spatial movement; zoom for a motivated scale transition. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
         "Choose camera_motion per scene: static, push-in, pull-out, pan-left, pan-right, or drift. Use subtle motivated camera movement for emphasis, vary it across scenes, and keep captions/readable text inside safe margins.\\n"
-        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional expression (confident, focused, curious, or concerned). Keep appearance consistent across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
+        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, walk_from_x and walk_to_x when walking, and optional expression (confident, focused, curious, or concerned) and pose (explain, point, think). Keep the same character palette and proportions across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
         "Section: " + json.dumps(section, ensure_ascii=False) + "\n"
@@ -243,7 +243,17 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     character.setdefault("x", 0.91)
     character.setdefault("y", 0.63)
     character.setdefault("scale", 0.28)
-    character.setdefault("walking", 0)
+    character.setdefault("walking", 1 if index % 5 == 2 else 0)
+    for position_key, default_position in (("x", 0.91), ("y", 0.63)):
+        try:
+            position_value = float(character.get(position_key, default_position))
+        except (TypeError, ValueError):
+            position_value = default_position
+        if not math.isfinite(position_value) or not 0 <= position_value <= 1:
+            position_value = default_position
+        character[position_key] = position_value
+    character.setdefault("walk_from_x", round(max(0.05, character["x"] - 0.12), 3))
+    character.setdefault("walk_to_x", round(min(0.95, character["x"]), 3))
     character.setdefault("expression", ("curious", "confident", "focused", "concerned")[index % 4])
     character.setdefault("pose", ("explain", "point", "think", "explain")[index % 4])
     character.setdefault("shirt", "#6479b8")
