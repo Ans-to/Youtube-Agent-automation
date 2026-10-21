@@ -18,6 +18,26 @@ from agent import post_local_model
 
 REQUIRED_CHECKS = ["visual_clarity", "composition_safe_margins", "text_readability", "contrast_color", "visual_consistency", "scene_variety_and_pacing", "artifacts_and_render_defects", "storyboard_alignment"]
 
+def parse_response(value):
+    """Accept only a JSON object from the vision model; never guess or auto-correct output."""
+    if isinstance(value, dict):
+        return value
+    if not isinstance(value, str):
+        raise ValueError("Vision model response content must be a JSON string.")
+    text = value.strip()
+    if text.startswith("```"):
+        text = text.split("\n", 1)[-1]
+        if text.endswith("```"):
+            text = text[:-3].strip()
+    try:
+        result = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise ValueError("Vision model response is not valid JSON.") from exc
+    if not isinstance(result, dict):
+        raise ValueError("Vision model response must be a JSON object.")
+    return result
+
+
 def sha256_file(path):
     h = hashlib.sha256()
     with Path(path).open("rb") as stream:
