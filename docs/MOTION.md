@@ -4,7 +4,56 @@ This document explains how the studio meets the professional motion-graphics
 brief, what is enforced by code, and what still requires a human eye. It is a
 description of the implementation, not a claim that every render is art.
 
-## 0. A film this pipeline actually produced
+## 0. The hand-authored film (current)
+
+`video_studio/films/every_frame_is_code.mjs` is a 600-line animation script, not a
+storyboard template. Every frame is drawn by hand-written Canvas 2D code on an
+explicit 20-second timeline: five shots, four transitions, a persistent HUD, and
+a soundtrack declared inside the same file.
+
+| Beat | Shot | What moves |
+|---|---|---|
+| 00:00-00:04 | A | kinetic type, drifting grid, camera push, parallax ghost glyphs, data rail, scan band |
+| 00:04-00:08 | B | perspective floor, three panels entering with `backOut`, travelling glow packet, live tickers |
+| 00:08-00:12 | C | counting number, five bars breathing, moving highlight sweep, rising rules |
+| 00:12-00:16 | D | per-word masked reveals, handheld shake, light beam, dust |
+| 00:16-00:20 | E | brackets, lockup, orbiting rings, converging particles, iris close |
+
+Transitions are a whip pan with directional smear and an impact flash, a
+diagonal shutter reveal, a slice-displacement glitch, and a punch-in match cut.
+Nothing cross-fades; text always animates both in and out.
+
+```bash
+# full 4K master + 1080p delivery, soundtrack, audit, contact sheet
+python tools/render_authored_film.py --out workspace/generated/motion-film
+```
+
+The driver refuses to call a film finished on its own: it encodes the delivery
+copy, then measures frame-to-frame luma change with FFmpeg (`tblend`) and fails
+if the film regresses toward static slides. The gate is a mean delta of at least
+1.2 with under 15 % near-static frames; the rejected first cut scored 0.82 and
+51.4 %, this film scores 1.86 and 7.0 %.
+
+| Measurement | Rejected cut | This film |
+|---|---|---|
+| mean frame delta | 0.82 | **1.86** |
+| near-static frames (<0.5) | 51.4 % | **7.0 %** |
+| per-shot mean | 0.71 / 0.79 / 1.18 / 0.43 / 0.97 | 1.97 / 1.51 / 1.79 / 2.08 / 1.03 |
+| motion spec | `0/18` clauses | `PASSED` |
+| content audit | `INCOMPLETE` | `INCOMPLETE`, 0 flagged, same 13 unverified rules |
+| audio/video sync | not measured | `lag 0.00 s`, envelope correlation 0.65 |
+
+The audit stays `INCOMPLETE` on purpose: thirteen rules need ASR, OCR, a vision
+model or a licensed-content reference that this machine does not have, and the
+report says so rather than passing them.
+
+## 0a. The earlier template-driven run (superseded)
+
+`workspace/generated/motion-film/superseded/` keeps the run produced by the
+`deterministic_template` storyboard. It is kept as evidence of what was
+rejected: zero-frame transitions, sparse frames, and a 51 % static run.
+
+## 0b. The template run in detail
 
 `workspace/generated/motion-film/` contains a complete run, built end to end on
 this machine with no cloud service and no API key:
@@ -56,13 +105,13 @@ direction code all come from the repository.
 
 ```bash
 # manual run; every input has a default
-gh workflow run render-motion-film.yml \
-  -f brief=video_studio/brief.example.json -f scale=1.0 -f delivery_height=1080
+gh workflow run render-motion-film.yml -f delivery_height=1080 -f quality=92
 ```
 
-The workflow also runs on pushes to `main` that touch the renderer. A manual
-dispatch only works once the workflow file exists on the default branch —
-GitHub does not register a `workflow_dispatch` entry from a feature branch.
+The workflow renders `video_studio/films/every_frame_is_code.mjs` through
+`tools/render_authored_film.py` with the same six stages as a local run, so the
+artifact is the film itself rather than a re-interpretation of it. It also runs
+on pushes to `main` that touch the film, the renderer or the driver.
 
 It does not trust exit codes. Before uploading, the job probes every output and
 fails on: a non-passing motion spec, a flagged audit, a missing video or audio

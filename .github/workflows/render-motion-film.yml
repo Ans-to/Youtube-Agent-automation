@@ -1,27 +1,25 @@
 name: Render motion film
 
-# Renders the full motion film (direction -> frames -> validate -> encode ->
-# audit) on a GitHub runner and publishes the encoded MP4s as a build artifact.
-# No cloud rendering service, no API key: the runner only needs Node, FFmpeg and
-# the repository's own code.
+# Renders the hand-authored film in video_studio/films/ on a GitHub runner and
+# publishes the encoded MP4s as a build artifact.
+#
+# The film is real animation code (Canvas 2D drawing with an explicit 20 s
+# timeline, 5 shots and 4 transitions), not a storyboard template. The runner
+# only needs Node, FFmpeg and the repository's own code: no cloud rendering
+# service, no API key, no downloaded assets.
 
 on:
   workflow_dispatch:
     inputs:
-      brief:
-        description: Path to the brief JSON, relative to the repository root
-        required: true
-        default: video_studio/brief.example.json
-        type: string
-      scale:
-        description: Render scale between 0.25 and 1.0 (1.0 is full 4K)
-        required: true
-        default: "1.0"
-        type: string
       delivery_height:
         description: Height of the delivery copy in pixels
         required: true
         default: "1080"
+        type: string
+      quality:
+        description: JPEG quality for the intermediate frames (80-95)
+        required: true
+        default: "92"
         type: string
       skip_4k:
         description: Skip the 4K master and render only the delivery copy
@@ -31,15 +29,15 @@ on:
   push:
     branches: [main]
     paths:
+      - "video_studio/films/**"
       - "video_studio/render_skia.js"
       - "video_studio/render.html"
-      - "video_studio/motion/**"
-      - "video_studio/motion_director.py"
+      - "video_studio/fonts/**"
       - "video_studio/audio_design.py"
       - "video_studio/audit/**"
       - "video_studio/audit_video.py"
       - "video_studio/validate_frames.py"
-      - "tools/render_motion_film.py"
+      - "tools/render_authored_film.py"
       - ".github/workflows/render-motion-film.yml"
 
 permissions:
@@ -88,24 +86,23 @@ jobs:
 
       - name: Render the film
         env:
-          BRIEF: ${{ inputs.brief || 'video_studio/brief.example.json' }}
-          SCALE: ${{ inputs.scale || '1.0' }}
+          QUALITY: ${{ inputs.quality || '92' }}
           DELIVERY_HEIGHT: ${{ inputs.delivery_height || '1080' }}
           SKIP_4K: ${{ inputs.skip_4k || 'false' }}
         run: |
           set -euo pipefail
           mkdir -p "$OUT_DIR"
           args=(
-            --brief "$BRIEF"
             --out "$OUT_DIR"
-            --scale "$SCALE"
+            --width 3840 --height 2160 --fps 30
+            --quality "$QUALITY"
             --delivery-height "$DELIVERY_HEIGHT"
             --json
           )
           if [ "$SKIP_4K" = "true" ]; then
             args+=(--skip-4k)
           fi
-          python tools/render_motion_film.py "${args[@]}" | tee "$OUT_DIR/render.log"
+          python tools/render_authored_film.py "${args[@]}" | tee "$OUT_DIR/render.log"
 
       - name: Make a contact sheet for a quick look
         run: |
@@ -115,7 +112,7 @@ jobs:
             preview=$(ls "$OUT_DIR"/*.mp4 | head -1)
           fi
           ffmpeg -y -hide_banner -loglevel error -i "$preview" \
-            -vf "fps=1/2,scale=480:-2:flags=lanczos,tile=5x2" -frames:v 1 \
+            -vf "fps=1/2,scale=480:-2:flags=lanczos,tile=5x2:padding=6:color=0x101010" -frames:v 1 \
             "$OUT_DIR/contact-sheet.jpg"
           test -s "$OUT_DIR/contact-sheet.jpg"
 
@@ -198,7 +195,7 @@ jobs:
           if not skip_4k and (3840, 2160) not in sizes:
               errors.append("the 4K master is missing from the outputs")
 
-          for name in ("audit.md", "audit.json", "soundtrack.wav", "contact-sheet.jpg"):
+          for name in ("audit.md", "audit.json", "soundtrack.wav", "contact-sheet.jpg", "film.json", "timeline.txt"):
               path = out / name
               if not path.is_file() or path.stat().st_size == 0:
                   errors.append("missing deliverable: %s" % name)
@@ -255,7 +252,7 @@ jobs:
             workspace/generated/motion-film/*.json
             workspace/generated/motion-film/*.log
             workspace/generated/motion-film/*.jpg
-            workspace/generated/motion-film/direction/
+            workspace/generated/motion-film/*.txt
           if-no-files-found: error
           retention-days: 30
 
@@ -265,6 +262,10 @@ jobs:
         with:
           name: motion-film-diagnostics
           path: |
-            workspace/generated/motion-film/
+            workspace/generated/motion-film/*.log
+            workspace/generated/motion-film/*.json
+            workspace/generated/motion-film/*.md
+            workspace/generated/motion-film/*.mp4
+            workspace/generated/motion-film/*.jpg
           if-no-files-found: warn
           retention-days: 7
