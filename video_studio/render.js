@@ -89,7 +89,7 @@ async function main(){
 
   const requiredJoints=["shoulder","elbow","wrist","hip","knee","ankle","neck","head"];
   const requiredVisemes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
-  if(!rigCheck||rigCheck.version!==2||!requiredJoints.every(x=>rigCheck.joints.includes(x))||!requiredVisemes.every(x=>rigCheck.visemeShapes.includes(x)))throw new Error("Character-rig capability regression: "+JSON.stringify(rigCheck));
+  if(!rigCheck||rigCheck.version!==3||!requiredJoints.every(x=>rigCheck.joints.includes(x))||!requiredVisemes.every(x=>rigCheck.visemeShapes.includes(x)))throw new Error("Character-rig capability regression: "+JSON.stringify(rigCheck));
   const rigDrawCheck=await page.evaluate(()=>{
    const shapes=window.characterRigCapabilitiesForTest().visemeShapes;
    for(const shape of shapes){
