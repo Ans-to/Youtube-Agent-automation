@@ -5,6 +5,7 @@ from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 from datetime import datetime
 import json, html, subprocess, sys, threading, mimetypes, re
+from app_config import load_config
 from queue_store import task_queue_lock, load_tasks, save_tasks
 
 BASE = Path(__file__).resolve().parent
@@ -130,7 +131,7 @@ def task_state():
     attach_task_progress(tasks)
     counts = {k: sum(1 for t in tasks if str(t.get("status", "pending")).lower() == k) for k in ("running", "completed", "failed", "needs_human_action")}
     counts["pending"] = sum(1 for t in tasks if str(t.get("status", "pending")).lower() in {"pending", "queued"})
-    cfg = load(CONFIG, {})
+    cfg = load_config(CONFIG)
     model = cfg.get("model", {})
     video_task = next((t for t in reversed(tasks) if str(t.get("title", "")).startswith("Video:")), None)
     product_task = next((t for t in reversed(tasks) if str(t.get("title", "")).startswith("Digital product:")), None)
@@ -510,7 +511,7 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args): pass
 
 def main():
-    cfg = load(CONFIG, {})
+    cfg = load_config(CONFIG)
     host = cfg.get("dashboard", {}).get("host", "127.0.0.1")
     port = int(cfg.get("dashboard", {}).get("port", 8765))
     if host not in {"127.0.0.1", "localhost", "::1"}:
