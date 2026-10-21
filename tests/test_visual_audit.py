@@ -110,7 +110,7 @@ class VisualAuditPolicyTests(unittest.TestCase):
                     "sample_count": len(frames),
                 }
 
-            def vision_response(request, _timeout):
+            def vision_response(_endpoint, request, _timeout):
                 prompt = request["messages"][1]["content"][0]["text"]
                 marker = "Exact detail-frame timestamps for this batch: "
                 timestamps_json = prompt.split(marker, 1)[1].splitlines()[0]
