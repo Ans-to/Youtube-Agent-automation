@@ -60,6 +60,22 @@ def validate_visual_audit_report(report, video, package_root=None):
     if not isinstance(frames, list) or len(frames) < 6 or sample_count != len(frames):
         raise ValueError("Every sampled frame must have a matching report record.")
     root = Path(package_root or Path(video).parent).resolve()
+    contact = report.get("contact_sheet")
+    if not isinstance(contact, dict) or contact.get("sample_count") != sample_count:
+        raise ValueError("Full-sequence contact sheet is missing or has mismatched sample coverage.")
+    contact_file = contact.get("file")
+    if not isinstance(contact_file, str) or not contact_file or Path(contact_file).is_absolute():
+        raise ValueError("Contact-sheet path must be package-relative.")
+    contact_path = (root / contact_file).resolve()
+    if not contact_path.is_relative_to(root) or not contact_path.is_file():
+        raise ValueError("Full-sequence contact sheet is missing or escapes the package.")
+    contact_bytes = contact_path.read_bytes()
+    if len(contact_bytes) < 1024 or contact_bytes[:2] != bytes([255, 216]) or contact_bytes[-2:] != bytes([255, 217]):
+        raise ValueError("Full-sequence contact sheet is not a complete JPEG.")
+    if contact.get("sha256") != sha256_file(contact_path) or contact.get("size_bytes") != contact_path.stat().st_size:
+        raise ValueError("Full-sequence contact-sheet hash/size mismatch.")
+    if int(contact.get("tile_columns", 0) or 0) < 1 or int(contact.get("tile_rows", 0) or 0) < 1:
+        raise ValueError("Full-sequence contact-sheet dimensions are invalid.")
     last = -1.0
     for item in frames:
         if not isinstance(item, dict):
