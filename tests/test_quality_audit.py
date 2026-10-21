@@ -32,10 +32,10 @@ class QualityAuditParsingTests(unittest.TestCase):
 
     def test_parses_luminance_samples_from_ffmpeg_metadata(self):
         text = (
-            "frame:0 pts:0 pts_time:0.000000\\n"
-            "lavfi.signalstats.YAVG=16\\n"
-            "frame:1 pts:1 pts_time:0.100000\\n"
-            "lavfi.signalstats.YAVG=235\\n"
+            "frame:0 pts:0 pts_time:0.000000\n"
+            "lavfi.signalstats.YAVG=16\n"
+            "frame:1 pts:1 pts_time:0.100000\n"
+            "lavfi.signalstats.YAVG=235\n"
         )
         self.assertEqual(AUDIT.parse_luminance_frames(text), [(0.0, 16.0), (0.1, 235.0)])
 
