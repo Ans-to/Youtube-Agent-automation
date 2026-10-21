@@ -54,7 +54,7 @@ class ReleaseQualityGateTests(unittest.TestCase):
         self.report["impact_frame_evidence_sha256"]=file_sha256(self.impact_evidence_path)
         self.report["checks"] = {
             "delivery_spec": {"passed": True, "codec": "h264", "width": 1920, "height": 1080,
-                "pixel_format": "yuv420p", "field_order": "progressive", "container_bitrate_bps": 4000000},
+                "pixel_format": "yuv420p", "field_order": "progressive", "container_bitrate_bps": 4000000, "recommended_sdr_bitrate_bps": 8000000, "below_recommended_bitrate": True},
             "black_frames": {"count": 0, "events": []},
             "freezes": {"count": 0, "events": []},
             "audio_timing": {"verified": True},
@@ -188,6 +188,13 @@ class ReleaseQualityGateTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError,"exact video SHA-256"):
             validate_render_manifest(dict(self.manifest,video_sha256="0"*64),self.video)
 
+
+    def test_low_bitrate_is_advisory_and_does_not_override_visual_qa(self):
+        report = json.loads(json.dumps(self.report))
+        report["checks"]["delivery_spec"]["container_bitrate_bps"] = 250000
+        report["checks"]["delivery_spec"]["recommended_sdr_bitrate_bps"] = 8000000
+        report["checks"]["delivery_spec"]["below_recommended_bitrate"] = True
+        self.assertTrue(validate_qc_report(report, self.video))
 
     def test_missing_visual_audit_blocks_release(self):
         self.visual_path.unlink()
