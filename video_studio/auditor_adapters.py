@@ -312,13 +312,13 @@ def run_optional_detectors(video_path, root_config, technical_coverage=None, dur
         required_disclosures = cfg.get("required_disclosures", [])
         if observations["ocr"] and isinstance(required_disclosures, list):
             normalized_ocr = [
-                (re.sub(r"\\s+", " ", item.get("text", "")).casefold(), item)
+                (re.sub(r"\s+", " ", item.get("text", "")).casefold(), item)
                 for item in observations["ocr"]
             ]
             for disclosure in required_disclosures:
                 if not isinstance(disclosure, str) or not disclosure.strip():
                     continue
-                needle = re.sub(r"\\s+", " ", disclosure).casefold()
+                needle = re.sub(r"\s+", " ", disclosure).casefold()
                 matches = [item for text, item in normalized_ocr if needle in text]
                 if not matches:
                     end_time = float(duration_seconds or (frames[-1]["timestamp"] if frames else 0))
