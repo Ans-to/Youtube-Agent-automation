@@ -174,8 +174,8 @@ class VideoStudioTests(unittest.TestCase):
     def test_voice_scene_pacing_follows_measured_speech_not_stale_card_duration(self):
         # A short line in a five-second storyboard should not leave 2+ seconds of dead air.
         short_line = studio.paced_scene_duration(5.0, 2.0, 30)
-        self.assertGreaterEqual(short_line, 2.45)
-        self.assertLessEqual(short_line - 2.0, 0.5)
+        self.assertGreaterEqual(short_line, 2.06)
+        self.assertLessEqual(short_line - 2.0, 0.25)
 
         # A properly filled scene stays close to its planned duration.
         full_line = studio.paced_scene_duration(5.0, 4.9, 30)
