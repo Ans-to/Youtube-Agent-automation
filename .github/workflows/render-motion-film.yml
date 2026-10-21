@@ -219,6 +219,31 @@ jobs:
           print("All delivery checks passed.")
           PY
 
+      - name: Publish what the run produced
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          out = Path("workspace/generated/motion-film")
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+
+          def notice(title, text):
+              print("::notice title=%s::%s" % (title, str(text).replace("\n", " ")[:900]))
+
+          canvas = summary["canvas"]
+          notice("Film", "%s | %d frames | %dx%d @ %d fps | rendered in %.1fs"
+                 % (summary["title"], summary["frames"]["count"], canvas["width"],
+                    canvas["height"], canvas["fps"], summary["elapsed_seconds"]))
+          for item in summary.get("outputs", []):
+              notice("Output", "%s | %.2f MB | sha256 %s"
+                     % (Path(item["path"]).name, item["bytes"] / 1048576, item["sha256"]))
+          notice("Motion spec", summary["motion_spec"]["statement"])
+          audit = summary.get("audit") or {}
+          notice("Content audit", audit.get("statement") or "audit skipped")
+          PY
+
       - name: Upload the rendered film and its evidence
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
