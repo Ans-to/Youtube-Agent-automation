@@ -26,3 +26,19 @@
 - The bridge does not publish videos, send messages, make payments, delete files, or perform other consequential external actions.
 - Android may stop the client process, and no always-on guarantee is made.
 - Never put passwords, API keys, financial records, or other sensitive personal data in prompts, workspace files, or repository requests.
+
+
+## Maintainer hardening checklist
+
+These controls live in GitHub account/repository settings and cannot be enforced by application code alone.
+
+1. Protect `main`: require pull requests, require the `pipeline` status check from **Project checks**, dismiss stale approvals if reviews are used, require branches to be up to date, block force pushes and branch deletion, and restrict who can push.
+2. In **Settings → Code security and analysis**, enable Dependabot alerts and security updates, secret scanning, and push protection when available for this repository/plan. Review existing alerts rather than assuming a clean dashboard means every secret type is covered.
+3. Keep the Actions token least-privileged. Workflows should declare `permissions` explicitly and grant write permissions only to the individual job that needs them.
+4. Review every pull request that changes workflow files, dependency manifests, publishing code, or credential handling. Pin third-party Actions to full commit SHAs and verify the release SHA before updating it.
+5. If a credential may have been committed, revoke/rotate it immediately; deleting the visible file is not sufficient because Git history can retain it.
+6. Keep OAuth refresh tokens and GitHub tokens outside the repository, restrict local file permissions, and use a dedicated least-privilege token. Do not paste tokens into task prompts or issue comments.
+
+## Dashboard request boundary
+
+The local dashboard accepts state-changing POST requests only when Host and Origin match the dashboard's loopback address and port and the content type is a standard URL-encoded form. Requests without Origin, with a mismatched Host, or with transfer encoding are rejected. This reduces browser-based cross-site request forgery risk; it is not authentication and does not protect against malicious software running on the same device or an attacker controlling the local browser session.
