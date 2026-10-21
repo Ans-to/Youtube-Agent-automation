@@ -8,8 +8,13 @@ class ProductionReadinessTests(unittest.TestCase):
     def package(self):
         scenes = [{
             "narration": "A fully narrated scene with a presenter.",
-            "character": {"enabled": True},
-        } for _ in range(3)]
+            "visual_type": ("hero", "diagram", "timeline")[index],
+            "character": {
+                "enabled": True,
+                "pose": ("explain", "point", "think")[index],
+                "expression": ("curious", "confident", "focused")[index],
+            },
+        } for index in range(3)]
         return (
             {
                 "generated_by": "local_model_multi_pass",
@@ -56,6 +61,30 @@ class ProductionReadinessTests(unittest.TestCase):
         result = evaluate_production_readiness(status, research, storyboard)
         self.assertTrue(result["passed"])
         self.assertEqual(result["blockers"], [])
+
+    def test_reused_frozen_presenter_pose_blocks_readiness(self):
+        status, research, storyboard = self.package()
+        for scene in storyboard["scenes"]:
+            scene["character"]["pose"] = "explain"
+        result = evaluate_production_readiness(status, research, storyboard)
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("pose variation" in item for item in result["blockers"]))
+
+    def test_reused_expression_blocks_readiness(self):
+        status, research, storyboard = self.package()
+        for scene in storyboard["scenes"]:
+            scene["character"]["expression"] = "confident"
+        result = evaluate_production_readiness(status, research, storyboard)
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("expressive variation" in item for item in result["blockers"]))
+
+    def test_single_visual_composition_reuse_blocks_readiness(self):
+        status, research, storyboard = self.package()
+        for scene in storyboard["scenes"]:
+            scene["visual_type"] = "hero"
+        result = evaluate_production_readiness(status, research, storyboard)
+        self.assertFalse(result["passed"])
+        self.assertTrue(any("composition variety" in item for item in result["blockers"]))
 
 
 if __name__ == "__main__":
