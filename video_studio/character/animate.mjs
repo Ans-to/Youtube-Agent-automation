@@ -166,12 +166,19 @@ export function wavePose(t, { at = 0, dur = 1.6, scale = 1 } = {}) {
  */
 export function speechLayer(pose, t, timeline, opts = {}) {
   const viseme = sampleVisemes(timeline, t);
-  const energy = clamp01(viseme.open * 1.4);
+  // The timeline says *which* shape; the envelope says *how much* of it. A
+  // viseme timeline alone keeps the mouth moving through pauses, which reads as
+  // a puppet. Gating it on the measured audio closes the mouth when the voice
+  // stops, and opens it on the syllable that is actually loud.
+  const amp = typeof opts.envelope === 'function' ? clamp01(opts.envelope(t)) : 1;
+  const gate = amp <= 0.12 ? 0 : (amp - 0.12) / 0.88;
+  const shaped = amp >= 0.999 ? viseme : { ...viseme, open: viseme.open * gate };
+  const energy = clamp01(shaped.open * 1.4);
   pose.head = (pose.head || 0) + Math.sin(t * 3.1) * 0.012 + energy * 0.05;
   pose.neck = (pose.neck || 0) + energy * 0.02;
   pose.chest = (pose.chest || 0) + energy * 0.02;
   pose.browRaise = (opts.brow === undefined ? 0.15 : opts.brow) + energy * 0.35;
-  return viseme;
+  return shaped;
 }
 
 /**
@@ -218,7 +225,10 @@ export function characterFrame(t, spec = {}) {
 
   let viseme = VISEMES.REST;
   if (spec.speech && spec.speech.timeline) {
-    viseme = speechLayer(pose, t, spec.speech.timeline, { brow: spec.speech.brow });
+    viseme = speechLayer(pose, t, spec.speech.timeline, {
+      brow: spec.speech.brow,
+      envelope: spec.speech.envelope,
+    });
   }
 
   if (spec.lookAt) {

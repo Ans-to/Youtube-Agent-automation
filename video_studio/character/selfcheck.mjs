@@ -11,6 +11,7 @@
  *   - animation is deterministic: the same t gives the same pose
  *   - a walk cycle keeps both feet on the floor at the contact poses
  *   - visemes and blinks are bounded
+ *   - the audio envelope actually shuts the mouth between words
  */
 import { solve, neutralPose, twoBoneIK, plantFoot, sampleVisemes, blinkAt, BONES } from './rig.mjs';
 import { characterFrame, walkPose, speechTimeline, blinkSchedule, HIP_HEIGHT } from './animate.mjs';
@@ -106,6 +107,33 @@ function check(name, ok, detail) {
     if (b < 0 || b > 1) blinkOk = false;
   }
   check('blink amount stays in [0,1]', blinkOk, 'blink out of range');
+}
+
+// 7. the envelope gates the mouth
+{
+  const tl = speechTimeline(['EVERY', 'FRAME'], { start: 0, end: 1.2 });
+  const scan = (envelope) => {
+    let peak = 0;
+    let total = 0;
+    for (let t = 0; t <= 1.2; t += 0.01) {
+      const open = characterFrame(t, { speech: { timeline: tl, envelope } }).viseme.open;
+      peak = Math.max(peak, open);
+      total += open;
+    }
+    return { peak, mean: total / 121 };
+  };
+  const open = scan(() => 1);
+  const shut = scan(() => 0);
+  const half = scan(() => 0.55);
+  check('full envelope opens the mouth', open.peak > 0.35,
+    `peak openness ${open.peak.toFixed(3)} at envelope 1`);
+  check('silent envelope closes the mouth', shut.peak === 0,
+    `peak openness ${shut.peak.toFixed(3)} at envelope 0`);
+  check('envelope scales openness monotonically', half.peak > 0 && half.peak < open.peak,
+    `half ${half.peak.toFixed(3)} vs open ${open.peak.toFixed(3)}`);
+  check('an unmodulated timeline is unchanged',
+    Math.abs(scan(undefined).peak - open.peak) < 1e-9,
+    'passing no envelope changed the mouth');
 }
 
 const failed = failures.length > 0;

@@ -4,9 +4,12 @@
 The film is a real authored animation script (Canvas drawing code with an
 explicit timeline), not a storyboard template. This driver only wraps it:
 
+0. voice     - optional: narrate the film's script with a local neural voice and
+                hand the picture the measured line timings and mouth envelope;
 1. frames    - run the film script; it rasterises 3840x2160 frames itself
                 and writes ``manifest.json`` / ``film.json`` / ``timeline.txt``;
 2. soundtrack- synthesise the score the film declares in ``film.json``;
+2b. mix      - when there is a voice, duck the score under it and sum the two;
 3. validate  - contiguous numbering, exact dimensions, real image headers;
 4. encode    - H.264 + AAC 4K master and a delivery copy with FFmpeg;
 5. motion    - measure real frame-to-frame change on the encoded delivery copy
@@ -55,7 +58,8 @@ def log(message: str) -> None:
 
 
 def step_frames(
-    script: Path, frames_dir: Path, width: int, height: int, fps: int, quality: int
+    script: Path, frames_dir: Path, width: int, height: int, fps: int, quality: int,
+    voice_lines: Path | None = None,
 ) -> dict:
     command = [
         base.resolve_node(),
@@ -71,6 +75,8 @@ def step_frames(
         "--quality",
         str(quality),
     ]
+    if voice_lines is not None:
+        command += ["--voice-lines", str(voice_lines)]
     result = base.run(command, timeout=7200)
     if result.returncode != 0:
         tail = (result.stderr or result.stdout or "")[-2000:]
@@ -94,6 +100,25 @@ def step_soundtrack(film_json: Path, output: Path) -> dict:
     )
     info["path"] = str(output)
     return info
+
+
+def step_voice(script: Path, out_dir: Path, *, voice: str, allow_download: bool,
+               backend: str, fps: int) -> dict:
+    """Narrate the script locally; writes voiceover.wav, lines.json, envelope.json."""
+    import voiceover
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return voiceover.build(
+        script, out_dir, voice=voice, allow_download=allow_download,
+        backend=backend, fps=fps,
+    )
+
+
+def step_mix(score: Path, voice_path: Path, output: Path, depth_db: float) -> dict:
+    """Duck the score under the voice and print the exact gain it applied."""
+    import voice_mix
+
+    return voice_mix.mix(score, voice_path, output, depth_db=depth_db)
 
 
 def step_validate(frames_dir: Path) -> dict:
@@ -174,6 +199,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--skip-4k", action="store_true")
     parser.add_argument("--frames", default=None,
                         help="reuse an existing frame directory (skips rendering)")
+    parser.add_argument("--voice-script", default=None,
+                        help="JSON narration script; synthesise a voiceover and mix it in")
+    parser.add_argument("--voice-dir", default=None,
+                        help="where the voiceover lives (default: <out>/voice)")
+    parser.add_argument("--voice", default="en_US-lessac-medium", help="Piper voice name")
+    parser.add_argument("--voice-backend", default="auto", choices=["auto", "piper", "espeak"])
+    parser.add_argument("--voice-offline", action="store_true",
+                        help="never download voice weights (fail instead)")
+    parser.add_argument("--duck-db", type=float, default=8.5,
+                        help="how far the score drops under speech")
     parser.add_argument("--json", action="store_true", help="print the summary as JSON")
     args = parser.parse_args(argv)
 
@@ -195,32 +230,76 @@ def main(argv: list[str] | None = None) -> int:
         print("the canvas module is not installed (cd video_studio && npm ci)", file=sys.stderr)
         return 3
 
+    voice_dir = Path(args.voice_dir).resolve() if args.voice_dir else out_dir / "voice"
+    step_count = 8 if (args.voice_script or (voice_dir / "voiceover.wav").is_file()) else 6
+    step_no = 0
+
+    def step(label: str) -> str:
+        nonlocal step_no
+        step_no += 1
+        return "== %d/%d %s" % (step_no, step_count, label)
+
     try:
+        voice_info = None
+        mixed = None
+        voice_wav = voice_dir / "voiceover.wav"
+        voice_lines = voice_dir / "lines.json"
+        if args.voice_script:
+            log(step("voice"))
+            voice_info = step_voice(
+                (ROOT / args.voice_script).resolve(), voice_dir, voice=args.voice,
+                allow_download=not args.voice_offline, backend=args.voice_backend,
+                fps=args.fps,
+            )
+            log("   %s, %.2fs, %d lines" % (voice_info["backend"], voice_info["duration_seconds"],
+                                            voice_info["line_count"]))
+        elif voice_wav.is_file():
+            log("   voice present: %s" % voice_wav)
+            voice_info = {"path": str(voice_wav), "reused": True}
+        if voice_info is not None and not voice_lines.is_file():
+            raise RuntimeError("a voice track exists without lines.json; the picture cannot sync to it")
+
         if args.frames:
             frames_dir = Path(args.frames).resolve()
             manifest = json.loads((frames_dir / "manifest.json").read_text(encoding="utf-8"))
-            log("== 1/6 reuse %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"]))
+            log(step("reuse %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"])))
         else:
-            log("== 1/6 render frames")
-            manifest = step_frames(script, frames_dir, args.width, args.height, args.fps, args.quality)
+            log(step("render frames"))
+            manifest = step_frames(script, frames_dir, args.width, args.height, args.fps, args.quality,
+                                   voice_lines if voice_info else None)
             log("   %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"]))
 
-        log("== 2/6 soundtrack")
+        log(step("soundtrack"))
         soundtrack = out_dir / "soundtrack.wav"
         audio_info = step_soundtrack(frames_dir / "film.json", soundtrack)
         log("   %d sfx cues, %.1fs" % (audio_info.get("sfx_cue_count", 0), audio_info["duration_seconds"]))
 
-        log("== 3/6 validate frames")
+        audio_track = soundtrack
+        mix_info = None
+        if voice_info is not None:
+            log(step("mix voice over score"))
+            mixed = out_dir / "mix.wav"
+            mix_info = step_mix(soundtrack, voice_wav, mixed, args.duck_db)
+            audio_track = mixed
+            log("   duck %.1f dB, voice %.1f dB above the bed, peak %.2f"
+                % (mix_info["duck_depth_db"], mix_info["voice_to_bed_db"], mix_info["peak"]))
+            if voice_info.get("path") and Path(voice_info["path"]).is_file():
+                # keep a copy next to the film so the mix is auditable after the fact
+                target = out_dir / "voiceover.wav"
+                if Path(voice_info["path"]).resolve() != target.resolve():
+                    target.write_bytes(Path(voice_info["path"]).read_bytes())
+
+        log(step("validate frames"))
         validation = step_validate(frames_dir)
 
-        log("== 4/6 encode")
+        log(step("encode"))
         outputs = []
         if not args.skip_4k:
             master = out_dir / ("film-%dx%d.mp4" % (args.width, args.height))
             outputs.append(
                 # 4K x264 at default thread counts needs more memory than a
                 # small CI box or laptop has; these settings keep it near 1 GB.
-                base.encode(frames_dir, soundtrack, master, ffmpeg, fps=args.fps, crf=20,
+                base.encode(frames_dir, audio_track, master, ffmpeg, fps=args.fps, crf=20,
                             preset="veryfast", audio_bitrate="192k",
                             extra=["-threads", "1",
                                    "-x264-params", "rc-lookahead=8:ref=1:bframes=2"])
@@ -228,19 +307,19 @@ def main(argv: list[str] | None = None) -> int:
             log("   4K master %s (%.1f MB)" % (master.name, master.stat().st_size / 1048576))
         delivery = out_dir / ("film-%dp.mp4" % args.delivery_height)
         outputs.append(
-            base.encode(frames_dir, soundtrack, delivery, ffmpeg, fps=args.fps, crf=21,
+            base.encode(frames_dir, audio_track, delivery, ffmpeg, fps=args.fps, crf=21,
                         preset="medium", audio_bitrate="160k",
                         scale="scale=-2:%d:flags=lanczos" % args.delivery_height)
         )
         log("   delivery %s (%.1f MB)" % (delivery.name, delivery.stat().st_size / 1048576))
 
-        log("== 5/6 measure motion")
+        log(step("measure motion"))
         film_meta = json.loads((frames_dir / "film.json").read_text(encoding="utf-8"))
         gate = film_meta.get("motion_gate") or DEFAULT_GATE
         motion = measure_motion(delivery, ffmpeg, out_dir / "build", gate)
         log("   " + motion["statement"])
 
-        log("== 6/6 content audit")
+        log(step("content audit"))
         audit = base.step_audit(delivery, out_dir / "audit", ffmpeg)
         log("   " + audit["statement"])
 
@@ -262,6 +341,9 @@ def main(argv: list[str] | None = None) -> int:
             "motion_spec": motion,
             "audit": {key: audit[key] for key in ("status", "statement", "summary") if key in audit},
             "soundtrack": {key: audio_info[key] for key in ("duration_seconds", "sfx_cue_count", "sample_rate") if key in audio_info},
+            "voice": ({key: voice_info[key] for key in ("backend", "voice", "duration_seconds", "line_count", "path", "reused") if key in voice_info}
+                      if voice_info else None),
+            "mix": mix_info,
             "validation": validation,
             "outputs": [
                 {

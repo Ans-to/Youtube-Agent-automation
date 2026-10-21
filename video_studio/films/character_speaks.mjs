@@ -26,13 +26,14 @@ const STUDIO = path.resolve(HERE, '..');
 
 const DESIGN_W = 3840;
 const DESIGN_H = 2160;
-const DURATION = 12;
+const DURATION_SECONDS = 12;   // only used when no voice track is supplied
 
 // ------------------------------------------------------------------ options
 function parseArgs(argv) {
   const opts = {
     out: 'frames', width: DESIGN_W, height: null, fps: 30, quality: 92,
     from: 0, to: null, still: null, quiet: false,
+    voiceLines: null, voiceEnvelope: null,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -46,6 +47,8 @@ function parseArgs(argv) {
     else if (flag === '--to') opts.to = Number(value());
     else if (flag === '--still') opts.still = value().split(',').map(Number);
     else if (flag === '--quiet') opts.quiet = true;
+    else if (flag === '--voice-lines') opts.voiceLines = value();
+    else if (flag === '--voice-envelope') opts.voiceEnvelope = value();
     else throw new Error(`Unknown option: ${flag}`);
   }
   opts.height = opts.height || Math.round((opts.width * DESIGN_H) / DESIGN_W / 2) * 2;
@@ -55,7 +58,6 @@ function parseArgs(argv) {
 const OPTS = parseArgs(process.argv.slice(2));
 const SCALE = OPTS.width / DESIGN_W;
 const FPS = OPTS.fps;
-const TOTAL_FRAMES = Math.round(DURATION * FPS);
 const W = DESIGN_W;
 const H = DESIGN_H;
 
@@ -89,14 +91,76 @@ const ease = {
 };
 
 // 0-3 walk in | 3-8 speak with gestures | 8-12 react, wave, walk out
-const LINES = [
+const AUTHORED_LINES = [
   { text: 'EVERY FRAME', start: 2.9, end: 4.5 },
   { text: 'IS DRAWN TWICE', start: 4.9, end: 6.6 },
   { text: 'ONCE IN BONES', start: 7.0, end: 8.4 },
   { text: 'ONCE IN CODE', start: 8.7, end: 10.2 },
 ];
+
+/**
+ * Read the voice track's own timings. When a real voiceover exists the picture
+ * follows the audio: every cut, caption and gesture is placed on the syllable it
+ * belongs to, instead of on numbers typed in by hand.
+ */
+function loadVoice(linesPath, envelopePath) {
+  if (!linesPath) return null;
+  const source = path.resolve(linesPath);
+  const data = JSON.parse(fs.readFileSync(source, 'utf8'));
+  const raw = Array.isArray(data) ? data : data.lines;
+  if (!Array.isArray(raw) || raw.length !== AUTHORED_LINES.length) {
+    throw new Error(`--voice-lines needs ${AUTHORED_LINES.length} lines to match the captions, got ${raw && raw.length}`);
+  }
+  const lines = raw.map((line, index) => {
+    const start = Number(line.start);
+    const end = Number(line.end);
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+      throw new Error(`voice line ${index + 1} has an unusable time range`);
+    }
+    return { id: line.id || `L${index + 1}`, start, end, spoken: line.spoken || line.text || '' };
+  });
+
+  const envSource = envelopePath
+    ? path.resolve(envelopePath)
+    : path.join(path.dirname(source), 'envelope.json');
+  let envelope = null;
+  if (fs.existsSync(envSource)) {
+    const env = JSON.parse(fs.readFileSync(envSource, 'utf8'));
+    const frames = new Map();
+    for (const item of env.lines || []) {
+      frames.set(item.id, { fps: Number(item.fps) || FPS, openness: item.openness || [] });
+    }
+    envelope = { fps: Number(env.fps) || FPS, frames };
+  }
+  return { lines, envelope, path: source };
+}
+
+const VOICE = loadVoice(OPTS.voiceLines, OPTS.voiceEnvelope);
+const LINES = AUTHORED_LINES.map((line, index) => (
+  VOICE ? { ...line, start: VOICE.lines[index].start, end: VOICE.lines[index].end } : line
+));
+
+/** Mouth amplitude from the rendered audio: 0 shut, 1 on the loudest syllable. */
+function envelopeAt(seconds) {
+  if (!VOICE || !VOICE.envelope) return 1;
+  const index = LINES.findIndex((line) => seconds >= line.start - 0.18 && seconds <= line.end + 0.12);
+  if (index < 0) return 0;
+  const entry = VOICE.envelope.frames.get(VOICE.lines[index].id);
+  if (!entry || !entry.openness.length) return 1;
+  const local = Math.floor((seconds - LINES[index].start) * entry.fps);
+  if (local < 0) return 0;
+  return entry.openness[Math.min(local, entry.openness.length - 1)] || 0;
+}
+
 const SPEECH = LINES.flatMap((line) =>
   speechTimeline(line.text.split(' '), { start: line.start, end: line.end, seed: line.start }));
+
+const LAST_END = LINES[LINES.length - 1].end;
+// A voice-driven cut ends when the voice does, plus room for the wave and exit.
+const DURATION = VOICE
+  ? Math.ceil((LAST_END + 1.75) * FPS) / FPS
+  : DURATION_SECONDS;
+const TOTAL_FRAMES = Math.round(DURATION * FPS);
 const BLINKS = blinkSchedule(DURATION, 7);
 
 const GROUND_Y = 2010;
@@ -107,11 +171,15 @@ const FIG_SCALE = 0.95;
  * talk, close for the line that matters, wide again to leave. `zoom` multiplies
  * the figure's scale, `anchor` is where the figure sits across the frame.
  */
+const WALK_IN_END = Math.max(0.9, LINES[0].start - 0.35);
+const WALK_OUT_START = Math.min(LAST_END + 0.30, DURATION - 0.9);
+const WAVE_AT = Math.min(LINES[LINES.length - 1].start + 0.45, DURATION - 1.75);
+
 const COVERAGE = [
-  { id: 'W', start: 0.0, end: 3.6, zoom: 1.00, anchor: 0.40, note: 'wide, walk-in' },
-  { id: 'M', start: 3.6, end: 6.4, zoom: 1.45, anchor: 0.40, note: 'medium, first two lines' },
-  { id: 'C', start: 6.4, end: 8.9, zoom: 1.80, anchor: 0.40, note: 'close, the turn' },
-  { id: 'W2', start: 8.9, end: 12.0, zoom: 1.10, anchor: 0.45, note: 'wide, wave and exit' },
+  { id: 'W', start: 0.0, end: LINES[0].start + 0.55, zoom: 1.00, anchor: 0.40, note: 'wide, walk-in' },
+  { id: 'M', start: LINES[0].start + 0.55, end: (LINES[1].end + LINES[2].start) / 2, zoom: 1.45, anchor: 0.40, note: 'medium, first two lines' },
+  { id: 'C', start: (LINES[1].end + LINES[2].start) / 2, end: LINES[2].end + 0.5, zoom: 1.80, anchor: 0.40, note: 'close, the turn' },
+  { id: 'W2', start: LINES[2].end + 0.5, end: DURATION, zoom: 1.10, anchor: 0.45, note: 'wide, wave and exit' },
 ];
 
 function coverageAt(seconds) {
@@ -121,10 +189,10 @@ function coverageAt(seconds) {
 
 /** Where the character stands/walks, in design pixels. */
 function figureAt(t) {
-  const walkIn = ease.inOutCubic(span(t, 0.0, 2.4));
-  const walkOut = ease.inOutCubic(span(t, 10.4, 12.0));
+  const walkIn = ease.inOutCubic(span(t, 0.0, WALK_IN_END));
+  const walkOut = ease.inOutCubic(span(t, WALK_OUT_START, DURATION));
   const x = lerp(300, 1240, walkIn) + walkOut * 1300;
-  const walking = (t < 2.4 && t > 0.05) || t > 10.4;
+  const walking = (t < WALK_IN_END && t > 0.05) || t > WALK_OUT_START;
   return { x, walking };
 }
 
@@ -326,9 +394,11 @@ function render(t) {
     groundY: GROUND_Y,
     hipX: x,
     stride: 1.05,
-    speech: t > 2.8 && t < 10.4 ? { timeline: SPEECH } : null,
+    speech: t > LINES[0].start - 0.12 && t < LAST_END + 0.25
+      ? { timeline: SPEECH, envelope: envelopeAt }
+      : null,
     blinks: BLINKS,
-    wave: t > 9.2 && t < 10.9 ? { at: 9.2, dur: 1.7 } : null,
+    wave: t > WAVE_AT - 0.05 && t < WAVE_AT + 1.75 ? { at: WAVE_AT, dur: 1.7 } : null,
     gesture,
   });
 
@@ -456,13 +526,13 @@ function main() {
 
   const film = {
     title: 'Every Frame Is Code (character cut)',
-    duration_seconds: DURATION,
+    duration_seconds: Math.round(DURATION * 1000) / 1000,
     fps: FPS,
     canvas: { width: W, height: H },
     shots: [
-      { id: 'A', label: 'walk-in', start: 0, end: 3, layers: ['background', 'grid', 'floor', 'character', 'hud'] },
-      { id: 'B', label: 'speech', start: 3, end: 8.5, layers: ['background', 'grid', 'floor', 'character', 'captions', 'hud'] },
-      { id: 'C', label: 'wave-out', start: 8.5, end: 12, layers: ['background', 'grid', 'floor', 'character', 'captions', 'hud', 'vignette'] },
+      { id: 'A', label: 'walk-in', start: 0, end: WALK_IN_END, layers: ['background', 'grid', 'floor', 'character', 'hud'] },
+      { id: 'B', label: 'speech', start: WALK_IN_END, end: WALK_OUT_START, layers: ['background', 'grid', 'floor', 'character', 'captions', 'hud'] },
+      { id: 'C', label: 'wave-out', start: WALK_OUT_START, end: DURATION, layers: ['background', 'grid', 'floor', 'character', 'captions', 'hud', 'vignette'] },
     ],
     motion: {
       rig: 'two-bone IK, spring settle, viseme timeline',
@@ -474,11 +544,17 @@ function main() {
     score: [
       { kind: 'swell', at: 0.05, length: 1.6, gain: 0.16 },
       { kind: 'click', at: 0.35, length: 0.05, gain: 0.14 },
-      { kind: 'whoosh', at: 10.2, length: 0.7, gain: 0.2 },
-      { kind: 'impact', at: 11.85, length: 0.4, gain: 0.26 },
+      ...(VOICE ? [{ kind: 'swell', at: COVERAGE[2].start, length: 1.2, gain: 0.05 }] : []),
+      { kind: 'whoosh', at: Math.max(0.1, WALK_OUT_START - 0.15), length: 0.7, gain: 0.2 },
+      { kind: 'impact', at: Math.max(0.1, DURATION - 0.18), length: 0.4, gain: 0.26 },
     ],
     speech: LINES,
-    lip_sync: { events: SPEECH.length, source: 'viseme timeline' },
+    lip_sync: VOICE
+      ? { events: SPEECH.length, source: 'audio envelope x viseme timeline', envelope: true }
+      : { events: SPEECH.length, source: 'viseme timeline' },
+    voice: VOICE
+      ? { timing_source: path.basename(VOICE.path), duration_seconds: Math.round(LAST_END * 100) / 100, lip_sync: 'measured', envelope: !!VOICE.envelope }
+      : null,
     // A dialogue scene moves less than a kinetic type piece: the figure holds
     // frame while the mouth and the camera work. The gate is declared here so it
     // is visible in the artifact, not quietly relaxed inside the driver.

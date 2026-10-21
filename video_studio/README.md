@@ -30,6 +30,28 @@ Puppeteer downloads a compatible Chromium build during npm install. If your netw
 
 The default production profile is ur-en: conversational Pakistani Urdu in Urdu/Arabic script, retaining familiar English technical terms such as API names, product names, and code identifiers. Use --language en only when English narration is explicitly requested (the CI smoke-test fixture does this). The language profile is stored in the storyboard and package status, and subtitle validation checks that the track contains Urdu-script text rather than merely labelling English as Urdu.
 
+### Narrated films (`voiceover.py` + `voice_mix.py`)
+
+Authored films can carry a natural voice as well as a score. `video_studio/voiceover.py`
+speaks a small JSON script with a local Piper voice, applies a voice chain
+(high-pass, de-ess, presence lift, gentle compression, loudness normalisation)
+and writes the two things the picture needs: `lines.json` (when each spoken line
+actually starts and ends) and `envelope.json` (measured mouth openness per video
+frame). `video_studio/voice_mix.py` then ducks the score under the voice with a
+fast-attack / slow-release follower and sums the two without clipping.
+
+Voices are never committed. `ensure_piper_voices()` fetches the public weights
+once, verifies a pinned size and MD5, and falls back to a checksum-verified git
+mirror when the model host is unreachable. Rendering itself is offline:
+
+    python tools/render_authored_film.py --script video_studio/films/character_speaks.mjs \
+        --voice-script video_studio/films/character_speaks.voice.json \
+        --voice en_US-amy-medium --out workspace/generated/character-film
+
+The film is retimed to the synthesised audio rather than the other way round: the
+cut ends when the voice does, and the mouth is gated by the measured envelope, so
+it closes in every pause.
+
 English voice setup:
 
 1. Install Piper in the selected Python environment: python -m pip install piper-tts.

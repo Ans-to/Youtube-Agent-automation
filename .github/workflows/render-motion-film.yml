@@ -283,13 +283,15 @@ jobs:
       contains(github.event.head_commit.message, '[render-character]')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
+    permissions:
+      contents: write
     env:
       CHAR_OUT: workspace/generated/character-film
     steps:
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          persist-credentials: false
+          persist-credentials: true
 
       - name: Set up Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
@@ -315,11 +317,65 @@ jobs:
       - name: Check the character rig
         run: node video_studio/character/selfcheck.mjs
 
+      # A neural voice on the CPU. Piper is free and runs offline once the weights
+      # are here; nothing leaves the runner and there is no account or key. The
+      # helper tries the public model host first, then a checksum-pinned git
+      # mirror, so a network that blocks one route still renders.
+      - name: Install the local voice
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "piper-tts==1.8.0" numpy
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "video_studio")
+          from voiceover import ensure_piper_voices
+          model = ensure_piper_voices("en_US-amy-medium", allow_download=True)
+          print("::notice title=Voice::%s | %.1f MB | checksum verified"
+                % (model.name, model.stat().st_size / 1048576))
+          PY
+
       - name: Render the character cut
         run: |
           set -euo pipefail
           mkdir -p "$CHAR_OUT"
-          python tools/render_authored_film.py             --script video_studio/films/character_speaks.mjs             --out "$CHAR_OUT"             --width 1920 --height 1080 --fps 30 --delivery-height 1080             --json | tee "$CHAR_OUT/render.log"
+          python tools/render_authored_film.py \
+            --script video_studio/films/character_speaks.mjs \
+            --voice-script video_studio/films/character_speaks.voice.json \
+            --voice en_US-amy-medium --voice-dir "$CHAR_OUT/voice" --voice-offline \
+            --out "$CHAR_OUT" \
+            --width 1920 --height 1080 --fps 30 --delivery-height 1080 \
+            --json | tee "$CHAR_OUT/render.log"
+
+      # Picture and sound are checked, not assumed: the voice must exist, the film
+      # must actually contain it, and the score must be measurably ducked.
+      - name: Prove the voice made it into the film
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+
+          out = Path("workspace/generated/character-film")
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+          voice = summary.get("voice")
+          mix = summary.get("mix")
+          assert voice and voice.get("line_count") == 4, voice
+          assert mix and mix["voice_to_bed_db"] >= 4.0, mix
+          lines = json.loads((out / "voice" / "lines.json").read_text(encoding="utf-8"))["lines"]
+          spans = [(round(l["start"], 2), round(l["end"], 2)) for l in lines]
+          print("::notice title=Voice lines::" + ", ".join("%.2f-%.2f" % s for s in spans))
+          print("::notice title=Ducking::score %.1f dB down under speech, voice %.1f dB above the bed, peak %.2f"
+                % (mix["duck_depth_db"], mix["voice_to_bed_db"], mix["peak"]))
+          film = next(out.glob("film-1080p.mp4"))
+          probe = subprocess.run(
+              ["ffmpeg", "-hide_banner", "-nostats", "-i", str(film), "-af", "volumedetect",
+               "-f", "null", "-"], capture_output=True, text=True, check=False)
+          mean = [l for l in probe.stderr.splitlines() if "mean_volume" in l]
+          print("::notice title=Film audio::" + (mean[0].split("] ")[-1] if mean else "unmeasured"))
+          if mean and float(mean[0].split("mean_volume:")[-1].split("dB")[0]) < -50:
+              raise SystemExit("the delivered film's audio track is silent")
+          PY
 
       - name: Publish what the run produced
         run: |
@@ -335,6 +391,34 @@ jobs:
           print("::notice title=Motion::" + summary["motion_spec"]["statement"])
           print("::notice title=Audit::" + (summary.get("audit", {}).get("statement") or "skipped"))
           PY
+
+      # The artifact is the deliverable, but it is also useful to have the cut in
+      # the tree: the branch carries the film the reviewer actually watches.
+      - name: Commit the cut back to the branch
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          git config user.name "agent-render"
+          git config user.email "agent-render@users.noreply.github.com"
+          # workspace/ is ignored in .gitignore (it holds local render output), but
+          # in CI this directory *is* the deliverable: force it in so the branch
+          # carries the exact file the workflow produced. Frame JPEGs are excluded
+          # on purpose; they live in the artifact, not in history.
+          git add -f \
+            workspace/generated/character-film/*.mp4 \
+            workspace/generated/character-film/*.wav \
+            workspace/generated/character-film/*.json \
+            workspace/generated/character-film/*.md \
+            workspace/generated/character-film/*.jpg \
+            workspace/generated/character-film/*.txt \
+            workspace/generated/character-film/voice
+          if git diff --cached --quiet; then
+            echo "nothing changed"
+            exit 0
+          fi
+          git commit -m "chore(character): rendered cut with voiceover [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
 
       - name: Upload the character cut
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

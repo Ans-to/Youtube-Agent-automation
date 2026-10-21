@@ -28,15 +28,31 @@ node films/character_speaks.mjs --out /tmp/frames --width 1920
   line and clamps when the target is out of reach instead of teleporting the foot.
 - **Deterministic.** The same `t` always yields the same pose, so frames can be
   rendered out of order, retried, or split across CI jobs.
-- **Lip-sync is a timeline.** `sampleVisemes()` eases between named mouth shapes
-  and closes consonants; it is not a random mouth flap.
+- **Lip-sync is a timeline, gated by audio.** `sampleVisemes()` eases between
+  named mouth shapes and closes consonants; `speechLayer()` then multiplies that
+  openness by the measured envelope of the real voice track, so the mouth shuts in
+  every pause instead of puppeting through it.
+
+## Voice
+
+The dialogue cut is narrated locally by Piper (`video_studio/voiceover.py`) and
+mixed with `video_studio/voice_mix.py`. The film reads the voice's own timings:
+
+```
+node films/character_speaks.mjs --out /tmp/frames --width 1920 \
+  --voice-lines /tmp/voice/lines.json        # retimes cuts, captions, exits
+```
+
+Four audio lines are required, one per caption, so picture and voice cannot drift
+apart silently — the film refuses a mismatched track instead of guessing.
 
 ## What this is not yet
 
 - No deformation mesh or skinning: limbs are rigid capsules, so elbows and knees
   read as joints rather than flesh.
 - No head turn beyond a few degrees; the face is front-on by construction.
-- Visemes are timed from text, not from actual audio. Wiring a local phoneme
-  aligner would make the mouth follow a real voice track.
+- Mouth *shapes* still come from a text-derived viseme timeline; only the
+  *amplitude* is measured from the audio. A phoneme aligner would make each shape
+  follow the actual phone, not just the energy.
 - One character. Two characters interacting needs a second rig instance and
   occlusion handling.

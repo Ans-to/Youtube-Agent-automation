@@ -1,0 +1,40 @@
+{
+  "title": "Every Frame Is Code — narration",
+  "voice": "en_US-amy-medium",
+  "notes": [
+    "Four captions, four spoken phrases: the first two are one sentence split",
+    "across two cards, so line 1 ends on a comma and keeps rising into line 2.",
+    "Rate is nudged per line: 'bones' lands slower than 'code'.",
+    "Timings here are only intent — the film is retimed to the synthesised audio."
+  ],
+  "lines": [
+    {
+      "id": "L1",
+      "text": "Every frame,",
+      "gap_before": 2.8,
+      "pause_after": 0.16,
+      "rate": 1.02
+    },
+    {
+      "id": "L2",
+      "text": "is drawn twice.",
+      "gap_before": 0.0,
+      "pause_after": 0.62,
+      "rate": 0.99
+    },
+    {
+      "id": "L3",
+      "text": "Once in bones.",
+      "gap_before": 0.0,
+      "pause_after": 0.58,
+      "rate": 0.94
+    },
+    {
+      "id": "L4",
+      "text": "Once in code.",
+      "gap_before": 0.0,
+      "pause_after": 0.3,
+      "rate": 0.97
+    }
+  ]
+}
