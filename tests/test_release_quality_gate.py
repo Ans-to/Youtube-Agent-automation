@@ -76,11 +76,16 @@ class ReleaseQualityGateTests(unittest.TestCase):
                 "status": "PASS", "observations": "Sampled frame has adequate layout and readable visible elements.",
             })
         from video_studio.visual_audit import REQUIRED_CHECKS as REQUIRED_VISUAL_CHECKS
+        contact_path = frame_dir / "contact-sheet.jpg"
+        contact_path.write_bytes(fixture_jpeg)
         self.visual_path = self.root / "visual-audit.json"
         visual_report = {
             "schema_version": 1, "status": "PASS", "overall_score": 9.0, "model_id": "unit-test-vision",
             "video_sha256": file_sha256(self.video), "reviewed_at": datetime.now(timezone.utc).isoformat(),
             "duration_seconds": 12.5, "sample_count": 6,
+            "contact_sheet": {"file": str(contact_path.relative_to(self.root)).replace("\\", "/"),
+                "sha256": file_sha256(contact_path), "size_bytes": contact_path.stat().st_size,
+                "tile_columns": 5, "tile_rows": 2, "sample_count": 6},
             "checks": [{"id": name, "status": "PASS", "evidence": "Specific unit-test evidence for this visual rubric check."}
                        for name in REQUIRED_VISUAL_CHECKS],
             "frames": frame_records, "issues": [], "summary": "All fixture frame checks passed.",
