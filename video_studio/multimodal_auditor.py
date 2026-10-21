@@ -28,6 +28,8 @@ RULES = {
     "child_safety_privacy": ("Legal", "Children's Privacy & Suitability"),
     "dead_air": ("Technical QA", "Dead Air"),
     "black_screen": ("Technical QA", "Black Screen / Dropped Signal"),
+    "frozen_frame": ("Technical QA", "Frozen Frame / Dropped Signal"),
+    "audio_levels": ("Technical QA", "Audio Level / Clipping"),
     "photosensitivity": ("Technical QA", "Rapid Flashing / Photosensitivity"),
     "av_sync": ("Technical QA", "Audio-Video / Lip Sync"),
     "ocr_text": ("Content Safety", "Unsafe On-Screen Text"),
@@ -95,6 +97,72 @@ def normalize_finding(item, duration):
     }
 
 
+def technical_findings(qc_report):
+    """Convert the existing FFmpeg QC checks into timestamped audit findings."""
+    findings = []
+    duration = float(qc_report.get("duration_seconds", 0) or 0)
+    checks = qc_report.get("checks", {})
+
+    for event in checks.get("black_frames", {}).get("events", []):
+        if float(event.get("duration", 0)) >= float(checks.get("black_frames", {}).get("threshold_seconds", 0.2)):
+            findings.append({
+                "start_seconds": event["start"], "end_seconds": event["end"],
+                "rule": "black_screen",
+                "description": f"Black frame interval lasts {float(event['duration']):.2f} seconds.",
+                "confidence": 0.99, "source": "ffmpeg-blackdetect",
+            })
+
+    for event in checks.get("freezes", {}).get("events", []):
+        findings.append({
+            "start_seconds": event.get("start", 0), "end_seconds": event.get("end", event.get("start", 0)),
+            "rule": "frozen_frame",
+            "description": f"Frame content remained static for {float(event.get('duration', 0)):.2f} seconds; confirm whether intentional.",
+            "confidence": 0.80, "source": "ffmpeg-freezedetect",
+        })
+
+    silence = checks.get("audio_silence", {})
+    threshold = float(silence.get("threshold_seconds", 1.5))
+    for event in silence.get("events", []):
+        if float(event.get("duration", 0)) >= threshold:
+            findings.append({
+                "start_seconds": event["start"], "end_seconds": event["end"],
+                "rule": "dead_air",
+                "description": f"Audio silence lasts {float(event['duration']):.2f} seconds; verify whether this pause is intentional.",
+                "confidence": 0.98, "source": "ffmpeg-silencedetect",
+            })
+
+    if int(qc_report.get("audio_stream_count", 0) or 0) < 1 and duration > 0:
+        findings.append({
+            "start_seconds": 0, "end_seconds": duration, "rule": "dead_air",
+            "description": "The video contains no audio stream.",
+            "confidence": 1.0, "source": "ffprobe",
+        })
+
+    timing = checks.get("audio_timing", {})
+    if timing and timing.get("verified") is False:
+        findings.append({
+            "start_seconds": 0, "end_seconds": duration, "rule": "av_sync",
+            "description": "Audio/video stream durations exceed the configured parity tolerance; this is not phoneme-level lip-sync verification.",
+            "confidence": 0.99, "source": "ffprobe-duration-parity",
+        })
+
+    loudness = checks.get("audio_loudness", {})
+    if loudness.get("available"):
+        if float(loudness.get("integrated_lufs", 0)) < float(loudness.get("min_loudness_lufs", -24)):
+            findings.append({
+                "start_seconds": 0, "end_seconds": duration, "rule": "audio_levels",
+                "description": f"Integrated loudness {loudness['integrated_lufs']} LUFS is below the configured minimum.",
+                "confidence": 0.98, "source": "ffmpeg-ebur128",
+            })
+        if float(loudness.get("true_peak_dbfs", 0)) > float(loudness.get("max_true_peak_dbfs", -1)):
+            findings.append({
+                "start_seconds": 0, "end_seconds": duration, "rule": "audio_levels",
+                "description": f"True peak {loudness['true_peak_dbfs']} dBFS exceeds the configured ceiling.",
+                "confidence": 0.98, "source": "ffmpeg-ebur128",
+            })
+    return findings
+
+
 def build_report(evidence):
     if not isinstance(evidence, dict):
         raise ValueError("evidence root must be a JSON object")
@@ -158,11 +226,24 @@ def build_report(evidence):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--evidence", required=True, help="JSON evidence bundle emitted by configured detector adapters")
+    parser.add_argument("--evidence", help="JSON evidence bundle emitted by configured detector adapters")
+    parser.add_argument("--video", help="Optional MP4 path; runs the existing FFmpeg/ffprobe technical checks")
     parser.add_argument("--output", help="Optional JSON report path")
     args = parser.parse_args()
     try:
-        evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+        if not args.evidence and not args.video:
+            parser.error("provide --evidence and/or --video")
+        evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8")) if args.evidence else {}
+        if args.video:
+            try:
+                from .quality_audit import audit as run_technical_audit
+            except ImportError:
+                from quality_audit import audit as run_technical_audit
+            qc = run_technical_audit(Path(args.video), strict=False)
+            evidence["video"] = str(Path(args.video))
+            evidence["duration_seconds"] = qc["duration_seconds"]
+            evidence.setdefault("coverage", {})["dead_air_black_screen"] = "complete"
+            evidence.setdefault("findings", []).extend(technical_findings(qc))
         report = build_report(evidence)
         rendered = json.dumps(report, ensure_ascii=False, indent=2)
         print(rendered)
