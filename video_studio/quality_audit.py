@@ -5,6 +5,7 @@ This catches technical defects, not artistic quality, speech correctness, or tru
 Use --strict for release candidates; tune thresholds for intentionally static/cinematic content.
 """
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import json
 import re
@@ -12,6 +13,11 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+try:
+    from .release_evidence import validate_render_manifest, validate_impact_frame_evidence
+except ImportError:
+    from release_evidence import validate_render_manifest, validate_impact_frame_evidence
 
 
 def file_sha256(path):
@@ -58,7 +64,7 @@ def parse_silence_events(stderr, duration):
 
 
 def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
-          max_silence_seconds=1.5):
+          max_silence_seconds=1.5, min_loudness_lufs=-24.0, max_true_peak_dbfs=-1.0):
     path = Path(path)
     if not path.is_file() or path.stat().st_size < 1024:
         raise ValueError("Video file missing or too small.")
@@ -67,7 +73,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         raise ValueError("Both ffmpeg and ffprobe must be installed.")
     probe = subprocess.run(
         [ffprobe, "-v", "error", "-show_entries",
-         "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate",
+         "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,duration,sample_rate,channels,start_time",
          "-of", "json", str(path)], capture_output=True, text=True, check=True, timeout=60)
     data = json.loads(probe.stdout)
     streams = data.get("streams", [])
@@ -81,7 +87,47 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     report = {"file": str(path.resolve()), "video_sha256": file_sha256(path),
               "duration_seconds": duration, "video": videos[0],
               "audio_stream_count": len(audios), "checks": {},
-              "warnings": [], "passed": True, "strict": bool(strict)}
+              "warnings": [], "passed": True, "strict": bool(strict),
+              "audited_at": datetime.now(timezone.utc).isoformat()}
+    manifest_path = path.with_name("render-manifest.json")
+    evidence_path = path.with_name("impact-frame-evidence.json")
+    if manifest_path.is_file():
+        report["render_manifest_sha256"] = file_sha256(manifest_path)
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            validate_render_manifest(manifest, path, report)
+            report["checks"]["render_manifest"] = {"present": True, "sha256": report["render_manifest_sha256"],
+                "video_sha256_matches": True, "impact_event_count": len(manifest["impact_events"]),
+                "impact_pixel_smoke_passed": True}
+        except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            report["passed"] = False
+            report["warnings"].append("Render manifest failed validation: " + str(exc))
+            manifest = {}
+        if evidence_path.is_file() and manifest:
+            report["impact_frame_evidence_sha256"] = file_sha256(evidence_path)
+            try:
+                evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+                validate_impact_frame_evidence(evidence, evidence_path, path, manifest_path, manifest)
+                report["checks"]["impact_frame_evidence"] = {"present": True, "sha256": report["impact_frame_evidence_sha256"],
+                    "video_sha256_matches": True, "manifest_sha256_matches": True,
+                    "event_count_matches": len(evidence["events"]) == len(manifest["impact_events"])}
+            except (OSError, ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+                report["passed"] = False
+                report["warnings"].append("Extracted impact-frame evidence failed validation: " + str(exc))
+        else:
+            report["impact_frame_evidence_sha256"] = None
+            report["checks"]["impact_frame_evidence"] = {"present": False}
+            if strict:
+                report["passed"] = False
+                report["warnings"].append("Extracted impact-frame evidence is missing from the strict release package.")
+    else:
+        report["render_manifest_sha256"] = None
+        report["impact_frame_evidence_sha256"] = None
+        report["checks"]["render_manifest"] = {"present": False}
+        report["checks"]["impact_frame_evidence"] = {"present": False}
+        if strict:
+            report["passed"] = False
+            report["warnings"].append("Render manifest is missing from the strict release package.")
     code, log = run_filter(ffmpeg, path, video_filter="blackdetect=d=0.10:pix_th=0.10")
     if code:
         raise ValueError("FFmpeg black-frame detector failed: " + log[-1000:])
@@ -108,6 +154,43 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         if strict:
             report["passed"] = False
     if audios:
+        stream_durations = []
+        for stream in audios:
+            try:
+                value = float(stream.get("duration", 0) or 0)
+                stream_durations.append(value if value > 0 else None)
+            except (TypeError, ValueError):
+                stream_durations.append(None)
+        try:
+            n, d = str(videos[0].get("avg_frame_rate", "0/1")).split("/", 1)
+            video_fps = float(n) / float(d)
+        except (ValueError, ZeroDivisionError):
+            video_fps = 0.0
+        audio_timing = {"video_duration_seconds": duration, "stream_durations_seconds": stream_durations,
+                        "max_delta_seconds": max(.25, 1.0/video_fps) if video_fps > 0 else .25, "verified": True}
+        for stream_duration in stream_durations:
+            if stream_duration is None:
+                audio_timing["verified"] = False
+                report["warnings"].append("Audio stream duration is unavailable; audio/video duration parity was not verified.")
+            elif abs(stream_duration-duration) > audio_timing["max_delta_seconds"]:
+                audio_timing["verified"] = False
+                report["warnings"].append("Audio/video duration mismatch exceeds configured tolerance.")
+        report["checks"]["audio_timing"] = audio_timing
+        loud_code, loud_log = run_filter(ffmpeg, path, audio_filter="ebur128=peak=true")
+        integrated = re.findall(r"\bI:\s*(-?[0-9]+(?:\.[0-9]+)?)\s*LUFS", loud_log)
+        peaks = re.findall(r"\bPeak:\s*(-?[0-9]+(?:\.[0-9]+)?)\s*dBFS", loud_log)
+        if loud_code == 0 and integrated and peaks:
+            loudness, peak = float(integrated[-1]), float(peaks[-1])
+            report["checks"]["audio_loudness"] = {"available": True, "integrated_lufs": loudness,
+                "true_peak_dbfs": peak, "min_loudness_lufs": min_loudness_lufs, "max_true_peak_dbfs": max_true_peak_dbfs}
+            if loudness < min_loudness_lufs:
+                report["passed"] = False
+                report["warnings"].append("Integrated audio loudness is below the configured minimum.")
+            if peak > max_true_peak_dbfs:
+                report["passed"] = False
+                report["warnings"].append("Audio true peak exceeds the configured ceiling.")
+        else:
+            report["checks"]["audio_loudness"] = {"available": False, "note": "FFmpeg ebur128 metrics are unavailable or not parseable."}
         code, log = run_filter(ffmpeg, path, audio_filter="silencedetect=noise=-45dB:d=" + str(max_silence_seconds))
         if code:
             raise ValueError("FFmpeg silence detector failed: " + log[-1000:])
@@ -138,15 +221,28 @@ def main():
     p.add_argument("--max-black-seconds", type=float, default=0.20)
     p.add_argument("--max-freeze-seconds", type=float, default=3.0)
     p.add_argument("--max-silence-seconds", type=float, default=1.5)
+    p.add_argument("--min-loudness-lufs", type=float, default=-24.0)
+    p.add_argument("--max-true-peak-dbfs", type=float, default=-1.0)
     p.add_argument("--report", help="Optional JSON report output path.")
     args = p.parse_args()
     try:
+        if not (-70.0 <= args.min_loudness_lufs <= 0.0):
+            raise ValueError("--min-loudness-lufs must be between -70 and 0.")
+        if not (-20.0 <= args.max_true_peak_dbfs <= 0.0):
+            raise ValueError("--max-true-peak-dbfs must be between -20 and 0.")
         report = audit(args.video, args.strict, args.max_black_seconds,
-                       args.max_freeze_seconds, args.max_silence_seconds)
+                       args.max_freeze_seconds, args.max_silence_seconds,
+                       args.min_loudness_lufs, args.max_true_peak_dbfs)
         rendered = json.dumps(report, ensure_ascii=False, indent=2)
         print(rendered)
         if args.report:
-            Path(args.report).write_text(rendered + "\n", encoding="utf-8")
+            report_path = Path(args.report)
+            report_path.write_text(rendered + "\n", encoding="utf-8")
+            review_template_path = report_path.with_name("creative-review.template.json")
+            if review_template_path.is_file():
+                review_template = json.loads(review_template_path.read_text(encoding="utf-8"))
+                review_template["qc_report_sha256"] = file_sha256(report_path)
+                review_template_path.write_text(json.dumps(review_template, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         if not report["passed"]:
             raise SystemExit(1)
     except (OSError, ValueError, subprocess.SubprocessError, json.JSONDecodeError) as exc:

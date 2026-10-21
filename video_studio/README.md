@@ -178,3 +178,10 @@ Landscape and vertical regression storyboards are provided at `storyboard.motion
     python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4 --language en
 
 This command can produce English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
+
+## Impact-frame rendering and release evidence
+
+Storyboard scenes may declare up to eight \`impact_events\` each. Events include a unique ID, type (\`flash\`, \`invert\`, \`burst\`, \`speed-lines\`, or \`shockwave\`), scene-local \`at_seconds\`, a 1–6-frame duration, optional intensity from 0.05 to 0.75, and normalized focal coordinates. Times are quantized to the storyboard FPS. Effects render in Canvas2D behind foreground typography and captions. Each render runs pixel-difference checks for all five effects and records absolute-frame/timestamp details in \`render-manifest.json\`.
+
+The final MP4 package includes \`impact-frame-evidence.json\` and PNGs extracted from the encoded MP4 at each impact timestamp, plus \`style-frame.png\`. Three pending/unapproved templates require actual creative review, asset-provenance confirmation, and style-frame approval. The strict release and publishing gates bind those records to the final video, manifest, evidence images, and QC report hashes. Automated technical checks do not substitute for human review of timing, continuity, or readability.
+

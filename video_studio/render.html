@@ -219,12 +219,32 @@
  window.drawTransitionFrame=drawTransitionFrame;
 
  window.setCanvasSize=function(width,height){if(!Number.isInteger(width)||!Number.isInteger(height)||width<320||height<180||width>3840||height>2160)throw new Error("Invalid canvas dimensions");canvas.width=width;canvas.height=height;};
+function drawImpactFrames(scene,localFrame){
+  const events=Array.isArray(scene&&scene._impact_events)?scene._impact_events:[];
+  if(!events.length)return;
+  const w=canvas.width,h=canvas.height,minDim=Math.min(w,h);
+  for(const event of events){
+    const elapsed=localFrame-Number(event.start_frame),duration=Number(event.duration_frames);
+    if(elapsed<0||elapsed>=duration||duration<1)continue;
+    const progress=Math.max(0,Math.min(1,(elapsed+1)/duration));
+    const strength=Math.max(0,Math.min(.75,Number(event.intensity)||.45))*(1-progress*.42);
+    const cx=w*(event.x===undefined?.5:event.x),cy=h*(event.y===undefined?.5:event.y);
+    ctx.save();ctx.lineCap="round";ctx.lineJoin="round";
+    if(event.type==="flash"){ctx.globalCompositeOperation="screen";ctx.globalAlpha=Math.min(.42,strength*.78);ctx.fillStyle="#fff8e8";ctx.fillRect(0,0,w,h);}
+    else if(event.type==="invert"){ctx.globalCompositeOperation="difference";ctx.globalAlpha=Math.min(.68,strength);ctx.fillStyle="#fff";ctx.fillRect(0,0,w,h);}
+    else if(event.type==="burst"){const rays=14,r0=minDim*(.025+progress*.015),r1=minDim*(.09+progress*.12);ctx.strokeStyle="#c8ff3d";ctx.globalAlpha=Math.min(.95,strength*1.45);ctx.lineWidth=Math.max(1.5,minDim*.0035);for(let i=0;i<rays;i++){const a=Math.PI*2*i/rays+Math.PI/14;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*r0,cy+Math.sin(a)*r0);ctx.lineTo(cx+Math.cos(a)*r1,cy+Math.sin(a)*r1);ctx.stroke();}ctx.beginPath();ctx.arc(cx,cy,minDim*(.025+progress*.035),0,Math.PI*2);ctx.strokeStyle="#f4f2ec";ctx.lineWidth=Math.max(1,minDim*.002);ctx.stroke();}
+    else if(event.type==="speed-lines"){ctx.strokeStyle="#f4f2ec";ctx.globalAlpha=Math.min(.8,strength*1.25);ctx.lineWidth=Math.max(1,minDim*.0018);for(let i=0;i<14;i++){const y=(i+.5)*h/14,offset=minDim*(.06+(i%4)*.025);ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(Math.max(0,w*.2-offset),y+(cy-y)*.07);ctx.stroke();ctx.beginPath();ctx.moveTo(w,y);ctx.lineTo(Math.min(w,w*.8+offset),y+(cy-y)*.07);ctx.stroke();if(h>w){const x=(i+.5)*w/14;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+(cx-x)*.07,h*.12);ctx.stroke();ctx.beginPath();ctx.moveTo(x,h);ctx.lineTo(x+(cx-x)*.07,h*.88);ctx.stroke();}}}
+    else if(event.type==="shockwave"){ctx.strokeStyle="#c8ff3d";ctx.globalAlpha=Math.min(.8,strength*1.2);ctx.lineWidth=Math.max(1.5,minDim*.0025);for(let ring=0;ring<2;ring++){const radius=minDim*(.035+progress*.17+ring*.035);ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.stroke();}}
+    ctx.restore();
+  }
+}
   window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame,suppressTransition){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
    const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?w*.66:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
   ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
   for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+  drawImpactFrames(scene,localFrame);
   ctx.fillStyle=p.accent;ctx.fillRect(left,eyebrowY-55,Math.max(30,w*.028),6);
   ctx.font="700 "+Math.max(15,w*.013)+"px "+TEXT_FONT;ctx.fillStyle=p.muted;ctx.direction="ltr";ctx.textAlign="left";ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
    const headline=String(scene.headline||"Every frame is code."),subhead=String(scene.subhead||""),caption=String(scene.caption||scene.narration||"").trim();

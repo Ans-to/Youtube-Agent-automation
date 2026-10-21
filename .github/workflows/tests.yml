@@ -4,7 +4,7 @@ on:
   push:
     branches: [main, integration/agent-hq-complete-20261020]
   pull_request:
-    branches: [main]
+    branches: [main, integration/agent-hq-complete-20261020]
   workflow_dispatch:
 
 permissions:
@@ -38,7 +38,12 @@ jobs:
         run: python -m py_compile agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py
 
       - name: Check JavaScript syntax
-        run: node --check video_studio/render.js
+        run: |
+          node --check video_studio/render.js
+          node --check video_studio/impact_frames.js
+
+      - name: Test impact-frame event validation
+        run: node --test video_studio/impact_frames.test.js
 
       - name: Validate storyboard JSON
         run: python -m json.tool video_studio/storyboard.example.json

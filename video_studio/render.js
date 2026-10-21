@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 "use strict";
-const fs=require("fs"),path=require("path"),puppeteer=require("puppeteer");
+const fs=require("fs"),path=require("path"),puppeteer=require("puppeteer"),impactFrames=require("./impact_frames");
 async function main(){
  const storyboardPath=path.resolve(process.argv[2]||"storyboard.example.json");
  if(!fs.existsSync(storyboardPath))throw new Error("Storyboard not found: "+storyboardPath);
@@ -21,6 +21,7 @@ async function main(){
   if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
   scene.transition_in=transition;
   if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
+  scene._impact_events=impactFrames.normalizeImpactEvents(scene,index,fps);
   for(const key of ["headline","eyebrow","subhead","narration","caption"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
   for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
   const arrayLimits={visual_nodes:4,timeline_events:4,comparison_left:3,comparison_right:3,code_lines:6,chart_labels:6};
@@ -31,6 +32,7 @@ async function main(){
    if(!Array.isArray(scene.chart_labels)||scene.chart_labels.length!==scene.chart_values.length)throw new Error("bar-chart requires one chart_label per chart_value.");
   }
  }
+ impactFrames.assertUniqueImpactEventIds(s.scenes);
  const MAX_FRAMES=30000,MAX_SECONDS=1000;
  const totalSeconds=s.scenes.reduce((sum,scene)=>{const sec=Number(scene&&scene.duration_seconds);if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("Each scene duration must be >0 and <=600 seconds");return sum+sec;},0);
  if(totalSeconds>MAX_SECONDS)throw new Error("Storyboard exceeds the 1000-second render limit.");
@@ -70,12 +72,22 @@ async function main(){
    return {totalLines:info.allLines.length,totalPages:info.totalPages,firstIndex:first.pageIndex,lastIndex:last.pageIndex};
   });
   if(captionCheck.totalPages<2||captionCheck.firstIndex!==0||captionCheck.lastIndex!==captionCheck.totalPages-1)throw new Error("Caption pagination regression: long narration is not split across readable pages.");
+  const impactPixelSmoke=await page.evaluate((types)=>{
+   const canvas=document.getElementById("frame"),ctx=canvas.getContext("2d"),base={visual_type:"quote",headline:"Impact test",subhead:"Pixel-difference smoke check",caption:"Readable text stays in front"};
+   const changedPixels=(a,b)=>{let count=0;for(let i=0;i<a.length;i+=4)if(Math.abs(a[i]-b[i])>12||Math.abs(a[i+1]-b[i+1])>12||Math.abs(a[i+2]-b[i+2])>12)count++;return count;};
+   const results={};for(const type of types){window.drawFrame(base,15,30,15,true);const a=ctx.getImageData(0,0,canvas.width,canvas.height).data;const event={id:"pixel-probe-"+type,type,start_frame:15,duration_frames:2,intensity:.65,x:.52,y:.5};window.drawFrame({...base,_impact_events:[event]},15,30,15,true);const b=ctx.getImageData(0,0,canvas.width,canvas.height).data;results[type]=changedPixels(a,b);}
+   return {passed:Object.values(results).every(n=>n>=20),changed_pixels:results,types_tested:types};
+  },impactFrames.IMPACT_TYPES);
+  if(!impactPixelSmoke||impactPixelSmoke.passed!==true)throw new Error("Impact-frame pixel smoke failed: "+JSON.stringify(impactPixelSmoke));
+  console.log("Impact-frame pixel smoke:",JSON.stringify(impactPixelSmoke));
   let total=0;
   const transitionRecords=[];
+  const impactEvents=[];
   for(let si=0;si<s.scenes.length;si++){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
    if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("scene duration must be >0 and <=600 seconds");
    const count=Math.max(1,Math.round(sec*fps));
+   for(const event of (scene._impact_events||[]))impactEvents.push({id:event.id,scene:si+1,type:event.type,frame:total+event.start_frame,timestamp_seconds:Number(((total+event.start_frame)/fps).toFixed(6)),scene_frame:event.start_frame,duration_frames:event.duration_frames,duration_seconds:Number((event.duration_frames/fps).toFixed(6)),intensity:event.intensity,x:event.x,y:event.y,pixel_smoke_test_passed:impactPixelSmoke.passed});
    const previous=si>0?s.scenes[si-1]:null;
    const requested=Number(scene.transition_frames)||12;
    const transitionFrames=previous&&scene.transition_in!=="none"?Math.min(count,Math.max(1,Math.min(60,Math.round(requested)))):0;
@@ -90,7 +102,7 @@ async function main(){
    }
    console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
   }
-  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,generated_at:new Date().toISOString()},null,2)+"\n");
+  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,impact_events:impactEvents,impact_pixel_smoke:impactPixelSmoke,generated_at:new Date().toISOString()},null,2)+"\n");
   console.log("Rendered "+total+" frames to "+dir);
  }finally{await browser.close()}
 }

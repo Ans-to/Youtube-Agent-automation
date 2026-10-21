@@ -7,6 +7,7 @@ from pathlib import Path
 BASE=Path(__file__).resolve().parent
 if str(BASE) not in sys.path:sys.path.insert(0,str(BASE))
 from release_gate import validate_qc_report
+from release_evidence import validate_release_evidence
 
 def sha256(path):
  h=hashlib.sha256()
@@ -41,8 +42,20 @@ def validate_approval(approval, video, requested):
  try:
   qc_report=json.loads(qc_path.read_text(encoding="utf-8"))
   validate_qc_report(qc_report,video)
+  validate_release_evidence(video.parent, video, qc_report)
+  sidecars = {
+   "render_manifest_sha256": video.parent/"render-manifest.json",
+   "impact_frame_evidence_sha256": video.parent/"impact-frame-evidence.json",
+   "creative_review_sha256": video.parent/"creative-review.json",
+   "asset_provenance_sha256": video.parent/"asset-provenance.json",
+   "style_frame_sha256": video.parent/"style-frame.png",
+   "style_frame_approval_sha256": video.parent/"style-frame-approval.json",
+  }
+  for field,path in sidecars.items():
+   if approval.get(field) != sha256(path):
+    raise ValueError(field+" changed after approval; recreate the approval record.")
  except (OSError,json.JSONDecodeError,ValueError) as exc:
-  raise ValueError("Strict video quality audit is no longer valid: "+str(exc))
+  raise ValueError("Strict video quality audit or release evidence is no longer valid: "+str(exc))
  approved=approval.get("approved_metadata")
  if not isinstance(approved,dict):
   raise ValueError("Approval is missing metadata review; recreate approval with release_gate.py.")

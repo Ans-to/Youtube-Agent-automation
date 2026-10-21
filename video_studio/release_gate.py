@@ -6,6 +6,11 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+try:
+    from .release_evidence import parse_timestamp, validate_release_evidence
+except ImportError:
+    from release_evidence import parse_timestamp, validate_release_evidence
+
 
 def sha256(path):
     digest = hashlib.sha256()
@@ -38,6 +43,17 @@ def validate_qc_report(report, video):
         raise ValueError("The final video must contain an audio stream.")
     if report.get("video_sha256") != sha256(video):
         raise ValueError("Quality report does not match the exact video file.")
+    manifest_path = video.with_name("render-manifest.json")
+    if manifest_path.is_file():
+        evidence_path = video.with_name("impact-frame-evidence.json")
+        if report.get("render_manifest_sha256") != sha256(manifest_path):
+            raise ValueError("Quality report has a missing or stale render-manifest binding.")
+        if not evidence_path.is_file() or report.get("impact_frame_evidence_sha256") != sha256(evidence_path):
+            raise ValueError("Quality report has a missing or stale impact-frame evidence binding.")
+        audited_at = parse_timestamp(report.get("audited_at"), "Quality report audited_at")
+        newest = max(video.stat().st_mtime, manifest_path.stat().st_mtime, evidence_path.stat().st_mtime)
+        if audited_at.timestamp() + 2 < newest:
+            raise ValueError("Quality report predates the current video or renderer evidence.")
     return True
 
 
@@ -48,13 +64,21 @@ def main():
     root = Path(args.package).resolve()
     video = root / "video.mp4"
     qc_path = root / "video.qc.json"
-    for item in (root / "script.md", root / "storyboard.json", video, qc_path):
+    manifest_path = root / "render-manifest.json"
+    impact_evidence_path = root / "impact-frame-evidence.json"
+    review_path = root / "creative-review.json"
+    provenance_path = root / "asset-provenance.json"
+    style_frame = root / "style-frame.png"
+    style_approval_path = root / "style-frame-approval.json"
+    for item in (root / "script.md", root / "storyboard.json", video, qc_path, manifest_path,
+                 impact_evidence_path, review_path, provenance_path, style_frame, style_approval_path):
         if not item.is_file():
-            raise SystemExit("Required package file missing: " + item.name)
+            raise SystemExit("Required release evidence missing; approval is blocked: " + item.name)
 
     try:
         qc_report = json.loads(qc_path.read_text(encoding="utf-8"))
         validate_qc_report(qc_report, video)
+        validate_release_evidence(root, video, qc_report)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         raise SystemExit("Strict technical QA failed; approval is blocked: " + str(exc))
 
@@ -95,6 +119,12 @@ def main():
         "storyboard_sha256": storyboard_hash,
         "quality_audit_passed": True,
         "qc_report_sha256": sha256(qc_path),
+        "render_manifest_sha256": sha256(manifest_path),
+        "impact_frame_evidence_sha256": sha256(impact_evidence_path),
+        "creative_review_sha256": sha256(review_path),
+        "asset_provenance_sha256": sha256(provenance_path),
+        "style_frame_sha256": sha256(style_frame),
+        "style_frame_approval_sha256": sha256(style_approval_path),
         "approved_metadata": metadata,
         "script_reviewed": True,
         "storyboard_reviewed": True,

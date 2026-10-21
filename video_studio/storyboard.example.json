@@ -13,7 +13,25 @@
       "visual_type": "hero",
       "graphic_label": "DETERMINISTIC",
       "transition_in": "fade",
-      "transition_frames": 18
+      "transition_frames": 18,
+      "impact_events": [
+        {
+          "id": "opening-flash",
+          "type": "flash",
+          "at_seconds": 0.75,
+          "duration_frames": 1,
+          "intensity": 0.32
+        },
+        {
+          "id": "opening-shockwave",
+          "type": "shockwave",
+          "at_seconds": 1.1,
+          "duration_frames": 5,
+          "intensity": 0.55,
+          "x": 0.76,
+          "y": 0.32
+        }
+      ]
     },
     {
       "duration_seconds": 4,

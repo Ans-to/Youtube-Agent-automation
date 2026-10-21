@@ -1,11 +1,14 @@
 """Fail-closed tests for technical QA and the YouTube release gate."""
 import json
+import base64
+from datetime import datetime, timezone
 import tempfile
 import unittest
 from pathlib import Path
 
 from video_studio.quality_audit import file_sha256
 from video_studio.release_gate import validate_qc_report
+from video_studio.release_evidence import (REQUIRED_CREATIVE_CHECKS, validate_release_evidence)
 from video_studio.publish_youtube import validate_approval
 
 
@@ -29,7 +32,42 @@ class ReleaseQualityGateTests(unittest.TestCase):
             "passed": True,
             "strict": True,
         }
+        self.manifest_path = self.root / "render-manifest.json"
+        self.manifest = {"width":1920,"height":1080,"fps":30,"frame_count":375,"duration_seconds":12.5,
+            "video_sha256":file_sha256(self.video),
+            "impact_pixel_smoke":{"passed":True,"changed_pixels":{"flash":100,"invert":100,"burst":100,"speed-lines":100,"shockwave":100}},
+            "impact_events":[{"id":"hit-1","scene":1,"type":"shockwave","frame":15,"timestamp_seconds":.5,"duration_frames":2,"duration_seconds":2/30,"pixel_smoke_test_passed":True}],
+            "transitions":[{"scene":1,"type":"none","frames":0}]}
+        self.manifest_path.write_text(json.dumps(self.manifest,indent=2),encoding="utf-8")
+        image_dir=self.root/"impact-frame-evidence"; image_dir.mkdir()
+        self.evidence_image=image_dir/"event-001-shockwave.png"
+        self.evidence_image.write_bytes(base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+cBfkAAAAASUVORK5CYII="))
+        self.impact_evidence_path=self.root/"impact-frame-evidence.json"
+        self.impact_evidence={"schema_version":1,"video_file":self.video.name,"video_sha256":file_sha256(self.video),
+            "render_manifest_sha256":file_sha256(self.manifest_path),
+            "events":[{"id":"hit-1","type":"shockwave","frame":15,"timestamp_seconds":.5,
+                "file":"impact-frame-evidence/event-001-shockwave.png","sha256":file_sha256(self.evidence_image),"size_bytes":self.evidence_image.stat().st_size}]}
+        self.impact_evidence_path.write_text(json.dumps(self.impact_evidence,indent=2),encoding="utf-8")
+        self.report["video"]={"codec_type":"video","width":1920,"height":1080,"avg_frame_rate":"30/1"}
+        self.report["audited_at"]=datetime.now(timezone.utc).isoformat()
+        self.report["render_manifest_sha256"]=file_sha256(self.manifest_path)
+        self.report["impact_frame_evidence_sha256"]=file_sha256(self.impact_evidence_path)
         self.write_report()
+        self.review_path=self.root/"creative-review.json"
+        self.review={"schema_version":1,"reviewer":"Local reviewer","reviewed_at":datetime.now(timezone.utc).isoformat(),
+            "video_sha256":file_sha256(self.video),"render_manifest_sha256":file_sha256(self.manifest_path),"qc_report_sha256":file_sha256(self.qc_path),
+            "reviewed_segments":[{"timestamp_seconds":.5,"notes":"reviewed hit-1 impact visibility and title legibility"}],
+            "checks":{check:{"status":"pass","evidence":["Reviewed against exact render."]} for check in REQUIRED_CREATIVE_CHECKS}}
+        self.review_path.write_text(json.dumps(self.review,indent=2),encoding="utf-8")
+        self.provenance_path=self.root/"asset-provenance.json"
+        self.provenance={"schema_version":1,"approved":True,"reviewer":"Local reviewer","reviewed_at":datetime.now(timezone.utc).isoformat(),
+            "asset_strategy":"procedural_original","assets":[]}
+        self.provenance_path.write_text(json.dumps(self.provenance,indent=2),encoding="utf-8")
+        self.style_frame=self.root/"style-frame.png"; self.style_frame.write_bytes(b"style frame fixture")
+        self.style_approval_path=self.root/"style-frame-approval.json"
+        self.style_approval={"schema_version":1,"approved":True,"reviewer":"Local reviewer",
+            "reviewed_at":datetime.now(timezone.utc).isoformat(),"style_frame_sha256":file_sha256(self.style_frame)}
+        self.style_approval_path.write_text(json.dumps(self.style_approval,indent=2),encoding="utf-8")
         self.metadata = {
             "title": "Test title",
             "description": "Test description",
@@ -47,6 +85,12 @@ class ReleaseQualityGateTests(unittest.TestCase):
             "approved_metadata": self.metadata,
             "quality_audit_passed": True,
             "qc_report_sha256": file_sha256(self.qc_path),
+            "render_manifest_sha256": file_sha256(self.manifest_path),
+            "impact_frame_evidence_sha256": file_sha256(self.impact_evidence_path),
+            "creative_review_sha256": file_sha256(self.review_path),
+            "asset_provenance_sha256": file_sha256(self.provenance_path),
+            "style_frame_sha256": file_sha256(self.style_frame),
+            "style_frame_approval_sha256": file_sha256(self.style_approval_path),
         }
 
     def tearDown(self):
@@ -91,6 +135,19 @@ class ReleaseQualityGateTests(unittest.TestCase):
         approval.pop("qc_report_sha256")
         with self.assertRaises(ValueError):
             validate_approval(approval, self.video, self.metadata)
+
+    def test_release_evidence_requires_timestamped_event_review(self):
+        self.assertTrue(validate_release_evidence(self.root,self.video,self.report))
+        review=dict(self.review)
+        review["reviewed_segments"]=[{"timestamp_seconds":1.0,"notes":"Reviewed an unrelated scene"}]
+        self.review_path.write_text(json.dumps(review),encoding="utf-8")
+        with self.assertRaisesRegex(ValueError,"timestamped review note"):
+            validate_release_evidence(self.root,self.video,self.report)
+
+    def test_manifest_hash_mismatch_fails_closed(self):
+        from video_studio.release_evidence import validate_render_manifest
+        with self.assertRaisesRegex(ValueError,"exact video SHA-256"):
+            validate_render_manifest(dict(self.manifest,video_sha256="0"*64),self.video)
 
 
 if __name__ == "__main__":

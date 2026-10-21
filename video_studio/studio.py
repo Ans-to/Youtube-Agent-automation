@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render a storyboard to H.264 MP4, with optional scene-aligned local Piper narration."""
 import argparse
+import hashlib
 import json
 import math
 import os
@@ -18,6 +19,15 @@ from captions import build_subtitles, normalize_narration_language, validate_nar
 from capabilities import profile_device
 from voice_backends import get_urdu_tts_command, load_project_config, resolve_urdu_tts_command, require_urdu_voice_human_approval
 from render_lock import render_lock
+from release_evidence import REQUIRED_CREATIVE_CHECKS
+
+
+def file_sha256(path):
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as stream:
+        for block in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def run(command, cwd=BASE, timeout=1800, **kwargs):
@@ -443,6 +453,58 @@ def main():
             aligned_copy = output.with_suffix(".storyboard.json")
             shutil.copy2(generated_storyboard, aligned_copy)
             print("Aligned storyboard:", aligned_copy)
+        packaged_manifest = dict(manifest)
+        packaged_manifest["video_file"] = output.name
+        packaged_manifest["video_sha256"] = file_sha256(output)
+        manifest_output = output.with_name("render-manifest.json")
+        manifest_output.write_text(json.dumps(packaged_manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        impact_dir = output.with_name("impact-frame-evidence")
+        impact_dir.mkdir(parents=True, exist_ok=True)
+        impact_evidence = {"schema_version": 1, "video_file": output.name,
+            "video_sha256": packaged_manifest["video_sha256"],
+            "render_manifest_sha256": file_sha256(manifest_output), "events": []}
+        for event_index, event in enumerate(packaged_manifest.get("impact_events", []), 1):
+            timestamp = float(event["timestamp_seconds"])
+            frame_path = impact_dir / ("event-%03d-%s.png" % (event_index, event["type"]))
+            run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-ss", ("%.6f" % timestamp),
+                 "-i", str(output), "-frames:v", "1", "-update", "1", str(frame_path)], timeout=120)
+            if not frame_path.is_file() or frame_path.stat().st_size < 64 or frame_path.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+                raise RuntimeError("Could not extract a valid PNG from the final MP4 at impact event " + str(event["id"]))
+            impact_evidence["events"].append({"id": event["id"], "type": event["type"], "frame": event["frame"],
+                "timestamp_seconds": timestamp, "file": frame_path.relative_to(output.parent).as_posix(),
+                "sha256": file_sha256(frame_path), "size_bytes": frame_path.stat().st_size})
+        impact_evidence_path = output.with_name("impact-frame-evidence.json")
+        impact_evidence_path.write_text(json.dumps(impact_evidence, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        style_time = min(1.5, max(0.0, float(manifest["duration_seconds"]) - 1.0 / float(manifest["fps"])))
+        style_frame = output.with_name("style-frame.png")
+        run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-ss", ("%.6f" % style_time),
+             "-i", str(output), "-frames:v", "1", "-update", "1", str(style_frame)], timeout=120)
+        if not style_frame.is_file() or style_frame.stat().st_size < 64 or style_frame.read_bytes()[:8] != b"\x89PNG\r\n\x1a\n":
+            raise RuntimeError("Could not extract a valid style-frame PNG from the final MP4.")
+        review_template = {"schema_version": 1, "reviewer": "", "reviewed_at": "",
+            "video_sha256": packaged_manifest["video_sha256"], "render_manifest_sha256": file_sha256(manifest_output),
+            "qc_report_sha256": None, "reviewed_segments": [],
+            "checks": {check: {"status": "pending", "evidence": []} for check in REQUIRED_CREATIVE_CHECKS},
+            "instructions": "Only copy to creative-review.json after a real review. Complete each check with observed evidence and timestamped notes for every impact event. Never mark unchecked items as pass."}
+        review_template_path = output.with_name("creative-review.template.json")
+        if not review_template_path.exists():
+            review_template_path.write_text(json.dumps(review_template, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        provenance_template = {"schema_version": 1, "approved": False, "reviewer": "", "reviewed_at": "",
+            "asset_strategy": "procedural_original", "assets": [],
+            "instructions": "Confirm original procedural graphics, or switch to listed_assets and enumerate each imported asset with SHA-256, source, license and rights basis."}
+        provenance_path = output.with_name("asset-provenance.template.json")
+        if not provenance_path.exists():
+            provenance_path.write_text(json.dumps(provenance_template, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        style_template = {"schema_version": 1, "approved": False, "reviewer": "", "reviewed_at": "",
+            "style_frame_file": style_frame.name, "style_frame_sha256": file_sha256(style_frame),
+            "instructions": "Review style-frame.png and set approved=true only after explicitly accepting the visual direction."}
+        style_template_path = output.with_name("style-frame-approval.template.json")
+        if not style_template_path.exists():
+            style_template_path.write_text(json.dumps(style_template, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        print("Render manifest:", manifest_output)
+        print("Encoded-MP4 impact evidence:", impact_evidence_path)
+        print("Style frame:", style_frame)
+        print("Release evidence templates written as pending/unapproved.")
         if not args.keep_frames:
             shutil.rmtree(BASE / "frames", ignore_errors=True)
         if voice_dir:
