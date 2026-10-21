@@ -1,0 +1,254 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-21T17:39:38+00:00",
+  "video": "film-1080p.mp4",
+  "duration_seconds": 11.567,
+  "status": "INCOMPLETE",
+  "summary": {
+    "findings": 0,
+    "rules_total": 22,
+    "passed": 7,
+    "flagged": 0,
+    "unverified": 12,
+    "manual": 1,
+    "not_applicable": 2,
+    "attested": 0
+  },
+  "findings": [],
+  "rules": [
+    {
+      "id": "TQ-BLACK",
+      "category": "Technical QA",
+      "name": "Black screens and dropped signal",
+      "severity": "medium",
+      "feasibility": "automatic",
+      "status": "passed",
+      "reason": "Evaluated; no finding."
+    },
+    {
+      "id": "TQ-DEAD-AIR",
+      "category": "Technical QA",
+      "name": "Dead air",
+      "severity": "medium",
+      "feasibility": "automatic",
+      "status": "passed",
+      "reason": "Evaluated; no finding."
+    },
+    {
+      "id": "TQ-FREEZE",
+      "category": "Technical QA",
+      "name": "Freeze and stalled motion",
+      "severity": "medium",
+      "feasibility": "automatic",
+      "status": "passed",
+      "reason": "Evaluated; no finding."
+    },
+    {
+      "id": "TQ-STROBE",
+      "category": "Technical QA",
+      "name": "Strobing and photosensitivity",
+      "severity": "high",
+      "feasibility": "automatic",
+      "status": "passed",
+      "reason": "Evaluated; no finding."
+    },
+    {
+      "id": "TQ-AVSYNC",
+      "category": "Technical QA",
+      "name": "Audio-video sync",
+      "severity": "medium",
+      "feasibility": "automatic",
+      "status": "passed",
+      "reason": "Evaluated; no finding."
+    },
+    {
+      "id": "TQ-CLIPPING",
+      "category": "Technical QA",
+      "name": "Audio clipping and distortion",
+      "severity": "medium",
+      "feasibility": "automatic",
+      "status": "passed",
+      "reason": "Evaluated; no finding."
+    },
+    {
+      "id": "TQ-LOUDNESS",
+      "category": "Technical QA",
+      "name": "Loudness outside a usable range",
+      "severity": "low",
+      "feasibility": "automatic",
+      "status": "passed",
+      "reason": "Evaluated; no finding."
+    },
+    {
+      "id": "TQ-LIPSYNC",
+      "category": "Technical QA",
+      "name": "Lip-sync alignment",
+      "severity": "medium",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Missing evidence: faces, mouth_motion. Install or supply it to verify this rule."
+    },
+    {
+      "id": "BS-PROFANITY",
+      "category": "Brand Safety",
+      "name": "Profanity frequency",
+      "severity": "medium",
+      "feasibility": "automatic",
+      "status": "unverified",
+      "reason": "Missing evidence: transcript. Install or supply it to verify this rule."
+    },
+    {
+      "id": "BS-COMPETITOR",
+      "category": "Brand Safety",
+      "name": "Competitor presence",
+      "severity": "medium",
+      "feasibility": "automatic",
+      "status": "not_applicable",
+      "reason": "No competitor list supplied; pass --competitor to enable this check."
+    },
+    {
+      "id": "BS-CONTROVERSY",
+      "category": "Brand Safety",
+      "name": "Controversial themes",
+      "severity": "medium",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Missing evidence: transcript, ocr. Install or supply it to verify this rule."
+    },
+    {
+      "id": "CS-VIOLENCE",
+      "category": "Content Safety",
+      "name": "Violence and gore",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Missing evidence: transcript, ocr, vision. No content signal is available."
+    },
+    {
+      "id": "CS-WEAPONS",
+      "category": "Content Safety",
+      "name": "Weapons on screen",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Missing evidence: transcript, ocr, vision. No content signal is available."
+    },
+    {
+      "id": "CS-SELFHARM",
+      "category": "Content Safety",
+      "name": "Self-harm",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Missing evidence: transcript, ocr, vision. No content signal is available."
+    },
+    {
+      "id": "CS-CONTRABAND",
+      "category": "Content Safety",
+      "name": "Contraband and illegal substances",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Missing evidence: transcript, ocr, vision. No content signal is available."
+    },
+    {
+      "id": "CS-HATE-SPEECH",
+      "category": "Content Safety",
+      "name": "Hate speech and harassment in speech",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Requires a local language model or an operator-supplied --hate-lexicon."
+    },
+    {
+      "id": "CS-ADULT",
+      "category": "Content Safety",
+      "name": "Adult content and nudity",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Requires local vision observations from an NSFW classifier."
+    },
+    {
+      "id": "BS-SENTIMENT",
+      "category": "Brand Safety",
+      "name": "Aggressive tone and negative sentiment",
+      "severity": "medium",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Requires a local language model, which is not configured."
+    },
+    {
+      "id": "LE-DISCLOSURE",
+      "category": "Legal",
+      "name": "Mandatory disclosures and watermarks",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "not_applicable",
+      "reason": "No disclosure requirement supplied; pass --require-disclosure to enable this check."
+    },
+    {
+      "id": "LE-CHILDREN",
+      "category": "Legal",
+      "name": "Children's privacy and audience",
+      "severity": "high",
+      "feasibility": "model_required",
+      "status": "unverified",
+      "reason": "Missing evidence: transcript, ocr. Install or supply it to verify this rule."
+    },
+    {
+      "id": "LE-MUSIC",
+      "category": "Legal",
+      "name": "Copyrighted background music",
+      "severity": "high",
+      "feasibility": "not_detectable_offline",
+      "status": "unverified",
+      "reason": "The music heuristic was not confident enough to clear this rule (62% < 75%). Confirm the soundtrack licence directly."
+    },
+    {
+      "id": "LE-CLIPS",
+      "category": "Legal",
+      "name": "Unlicensed visual clips",
+      "severity": "high",
+      "feasibility": "not_detectable_offline",
+      "status": "manual",
+      "reason": "Requires a reference corpus or a licensed content-ID service."
+    }
+  ],
+  "unverified_rule_ids": [
+    "TQ-LIPSYNC",
+    "BS-PROFANITY",
+    "BS-CONTROVERSY",
+    "CS-VIOLENCE",
+    "CS-WEAPONS",
+    "CS-SELFHARM",
+    "CS-CONTRABAND",
+    "CS-HATE-SPEECH",
+    "CS-ADULT",
+    "BS-SENTIMENT",
+    "LE-CHILDREN",
+    "LE-MUSIC",
+    "LE-CLIPS"
+  ],
+  "capabilities": {
+    "ffmpeg": true,
+    "ffprobe": true,
+    "ocr": false,
+    "ocr_engine": false,
+    "asr": false,
+    "audio_analysis": true,
+    "vision_observations": true,
+    "local_model": false
+  },
+  "attestation": {
+    "attested_by": "",
+    "rule_ids": []
+  },
+  "signal_sources": {
+    "luminance": "ffmpeg frames at 10 fps",
+    "audio_profile": "local DSP: -21.0 dBFS integrated, music heuristics: no bed (62% confidence)",
+    "audio_rms": "ffmpeg PCM, 0.1 s windows"
+  },
+  "notes": [],
+  "statement": "AUDIT STATUS: INCOMPLETE - No violations detected, but 13 rule(s) could not be verified: TQ-LIPSYNC, BS-PROFANITY, BS-CONTROVERSY, CS-VIOLENCE, CS-WEAPONS, CS-SELFHARM, CS-CONTRABAND, CS-HATE-SPEECH, CS-ADULT, BS-SENTIMENT, LE-CHILDREN, LE-MUSIC, LE-CLIPS."
+}
