@@ -389,6 +389,10 @@ class VideoStudioTests(unittest.TestCase):
         self.assertTrue(all(scene.get("transition_in") in production.TRANSITION_TYPES for scene in scenes))
         self.assertGreater(len({scene["transition_in"] for scene in scenes[1:]}), 1)
         self.assertTrue(all(1 <= scene.get("transition_frames", 12) <= 60 for scene in scenes))
+        self.assertTrue(all(scene.get("camera_motion") in production.CAMERA_MOTIONS for scene in scenes))
+        walking = [scene["character"] for scene in scenes if scene["character"].get("walking") == 1]
+        self.assertEqual(len(walking), 1)
+        self.assertLess(walking[0]["walk_from_x"], walking[0]["walk_to_x"])
 
     def test_all_fallback_narration_is_english(self):
         result = production.fallback("Test topic")
