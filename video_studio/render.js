@@ -47,6 +47,16 @@ async function main(){
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   const wrapCheck=await page.evaluate(()=>window.measureWrappedLines("word ".repeat(80),180,"16px Arial"));
   if(!Number.isInteger(wrapCheck)||wrapCheck<2)throw new Error("Text wrapping regression: long text did not wrap to multiple lines.");
+  const titleLayoutCheck=await page.evaluate(()=>[
+   window.titleLayoutForTest("Pacing is part of quality","The picture should move with the line—not wait for it.",1920,1080,"diagram"),
+   window.titleLayoutForTest("A very long production-quality headline needs to wrap and fit without overlap","Supporting copy must stay beneath the complete title block.",1920,1080,"comparison"),
+   window.titleLayoutForTest("A script is not a video","Verify every stage, including the encoded file.",1080,1920,"comparison")
+  ]);
+  for(const [index,layout] of titleLayoutCheck.entries()){
+   if(!layout||layout.subtitle_y<layout.title_bottom_y+layout.headline_font_size*.20)
+    throw new Error("Headline/subhead collision regression at layout "+index+": "+JSON.stringify(layout));
+  }
+  console.log("Responsive title-layout checks:",JSON.stringify(titleLayoutCheck));
   const directionCheck=await page.evaluate(()=>({
    urdu:window.textDirectionForTest("یہ Python API ہے"),
    english:window.textDirectionForTest("English API")
