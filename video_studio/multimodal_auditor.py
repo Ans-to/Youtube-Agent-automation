@@ -141,6 +141,20 @@ def technical_findings(qc_report):
             "confidence": 1.0, "source": "ffprobe",
         })
 
+    photosensitivity = checks.get("photosensitivity", {})
+    for event in photosensitivity.get("events", []):
+        findings.append({
+            "start_seconds": event.get("start", 0),
+            "end_seconds": event.get("end", event.get("start", 0)),
+            "rule": "photosensitivity",
+            "description": (
+                f"Potential rapid high-contrast flashing: {event.get('transition_count', 0)} "
+                f"large average-luminance transitions within about {event.get('window_seconds', 1.0)} second(s). "
+                "This heuristic is not a formal photosensitivity compliance test."
+            ),
+            "confidence": 0.70, "source": "ffmpeg-signalstats-screening",
+        })
+
     timing = checks.get("audio_timing", {})
     if timing and timing.get("verified") is False:
         findings.append({
