@@ -77,6 +77,21 @@ class AuditorAdapterTests(unittest.TestCase):
             self.assertEqual(findings[0]["start_seconds"], 5.0)
             self.assertEqual(findings[0]["rule"], "violence_gore")
 
+    def test_frame_sampling_rate_covers_long_videos_within_frame_budget(self):
+        self.assertEqual(ADAPTERS.effective_sample_fps(1.0, 120, 60), 1.0)
+        self.assertEqual(ADAPTERS.effective_sample_fps(1.0, 120, 600), 0.2)
+
+    def test_missing_disclosure_is_flagged_and_low_ocr_confidence_is_unreadable(self):
+        missing = ADAPTERS.disclosure_findings([], ["Sponsored"], duration_seconds=20)
+        self.assertEqual(missing[0]["rule"], "missing_disclosure")
+        self.assertEqual(missing[0]["end_seconds"], 20)
+        unreadable = ADAPTERS.disclosure_findings(
+            [{"timestamp": 4.0, "text": "Sponsored", "ocr_confidence": 0.4}],
+            ["Sponsored"], duration_seconds=20,
+        )
+        self.assertEqual(unreadable[0]["rule"], "unreadable_disclosure")
+        self.assertEqual(unreadable[0]["start_seconds"], 4.0)
+
     def test_optional_detectors_stay_unconfigured_by_default(self):
         result = ADAPTERS.run_optional_detectors("missing.mp4", {"video_studio": {"auditor": {"enabled": False}}})
         self.assertEqual(result["findings"], [])
