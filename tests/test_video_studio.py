@@ -171,6 +171,27 @@ class VideoStudioTests(unittest.TestCase):
                 frames.append(struct.pack("<h", sample))
             output.writeframes(b"".join(frames))
 
+    def test_voice_scene_pacing_follows_measured_speech_not_stale_card_duration(self):
+        # A short line in a five-second storyboard should not leave 2+ seconds of dead air.
+        short_line = studio.paced_scene_duration(5.0, 2.0, 30)
+        self.assertGreaterEqual(short_line, 2.45)
+        self.assertLessEqual(short_line - 2.0, 0.5)
+
+        # A properly filled scene stays close to its planned duration.
+        full_line = studio.paced_scene_duration(5.0, 4.9, 30)
+        self.assertLessEqual(abs(full_line - 5.0), 1 / 30)
+
+        # If narration is longer than the planned hold, the scene extends rather than clipping speech.
+        long_line = studio.paced_scene_duration(1.0, 2.0, 30)
+        self.assertGreaterEqual(long_line, 2.0)
+        self.assertLessEqual(long_line - 2.0, 0.2)
+
+    def test_voice_scene_pacing_rejects_invalid_inputs(self):
+        for args in ((0, 1, 30), (1, 1, 0), (1, float("nan"), 30)):
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    studio.paced_scene_duration(*args)
+
     def test_audio_energy_visemes_follow_speech_activity_and_close_after_audio(self):
         with tempfile.TemporaryDirectory() as tmp:
             audio_path = Path(tmp) / "active-then-silent.wav"
