@@ -296,7 +296,12 @@ class Handler(BaseHTTPRequestHandler):
         raw = body.encode("utf-8") if isinstance(body, str) else body
         self.send_response(status); self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(raw))); self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff"); self.end_headers()
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.send_header("X-Frame-Options", "DENY")
+        self.send_header("Content-Security-Policy", "frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
+        self.send_header("Referrer-Policy", "no-referrer")
+        self.send_header("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
+        self.end_headers()
         try: self.wfile.write(raw)
         except (BrokenPipeError, ConnectionResetError): pass
 
