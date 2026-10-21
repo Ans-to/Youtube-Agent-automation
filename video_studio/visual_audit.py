@@ -193,7 +193,7 @@ def _make_contact_sheet(root, frames, sample_dir, ffmpeg):
     )
     result = subprocess.run([
         ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
-        "-framerate", "1", "-i", pattern, "-vf", tile_filter,
+        "-framerate", "1", "-start_number", "1", "-i", pattern, "-vf", tile_filter,
         "-frames:v", "1", "-update", "1", "-q:v", "3", str(output)
     ], capture_output=True, text=True, timeout=180)
     if result.returncode != 0 or not output.is_file():
