@@ -21,6 +21,28 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
+      - name: Enforce immutable GitHub Action references
+        shell: bash
+        run: |
+          python - <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          failures = []
+          for workflow in sorted(Path(".github/workflows").glob("*.y*ml")):
+              for line_number, line in enumerate(workflow.read_text(encoding="utf-8").splitlines(), 1):
+                  match = re.match(r"^\\s*uses:\\s*([^\\s]+)$", line)
+                  if not match:
+                      continue
+                  reference = match.group(1).rsplit("@", 1)
+                  if len(reference) != 2 or not re.fullmatch(r"[0-9a-f]{40}", reference[1]):
+                      failures.append(f"{workflow}:{line_number}: action must be pinned to a full 40-character commit SHA")
+          if failures:
+              print("\\n".join(failures))
+              sys.exit(1)
+          print("PASS: every external GitHub Action is pinned to a full commit SHA")
+          PY
       - name: Check out repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
