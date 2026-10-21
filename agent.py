@@ -3,6 +3,7 @@
 import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress, sys, os
 from pathlib import Path
 from datetime import datetime
+from app_config import load_config
 from queue_store import task_queue_lock, load_tasks, save_tasks, process_is_alive
 from quality_outputs import youtube_package, structured_plan, structured_draft, structured_review
 
@@ -390,7 +391,7 @@ def recover_interrupted_tasks(tasks, now=None, alive_check=None):
 
 
 def cycle(task_id=None):
-    cfg = load(CONFIG, {})
+    cfg = load_config(CONFIG)
     max_tasks = max(1, min(20, int(cfg.get("runner", {}).get("max_tasks_per_cycle", 3))))
     # Recover interrupted records under the same cross-process queue lock used by claims.
     # Recovery only changes state to needs_human_action; it never replays the task.
@@ -459,7 +460,7 @@ def main():
     ap.add_argument("--task-id", help="Process only this exact existing local task ID")
     args = ap.parse_args()
     if args.loop:
-        cfg = load(CONFIG, {})
+        cfg = load_config(CONFIG)
         interval = max(10, args.interval or int(cfg.get("runner", {}).get("interval_seconds", 60)))
         print(f"Agent loop running every {interval}s. Ctrl+C to stop.")
         try:
