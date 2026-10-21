@@ -149,4 +149,12 @@ jobs:
                     (package / "video.mp4").stat().st_size)
 
           print("::error title=failing checks::%s" % (", ".join(failures) or "none"))
+
+          log = base / "video-studio-tool.log"
+          if log.is_file():
+              raw = log.read_text(errors="replace")
+              tail = " ".join(raw[-4000:].split())
+              print("::error title=log length::%s" % len(raw))
+              for index in range(0, len(tail), 850):
+                  print("::error title=log %d::%s" % (index, tail[index:index + 850]))
           PY
