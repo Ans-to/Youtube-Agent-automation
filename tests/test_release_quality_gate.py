@@ -189,5 +189,42 @@ class ReleaseQualityGateTests(unittest.TestCase):
             validate_render_manifest(dict(self.manifest,video_sha256="0"*64),self.video)
 
 
+    def test_missing_visual_audit_blocks_release(self):
+        self.visual_path.unlink()
+        with self.assertRaisesRegex(ValueError, "visual audit is missing"):
+            from video_studio.release_gate import validate_qc_report
+            validate_qc_report(self.report, self.video)
+
+    def test_low_visual_score_cannot_be_overridden_by_pass_flag(self):
+        visual = json.loads(self.visual_path.read_text(encoding="utf-8"))
+        visual["overall_score"] = 6.0
+        self.visual_path.write_text(json.dumps(visual), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "at least 8.5"):
+            from video_studio.release_gate import validate_qc_report
+            validate_qc_report(self.report, self.video)
+
+    def test_missing_loudness_metrics_blocks_release(self):
+        report = json.loads(json.dumps(self.report))
+        report["checks"]["audio_loudness"]["available"] = False
+        with self.assertRaisesRegex(ValueError, "were not measured"):
+            from video_studio.release_gate import validate_qc_report
+            validate_qc_report(report, self.video)
+
+    def test_non_h264_output_cannot_pass_release_gate(self):
+        report = json.loads(json.dumps(self.report))
+        report["checks"]["delivery_spec"]["codec"] = "mpeg4"
+        with self.assertRaisesRegex(ValueError, "delivery-specification"):
+            from video_studio.release_gate import validate_qc_report
+            validate_qc_report(report, self.video)
+
+    def test_modified_visual_audit_is_detected_by_hash_binding(self):
+        visual = json.loads(self.visual_path.read_text(encoding="utf-8"))
+        visual["summary"] = "Changed after its QC report was written."
+        self.visual_path.write_text(json.dumps(visual), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "visual-audit hash"):
+            from video_studio.release_gate import validate_qc_report
+            validate_qc_report(self.report, self.video)
+
+
 if __name__ == "__main__":
     unittest.main()
