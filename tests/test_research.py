@@ -82,9 +82,9 @@ class ResearchTests(unittest.TestCase):
 
     def test_research_query_redacts_common_identifiers_and_secrets(self):
         query = sanitize_research_query(
-            "Find docs for API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456 and user@example.com phone 03001234567"
+            "Find docs for API_KEY=sk-abcdefghijklmnopqrstuvwxyz123456 and user@example.com phone 03001234567"  # invariant-allow: NO_SECRET_LITERAL redaction fixture
         )
-        self.assertNotIn("sk-abcdefghijklmnopqrstuvwxyz123456", query)
+        self.assertNotIn("sk-abcdefghijklmnopqrstuvwxyz123456", query)  # invariant-allow: NO_SECRET_LITERAL redaction fixture
         self.assertNotIn("user@example.com", query)
         self.assertIn("[REDACTED_SECRET]", query)
         self.assertIn("[REDACTED_EMAIL]", query)

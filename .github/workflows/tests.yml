@@ -21,6 +21,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
       - name: Enforce immutable GitHub Action references
         shell: bash
         run: |
@@ -43,15 +53,8 @@ jobs:
               sys.exit(1)
           print("PASS: every external GitHub Action is pinned to a full commit SHA")
           PY
-      - name: Check out repository
-        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
-        with:
-          python-version: "3.11"
+      - name: Enforce North Star invariants
+        run: python tools/check_invariants.py
 
       - name: Set up Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -59,7 +62,7 @@ jobs:
           node-version: "22"
 
       - name: Compile Python modules (Python 3.11)
-        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/production_readiness.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py
+        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/production_readiness.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py tools/check_invariants.py tools/tool_runtime.py
 
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
@@ -84,7 +87,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python modules (Python 3.12)
-        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py
+        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py product_studio/build_product.py tools/run_quality_gate.py tools/check_invariants.py tools/tool_runtime.py
 
       - name: Run unit tests (Python 3.12)
         run: python -m unittest discover -s tests -v
