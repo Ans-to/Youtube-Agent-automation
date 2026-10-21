@@ -50,6 +50,39 @@ def _write_outputs(direction_sheet: dict, storyboard: dict, out_dir: Path) -> di
     return {name: str(path) for name, path in paths.items()}
 
 
+def render_soundtrack(storyboard: dict, direction_sheet: dict, out_path: str | Path) -> dict:
+    """Synthesise the procedural bed, with cues taken from the directed timeline.
+
+    Cue times come from the shot list, not from guesswork: each edit gets its
+    transition sound and each marked impact gets an impact. The result is a
+    deterministic WAV that the beat analysis can then be checked against.
+    """
+    import audio_design
+
+    scenes = storyboard.get("scenes") if isinstance(storyboard, dict) else None
+    if not isinstance(scenes, list) or not scenes:
+        raise ValueError("A soundtrack needs a storyboard with scenes")
+    durations = []
+    for index, scene in enumerate(scenes):
+        try:
+            duration = float(scene.get("duration_seconds", 0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Scene %d has no numeric duration" % (index + 1)) from exc
+        if duration <= 0:
+            raise ValueError("Scene %d has no duration" % (index + 1))
+        durations.append(duration)
+
+    timeline = direction_sheet.get("timeline") if isinstance(direction_sheet, dict) else None
+    cues = []
+    if isinstance(timeline, list) and timeline:
+        for shot in timeline:
+            start = float(shot.get("start", 0.0))
+            for cue in (shot.get("sound") or {}).get("cues", []):
+                cues.append({**cue, "at": round(start + float(cue.get("at", 0.0)), 3)})
+
+    return audio_design.render_sound_design(out_path, sum(durations), durations, sfx_cues=cues)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Professional motion-graphics direction and audit.")
     parser.add_argument("--brief", help="Brief JSON to direct into a storyboard.")
@@ -58,6 +91,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out-dir", default="motion-build", help="Directory for generated files.")
     parser.add_argument("--direction", help="Direction sheet to audit against.")
     parser.add_argument("--beats", help="WAV file to analyse for a beat grid.")
+    parser.add_argument("--soundtrack", help="Write a procedural soundtrack here and verify cuts against its beat grid.")
     parser.add_argument("--json", action="store_true", help="Print JSON instead of text.")
     parser.add_argument("--catalogue", action="store_true", help="Print the easing, transition, camera and type catalogues.")
     parser.add_argument("--no-upgrade", action="store_true", help="Keep legacy transitions instead of upgrading them.")
@@ -117,6 +151,20 @@ def main(argv: list[str] | None = None) -> int:
         except direction.BriefError as exc:
             return _fail(str(exc))
 
+    soundtrack = None
+    if args.soundtrack:
+        try:
+            soundtrack = render_soundtrack(storyboard, sheet, args.soundtrack)
+            beats = beat.analyze(args.soundtrack)["beats"]
+        except (ValueError, OSError) as exc:
+            return _fail("soundtrack: " + str(exc))
+        sheet["soundtrack"] = {
+            "path": str(args.soundtrack),
+            "duration_seconds": soundtrack["duration_seconds"],
+            "cue_count": soundtrack["sfx_cue_count"],
+            "beat_count": len(beats),
+        }
+
     report = compliance.audit_storyboard(storyboard, sheet, beats=beats or None)
     paths = _write_outputs(sheet, storyboard, out_dir)
     Path(paths["report_txt"]).write_text(compliance.format_report(report) + "\n", encoding="utf-8")
@@ -129,6 +177,11 @@ def main(argv: list[str] | None = None) -> int:
         print()
         print(compliance.format_report(report))
         print()
+        if soundtrack:
+            print()
+            print("Soundtrack: %s (%.2fs, %d cues, %d beats)"
+                  % (args.soundtrack, soundtrack["duration_seconds"],
+                     soundtrack["sfx_cue_count"], len(beats)))
         print("Written:")
         for name, path in paths.items():
             print("  %-12s %s" % (name, path))

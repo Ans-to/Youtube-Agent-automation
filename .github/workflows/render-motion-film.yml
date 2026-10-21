@@ -1,0 +1,234 @@
+name: Render motion film
+
+# Renders the full motion film (direction -> frames -> validate -> encode ->
+# audit) on a GitHub runner and publishes the encoded MP4s as a build artifact.
+# No cloud rendering service, no API key: the runner only needs Node, FFmpeg and
+# the repository's own code.
+
+on:
+  workflow_dispatch:
+    inputs:
+      brief:
+        description: Path to the brief JSON, relative to the repository root
+        required: true
+        default: video_studio/brief.example.json
+        type: string
+      scale:
+        description: Render scale between 0.25 and 1.0 (1.0 is full 4K)
+        required: true
+        default: "1.0"
+        type: string
+      delivery_height:
+        description: Height of the delivery copy in pixels
+        required: true
+        default: "1080"
+        type: string
+      skip_4k:
+        description: Skip the 4K master and render only the delivery copy
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - "video_studio/render_skia.js"
+      - "video_studio/render.html"
+      - "video_studio/motion/**"
+      - "video_studio/motion_director.py"
+      - "video_studio/audio_design.py"
+      - "video_studio/audit/**"
+      - "video_studio/audit_video.py"
+      - "video_studio/validate_frames.py"
+      - "tools/render_motion_film.py"
+      - ".github/workflows/render-motion-film.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-motion-film-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  OUT_DIR: workspace/generated/motion-film
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/package-lock.json
+
+      - name: Install FFmpeg and renderer dependencies
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+          cd video_studio
+          npm ci
+          node -e "const c = require('@napi-rs/canvas'); console.log('canvas module', require('@napi-rs/canvas/package.json').version, typeof c.createCanvas)"
+
+      - name: Render the film
+        env:
+          BRIEF: ${{ inputs.brief || 'video_studio/brief.example.json' }}
+          SCALE: ${{ inputs.scale || '1.0' }}
+          DELIVERY_HEIGHT: ${{ inputs.delivery_height || '1080' }}
+          SKIP_4K: ${{ inputs.skip_4k || 'false' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT_DIR"
+          args=(
+            --brief "$BRIEF"
+            --out "$OUT_DIR"
+            --scale "$SCALE"
+            --delivery-height "$DELIVERY_HEIGHT"
+            --json
+          )
+          if [ "$SKIP_4K" = "true" ]; then
+            args+=(--skip-4k)
+          fi
+          python tools/render_motion_film.py "${args[@]}" | tee "$OUT_DIR/render.log"
+
+      - name: Make a contact sheet for a quick look
+        run: |
+          set -eu
+          preview="$OUT_DIR/film-${{ inputs.delivery_height || '1080' }}p.mp4"
+          if [ ! -f "$preview" ]; then
+            preview=$(ls "$OUT_DIR"/*.mp4 | head -1)
+          fi
+          ffmpeg -y -hide_banner -loglevel error -i "$preview" \
+            -vf "fps=1/2,scale=480:-2:flags=lanczos,tile=5x2" -frames:v 1 \
+            "$OUT_DIR/contact-sheet.jpg"
+          test -s "$OUT_DIR/contact-sheet.jpg"
+
+      - name: Verify the rendered film meets the delivery contract
+        env:
+          DELIVERY_HEIGHT: ${{ inputs.delivery_height || '1080' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          out = Path("workspace/generated/motion-film")
+          delivery_height = int(os.environ.get("DELIVERY_HEIGHT") or 1080)
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+
+          errors = []
+          if summary.get("motion_spec", {}).get("status") != "passed":
+              errors.append("motion spec did not pass: %s" % summary.get("motion_spec", {}).get("statement"))
+
+          audit = summary.get("audit") or {}
+          if not audit:
+              errors.append("the content audit did not run")
+          elif audit.get("status") == "flagged":
+              errors.append("content audit flagged a violation: %s" % audit.get("statement"))
+
+          outputs = summary.get("outputs") or []
+          if not outputs:
+              errors.append("no encoded outputs were recorded")
+
+          for item in outputs:
+              path = Path(item["path"])
+              if not path.is_file() or path.stat().st_size == 0:
+                  errors.append("missing or empty output: %s" % path)
+                  continue
+              probe = subprocess.run(
+                  ["ffprobe", "-v", "error", "-show_entries",
+                   "format=duration,size:stream=codec_type,codec_name,width,height,r_frame_rate",
+                   "-of", "json", str(path)],
+                  check=False, capture_output=True, text=True,
+              )
+              if probe.returncode != 0:
+                  errors.append("%s: ffprobe failed: %s" % (path.name, probe.stderr[-300:]))
+                  continue
+              info = json.loads(probe.stdout)
+              streams = info.get("streams", [])
+              video = next((s for s in streams if s.get("codec_type") == "video"), None)
+              audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+              if not video:
+                  errors.append("%s: no video stream" % path.name)
+                  continue
+              if video.get("codec_name") != "h264":
+                  errors.append("%s: expected h264, got %s" % (path.name, video.get("codec_name")))
+              if not audio:
+                  errors.append("%s: no audio stream" % path.name)
+              if path.name.endswith("-4k.mp4"):
+                  if (video.get("width"), video.get("height")) != (3840, 2160):
+                      errors.append("%s: expected 3840x2160, got %sx%s"
+                                    % (path.name, video.get("width"), video.get("height")))
+              else:
+                  if video.get("height") != delivery_height:
+                      errors.append("%s: expected height %s, got %s"
+                                    % (path.name, delivery_height, video.get("height")))
+              duration = float(info.get("format", {}).get("duration", 0) or 0)
+              frames = summary["frames"]["count"]
+              fps = summary["canvas"]["fps"]
+              want = frames / fps
+              if abs(duration - want) > 0.5:
+                  errors.append("%s: duration %.2fs does not match %d frames at %d fps (%.2fs)"
+                                % (path.name, duration, frames, fps, want))
+              print("PASS %-30s %sx%s %.2fs %s"
+                    % (path.name, video.get("width"), video.get("height"), duration, video.get("codec_name")))
+
+          for name in ("audit.md", "audit.json", "soundtrack.wav", "contact-sheet.jpg"):
+              path = out / name
+              if not path.is_file() or path.stat().st_size == 0:
+                  errors.append("missing deliverable: %s" % name)
+
+          if errors:
+              for error in errors:
+                  print("FAIL", error)
+              raise SystemExit(1)
+
+          print()
+          print("FILM:", summary["title"], "|", summary["frames"]["count"], "frames |",
+                summary["elapsed_seconds"], "s")
+          print(summary["motion_spec"]["statement"])
+          print(audit.get("statement"))
+          print("All delivery checks passed.")
+          PY
+
+      - name: Upload the rendered film and its evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: motion-film
+          path: |
+            workspace/generated/motion-film/*.mp4
+            workspace/generated/motion-film/*.wav
+            workspace/generated/motion-film/*.md
+            workspace/generated/motion-film/*.json
+            workspace/generated/motion-film/*.log
+            workspace/generated/motion-film/*.jpg
+            workspace/generated/motion-film/direction/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Keep the render log when a step fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: motion-film-diagnostics
+          path: |
+            workspace/generated/motion-film/
+          if-no-files-found: warn
+          retention-days: 7
