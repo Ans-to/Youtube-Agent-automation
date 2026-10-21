@@ -141,6 +141,12 @@ Example private upload, only after local approval:
 
 Public uploads require the additional --confirm-public flag. The uploader revalidates the strict QA report and its hash, the approved video/script/storyboard hashes, and exact metadata before upload. It uses user OAuth rather than an API key and defaults to private visibility. OAuth setup, account consent, YouTube API access, and upload processing cannot be completed by repository code alone. Never commit client_secret.json or youtube-token.json.
 
+## Speech-first pacing and visual treatment
+
+Narrated scenes are cut to the measured, edge-trimmed voice segment instead of holding to a stale storyboard duration. The renderer retains only a short 0.12–0.45 second editorial tail, preserves pauses inside the utterance, and records the final narration duration, padding, and voice-coverage ratio per scene. A longer line extends the scene rather than clipping speech. For model-generated packages, the final render is rejected if speech-led timing changes the requested runtime by more than 5% (with a 1-second tolerance); regenerate fuller narration or select a shorter target rather than silently under-delivering.
+
+Strict audio QA flags detected silence longer than 0.75 seconds. This is a guardrail for unexplained dead air, not a claim that every shorter gap is artistically correct: listen to the encoded result and review the edit rhythm. The renderer's updated visual treatment uses layered blue/violet gradients, restrained particles, brighter focal geometry, animated typography, and clearer caption/progress treatments. These procedural motion graphics are not a substitute for sourced real-world imagery, and visual-style acceptance still requires viewing the final MP4.
+
 ## Customize
 Copy storyboard.example.json and change title, canvas size, fps, scenes, durations, headline, subhead, and narration. Width must be 320–3840, height 180–2160, fps 1–60, and each scene duration must be positive and no more than 600 seconds.
 
