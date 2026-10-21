@@ -19,6 +19,8 @@ from research import research as collect_research, render_markdown as render_res
 from captions import normalize_narration_language, narration_language_instruction, validate_narration_text, validate_english_voice_model
 from voice_backends import get_urdu_tts_command, require_urdu_voice_human_approval, urdu_voice_human_approved, urdu_voice_profile_sha256
 from release_gate import validate_qc_report
+from quality_audit import file_sha256
+from visual_audit import run_visual_audit
 
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
@@ -63,9 +65,10 @@ def parse_json_response(content, label):
 
 
 def run_strict_quality_audit(output_dir):
-    """Run strict technical QA and fail closed if the final MP4 is not release-ready."""
+    """Run independent technical and vision QA; missing evidence blocks release."""
     video_path = output_dir / "video.mp4"
     report_path = output_dir / "video.qc.json"
+    storyboard_path = output_dir / "storyboard.json"
     command = [
         sys.executable, str(BASE / "quality_audit.py"), str(video_path),
         "--strict", "--report", str(report_path),
@@ -76,8 +79,35 @@ def run_strict_quality_audit(output_dir):
     if result.stderr:
         print(result.stderr.rstrip(), file=sys.stderr)
     if result.returncode != 0:
-        raise RuntimeError("strict quality audit returned exit code " + str(result.returncode))
+        raise RuntimeError("strict technical quality audit returned exit code " + str(result.returncode))
     report = json.loads(report_path.read_text(encoding="utf-8"))
+    try:
+        visual_report = run_visual_audit(video_path, storyboard_path, output_dir, ROOT / "config.json")
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+        raise RuntimeError("Independent multimodal visual audit failed; release is blocked: " + str(exc)) from exc
+    visual_path = output_dir / "visual-audit.json"
+    report["visual_audit_sha256"] = file_sha256(visual_path)
+    checks = report.setdefault("checks", {})
+    if not isinstance(checks, dict):
+        raise RuntimeError("Technical audit checks are malformed; release is blocked.")
+    checks["visual_audit"] = {
+        "status": visual_report["status"],
+        "score": visual_report["overall_score"],
+        "model_id": visual_report["model_id"],
+        "sample_count": visual_report["sample_count"],
+        "sha256": report["visual_audit_sha256"],
+    }
+    report["passed"] = report.get("passed") is True and visual_report.get("status") == "PASS"
+    report_path.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # Keep any review template bound to the final, completed QC report.
+    template_path = output_dir / "creative-review.template.json"
+    if template_path.is_file():
+        try:
+            template = json.loads(template_path.read_text(encoding="utf-8"))
+            template["qc_report_sha256"] = file_sha256(report_path)
+            template_path.write_text(json.dumps(template, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        except (OSError, json.JSONDecodeError) as exc:
+            raise RuntimeError("Could not refresh creative-review template binding; release is blocked.") from exc
     validate_qc_report(report, video_path)
     return report
 
