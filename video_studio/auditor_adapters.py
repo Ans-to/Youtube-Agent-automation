@@ -226,18 +226,18 @@ def classify_text_observations(observations, model_config, call_model=None):
     by_id = {item["id"]: item for item in items}
     for item in raw:
         if not isinstance(item, dict) or item.get("evidence_id") not in by_id:
-            continue
+            raise ValueError("text classifier returned an unmapped evidence ID")
         rule = item.get("rule")
         confidence = item.get("confidence")
         if rule not in TEXT_RULES or isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
-            continue
+            raise ValueError("text classifier returned an invalid rule or confidence")
         evidence = by_id[item["evidence_id"]]
         source_observation = observations[int(item["evidence_id"][1:])]
         start = float(source_observation.get("start_seconds", source_observation.get("timestamp", 0)))
         end = float(source_observation.get("end_seconds", start))
         description = item.get("description")
         if not isinstance(description, str) or not description.strip():
-            continue
+            raise ValueError("text classifier finding description must be non-empty")
         output.append({
             "start_seconds": start, "end_seconds": max(start, end), "rule": rule,
             "description": description.strip()[:500], "confidence": float(confidence),
@@ -282,16 +282,16 @@ def analyze_frame_batches(frames, vision_config, competitor_brands=None, require
         lower, upper = batch[0]["timestamp"], batch[-1]["timestamp"]
         for item in raw:
             if not isinstance(item, dict):
-                continue
+                raise ValueError("vision classifier finding must be an object")
             rule, confidence = item.get("rule"), item.get("confidence")
             start, end = item.get("start_seconds"), item.get("end_seconds")
             description = item.get("description")
             if rule not in VISION_RULES or isinstance(confidence, bool) or not isinstance(confidence, (int, float)) or not 0 <= confidence <= 1:
-                continue
+                raise ValueError("vision classifier returned an invalid rule or confidence")
             if any(isinstance(x, bool) or not isinstance(x, (int, float)) for x in (start, end)) or end < start or start < lower - 1 or end > upper + 1:
-                continue
+                raise ValueError("vision classifier returned timestamps outside the sampled frame window")
             if not isinstance(description, str) or not description.strip():
-                continue
+                raise ValueError("vision classifier finding description must be non-empty")
             findings.append({
                 "start_seconds": max(0.0, float(start)), "end_seconds": max(float(start), float(end)),
                 "rule": rule, "description": description.strip()[:500], "confidence": float(confidence),
