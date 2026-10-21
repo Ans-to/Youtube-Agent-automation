@@ -50,7 +50,7 @@ class PublishApprovalTests(unittest.TestCase):
         qc={"file":str(video.resolve()),"video_sha256":sha256(video),"duration_seconds":12.5,
             "video":{"codec_type":"video","width":1920,"height":1080,"avg_frame_rate":"30/1"},"audio_stream_count":1,
             "checks":{
-                "delivery_spec":{"passed":True,"codec":"h264","width":1920,"height":1080,"pixel_format":"yuv420p","field_order":"progressive","container_bitrate_bps":4000000},
+                "delivery_spec":{"passed":True,"codec":"h264","width":1920,"height":1080,"pixel_format":"yuv420p","field_order":"progressive","container_bitrate_bps":4000000,"recommended_sdr_bitrate_bps":8000000,"below_recommended_bitrate":true},
                 "black_frames":{"count":0,"events":[]},"freezes":{"count":0,"events":[]},
                 "audio_timing":{"verified":True},"audio_loudness":{"available":True,"integrated_lufs":-18.0,"true_peak_dbfs":-2.0,"min_loudness_lufs":-24.0,"max_true_peak_dbfs":-1.0},
                 "audio_silence":{"count":0},"render_manifest":{"present":True},"impact_frame_evidence":{"present":True},
