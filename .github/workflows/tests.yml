@@ -95,7 +95,7 @@ jobs:
 
       - name: Install renderer dependencies
         working-directory: video_studio
-        run: npm install
+        run: npm ci
 
       - name: Audit renderer dependencies
         working-directory: video_studio
