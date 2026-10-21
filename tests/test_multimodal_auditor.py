@@ -92,6 +92,43 @@ class MultimodalAuditorTests(unittest.TestCase):
                               "description": "bad", "confidence": 0.8}],
             })
 
+    def test_technical_qc_converts_silence_black_frames_and_av_timing(self):
+        findings = AUDIT.technical_findings({
+            "duration_seconds": 12,
+            "audio_stream_count": 1,
+            "checks": {
+                "black_frames": {"threshold_seconds": 0.2, "events": [
+                    {"start": 3.0, "end": 3.5, "duration": 0.5}
+                ]},
+                "freezes": {"events": [
+                    {"start": 6.0, "end": 9.0, "duration": 3.0}
+                ]},
+                "audio_silence": {"threshold_seconds": 1.5, "events": [
+                    {"start": 1.0, "end": 3.0, "duration": 2.0}
+                ]},
+                "audio_timing": {"verified": False},
+                "audio_loudness": {"available": True, "integrated_lufs": -30.0,
+                                   "min_loudness_lufs": -24.0, "true_peak_dbfs": -0.5,
+                                   "max_true_peak_dbfs": -1.0}
+            }
+        })
+        self.assertEqual(
+            [f["rule"] for f in findings],
+            ["black_screen", "frozen_frame", "dead_air", "av_sync", "audio_levels", "audio_levels"],
+        )
+        report = AUDIT.build_report({
+            "duration_seconds": 12,
+            "coverage": self.complete_coverage(),
+            "findings": findings,
+        })
+        self.assertEqual(report["audit_status"], "FLAGGED")
+        self.assertEqual(len(report["findings"]), 6)
+
+    def test_timestamp_rejects_invalid_minute_and_second_ranges(self):
+        for invalid in ("00:61:00", "00:00:61"):
+            with self.assertRaisesRegex(ValueError, "invalid timestamp"):
+                AUDIT.parse_timestamp(invalid)
+
     def test_formats_hours_longer_than_one_day(self):
         self.assertEqual(AUDIT.timestamp(90061), "25:01:01")
 
