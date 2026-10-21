@@ -4,6 +4,47 @@ This document explains how the studio meets the professional motion-graphics
 brief, what is enforced by code, and what still requires a human eye. It is a
 description of the implementation, not a claim that every render is art.
 
+## 0. A film this pipeline actually produced
+
+`workspace/generated/motion-film/` contains a complete run, built end to end on
+this machine with no cloud service and no API key:
+
+![Contact sheet](preview/film-contact-sheet.jpg)
+
+| File | What it is |
+|---|---|
+| `every-frame-is-code-4k.mp4` | 3840x2160, 30 fps, 20.0 s, H.264 + AAC (13 MB) |
+| `every-frame-is-code-1080p.mp4` | 1920x1080 delivery copy (4.3 MB) |
+| `soundtrack.wav` | procedurally synthesised bed: kick/hat pulse, pad, transition cues |
+| `direction/` | direction sheet, storyboard, timeline, motion report |
+| `audit.md` | the studio's own content/brand/legal/technical audit of the MP4 |
+| `contact-sheet.jpg` | five frames pulled from the encoded film |
+
+How it was made:
+
+```bash
+# 1. Direct the brief; audit it against the motion spec using the real soundtrack
+python video_studio/motion_director.py --brief video_studio/brief.example.json \
+  --beats workspace/generated/motion-film/soundtrack.wav --out-dir build
+
+# 2. Render 600 4K frames with the no-browser Skia renderer
+NODE_PATH=<napi-rs-canvas> node video_studio/render_skia.js build/storyboard.json \
+  --out frames --format jpeg --quality 92
+
+# 3. Validate the frame sequence, then encode
+python video_studio/validate_frames.py --frames frames --manifest frames/manifest.json
+ffmpeg -framerate 30 -i frames/frame-%06d.jpg -i soundtrack.wav \
+  -c:v libx264 -crf 20 -pix_fmt yuv420p -c:a aac -shortest film-4k.mp4
+
+# 4. Audit the finished film with the content auditor
+python video_studio/audit_video.py film-4k.mp4 --report audit.md
+```
+
+The direction audit passed 18/18 clauses with the beat check now verified, not
+skipped. The content audit returned `INCOMPLETE`, which is the honest result:
+nothing was flagged, but twelve rules still need evidence this machine does not
+have (ASR, OCR, a vision model, a licensed-content reference, a local LLM).
+
 ## 1. Three commands
 
 ```bash
@@ -180,10 +221,10 @@ typesetting and grade all were.
 
 ## 7. Honest limits
 
-1. **The renderer needs Chromium for video.** This sandbox has no browser
-   binary, so no MP4 was encoded here. Individual frames *were* rendered through
-   the real Canvas code with Skia (see section 6); the Python direction and
-   compliance layers are fully executed by the tests.
+1. **Two render paths, one drawing engine.** `render.js` uses Puppeteer and is
+   the default on a workstation. `render_skia.js` executes the same
+   `render.html` through `@napi-rs/canvas`, needs no browser, and produced the
+   4K film in section 0. Both enforce the same limits and the same style schema.
 2. **Depth of field is emulation.** Canvas has no lens model; far layers are
    blurred and dimmed. The direction sheet says so explicitly.
 3. **Aesthetics are not machine-provable.** The audit checks composition,

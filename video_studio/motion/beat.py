@@ -164,12 +164,75 @@ def estimate_tempo(onsets: list[dict], min_bpm: float = MIN_TEMPO,
         folded[candidate] = folded.get(candidate, 0.0) + weight
     best_bpm, best_weight = max(folded.items(), key=lambda item: (item[1], -abs(item[0] - 120.0)))
     total = sum(folded.values())
-    return {
+    result = {
         "bpm": round(best_bpm, 1),
         "confidence": round(min(1.0, best_weight / total), 3),
         "samples": len(times),
         "reason": "inter-onset histogram",
     }
+    # The histogram is a good first guess but drifts when one onset is missed.
+    # Prefer a comb fit when it locks on more tightly; report which one won.
+    fit = fit_tempo(onsets, min_bpm, max_bpm)
+    if fit.get("bpm") and fit["score"] >= 0.5 and (
+        result["confidence"] < 0.9 or abs(fit["bpm"] - best_bpm) > 0.5
+    ):
+        if fit["score"] >= result["confidence"] or abs(fit["bpm"] - best_bpm) > 1.0:
+            result.update({
+                "bpm": round(fit["bpm"], 1),
+                "confidence": round(max(result["confidence"], fit["score"]), 3),
+                "phase": fit["phase"],
+                "reason": "inter-onset histogram refined by comb fit",
+            })
+    return result
+
+
+def fit_tempo(onsets: list[dict], min_bpm: float = MIN_TEMPO, max_bpm: float = MAX_TEMPO,
+              step_bpm: float = 0.25, tolerance: float = 0.05) -> dict:
+    """Comb-fit a tempo to the onsets.
+
+    A histogram of inter-onset intervals is easily pulled off the true tempo by
+    one missed or doubled onset. This scores candidate tempi by how many onsets
+    fall on a shared grid phase, which is what a steady bed actually produces.
+
+    Returns the best tempo, the alignment score in 0..1, and the phase offset
+    of the first grid line.
+    """
+    if min_bpm <= 0 or max_bpm <= min_bpm:
+        raise ValueError("Tempo range is invalid")
+    if step_bpm <= 0 or not 0 < tolerance < 0.5:
+        raise ValueError("Tempo search step and tolerance are out of range")
+    times = [float(item["time"]) for item in onsets]
+    if len(times) < 4:
+        return {"bpm": None, "score": 0.0, "phase": 0.0, "samples": len(times),
+                "reason": "too few onsets for a comb fit"}
+
+    best = {"bpm": None, "score": 0.0, "phase": 0.0}
+    bpm = min_bpm
+    while bpm <= max_bpm + 1e-9:
+        period = 60.0 / bpm
+        phases = sorted((time % period) / period for time in times)
+        # Densest cluster of phases, found by sliding a window of +/- tolerance.
+        best_count, best_mid = 0, 0.0
+        for phase in phases:
+            count = 0
+            for other in phases:
+                delta = abs(other - phase)
+                delta = min(delta, 1.0 - delta)
+                if delta <= tolerance:
+                    count += 1
+            if count > best_count:
+                best_count, best_mid = count, phase
+        score = best_count / len(times)
+        if score > best["score"]:
+            best = {"bpm": round(bpm, 3), "score": round(score, 4),
+                    "phase": round(best_mid * period, 5)}
+        bpm += step_bpm
+    if best["bpm"] is None:
+        return {"bpm": None, "score": 0.0, "phase": 0.0, "samples": len(times),
+                "reason": "no tempo candidate aligned"}
+    best["samples"] = len(times)
+    best["reason"] = "comb fit over onset phases"
+    return best
 
 
 def beat_grid(tempo: dict, duration_seconds: float, offset_seconds: float = 0.0) -> list[float]:
@@ -295,7 +358,11 @@ def analyze(path: str | Path, duration_seconds: float | None = None) -> dict:
     flux = spectral_flux(samples, rate)
     onsets = detect_onsets(flux["flux"], flux["times"])
     tempo = estimate_tempo(onsets)
-    first = onsets[0]["time"] if onsets else 0.0
+    first = float(tempo.get("phase") or (onsets[0]["time"] if onsets else 0.0))
+    # Phase is reported modulo one period; lift it into the clip so the first
+    # reported beat is not before the audio starts.
+    if tempo.get("bpm") and first < 0:
+        first += 60.0 / tempo["bpm"]
     grid = beat_grid(tempo, duration, offset_seconds=first)
     return {
         "duration_seconds": round(duration, 3),

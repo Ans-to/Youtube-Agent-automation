@@ -178,3 +178,19 @@ Landscape and vertical regression storyboards are provided at `storyboard.motion
     python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4 --language en
 
 This command can produce English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
+
+## Rendering without a browser
+
+`render.js` uses Puppeteer and needs a Chromium binary. `render_skia.js` runs the
+same `render.html` drawing code through `@napi-rs/canvas`, so frames can be
+produced on machines and CI images with no browser installed:
+
+```bash
+npm install --no-save @napi-rs/canvas
+node render_skia.js storyboard.pro.json --out frames --format jpeg --quality 92 --scale 1
+python validate_frames.py --frames frames --manifest frames/manifest.json
+```
+
+Both paths validate the same storyboard limits, load the bundled fonts before the
+first frame, and write `render-manifest.json`. `--scale 0.5` renders a fast
+review copy at half resolution.

@@ -86,7 +86,7 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
                        list[tuple[float, float]],
                        list[tuple[float, tuple[float, ...]]],
                    ]:
-    """Stream small RGB frames and return (luminance, motion, red, 3x3 grid motion).
+    """Stream small RGB frames and return (luminance, motion, red, 3x3 grid motion, peak luminance).
 
     Frames are decoded at low resolution and streamed, so memory stays flat even
     for long videos. Values are 0..1. The 3x3 grid is how mouth-region motion is
@@ -94,7 +94,7 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
     """
     ffmpeg = ffmpeg or shutil.which("ffmpeg")
     if not ffmpeg:
-        return [], [], [], []
+        return [], [], [], [], []
     command = [
         ffmpeg, "-hide_banner", "-nostats", "-loglevel", "error", "-i", str(path),
         "-an", "-vf", f"fps={sample_fps},scale={FRAME_WIDTH}:{FRAME_HEIGHT}",
@@ -102,6 +102,7 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
     ]
     frame_bytes = FRAME_WIDTH * FRAME_HEIGHT * 3
     luminance: list[tuple[float, float]] = []
+    peak: list[tuple[float, float]] = []
     motion: list[tuple[float, float]] = []
     red: list[tuple[float, float]] = []
     grid_motion: list[tuple[float, tuple[float, ...]]] = []
@@ -112,7 +113,7 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
             command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL,
         )
     except OSError:
-        return [], [], []
+        return [], [], [], [], []
     try:
         while True:
             frame = _read_exact(process.stdout, frame_bytes)
@@ -122,13 +123,20 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
             # Sample every fourth pixel; the image is already tiny.
             luma_total = 0.0
             red_total = 0.0
+            peak_luma = 0.0
             pixels = 0
             for offset in range(0, frame_bytes, 12):
                 r, g, b = frame[offset], frame[offset + 1], frame[offset + 2]
-                luma_total += LUMA[0] * r + LUMA[1] * g + LUMA[2] * b
+                luma = LUMA[0] * r + LUMA[1] * g + LUMA[2] * b
+                luma_total += luma
                 red_total += r
+                if luma > peak_luma:
+                    peak_luma = luma
                 pixels += 1
             luminance.append((time, luma_total / (pixels * 255.0)))
+            # A dark title card and a dead signal both have a low mean. The peak
+            # separates them: type and graphics still put a bright pixel on screen.
+            peak.append((time, peak_luma / 255.0))
             red.append((time, red_total / (pixels * 255.0)))
             if previous is not None:
                 difference = 0
@@ -159,7 +167,7 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
             process.wait(timeout=30)
         except subprocess.TimeoutExpired:
             process.kill()
-    return luminance, motion, red, grid_motion
+    return luminance, motion, red, grid_motion, peak
 
 
 def extract_audio_rms(path: Path, window: float = 0.1, sample_rate: int = 16_000,
@@ -353,8 +361,9 @@ def collect(path: str | Path, *, sample_fps: float = 10.0,
         except (TypeError, ValueError, ZeroDivisionError):
             signals.fps = None
 
-    luminance, motion, red, grid_motion = extract_frames(path, sample_fps=sample_fps)
+    luminance, motion, red, grid_motion, peak = extract_frames(path, sample_fps=sample_fps)
     signals.luminance, signals.motion, signals.red_level = luminance, motion, red
+    signals.peak_luminance = peak
     signals.grid_motion = grid_motion
     if luminance:
         signals.sources["luminance"] = f"ffmpeg frames at {sample_fps:g} fps"
@@ -369,7 +378,8 @@ def collect(path: str | Path, *, sample_fps: float = 10.0,
         signals.music_confidence = profile.music.confidence
         signals.sources["audio_profile"] = (
             f"local DSP: {profile.integrated_db:.1f} dBFS integrated, "
-            f"music heuristics {profile.music.confidence:.0f}% confident"
+            f"music heuristics: {'bed detected' if profile.music.present else 'no bed'} "
+            f"({profile.music.confidence:.0f}% confidence)"
         )
     else:
         rms = extract_audio_rms(path)

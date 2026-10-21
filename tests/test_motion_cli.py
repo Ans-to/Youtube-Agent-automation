@@ -56,6 +56,22 @@ class MotionCliTests(unittest.TestCase):
         self.assertEqual(len(data["transitions"]["professional"]), 6)
         self.assertTrue(data["fonts"]["complete"])
 
+    def test_beats_can_be_combined_with_a_brief(self):
+        sys.path.insert(0, str(ROOT / "tests"))
+        from test_motion_beat import write_click_track
+
+        with tempfile.TemporaryDirectory() as tmp:
+            track = write_click_track(Path(tmp) / "track.wav", bpm=120, seconds=20.0)
+            code, output = self.run_cli([
+                "--brief", str(ROOT / "video_studio" / "brief.example.json"),
+                "--beats", str(track), "--out-dir", tmp,
+            ])
+            self.assertEqual(code, 0, msg=output)
+            self.assertIn("MOTION SPEC: PASSED", output)
+            report = json.loads((Path(tmp) / "motion-report.json").read_text())
+            self.assertIn("MG-4.1-BEAT-SYNC", report["verified_machine"])
+            self.assertEqual(report["not_checked"], [])
+
     def test_beats_command_reads_a_wav(self):
         sys.path.insert(0, str(ROOT / "tests"))
         from test_motion_beat import write_click_track

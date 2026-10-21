@@ -195,10 +195,21 @@ class StatusTests(unittest.TestCase):
         self.assertIn("LE-CLIPS", partial["unverified_rule_ids"])
 
     def test_music_heuristic_drives_le_music(self):
-        clean = clean_audit(attested=("LE-CLIPS", "BS-SENTIMENT"))
+        # A confident negative clears the rule.
+        sure = clean_signals()
+        sure.music_confidence = 91.0
+        clean = clean_audit(signals=sure, attested=("LE-CLIPS", "BS-SENTIMENT"))
         music = next(item for item in clean["rules"] if item["id"] == "LE-MUSIC")
         self.assertEqual(music["status"], "passed")
         self.assertIn("No music bed detected", music["reason"])
+
+        # A weak negative does not: it may simply have missed a quiet bed.
+        unsure = clean_signals()
+        unsure.music_confidence = 62.0
+        partial = clean_audit(signals=unsure, attested=("LE-CLIPS", "BS-SENTIMENT"))
+        music = next(item for item in partial["rules"] if item["id"] == "LE-MUSIC")
+        self.assertEqual(music["status"], "unverified")
+        self.assertIn("not confident enough", music["reason"])
 
         signals = clean_signals()
         signals.music_detected = None

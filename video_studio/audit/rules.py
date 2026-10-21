@@ -262,7 +262,9 @@ RULES: tuple[Rule, ...] = (
         severity="medium",
         feasibility=AUTOMATIC,
         requires=("luminance",),
-        detection="Per-frame mean luminance; contiguous intervals below threshold are reported.",
+        detection=("Per-frame mean and peak luminance. A span is black only when it is dark on "
+                   "average and its brightest pixel is also near black, so a low-key title card "
+                   "with lit type is not mistaken for a dropped signal."),
     ),
     Rule(
         id="TQ-DEAD-AIR",

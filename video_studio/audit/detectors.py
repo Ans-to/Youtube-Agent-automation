@@ -53,20 +53,32 @@ class Finding:
 # ---------------------------------------------------------------------------
 
 def detect_black(luminance: list[tuple[float, float]], *, threshold: float = 0.10,
-                 min_seconds: float = 0.5, step: float | None = None) -> list[Finding]:
-    """Report spans where mean frame luminance stays below ``threshold``."""
+                 min_seconds: float = 0.5, step: float | None = None,
+                 peak: list[tuple[float, float]] | None = None,
+                 peak_maximum: float = 0.15) -> list[Finding]:
+    """Report spans that are effectively a dead signal, not merely a dark design.
+
+    A low mean alone is not enough. Cinematic title sequences sit well under 10%
+    average luminance while still carrying bright type. When a per-frame peak
+    luminance series is supplied, a span only counts as black if even its
+    brightest pixel stays near black: no type, no graphics, no light at all.
+    """
     if len(luminance) < 2:
         return []
     step = step or _median_step(luminance)
+    peak_by_time = dict(peak) if peak else {}
     runs: list[list[float]] = []
     current: list[float] | None = None
     for time, value in luminance:
-        if value <= threshold:
+        peak_value = peak_by_time.get(time)
+        dark = value <= threshold and (peak_value is None or peak_value <= peak_maximum)
+        if dark:
             current = current or [time, time]
             current[1] = time + step
         elif current is not None:
             runs.append(current)
             current = None
+
     if current is not None:
         runs.append(current)
 
@@ -81,7 +93,8 @@ def detect_black(luminance: list[tuple[float, float]], *, threshold: float = 0.1
                 f"(mean luminance at or below {threshold:.0%})."
             ),
             confidence=99.0,
-            evidence={"threshold": threshold, "min_seconds": min_seconds},
+            evidence={"threshold": threshold, "min_seconds": min_seconds,
+                      "peak_maximum": peak_maximum if peak else None},
         ))
     return findings[:MAX_FINDINGS_PER_RULE]
 

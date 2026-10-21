@@ -32,12 +32,15 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
         cursor += value
     scene_starts = scene_starts[1:]  # no transition sound before the opening scene
     cue_window = 0.24
-    beat_seconds = 60.0 / 118.0
+    # 120 BPM = 0.5 s per beat, which divides the 4-second shot grid used by the
+    # direction compiler, so cuts can land on the pulse instead of near it.
+    beat_seconds = 60.0 / 120.0
     sfx_mix = _sfx_mix(duration, sample_rate, sfx_cues or [])
     frame_count = int(math.ceil(duration * sample_rate))
     path = Path(output)
     path.parent.mkdir(parents=True, exist_ok=True)
 
+    noise_state = 20260121  # fixed seed: the same brief always gets the same bed
     with wave.open(str(path), "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
@@ -49,6 +52,14 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
             samples = array("h")
             for frame in range(start, end):
                 t = frame / sample_rate
+                # A quiet kick/hat on each beat. Without a transient the bed has
+                # no detectable pulse, so a cut could never be checked against it.
+                beat_phase = t % beat_seconds
+                noise_state = (noise_state * 1103515245 + 12345) & 0x7FFFFFFF
+                beat_noise = (noise_state / 0x7FFFFFFF) * 2.0 - 1.0
+                kick = 0.052 * math.exp(-beat_phase * 26.0) * math.sin(
+                    2.0 * math.pi * (62.0 * math.exp(-beat_phase * 9.0) + 34.0) * beat_phase)
+                hat = 0.016 * math.exp(-beat_phase * 180.0) * beat_noise
                 # Low-level, slowly pulsing tonal bed; kept deliberately below speech.
                 pulse = 0.72 + 0.28 * math.sin(2.0 * math.pi * t / beat_seconds)
                 bed = pulse * (0.020 * math.sin(2.0 * math.pi * 55.0 * t)
@@ -68,7 +79,7 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
                         if elapsed < 0.035:
                             click = 0.035 * math.exp(-elapsed * 115.0) * math.sin(2.0 * math.pi * 1550.0 * elapsed)
                         cue = sweep + click
-                value = max(-0.9, min(0.9, bed + cue + (sfx_mix[frame] if frame < len(sfx_mix) else 0.0)))
+                value = max(-0.9, min(0.9, bed + cue + kick + hat + (sfx_mix[frame] if frame < len(sfx_mix) else 0.0)))
                 samples.append(int(value * 32767))
             if __import__("sys").byteorder != "little":
                 samples.byteswap()

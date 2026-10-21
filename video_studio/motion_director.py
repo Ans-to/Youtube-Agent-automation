@@ -73,7 +73,9 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(payload, ensure_ascii=False, indent=2))
         return 0
 
-    if args.beats:
+    # --beats is a standalone report only when there is nothing to direct.
+    # With --brief or --storyboard it becomes the beat source for the audit.
+    if args.beats and not args.brief and not args.storyboard:
         try:
             analysis = beat.analyze(args.beats)
         except (ValueError, OSError) as exc:

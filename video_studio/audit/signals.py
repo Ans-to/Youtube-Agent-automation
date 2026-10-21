@@ -62,6 +62,7 @@ class MediaSignals:
     width: int | None = None
     height: int | None = None
     luminance: list[tuple[float, float]] = field(default_factory=list)
+    peak_luminance: list[tuple[float, float]] = field(default_factory=list)
     motion: list[tuple[float, float]] = field(default_factory=list)
     red_level: list[tuple[float, float]] = field(default_factory=list)
     audio_rms: list[tuple[float, float]] = field(default_factory=list)

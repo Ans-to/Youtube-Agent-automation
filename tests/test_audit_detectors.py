@@ -48,6 +48,22 @@ class BlackFreezeDeadAirTests(unittest.TestCase):
         findings = detectors.detect_black(series([0.5, 0.01, 0.5], 0.1), min_seconds=0.5)
         self.assertEqual(findings, [])
 
+    def test_a_dark_title_card_is_not_a_dropped_signal(self):
+        values = series([0.05] * 40, 0.1)
+        peak = [(time, 0.92) for time, _ in values]
+        self.assertEqual(detectors.detect_black(values, min_seconds=0.5, peak=peak), [])
+
+    def test_a_dead_signal_still_flags_when_nothing_is_bright(self):
+        values = series([0.002] * 40, 0.1)
+        peak = [(time, 0.02) for time, _ in values]
+        findings = detectors.detect_black(values, min_seconds=0.5, peak=peak)
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0].rule_id, "TQ-BLACK")
+        self.assertEqual(findings[0].evidence["peak_maximum"], 0.15)
+
+    def test_mean_only_callers_keep_the_old_behaviour(self):
+        self.assertEqual(len(detectors.detect_black(series([0.05] * 40, 0.1), min_seconds=0.5)), 1)
+
     def test_dead_air_respects_minimum_duration(self):
         quiet = [0.0] * 30
         values = [0.2] * 5 + quiet + [0.2] * 5

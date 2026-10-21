@@ -35,6 +35,10 @@ STATUS_MANUAL = "manual"
 STATUS_NOT_APPLICABLE = "not_applicable"
 STATUS_ATTESTED = "attested"
 
+# A negative music result only clears LE-MUSIC if the heuristic is reasonably
+# sure. A weak "probably not music" must not be reported as a clean pass.
+MUSIC_CONFIDENCE_FLOOR = 75.0
+
 
 def audit_video(path: str | Path, *, subtitle_path: str | Path | None = None,
                 whisper_model: str | None = "base", ocr: bool = True,
@@ -129,7 +133,8 @@ def audit_signals(signals: MediaSignals, *, video_name: str = "video",
         else:
             results.append(_result(rule, STATUS_PASSED, "Evaluated; no finding."))
 
-    record(rule_by_id("TQ-BLACK"), lambda: detectors.detect_black(signals.luminance))
+    record(rule_by_id("TQ-BLACK"), lambda: detectors.detect_black(
+        signals.luminance, peak=signals.peak_luminance or None))
     record(rule_by_id("TQ-DEAD-AIR"), lambda: detectors.detect_dead_air(
         signals.audio_rms, window=signals.audio_window))
     record(rule_by_id("TQ-FREEZE"), lambda: detectors.detect_freeze(signals.motion))
@@ -246,11 +251,21 @@ def audit_signals(signals: MediaSignals, *, video_name: str = "video",
 
     for rule_id in ("LE-MUSIC", "LE-CLIPS"):
         rule = rule_by_id(rule_id)
-        if rule_id == "LE-MUSIC" and signals.music_detected is False and rule.id not in attested_ids:
+        confident = (signals.music_confidence or 0.0) >= MUSIC_CONFIDENCE_FLOOR
+        if (rule_id == "LE-MUSIC" and signals.music_detected is False
+                and rule.id not in attested_ids and confident):
             results.append(_result(
                 rule, STATUS_PASSED,
-                "No music bed detected by the local audio heuristics. Music below the detection "
-                "threshold, or buried under dialogue, would escape this check."
+                f"No music bed detected ({signals.music_confidence or 0:.0f}% heuristic confidence). "
+                "Music below the detection threshold, or buried under dialogue, would escape this check."
+            ))
+        elif (rule_id == "LE-MUSIC" and signals.music_detected is False
+                and rule.id not in attested_ids):
+            results.append(_result(
+                rule, STATUS_UNVERIFIED,
+                f"The music heuristic was not confident enough to clear this rule "
+                f"({signals.music_confidence or 0:.0f}% < {MUSIC_CONFIDENCE_FLOOR:.0f}%). "
+                "Confirm the soundtrack licence directly."
             ))
         elif rule_id == "LE-MUSIC" and signals.music_detected is True and rule.id not in attested_ids:
             findings.append(detectors.Finding(
