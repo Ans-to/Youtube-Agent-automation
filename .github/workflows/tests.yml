@@ -2,7 +2,7 @@ name: Project checks
 
 on:
   push:
-    branches: [main, integration/agent-hq-complete-20261020]
+    branches: [main, integration/agent-hq-complete-20261020, agent/fail-closed-multimodal-release-audit-20261021]
   pull_request:
     branches: [main, integration/agent-hq-complete-20261020]
   workflow_dispatch:
