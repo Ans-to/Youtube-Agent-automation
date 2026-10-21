@@ -63,6 +63,59 @@ def parse_silence_events(stderr, duration):
     return events
 
 
+def parse_luminance_frames(stderr):
+    """Parse FFmpeg signalstats YAVG metadata into (timestamp, luma) samples."""
+    frames = []
+    blocks = re.split(r"(?=frame:\\s*\\d+\\s+pts:)", stderr)
+    for block in blocks:
+        time_match = re.search(r"frame:\\s*\\d+\\s+pts:\\S+\\s+pts_time:([0-9.]+)", block)
+        luma_match = re.search(r"lavfi\\.signalstats\\.YAVG=([0-9.]+)", block)
+        if not time_match or not luma_match:
+            continue
+        try:
+            frames.append((float(time_match.group(1)), float(luma_match.group(1))))
+        except ValueError:
+            continue
+    return frames
+
+
+def detect_luminance_flash_events(frames, min_luma_delta=51.0,
+                                  window_seconds=1.0, min_transitions=6):
+    """Flag high-contrast luminance changes at a rate consistent with rapid flashing.
+
+    This is a conservative screening heuristic, not a formal photosensitivity
+    compliance test: frame-average luminance cannot measure flash area or red flashes.
+    """
+    transitions = []
+    for previous, current in zip(frames, frames[1:]):
+        previous_time, previous_luma = previous
+        current_time, current_luma = current
+        delta_time = current_time - previous_time
+        if 0 < delta_time <= 0.25 and abs(current_luma - previous_luma) >= min_luma_delta:
+            transitions.append(current_time)
+
+    events = []
+    index = 0
+    while index < len(transitions):
+        end_index = index
+        while end_index < len(transitions) and transitions[end_index] - transitions[index] <= window_seconds:
+            end_index += 1
+        count = end_index - index
+        if count >= min_transitions:
+            events.append({
+                "start": round(transitions[index - 1] if index > 0 else max(0.0, transitions[index] - 0.1), 3),
+                "end": round(transitions[end_index - 1], 3),
+                "duration": round(transitions[end_index - 1] - (transitions[index - 1] if index > 0 else max(0.0, transitions[index] - 0.1)), 3),
+                "transition_count": count,
+                "window_seconds": window_seconds,
+                "min_luma_delta": min_luma_delta,
+            })
+            index = end_index
+        else:
+            index += 1
+    return events
+
+
 def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
           max_silence_seconds=1.5, min_loudness_lufs=-24.0, max_true_peak_dbfs=-1.0):
     path = Path(path)
@@ -137,6 +190,24 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     if any(e["duration"] >= max_black_seconds for e in black):
         report["passed"] = False
         report["warnings"].append("Unexpected black frame interval detected; inspect timestamps.")
+    code, log = run_filter(ffmpeg, path, video_filter="signalstats,metadata=print:file=-")
+    luminance_frames = parse_luminance_frames(log) if code == 0 else []
+    if code == 0 and len(luminance_frames) >= 2:
+        flash_events = detect_luminance_flash_events(luminance_frames)
+        report["checks"]["photosensitivity"] = {
+            "available": True, "sampled_frame_count": len(luminance_frames),
+            "events": flash_events, "screening_only": True,
+            "note": "Average-luminance heuristic only; not formal photosensitivity compliance certification.",
+        }
+        if flash_events:
+            report["passed"] = False
+            report["warnings"].append("Potential rapid high-contrast flashing detected; inspect timestamps and run a specialist photosensitivity review.")
+    else:
+        report["checks"]["photosensitivity"] = {
+            "available": False, "sampled_frame_count": len(luminance_frames),
+            "events": [], "note": "FFmpeg signalstats luminance samples could not be parsed.",
+        }
+        report["warnings"].append("Photosensitivity screening was unavailable; review is required.")
     code, log = run_filter(ffmpeg, path, video_filter="freezedetect=n=-50dB:d=" + str(max_freeze_seconds))
     if code:
         raise ValueError("FFmpeg freeze detector failed: " + log[-1000:])
