@@ -40,6 +40,16 @@ class MultiTopicRegressionCorpusTests(unittest.TestCase):
         self.assertEqual(len(narrations), 30)
         self.assertEqual(len(set(narrations)), 30)
 
+    def test_all_ten_niches_have_distinct_opening_compositions(self):
+        opening_types = [topic["scenes"][0]["visual_type"] for topic in self.topics]
+        self.assertEqual(len(opening_types), 10)
+        self.assertEqual(len(set(opening_types)), 10)
+        self.assertEqual(
+            set(opening_types),
+            {"code", "diagram", "stat", "comparison", "timeline",
+             "waveform", "quote", "hero", "kinetic-type", "bar-chart"},
+        )
+
     def test_niche_scripts_exercise_multiple_visual_types_and_transitions(self):
         visual_types = {
             scene["visual_type"]

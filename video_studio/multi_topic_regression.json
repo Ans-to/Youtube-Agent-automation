@@ -14,10 +14,15 @@
           "headline": "A trusted-looking email can still be a trap",
           "subhead": "Familiar branding does not prove the message is safe.",
           "narration": "A familiar logo does not prove an email is safe.",
-          "visual_type": "hero",
+          "visual_type": "code",
           "graphic_label": "VERIFY THE MESSAGE",
           "transition_in": "none",
-          "transition_frames": 10
+          "transition_frames": 10,
+          "code_lines": [
+            "sender = inspect_address()",
+            "target = expand_short_link()",
+            "verify = known_site_only"
+          ]
         },
         {
           "duration_seconds": 4,
@@ -70,10 +75,15 @@
           "headline": "Oil and water do not stay mixed by themselves",
           "subhead": "A sauce needs help keeping tiny droplets distributed.",
           "narration": "Oil and water separate when left alone.",
-          "visual_type": "hero",
+          "visual_type": "diagram",
           "graphic_label": "MIXING MATTERS",
           "transition_in": "none",
-          "transition_frames": 10
+          "transition_frames": 10,
+          "visual_nodes": [
+            "OIL DROPLETS",
+            "EMULSIFIER",
+            "WATER PHASE"
+          ]
         },
         {
           "duration_seconds": 4,
@@ -120,10 +130,12 @@
           "headline": "Growth can build on earlier growth",
           "subhead": "Compounding describes how returns may accumulate over time.",
           "narration": "Compounding means returns can build on earlier returns.",
-          "visual_type": "hero",
+          "visual_type": "stat",
           "graphic_label": "TIME HORIZON",
           "transition_in": "none",
-          "transition_frames": 10
+          "transition_frames": 10,
+          "stat_value": "TIME",
+          "stat_label": "COMPOUNDING NEEDS PATIENCE"
         },
         {
           "duration_seconds": 4,
@@ -177,10 +189,22 @@
           "headline": "Recovery is where adaptation can happen",
           "subhead": "Harder sessions are only one part of a training plan.",
           "narration": "Training challenges the body and recovery supports adaptation.",
-          "visual_type": "hero",
+          "visual_type": "comparison",
           "graphic_label": "EFFORT + RECOVERY",
           "transition_in": "none",
-          "transition_frames": 10
+          "transition_frames": 10,
+          "comparison_left_title": "TRAINING",
+          "comparison_right_title": "RECOVERY",
+          "comparison_left": [
+            "Challenge the body",
+            "Create fatigue",
+            "Progress gradually"
+          ],
+          "comparison_right": [
+            "Restore capacity",
+            "Support adaptation",
+            "Prepare to repeat"
+          ]
         },
         {
           "duration_seconds": 4,
@@ -234,10 +258,16 @@
           "headline": "Start with the itinerary and weather",
           "subhead": "Packing works better when it begins with the actual plan.",
           "narration": "Start packing from your itinerary and the weather forecast.",
-          "visual_type": "hero",
+          "visual_type": "timeline",
           "graphic_label": "PACK WITH INTENT",
           "transition_in": "none",
-          "transition_frames": 10
+          "transition_frames": 10,
+          "timeline_events": [
+            "PLAN",
+            "CHECK WEATHER",
+            "CHOOSE LAYERS",
+            "PACK LIGHT"
+          ]
         },
         {
           "duration_seconds": 4,
@@ -290,8 +320,8 @@
           "headline": "Sunlight fades as you descend",
           "subhead": "The deep ocean is not simply the surface without color.",
           "narration": "Sunlight fades quickly as you descend below the surface.",
-          "visual_type": "hero",
-          "graphic_label": "DEPTH CHANGES EVERYTHING",
+          "visual_type": "waveform",
+          "graphic_label": "DEPTH / LIGHT / PRESSURE",
           "transition_in": "none",
           "transition_frames": 10
         },
@@ -335,10 +365,12 @@
           "headline": "Movable type changed how pages were made",
           "subhead": "Reusable characters made repeated printing more practical.",
           "narration": "Movable type made repeatable pages faster to produce.",
-          "visual_type": "hero",
+          "visual_type": "quote",
           "graphic_label": "IDEAS AT SCALE",
           "transition_in": "none",
-          "transition_frames": 10
+          "transition_frames": 10,
+          "quote": "Reusable type changed how ideas were reproduced.",
+          "quote_source": "HISTORY OF PRINTING"
         },
         {
           "duration_seconds": 4,
@@ -383,7 +415,7 @@
           "subhead": "Watering should match the mix, container, and conditions.",
           "narration": "Seedlings need steady moisture rather than soggy soil.",
           "visual_type": "hero",
-          "graphic_label": "BALANCED WATERING",
+          "graphic_label": "BALANCED GROWTH",
           "transition_in": "none",
           "transition_frames": 10
         },
@@ -438,8 +470,8 @@
           "headline": "Try to recall before opening your notes",
           "subhead": "Retrieval practice makes gaps in memory visible.",
           "narration": "Retrieval practice asks your brain to recall before checking notes.",
-          "visual_type": "hero",
-          "graphic_label": "RETRIEVE FIRST",
+          "visual_type": "kinetic-type",
+          "graphic_label": "RECALL / FEEDBACK / REPEAT",
           "transition_in": "none",
           "transition_frames": 10
         },
@@ -484,10 +516,20 @@
           "headline": "New customers should know the next step",
           "subhead": "Confusion at the beginning can stall useful progress.",
           "narration": "New customers should know the next step immediately.",
-          "visual_type": "hero",
-          "graphic_label": "MAKE PROGRESS CLEAR",
+          "visual_type": "bar-chart",
+          "graphic_label": "STEPS TO VALUE",
           "transition_in": "none",
-          "transition_frames": 10
+          "transition_frames": 10,
+          "chart_values": [
+            1,
+            2,
+            3
+          ],
+          "chart_labels": [
+            "SIGN UP",
+            "FIRST TASK",
+            "FIRST VALUE"
+          ]
         },
         {
           "duration_seconds": 4,
