@@ -60,6 +60,37 @@ def evaluate_production_readiness(status, research_evidence, storyboard):
         if missing_narration:
             blockers.append("Narration is missing in scene(s): " + ", ".join(map(str, missing_narration)) + ".")
 
+        # A presenter merely existing in every scene is not evidence of expressive
+        # performance. Require actual per-scene direction and enough variation to
+        # catch packages that reuse a single frozen pose/expression throughout.
+        enabled_scenes = [
+            scene for scene in scenes
+            if isinstance(scene, dict)
+            and isinstance(scene.get("character"), dict)
+            and scene["character"].get("enabled") is True
+        ]
+        poses = {
+            str(scene["character"].get("pose", "")).strip().lower()
+            for scene in enabled_scenes
+            if str(scene["character"].get("pose", "")).strip()
+        }
+        expressions = {
+            str(scene["character"].get("expression", "")).strip().lower()
+            for scene in enabled_scenes
+            if str(scene["character"].get("expression", "")).strip()
+        }
+        visual_types = {
+            str(scene.get("visual_type", "")).strip().lower()
+            for scene in scenes
+            if str(scene.get("visual_type", "")).strip()
+        }
+        if len(enabled_scenes) >= 3 and len(poses) < 2:
+            blockers.append("Presenter performance lacks scene-specific pose variation; at least two distinct poses are required.")
+        if len(enabled_scenes) >= 3 and len(expressions) < 2:
+            blockers.append("Presenter performance lacks expressive variation; at least two distinct expressions are required.")
+        if len(scenes) >= 4 and len(visual_types) < 2:
+            blockers.append("Visual direction lacks composition variety; at least two visual types are required.")
+
     alignment = status.get("character_animation", {})
     if not isinstance(alignment, dict) or alignment.get("phoneme_aligned") is not True:
         blockers.append("True phoneme-aligned lip-sync is not verified; approximate mouth cues are insufficient.")
