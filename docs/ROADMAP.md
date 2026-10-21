@@ -18,14 +18,16 @@ committed.
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
 | Plan → act → verify → repair | **Done for web builds** | `tools/tool_agent.py`, `agents/orchestrate.py` |
-| Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 21 rules, local vision evidence, honest unverified states |
-| Professional motion design (L4) | **Gap** | 10 visual types, 7 transitions, 5 camera moves, box-figure rig |
+| Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 22 rules, local vision evidence, honest unverified states |
+| Professional motion design (L4) | **Partial - direction + spec layer done** | `video_studio/motion/`, 6 designed transitions, 9 camera moves, bundled Inter/Space Grotesk, bezier/anticipation/follow-through, `docs/MOTION.md`; asset import and character rig still limited |
 | General task automation (L3) | **Partial** | Web builds only; no long-horizon memory |
 | Code quality of local models | **Gap** | Small models route well but write weak code |
 
 ---
 
 ## Phase 1 — Renderer primitives (professional motion)
+
+**Status:** the direction layer is implemented (`video_studio/motion/`, 122 tests): easing, anticipation, follow-through, camera moves, designed transitions, grade, bundled fonts, beat-synced cues, and a machine audit against the brief. Still open from this phase: motion-blur frame accumulation, SVG/Lottie asset import, variable-font animation, and a skeletal character rig. See `docs/MOTION.md` for the exact line between implemented and aspirational.
 
 **Why first.** This is the most visible promise and the least dependent on model
 quality. It is engineering, not prompting.

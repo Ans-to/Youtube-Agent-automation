@@ -6,7 +6,7 @@ from array import array
 from pathlib import Path
 
 
-def render_sound_design(output, duration_seconds, scene_durations, sample_rate=24000):
+def render_sound_design(output, duration_seconds, scene_durations, sample_rate=24000, sfx_cues=None):
     """Write quiet synthetic underscore plus soft scene cues as mono PCM16 WAV.
 
     This is deliberately restrained and generated locally: no third-party music or
@@ -33,6 +33,7 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
     scene_starts = scene_starts[1:]  # no transition sound before the opening scene
     cue_window = 0.24
     beat_seconds = 60.0 / 118.0
+    sfx_mix = _sfx_mix(duration, sample_rate, sfx_cues or [])
     frame_count = int(math.ceil(duration * sample_rate))
     path = Path(output)
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -67,7 +68,7 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
                         if elapsed < 0.035:
                             click = 0.035 * math.exp(-elapsed * 115.0) * math.sin(2.0 * math.pi * 1550.0 * elapsed)
                         cue = sweep + click
-                value = max(-0.12, min(0.12, bed + cue))
+                value = max(-0.9, min(0.9, bed + cue + (sfx_mix[frame] if frame < len(sfx_mix) else 0.0)))
                 samples.append(int(value * 32767))
             if __import__("sys").byteorder != "little":
                 samples.byteswap()
@@ -75,4 +76,159 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
         wav.writeframes(b"")
     return {"path": str(path), "duration_seconds": frame_count / sample_rate,
             "sample_rate": sample_rate, "scene_cue_count": len(scene_starts),
+            "sfx_cue_count": len(sfx_cues or []),
             "design": "procedural low-level synth bed with timed transition sweeps and clicks"}
+
+
+SFX_KINDS = ("whoosh", "riser", "swell", "glitch", "click", "impact", "pop")
+
+
+def _envelope(t, length, attack=0.012, release=0.08):
+    """Simple attack/release envelope, in seconds."""
+    if t < 0 or t > length:
+        return 0.0
+    if t < attack:
+        return t / attack
+    remaining = length - t
+    if remaining < release:
+        return max(0.0, remaining / release)
+    return 1.0
+
+
+def _sfx_mix(duration, sample_rate, cues):
+    """Mix SFX cues into a sample buffer (used by the bed renderer)."""
+    total = int(math.ceil(duration * sample_rate))
+    mix = [0.0] * total
+    for index, cue in enumerate(cues):
+        if not isinstance(cue, dict):
+            raise ValueError("Cue %d must be an object" % index)
+        kind = str(cue.get("kind", "")).lower()
+        if kind not in SFX_KINDS:
+            raise ValueError("Cue %d uses unknown kind %r" % (index, cue.get("kind")))
+        at = float(cue.get("at", 0.0))
+        length = float(cue.get("length", 0.3))
+        gain = float(cue.get("gain", 0.3))
+        if not 0.0 <= at < duration:
+            continue
+        if not 0.02 <= length <= 2.0:
+            raise ValueError("Cue %d length out of range" % index)
+        if not 0.0 <= gain <= 1.0:
+            raise ValueError("Cue %d gain out of range" % index)
+        values = _synth_cue(kind, length, sample_rate, seed=7919 + index * 104729)
+        start = int(at * sample_rate)
+        for offset, value in enumerate(values):
+            position = start + offset
+            if position >= total:
+                break
+            mix[position] += value * gain
+    return mix
+
+
+def _synth_cue(kind, length, sample_rate, seed=1):
+    """Procedural one-shot sound effect. Deterministic, no samples or licences."""
+    count = max(1, int(length * sample_rate))
+    values = []
+    state = seed & 0x7FFFFFFF or 1
+    for index in range(count):
+        t = index / sample_rate
+        progress = t / max(1e-6, length)
+        envelope = _envelope(t, length)
+        state = (1103515245 * state + 12345) & 0x7FFFFFFF
+        noise = (state / 0x7FFFFFFF) * 2.0 - 1.0
+        if kind == "whoosh":
+            # Band-limited noise with a fast sweep: air moving past a microphone.
+            sweep = math.sin(2 * math.pi * (220.0 + 1600.0 * progress) * t)
+            value = (0.55 * noise + 0.45 * sweep) * envelope * (1.0 - 0.4 * progress)
+        elif kind == "riser":
+            frequency = 90.0 * (2.0 ** (3.2 * progress))
+            value = (0.62 * math.sin(2 * math.pi * frequency * t)
+                     + 0.20 * noise) * envelope * (0.35 + 0.65 * progress)
+        elif kind == "swell":
+            frequency = 140.0 + 60.0 * progress
+            value = (0.55 * math.sin(2 * math.pi * frequency * t)
+                     + 0.25 * math.sin(2 * math.pi * frequency * 2.01 * t)
+                     + 0.10 * noise) * envelope * math.sin(math.pi * progress)
+        elif kind == "glitch":
+            gate = 1.0 if (int(t * 90) % 3) else 0.15
+            value = (0.5 * noise + 0.3 * math.sin(2 * math.pi * (600 + 900 * ((int(t * 60) % 4))) * t)) * envelope * gate
+        elif kind == "click":
+            value = (0.7 * noise + 0.5 * math.sin(2 * math.pi * 2100.0 * t)) * math.exp(-t * 90.0)
+        elif kind == "impact":
+            frequency = 58.0 * math.exp(-t * 3.0)
+            value = (0.85 * math.sin(2 * math.pi * frequency * t)
+                     + 0.35 * noise * math.exp(-t * 22.0)) * envelope
+        elif kind == "pop":
+            frequency = 700.0 * math.exp(-t * 12.0) + 180.0
+            value = 0.7 * math.sin(2 * math.pi * frequency * t) * math.exp(-t * 30.0)
+        else:
+            raise ValueError("Unknown SFX kind %r. Choose one of: %s" % (kind, ", ".join(SFX_KINDS)))
+        values.append(max(-1.0, min(1.0, value)))
+    return values
+
+
+def render_motion_sfx(output, duration_seconds, cues, sample_rate=24000):
+    """Mix procedural transition and impact cues into a mono PCM16 WAV.
+
+    ``cues`` are the plan emitted by ``motion.beat.cue_sheet`` or the direction
+    compiler: ``{at, kind, gain, length}``. The mix is deliberately quiet; it is
+    designed to sit under narration, not compete with it.
+    """
+    try:
+        duration = float(duration_seconds)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("SFX duration must be numeric") from exc
+    if not math.isfinite(duration) or duration <= 0:
+        raise ValueError("SFX duration must be finite and positive")
+    if not isinstance(sample_rate, int) or not 8000 <= sample_rate <= 48000:
+        raise ValueError("SFX sample rate must be between 8 and 48 kHz")
+    if not isinstance(cues, list):
+        raise ValueError("Cues must be a list")
+
+    total = int(math.ceil(duration * sample_rate))
+    mix = [0.0] * total
+    rendered = 0
+    for index, cue in enumerate(cues):
+        if not isinstance(cue, dict):
+            raise ValueError("Cue %d must be an object" % index)
+        kind = str(cue.get("kind", "")).lower()
+        if kind not in SFX_KINDS:
+            raise ValueError("Cue %d uses unknown kind %r" % (index, cue.get("kind")))
+        at = float(cue.get("at", 0.0))
+        length = float(cue.get("length", 0.3))
+        gain = float(cue.get("gain", 0.3))
+        if not (0.0 <= at < duration):
+            continue
+        if not 0.02 <= length <= 2.0:
+            raise ValueError("Cue %d length out of range" % index)
+        if not 0.0 <= gain <= 1.0:
+            raise ValueError("Cue %d gain out of range" % index)
+        values = _synth_cue(kind, length, sample_rate, seed=7919 + index * 104729)
+        start = int(at * sample_rate)
+        for offset, value in enumerate(values):
+            position = start + offset
+            if position >= total:
+                break
+            mix[position] += value * gain
+        rendered += 1
+
+    path = Path(output)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(path), "wb") as wav:
+        wav.setnchannels(1)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        samples = array("h")
+        for value in mix:
+            samples.append(int(max(-1.0, min(1.0, value)) * 32767))
+        if __import__("sys").byteorder != "little":
+            samples.byteswap()
+        wav.writeframes(samples.tobytes())
+    peak = max((abs(value) for value in mix), default=0.0)
+    return {
+        "path": str(path),
+        "duration_seconds": total / sample_rate,
+        "sample_rate": sample_rate,
+        "cue_count": rendered,
+        "peak": round(peak, 4),
+        "design": "procedural transition cues: sweeps, noise, impacts, clicks",
+    }

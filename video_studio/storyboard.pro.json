@@ -1,0 +1,145 @@
+{
+  "title": "Every Frame Is Code",
+  "width": 3840,
+  "height": 2160,
+  "fps": 30,
+  "style": {
+    "tone": "cinematic",
+    "palette": {
+      "name": "cinematic",
+      "bg": "#0C0B0A",
+      "panel": "#16130F",
+      "fg": "#F4EDE1",
+      "muted": "#A2957F",
+      "accent": "#E9A13B",
+      "support": "#6E93A8",
+      "grid": "#221D17",
+      "line": "#372E24",
+      "scrim": "#070706",
+      "light": false
+    },
+    "grade": {
+      "vignette": 0.3,
+      "grain": 0.032,
+      "bloom": 0.16,
+      "contrast": 1.08,
+      "description": "Warm highlights, cool shadows, soft vignette, fine grain."
+    },
+    "easing": {
+      "primary": "dramatic",
+      "entrance": "entrance",
+      "exit": "exit",
+      "accent": "settle"
+    },
+    "typography": {
+      "display": "Space Grotesk",
+      "text": "Inter",
+      "tracking": "normal",
+      "display_stack": "\"Space Grotesk\",\"Inter\",\"Helvetica Neue\",Arial,sans-serif",
+      "text_stack": "\"Inter\",\"Helvetica Neue\",Arial,sans-serif"
+    },
+    "squash_allowed": false
+  },
+  "scenes": [
+    {
+      "duration_seconds": 4.0,
+      "eyebrow": "OFFLINE AGENT HQ",
+      "headline": "Every frame is code.",
+      "subhead": "A deterministic motion studio that runs on your machine.",
+      "narration": "Every frame you are about to see is code.",
+      "visual_type": "hero",
+      "transition_in": "cut",
+      "transition_frames": 0,
+      "camera_motion": "push-in",
+      "easing": "dramatic",
+      "stagger_frames": 4,
+      "anticipation": 0.06,
+      "overshoot": 0.35,
+      "masked": true,
+      "graphic_label": "DETERMINISTIC"
+    },
+    {
+      "duration_seconds": 4.0,
+      "eyebrow": "THE PIPELINE",
+      "headline": "Nothing is filmed.",
+      "subhead": "Geometry, light and type are generated per frame.",
+      "narration": "Nothing is filmed. Geometry, light and type are generated for every frame.",
+      "visual_type": "diagram",
+      "transition_in": "match-cut",
+      "transition_frames": 14,
+      "camera_motion": "crane-up",
+      "easing": "dramatic",
+      "stagger_frames": 4,
+      "anticipation": 0.06,
+      "overshoot": 0.35,
+      "masked": true,
+      "visual_nodes": [
+        "BRIEF",
+        "DIRECTION",
+        "FRAMES"
+      ]
+    },
+    {
+      "duration_seconds": 4.0,
+      "eyebrow": "THE PROOF",
+      "headline": "Same input. Same pixels.",
+      "subhead": "Four thousand frames, one repeatable result.",
+      "narration": "The same brief produces the same pixels, every single run.",
+      "visual_type": "comparison",
+      "transition_in": "morph",
+      "transition_frames": 15,
+      "camera_motion": "drift",
+      "easing": "dramatic",
+      "stagger_frames": 4,
+      "anticipation": 0.06,
+      "overshoot": 0.35,
+      "masked": true,
+      "comparison_left_title": "FIRST RUN",
+      "comparison_right_title": "SAME BRIEF",
+      "comparison_left": [
+        "Same source",
+        "Same frames",
+        "Same layout"
+      ],
+      "comparison_right": [
+        "Same source",
+        "Same frames",
+        "Same layout"
+      ]
+    },
+    {
+      "duration_seconds": 4.0,
+      "eyebrow": "THE CONSTRAINT",
+      "headline": "No cloud.",
+      "subhead": "No keys. No uploads. No render farm.",
+      "narration": "No cloud, no keys, no uploads, no render farm.",
+      "visual_type": "kinetic-type",
+      "transition_in": "cut",
+      "transition_frames": 0,
+      "camera_motion": "pull-out",
+      "easing": "dramatic",
+      "stagger_frames": 4,
+      "anticipation": 0.06,
+      "overshoot": 0.35,
+      "masked": true
+    },
+    {
+      "duration_seconds": 4.0,
+      "eyebrow": "THE INVITATION",
+      "headline": "Bring the brief.",
+      "subhead": "Leave with a film that can be audited frame by frame.",
+      "narration": "Bring the brief, and leave with a film you can audit frame by frame.",
+      "visual_type": "quote",
+      "transition_in": "masked-reveal",
+      "transition_frames": 16,
+      "camera_motion": "handheld",
+      "easing": "dramatic",
+      "stagger_frames": 4,
+      "anticipation": 0.06,
+      "overshoot": 0.35,
+      "masked": true,
+      "quote": "Every frame is accounted for.",
+      "quote_source": "Offline Agent HQ"
+    }
+  ]
+}

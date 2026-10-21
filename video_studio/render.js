@@ -8,11 +8,14 @@ async function main(){
  if(!s||typeof s!=="object"||Array.isArray(s))throw new Error("Storyboard root must be a JSON object.");
  const w=s.width===undefined?1920:Number(s.width),h=s.height===undefined?1080:Number(s.height),fps=s.fps===undefined?30:Number(s.fps);
  if(!Number.isInteger(w)||w<320||w>3840)throw new Error("width must be 320..3840");
- if(!Number.isInteger(h)||h<180||h>2160)throw new Error("height must be 180..2160");
+ if(!Number.isInteger(h)||h<180||h>3840)throw new Error("height must be 180..3840");
  if(!Number.isInteger(fps)||fps<1||fps>60)throw new Error("fps must be 1..60");
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
  const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform","kinetic-type","bar-chart"]);
- const transitionTypes=new Set(["none","fade","wipe-left","wipe-right","slide-left","slide-right","zoom"]);
+ const transitionTypes=new Set(["none","cut","whip-pan","masked-reveal","morph","glitch","match-cut","fade","wipe-left","wipe-right","slide-left","slide-right","zoom","push","dissolve"]);
+ const easingTypes=new Set(["editorial","entrance","exit","settle","snap","glide","dramatic"]);
+ const toneTypes=new Set(["corporate","edgy","minimalist","cinematic","playful"]);
+ const paletteKeys=["bg","panel","fg","muted","accent","support","grid","line","scrim"];
  const cameraMotionTypes=new Set(["static","push-in","pull-out","pan-left","pan-right","drift"]);
  for(const [index,scene] of s.scenes.entries()){
   if(!scene||typeof scene!=="object"||Array.isArray(scene))throw new Error("Scene "+index+" must be a JSON object.");
@@ -42,6 +45,29 @@ async function main(){
    if(!Array.isArray(scene.chart_labels)||scene.chart_labels.length!==scene.chart_values.length)throw new Error("bar-chart requires one chart_label per chart_value.");
   }
  }
+ if(s.style!==undefined&&s.style!==null){
+  if(typeof s.style!=="object"||Array.isArray(s.style))throw new Error("style must be an object.");
+  if(s.style.tone!==undefined&&!toneTypes.has(String(s.style.tone).toLowerCase()))throw new Error("Unsupported style.tone: "+s.style.tone);
+  const paletteBlock=s.style.palette;
+  if(paletteBlock!==undefined){
+   if(typeof paletteBlock!=="object"||Array.isArray(paletteBlock))throw new Error("style.palette must be an object.");
+   for(const key of paletteKeys)if(paletteBlock[key]!==undefined&&!/^#[0-9a-fA-F]{6}$/.test(String(paletteBlock[key])))throw new Error("style.palette."+key+" must be a 6-digit hex colour.");
+  }
+  const gradeBlock=s.style.grade;
+  if(gradeBlock!==undefined){
+   if(typeof gradeBlock!=="object"||Array.isArray(gradeBlock))throw new Error("style.grade must be an object.");
+   for(const [key,min,max] of [["vignette",0,.4],["grain",0,.08],["bloom",0,.3],["contrast",.9,1.2]]){
+    if(gradeBlock[key]===undefined)continue;
+    const value=Number(gradeBlock[key]);
+    if(!Number.isFinite(value)||value<min||value>max)throw new Error("style.grade."+key+" must be between "+min+" and "+max+".");
+   }
+  }
+  const easingBlock=s.style.easing;
+  if(easingBlock!==undefined){
+   if(typeof easingBlock!=="object"||Array.isArray(easingBlock))throw new Error("style.easing must be an object.");
+   for(const role of Object.keys(easingBlock))if(!easingTypes.has(String(easingBlock[role])))throw new Error("style.easing."+role+" uses an unknown curve: "+easingBlock[role]);
+  }
+ }
  const MAX_FRAMES=30000,MAX_SECONDS=1000;
  const totalSeconds=s.scenes.reduce((sum,scene)=>{const sec=Number(scene&&scene.duration_seconds);if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("Each scene duration must be >0 and <=600 seconds");return sum+sec;},0);
  if(totalSeconds>MAX_SECONDS)throw new Error("Storyboard exceeds the 1000-second render limit.");
@@ -54,6 +80,15 @@ async function main(){
   const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
   await page.goto("file://"+path.resolve(__dirname,"render.html"),{waitUntil:"load"});await page.setViewport({width:w,height:h,deviceScaleFactor:1});
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
+  if(s.style)await page.evaluate(style=>window.setStyle(style),s.style);
+  await page.evaluate(rate=>window.setFrameRate(rate),fps);
+  await page.evaluate(()=>document.fonts.ready);
+  const fontCheck=await page.evaluate(()=>({
+   inter:document.fonts.check('700 64px Inter'),
+   display:document.fonts.check('700 64px "Space Grotesk"')
+  }));
+  if(!fontCheck.inter||!fontCheck.display)throw new Error("Bundled font regression: professional faces did not load. "+JSON.stringify(fontCheck));
+  console.log("Font check:",JSON.stringify(fontCheck));
   const wrapCheck=await page.evaluate(()=>window.measureWrappedLines("word ".repeat(80),180,"16px Arial"));
   if(!Number.isInteger(wrapCheck)||wrapCheck<2)throw new Error("Text wrapping regression: long text did not wrap to multiple lines.");
   const directionCheck=await page.evaluate(()=>({
@@ -98,16 +133,27 @@ async function main(){
    const canvas=document.getElementById("frame");return {shapes_drawn:shapes.length,canvas_width:canvas.width,canvas_height:canvas.height};
   });
   if(!rigDrawCheck||rigDrawCheck.shapes_drawn!==requiredVisemes.length||rigDrawCheck.canvas_width!==w||rigDrawCheck.canvas_height!==h)throw new Error("Character-rig draw smoke check failed: "+JSON.stringify(rigDrawCheck));
+  const easingCheck=await page.evaluate(()=>{
+   const start=window.easeForTest("editorial",0),finish=window.easeForTest("editorial",1),middle=window.easeForTest("editorial",.5);
+   const settlePeak=Math.max(...Array.from({length:33},(_,i)=>window.easeForTest("settle",i/32)));
+   const anti=window.anticipationForTest(.10,.18,.08);
+   const capabilities=window.motionCapabilitiesForTest();
+   return {start,finish,middle,settlePeak,anti,curves:capabilities.curves,grade:capabilities.grade};
+  });
+  if(easingCheck.start!==0||easingCheck.finish!==1||Math.abs(easingCheck.middle-.5)>1e-6||easingCheck.settlePeak<=1||easingCheck.anti>=0||easingCheck.curves.length<7)throw new Error("Easing or anticipation regression: "+JSON.stringify(easingCheck));
+  if(!(easingCheck.grade.vignette>0&&easingCheck.grade.grain>0))throw new Error("Grade regression: vignette or grain missing.");
+  console.log("Easing/anticipation smoke check:",JSON.stringify(easingCheck));
+
   const transitionCheck=await page.evaluate(async()=>{
    const previous={visual_type:"hero",headline:"Previous scene",subhead:"Outgoing text",caption:"Outgoing narration",transition_in:"none"};
    const current={visual_type:"diagram",headline:"Current scene",subhead:"Incoming text",caption:"Incoming narration",visual_nodes:["INPUT","PROCESS","OUTPUT"],transition_in:"none"};
-   const modes=["fade","wipe-left","wipe-right","slide-left","slide-right","zoom"];
+   const modes=window.motionCapabilitiesForTest().transitions;
    for(const mode of modes){
     await window.drawTransitionFrame(previous,29,30,29,current,0,30,30,mode,0.5);
    }
    return {modes_rendered:modes,canvas_width:document.getElementById("frame").width,canvas_height:document.getElementById("frame").height};
   });
-  if(!transitionCheck||transitionCheck.modes_rendered.length!==6||transitionCheck.canvas_width!==w||transitionCheck.canvas_height!==h)throw new Error("Transition rendering smoke check failed: "+JSON.stringify(transitionCheck));
+  if(!transitionCheck||transitionCheck.modes_rendered.length!==14||transitionCheck.canvas_width!==w||transitionCheck.canvas_height!==h)throw new Error("Transition rendering smoke check failed: "+JSON.stringify(transitionCheck));
   console.log("Transition smoke check:",JSON.stringify(transitionCheck));
   const waveformCheck=await page.evaluate(()=>{
    const values=Array.from({length:64},(_,i)=>Math.max(0,Math.min(1,Math.abs(Math.sin(i*.2)))));
@@ -144,7 +190,7 @@ async function main(){
    }
    console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
   }
-  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,generated_at:new Date().toISOString()},null,2)+"\n");
+  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,style:s.style||null,tone:(s.style&&s.style.tone)||null,generated_at:new Date().toISOString()},null,2)+"\n");
   console.log("Rendered "+total+" frames to "+dir);
  }finally{await browser.close()}
 }

@@ -36,6 +36,47 @@ def probe_duration(ffprobe, path):
     return duration
 
 
+def grade_filters(storyboard):
+    """Encode-time contrast target declared by the motion direction sheet."""
+    grade = (storyboard.get("style") or {}).get("grade") if isinstance(storyboard, dict) else None
+    if not isinstance(grade, dict):
+        return []
+    try:
+        contrast = float(grade.get("contrast", 1.0))
+    except (TypeError, ValueError):
+        return []
+    if 0.90 <= contrast <= 1.20 and abs(contrast - 1.0) > 0.001:
+        return ["-vf", "eq=contrast=%.3f" % contrast]
+    return []
+
+
+def storyboard_sfx_cues(storyboard):
+    """Transition and impact cues derived from scene starts, for the procedural mix."""
+    try:
+        from motion.direction import build_cues
+    except ImportError:
+        return []
+    directed = []
+    cursor = 0.0
+    for scene in storyboard.get("scenes") or []:
+        try:
+            duration = float(scene.get("duration_seconds", 0))
+        except (TypeError, ValueError):
+            duration = 0.0
+        directed.append({
+            "start": cursor,
+            "end": cursor + duration,
+            "transition_in": str(scene.get("transition_in", "none")),
+            "impact": bool(scene.get("impact", False)),
+        })
+        cursor += duration
+    flat = []
+    for start, cues in zip((shot["start"] for shot in directed), build_cues(directed), strict=False):
+        for cue in cues:
+            flat.append({**cue, "at": round(start + float(cue.get("at", 0.0)), 3)})
+    return flat
+
+
 def build_audio_gated_visemes(text, audio_path, scene_duration_seconds, window_seconds=0.08):
     """Create approximate mouth-shape cues from real audio energy and grapheme classes.
 
@@ -454,6 +495,7 @@ def main():
         run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-framerate", str(fps),
              "-i", str(frames), "-frames:v", str(manifest["frame_count"]),
              "-c:v", "libx264", "-threads", str(profile["render_threads"]), "-pix_fmt", "yuv420p", "-crf", "20",
+             *grade_filters(data),
              "-movflags", "+faststart", str(silent)])
         if args.with_voice:
             combined = voice_dir / "combined.wav"
@@ -466,6 +508,7 @@ def main():
             sound_report = render_sound_design(
                 sound_design, voice_duration,
                 [float(scene["duration_seconds"]) for scene in data["scenes"]],
+                sfx_cues=storyboard_sfx_cues(data),
             )
             run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning",
                  "-i", str(combined), "-i", str(sound_design),
