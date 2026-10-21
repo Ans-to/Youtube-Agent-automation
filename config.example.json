@@ -22,6 +22,10 @@
     "urdu_tts_command": [],
     "kani_speaker_prefix": "",
     "urdu_voice_human_approved": false,
-    "urdu_voice_approved_profile_sha256": ""
+    "urdu_voice_approved_profile_sha256": "",
+    "visual_audit_base_url": "",
+    "visual_audit_model": "",
+    "visual_audit_timeout_seconds": 240,
+    "visual_audit_max_output_tokens": 2600
   }
 }
