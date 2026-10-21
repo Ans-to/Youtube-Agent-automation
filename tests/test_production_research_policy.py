@@ -73,7 +73,7 @@ class ResearchPolicyTests(unittest.TestCase):
         self.assertEqual(summary["page_text_sha256"], [digest])
 
 
-    def test_automatic_quality_audit_accepts_a_strict_report_bound_to_video(self):
+    def test_automatic_quality_audit_blocks_if_multimodal_vision_audit_is_unavailable(self):
         with tempfile.TemporaryDirectory() as directory:
             output_dir = Path(directory)
             video = output_dir / "video.mp4"
@@ -89,8 +89,10 @@ class ResearchPolicyTests(unittest.TestCase):
             }
             (output_dir / "video.qc.json").write_text(json.dumps(report), encoding="utf-8")
             completed = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-            with patch("video_studio.production.subprocess.run", return_value=completed):
-                self.assertEqual(run_strict_quality_audit(output_dir), report)
+            with patch("video_studio.production.subprocess.run", return_value=completed), \
+                 patch("video_studio.production.run_visual_audit", side_effect=ValueError("vision model unavailable")):
+                with self.assertRaisesRegex(RuntimeError, "visual audit failed; release is blocked"):
+                    run_strict_quality_audit(output_dir)
 
     def test_automatic_quality_audit_blocks_nonzero_exit(self):
         with tempfile.TemporaryDirectory() as directory:
