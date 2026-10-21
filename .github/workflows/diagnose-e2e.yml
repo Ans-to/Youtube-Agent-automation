@@ -117,9 +117,11 @@ jobs:
 
           log = base / "video-studio-tool.log"
           if log.is_file():
-              lines = [line for line in log.read_text(errors="replace").splitlines() if line.strip()]
-              for index, line in enumerate(lines[-6:]):
-                  announce("tool log %d" % index, line)
+              text = log.read_text(errors="replace")
+              announce("log length", len(text))
+              tail = text[-4500:]
+              for index in range(0, len(tail), 850):
+                  print("::error title=log %d::%s" % (index, " ".join(tail[index:index + 850].split())))
           else:
               announce("tool log", "missing")
           PY

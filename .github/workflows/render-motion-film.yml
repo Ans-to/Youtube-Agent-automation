@@ -29,7 +29,7 @@ on:
         default: false
         type: boolean
   push:
-    branches: [main, arena/118abf10-youtube-agent-automation]
+    branches: [main]
     paths:
       - "video_studio/render_skia.js"
       - "video_studio/render.html"
