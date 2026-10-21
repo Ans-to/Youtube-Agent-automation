@@ -87,7 +87,7 @@ class VisualAuditPolicyTests(unittest.TestCase):
                         continue
                     seen_indices.add(frame_index)
                     actual_stamp = round(frame_index / fps, 3)
-                    path = sample_dir / ("frame-%03d.jpg" % len(frames) + ".jpg")
+                    path = sample_dir / ("frame-%03d.jpg" % (len(frames) + 1))
                     path.write_bytes(fake_jpeg)
                     frames.append({
                         "timestamp_seconds": actual_stamp,
