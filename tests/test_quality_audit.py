@@ -30,8 +30,8 @@ class QualityAuditParsingTests(unittest.TestCase):
             "silence_start:1.000 silence_end:2.000", 5.0)
         self.assertEqual(events, [{"start": 1.0, "end": 2.0, "duration": 1.0}])
 
-    def test_strict_pacing_policy_rejects_dead_air_over_three_quarters_second(self):
-        self.assertEqual(AUDIT.MAX_ALLOWED_SILENCE_SECONDS, 0.45)
+    def test_strict_pacing_policy_rejects_dead_air_over_point_three_seconds(self):
+        self.assertEqual(AUDIT.MAX_ALLOWED_SILENCE_SECONDS, 0.30)
         events = AUDIT.parse_silence_events("silence_start:1.000 silence_end:1.900", 3.0)
         self.assertEqual(events[0]["duration"], 0.9)
         self.assertGreater(events[0]["duration"], AUDIT.MAX_ALLOWED_SILENCE_SECONDS)

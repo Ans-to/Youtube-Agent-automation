@@ -58,10 +58,23 @@ def paced_scene_duration(planned_seconds, narration_seconds, fps, minimum_gap=0.
             or planned <= 0 or narration <= 0 or rate < 1 or rate > 60
             or min_gap < 0 or max_gap < min_gap):
         raise ValueError("Scene pacing requires finite positive durations, fps 1–60, and ordered non-negative gap limits.")
-    # Retain only a short editorial beat. If narration is longer than the storyboard,
-    # extend the scene; if narration is shorter, shorten the scene rather than padding it.
-    target = max(narration + min_gap, min(planned, narration + max_gap))
-    return math.ceil(target * rate - 1e-9) / rate
+    # Work in whole frames without rounding the requested maximum tail upward.
+    # Rounding duration up can add an extra frame (33 ms at 30 fps), which violates
+    # the declared cap. First calculate the frame ceiling that will not clip speech,
+    # then select a scene length inside the exact maximum-padded frame budget.
+    audio_frames = math.ceil(narration * rate - 1e-9)
+    minimum_frames = math.ceil((narration + min_gap) * rate - 1e-9)
+    maximum_frames = math.floor((narration + max_gap) * rate + 1e-9)
+    if maximum_frames < audio_frames:
+        raise ValueError(
+            "Frame rate cannot fit the narration inside the maximum scene-tail padding."
+        )
+    planned_frames = math.floor(planned * rate + 1e-9)
+    target_frames = min(
+        maximum_frames,
+        max(audio_frames, minimum_frames, min(planned_frames, maximum_frames)),
+    )
+    return target_frames / rate
 
 
 def build_audio_gated_visemes(text, audio_path, scene_duration_seconds, window_seconds=0.08):
@@ -285,9 +298,9 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
         # Reversing the clip lets the start-trim filter safely target its trailing edge.
         trimmed = voice_dir / ("trimmed-%03d.wav" % index)
         trim_filter = (
-            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-55dB:start_silence=0.03,"
+            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-45dB:start_silence=0.03,"
             "areverse,"
-            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-55dB:start_silence=0.05,"
+            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-45dB:start_silence=0.05,"
             "areverse"
         )
         run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw),
@@ -297,14 +310,14 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
         spoken_duration = probe_duration(ffprobe, trimmed)
         if spoken_duration < 0.20:
             raise RuntimeError("Narration for scene " + str(index + 1) + " is too short to pace as a real scene.")
-        scene["narration_duration_seconds"] = round(spoken_duration, 3)
+        scene["narration_duration_seconds"] = round(spoken_duration, 6)
         target_frames = max(1, int(round(paced_scene_duration(
             scene["duration_seconds"], spoken_duration, fps
         ) * fps)))
         aligned_seconds = target_frames / fps
         scene["duration_seconds"] = aligned_seconds
-        scene["narration_padding_seconds"] = round(max(0.0, aligned_seconds - spoken_duration), 3)
-        scene["voice_coverage_ratio"] = round(min(1.0, spoken_duration / aligned_seconds), 3)
+        scene["narration_padding_seconds"] = round(max(0.0, aligned_seconds - spoken_duration), 6)
+        scene["voice_coverage_ratio"] = round(min(1.0, spoken_duration / aligned_seconds), 4)
         character = scene.get("character")
         if isinstance(character, dict) and character.get("enabled") is True:
             if not character.get("visemes"):

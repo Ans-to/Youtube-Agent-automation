@@ -22,15 +22,15 @@ CORPUS = BASE / "multi_topic_regression.json"
 FPS = 30
 WIDTH = 1920
 HEIGHT = 1080
-MAX_SILENCE_SECONDS = 0.45
+MAX_SILENCE_SECONDS = 0.30
 MAX_SCENE_PADDING_SECONDS = 0.22
-# A target is quantized to whole 30-fps frames, so observed padding may exceed the
-# intended 0.22s by at most one frame plus 5ms of rounded metadata.
-MAX_ACCEPTED_PADDING_SECONDS = MAX_SCENE_PADDING_SECONDS + (1.0 / FPS) + 0.005
+# Scene durations are frame-quantized with the maximum tail rounded DOWN, so the
+# measured padding must stay inside the declared cap (with 1 ms for serialization).
+MAX_ACCEPTED_PADDING_SECONDS = MAX_SCENE_PADDING_SECONDS + 0.001
 
 
 def pacing_failure_reason(scene_number, padding, coverage):
-    """Validate spoken coverage using a frame-rate-aware padding tolerance."""
+    """Enforce the stated padding cap and minimum voice coverage without extra-frame leniency."""
     try:
         padding = float(padding)
         coverage = float(coverage)
@@ -284,10 +284,11 @@ def create_contact_sheet(entries, output_root):
     ffmpeg = shutil.which("ffmpeg")
     frames = []
     for entry in entries:
-        if entry.get("status") == "passed":
-            candidate = output_root / entry["output_dir"] / "style-frame.png"
-            if candidate.is_file() and candidate.stat().st_size > 64:
-                frames.append(candidate)
+        # Include each successfully rendered topic even when an audit failed, so the
+        # contact sheet exposes defects instead of hiding them from visual review.
+        candidate = output_root / entry["output_dir"] / "style-frame.png"
+        if candidate.is_file() and candidate.stat().st_size > 64:
+            frames.append(candidate)
     if not ffmpeg or not frames:
         return None, "No FFmpeg or no successfully rendered style frames."
     cell_w, cell_h, columns = 480, 270, 4
@@ -371,6 +372,18 @@ def main():
         )
     contact_sheet, sheet_error = create_contact_sheet(entries, output_root)
     summary["contact_sheet"] = contact_sheet
+    summary["contact_sheet_items"] = [
+        {
+            "id": entry["id"],
+            "niche": entry["niche"],
+            "audit_status": entry["status"],
+            "style_frame_included": (
+                (output_root / entry["output_dir"] / "style-frame.png").is_file()
+                and (output_root / entry["output_dir"] / "style-frame.png").stat().st_size > 64
+            ),
+        }
+        for entry in entries
+    ]
     if sheet_error:
         summary["contact_sheet_error"] = sheet_error
         summary["all_passed"] = False

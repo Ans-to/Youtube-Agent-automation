@@ -1,7 +1,10 @@
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 VIDEO_STUDIO = ROOT / "video_studio"
@@ -51,19 +54,48 @@ class MultiTopicRegressionCorpusTests(unittest.TestCase):
         self.assertGreaterEqual(len(visual_types), 7)
         self.assertGreaterEqual(len(transitions), 5)
 
-    def test_scene_padding_allows_one_frame_of_quantization_but_keeps_voice_coverage_strict(self):
-        # A 0.25s measured pad is expected when 0.22s is rounded to the next 30fps frame.
-        self.assertIsNone(regression.pacing_failure_reason(1, 0.250, 0.91))
-        self.assertIsNone(regression.pacing_failure_reason(2, 0.258, 0.90))
-
-        # A real overrun or insufficient speech coverage must still fail closed.
-        self.assertIsNotNone(regression.pacing_failure_reason(3, 0.270, 0.91))
+    def test_scene_padding_stays_within_declared_cap_and_voice_coverage_stays_strict(self):
+        self.assertIsNone(regression.pacing_failure_reason(1, 0.220, 0.91))
+        self.assertIsNone(regression.pacing_failure_reason(2, 0.219, 0.90))
+        self.assertIsNotNone(regression.pacing_failure_reason(3, 0.221, 0.91))
         self.assertIsNotNone(regression.pacing_failure_reason(4, 0.220, 0.87))
         self.assertIsNotNone(regression.pacing_failure_reason(5, float("nan"), 0.91))
         self.assertAlmostEqual(
             regression.MAX_ACCEPTED_PADDING_SECONDS,
-            regression.MAX_SCENE_PADDING_SECONDS + 1.0 / regression.FPS + 0.005,
+            regression.MAX_SCENE_PADDING_SECONDS + 0.001,
         )
+
+    def test_contact_sheet_includes_every_rendered_topic_even_if_qc_failed(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            entries = []
+            for index in range(10):
+                output_dir = f"{index:02d}-topic"
+                topic_dir = root / output_dir
+                topic_dir.mkdir()
+                (topic_dir / "style-frame.png").write_bytes(b"style-frame-" + bytes([index]) * 96)
+                entries.append({
+                    "id": str(index),
+                    "niche": "topic-" + str(index),
+                    "output_dir": output_dir,
+                    "status": "passed" if index < 2 else "failed",
+                })
+
+            captured = {}
+            def fake_run(command, timeout=300):
+                inputs = [command[index + 1] for index, value in enumerate(command[:-1]) if value == "-i"]
+                captured["inputs"] = inputs
+                Path(command[-1]).write_bytes(b"contact-sheet-" + b"x" * 1200)
+                return SimpleNamespace(returncode=0, stdout="", stderr="")
+
+            with patch.object(regression.shutil, "which", return_value="ffmpeg"), \
+                 patch.object(regression, "run", side_effect=fake_run):
+                contact, error = regression.create_contact_sheet(entries, root)
+
+            self.assertIsNone(error)
+            self.assertEqual(contact, "ten-niche-contact-sheet.jpg")
+            self.assertEqual(len(captured["inputs"]), 10)
+            self.assertTrue(all(Path(path).is_file() for path in captured["inputs"]))
 
     def test_invalid_duplicate_or_short_script_corpus_fails_closed(self):
         duplicate = json.loads(json.dumps(self.corpus))

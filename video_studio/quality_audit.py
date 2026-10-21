@@ -21,7 +21,7 @@ except ImportError:
 
 
 # Viewer-retention pacing contract: long unscored gaps are a release defect.
-MAX_ALLOWED_SILENCE_SECONDS = 0.45
+MAX_ALLOWED_SILENCE_SECONDS = 0.30
 
 
 def file_sha256(path):

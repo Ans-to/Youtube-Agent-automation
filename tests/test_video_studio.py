@@ -175,7 +175,7 @@ class VideoStudioTests(unittest.TestCase):
         # A short line in a five-second storyboard should not leave 2+ seconds of dead air.
         short_line = studio.paced_scene_duration(5.0, 2.0, 30)
         self.assertGreaterEqual(short_line, 2.06)
-        self.assertLessEqual(short_line - 2.0, 0.25)
+        self.assertLessEqual(short_line - 2.0, 0.22)
 
         # A properly filled scene stays close to its planned duration.
         full_line = studio.paced_scene_duration(5.0, 4.9, 30)
@@ -185,6 +185,15 @@ class VideoStudioTests(unittest.TestCase):
         long_line = studio.paced_scene_duration(1.0, 2.0, 30)
         self.assertGreaterEqual(long_line, 2.0)
         self.assertLessEqual(long_line - 2.0, 0.2)
+
+    def test_voice_scene_pacing_respects_the_exact_tail_cap_at_common_frame_rates(self):
+        for fps in (24, 25, 30, 60):
+            for spoken in (0.503, 0.998, 1.171, 1.242, 1.333, 1.927, 2.703, 4.817):
+                with self.subTest(fps=fps, spoken=spoken):
+                    duration = studio.paced_scene_duration(spoken + 2.0, spoken, fps)
+                    self.assertAlmostEqual(duration * fps, round(duration * fps), places=6)
+                    self.assertGreaterEqual(duration + 1e-9, spoken)
+                    self.assertLessEqual(duration - spoken, 0.22 + 1e-6)
 
     def test_voice_scene_pacing_rejects_invalid_inputs(self):
         for args in ((0, 1, 30), (1, 1, 0), (1, float("nan"), 30)):
