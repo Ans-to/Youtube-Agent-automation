@@ -69,6 +69,19 @@ def validate_qc_report(report, video):
         raise ValueError("Audio/video duration parity was not verified.")
     if checks["audio_loudness"].get("available") is not True:
         raise ValueError("Audio loudness and true peak were not measured.")
+    loudness = checks["audio_loudness"]
+    try:
+        integrated_lufs = float(loudness["integrated_lufs"])
+        true_peak_dbfs = float(loudness["true_peak_dbfs"])
+        minimum_lufs = float(loudness["min_loudness_lufs"])
+        maximum_peak = float(loudness["max_true_peak_dbfs"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise ValueError("Audio loudness report lacks numeric measured values and thresholds.") from exc
+    import math
+    if not all(math.isfinite(value) for value in (integrated_lufs, true_peak_dbfs, minimum_lufs, maximum_peak)):
+        raise ValueError("Audio loudness report contains non-finite values.")
+    if integrated_lufs < minimum_lufs or true_peak_dbfs > maximum_peak:
+        raise ValueError("Measured audio loudness or true peak is outside the strict release range.")
     if checks["audio_silence"].get("count") != 0:
         raise ValueError("Unexpected or unreviewed long audio silence blocks release.")
     if checks["freezes"].get("count") != 0:
