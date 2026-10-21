@@ -6,7 +6,7 @@
 <script>
 (() => {
  const canvas=document.getElementById("frame"),ctx=canvas.getContext("2d",{alpha:false});
- const p={bg:"#0b0b0f",fg:"#f4f2ec",accent:"#c8ff3d",muted:"#a7a7b3",grid:"#24242c"};
+ const p={bg:"#080d18",fg:"#f4f7fb",accent:"#64e6ff",secondary:"#9278ff",muted:"#9aa9c6",grid:"#263653"};
  const RTL_SCRIPT=/[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]/;
  const TEXT_FONT='"Noto Naskh Arabic","Noto Nastaliq Urdu","Nirmala UI",Arial,sans-serif';
  function isRtlText(text){return RTL_SCRIPT.test(String(text||""))}
@@ -23,10 +23,10 @@
  function drawSceneGraphic(scene,progress,frame){
   const w=canvas.width,h=canvas.height,portrait=h>w,left=w*.078,contentW=w*.844;
   const type=String(scene.visual_type||"hero").toLowerCase();
-  const gx=portrait?left:w*.665,gy=portrait?(type==="bar-chart"?h*.63:h*.68):h*.36,gw=portrait?contentW:w*.255,gh=portrait?(type==="bar-chart"?h*.14:h*.08):h*.315;
+  const gx=portrait?left:w*.65,gy=portrait?(type==="bar-chart"?h*.63:h*.68):h*.34,gw=portrait?contentW:w*.29,gh=portrait?(type==="bar-chart"?h*.14:h*.08):h*.36;
   const accent=p.accent,fg=p.fg,muted=p.muted,panel="#15151d",line="#454552";
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
-  const rounded=(x,y,ww,hh,r,fill,stroke)=>{ctx.beginPath();ctx.roundRect(x,y,ww,hh,r);ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke()}};
+  const rounded=(x,y,ww,hh,r,fill,stroke)=>{ctx.save();ctx.shadowColor="rgba(100,230,255,0.10)";ctx.shadowBlur=Math.max(4,Math.min(16,gw*.025));ctx.beginPath();ctx.roundRect(x,y,ww,hh,r);ctx.fillStyle=fill;ctx.fill();ctx.shadowBlur=0;if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=1.5;ctx.stroke()}ctx.restore()};
   const label=(text,x,y,size=18,color=fg,font="600")=>{ctx.font=font+" "+size+"px Arial";ctx.fillStyle=color;ctx.textAlign="center";ctx.fillText(String(text||"").slice(0,42),x,y);ctx.textAlign="left"};
   const nodes=Array.isArray(scene.visual_nodes)?scene.visual_nodes.map(v=>String(v).slice(0,24)).slice(0,4):[];
   const events=Array.isArray(scene.timeline_events)?scene.timeline_events.map(v=>String(v).slice(0,24)).slice(0,4):[];
@@ -91,10 +91,16 @@
     for(let i=0;i<count;i++){const amplitude=(.12+.35*Math.abs(Math.sin(i*.57+frame*.09)))*(0.45+0.55*progress),bh=amplitude*gh;const x=gx+gw*.06+i*(barGap*1.5);ctx.globalAlpha=.5+.5*(i/count);ctx.fillStyle=i/count<progress?accent:muted;ctx.fillRect(x,mid-bh/2,barWidth,bh)}
     ctx.globalAlpha=1;
   }else{
-    const cx=gx+gw*.5,cy=gy+gh*.48,r=Math.min(gw,gh)*(.22+.025*Math.sin(frame*.09));
-    ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.globalAlpha=.8;
-    for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(cx,cy,r*(1+i*.48),0,Math.PI*2);ctx.stroke()}
-    ctx.globalAlpha=1;
+    const cx=gx+gw*.5,cy=gy+gh*.45,r=Math.min(gw,gh)*(.19+.018*Math.sin(frame*.055));
+    const halo=ctx.createRadialGradient(cx,cy,0,cx,cy,r*3);
+    halo.addColorStop(0,"rgba(100,230,255,0.24)");halo.addColorStop(.45,"rgba(100,230,255,0.07)");halo.addColorStop(1,"rgba(100,230,255,0)");
+    ctx.fillStyle=halo;ctx.fillRect(cx-r*3,cy-r*3,r*6,r*6);
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(frame*.003);
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(0,0,r*(1.12+i*.4),r*(.78+i*.4),i*.12,0,Math.PI*2);ctx.strokeStyle=i===1?"rgba(146,120,255,.55)":"rgba(100,230,255,.38)";ctx.lineWidth=i===0?2.2:1.4;ctx.stroke()}
+    ctx.beginPath();ctx.arc(0,0,r*1.68,-.7,1.05);ctx.strokeStyle=p.fg;ctx.globalAlpha=.82;ctx.lineWidth=2;ctx.stroke();ctx.globalAlpha=1;ctx.restore();
+    [frame*.018,2.2-frame*.013,4.1+frame*.01].forEach((angle,i)=>{const nx=cx+Math.cos(angle)*r*(1.48+(i%2)*.28),ny=cy+Math.sin(angle)*r*(1.1+(i%2)*.24);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(nx,ny);ctx.strokeStyle=i===1?"rgba(146,120,255,.36)":"rgba(100,230,255,.30)";ctx.lineWidth=1.3;ctx.stroke();ctx.beginPath();ctx.arc(nx,ny,Math.max(4,r*.055),0,Math.PI*2);ctx.fillStyle=i===1?p.secondary:p.accent;ctx.fill()});
+    const core=ctx.createLinearGradient(cx-r*.58,cy-r*.58,cx+r*.58,cy+r*.58);core.addColorStop(0,"#e7fbff");core.addColorStop(.38,p.accent);core.addColorStop(1,p.secondary);
+    ctx.save();ctx.shadowColor="rgba(100,230,255,.72)";ctx.shadowBlur=Math.max(10,r*.32);ctx.beginPath();for(let i=0;i<6;i++){const a=-Math.PI/2+i*Math.PI/3,x=cx+Math.cos(a)*r*.46,y=cy+Math.sin(a)*r*.46;i===0?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.closePath();ctx.fillStyle=core;ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle="rgba(244,247,251,.78)";ctx.lineWidth=1.4;ctx.stroke();ctx.restore();
     label(scene.graphic_label||"CORE IDEA",cx,gy+gh*.92,Math.max(10,Math.min(15,gw*.045)),muted);
   }
   ctx.restore();
@@ -240,10 +246,29 @@ function drawImpactFrames(scene,localFrame){
 }
   window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame,suppressTransition){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
-   const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?w*.66:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
-  ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
-  for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
-  for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+   const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?w*.60:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
+  const backdrop=ctx.createLinearGradient(0,0,w,h);
+  backdrop.addColorStop(0,"#080d18");backdrop.addColorStop(.52,"#0b1428");backdrop.addColorStop(1,"#151027");
+  ctx.fillStyle=backdrop;ctx.fillRect(0,0,w,h);
+  const glowX=w*(.70+.025*Math.sin(globalFrame*.012)),glowY=h*(.30+.025*Math.cos(globalFrame*.016));
+  const glow=ctx.createRadialGradient(glowX,glowY,Math.min(w,h)*.02,glowX,glowY,Math.max(w,h)*.62);
+  glow.addColorStop(0,"rgba(72,205,255,0.16)");glow.addColorStop(.42,"rgba(125,93,255,0.065)");glow.addColorStop(1,"rgba(4,8,18,0)");
+  ctx.fillStyle=glow;ctx.fillRect(0,0,w,h);
+  ctx.save();ctx.globalAlpha=.28;ctx.strokeStyle=p.grid;ctx.lineWidth=1;
+  const fineGrid=Math.max(42,Math.round(w/25));
+  for(let x=0;x<w;x+=fineGrid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
+  for(let y=0;y<h;y+=fineGrid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
+  ctx.restore();
+  const particleCount=18;
+  for(let i=0;i<particleCount;i++){
+   const px=((i*197+globalFrame*(.12+(i%4)*.035))%(w+40))-20;
+   const py=(i*83+Math.sin(globalFrame*.009+i*1.7)*18)%(h+20);
+   ctx.fillStyle=i%4===0?"rgba(146,120,255,0.20)":"rgba(100,230,255,0.16)";
+   ctx.beginPath();ctx.arc(px,py,Math.max(1,Math.min(w,h)*.0015),0,Math.PI*2);ctx.fill();
+  }
+  const vignette=ctx.createRadialGradient(w*.5,h*.48,Math.min(w,h)*.20,w*.5,h*.48,Math.max(w,h)*.78);
+  vignette.addColorStop(0,"rgba(0,0,0,0)");vignette.addColorStop(.72,"rgba(0,0,0,0.10)");vignette.addColorStop(1,"rgba(0,0,0,0.42)");
+  ctx.fillStyle=vignette;ctx.fillRect(0,0,w,h);
   drawImpactFrames(scene,localFrame);
   ctx.fillStyle=p.accent;ctx.fillRect(left,eyebrowY-55,Math.max(30,w*.028),6);
   ctx.font="700 "+Math.max(15,w*.013)+"px "+TEXT_FONT;ctx.fillStyle=p.muted;ctx.direction="ltr";ctx.textAlign="left";ctx.fillText(String(scene.eyebrow||"OFFLINE AGENT HQ").toUpperCase(),left,eyebrowY);
@@ -254,24 +279,26 @@ function drawImpactFrames(scene,localFrame){
     if(String(scene.visual_type||"hero").toLowerCase()==="kinetic-type"&&headDirection==="ltr"){
      let wordIndex=0;lines.slice(0,3).forEach((line,lineIndex)=>{let x=left;for(const word of line.split(/\s+/)){const delay=wordIndex*2,entry=Math.max(0,Math.min(1,(localFrame-delay)/6)),y=headlineY+lineIndex*lineHeight+(1-entry)*Math.min(18,fontSize*.16);ctx.globalAlpha=entry;ctx.fillText(word,x,y);x+=ctx.measureText(word+" ").width;wordIndex++}});ctx.globalAlpha=1;
     }else{
-     lines.slice(0,3).forEach((line,i)=>{ctx.globalAlpha=Math.min(1,Math.max(0,progress*5-i*.25));ctx.fillText(line,lineX,headlineY+i*lineHeight)});
+     lines.slice(0,3).forEach((line,i)=>{const reveal=easeSmooth(Math.max(0,Math.min(1,progress*5-i*.25)));ctx.globalAlpha=reveal;ctx.fillText(line,lineX,headlineY+i*lineHeight+(1-reveal)*fontSize*.17)});
      ctx.globalAlpha=1;
     }
    ctx.globalAlpha=1;ctx.direction="ltr";ctx.textAlign="left";
    const subFont="400 "+Math.max(20,w*.023)+"px "+TEXT_FONT,sub=wrap(subhead,textW,subFont,subDirection),subX=subDirection==="rtl"?left+textW:left;
-   ctx.font=subFont;ctx.fillStyle=p.muted;ctx.direction=subDirection;ctx.textAlign=subDirection==="rtl"?"right":"left";sub.slice(0,3).forEach((line,i)=>ctx.fillText(line,subX,subY+i*Math.max(27,w*.032)));ctx.direction="ltr";ctx.textAlign="left";
+   ctx.font=subFont;ctx.fillStyle=p.muted;ctx.direction=subDirection;ctx.textAlign=subDirection==="rtl"?"right":"left";sub.slice(0,3).forEach((line,i)=>{const reveal=easeSmooth(Math.max(0,Math.min(1,progress*5-i*.18)));ctx.globalAlpha=reveal;ctx.fillText(line,subX,subY+i*Math.max(27,w*.032)+(1-reveal)*10)});ctx.globalAlpha=1;ctx.direction="ltr";ctx.textAlign="left";
    drawSceneGraphic(scene,progress,globalFrame);
-  if(scene.character)drawCharacter(scene.character,progress,globalFrame);ctx.fillStyle="#30303a";ctx.fillRect(left,barY,barW,3);ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);
+  if(scene.character)drawCharacter(scene.character,progress,globalFrame);
+  ctx.fillStyle="rgba(154,169,198,0.22)";ctx.fillRect(left,barY,barW,3);
+  ctx.save();ctx.shadowColor="rgba(100,230,255,0.58)";ctx.shadowBlur=9;ctx.fillStyle=p.accent;ctx.fillRect(left,barY,Math.max(0,Math.min(barW,progress*barW)),3);ctx.restore();
    const captionSize=Math.max(18,Math.min(30,w*.018)),captionFont="400 "+captionSize+"px "+TEXT_FONT,captionInfo=getCaptionPage(caption,contentW-32,captionFont,progress,captionDirection),captionLines=captionInfo.lines,captionLineHeight=Math.max(24,captionSize*1.3),captionY=h*.84;
-   if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.94;ctx.fillStyle="#111119";ctx.fillRect(left,boxY,contentW,boxHeight);ctx.globalAlpha=1;ctx.strokeStyle="#454552";ctx.lineWidth=1;ctx.strokeRect(left,boxY,contentW,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;ctx.direction=captionDirection;ctx.textAlign=captionDirection==="rtl"?"right":"left";const captionX=captionDirection==="rtl"?left+contentW-16:left+16;captionLines.forEach((line,i)=>ctx.fillText(line,captionX,boxY+10+captionSize+i*captionLineHeight));ctx.direction="ltr";ctx.textAlign="left";}
+   if(captionLines.length){const boxHeight=captionLines.length*captionLineHeight+18,boxY=captionY-boxHeight;ctx.globalAlpha=.96;ctx.fillStyle="rgba(7,13,27,0.92)";ctx.fillRect(left,boxY,contentW,boxHeight);ctx.globalAlpha=1;ctx.strokeStyle="rgba(100,230,255,0.22)";ctx.lineWidth=1;ctx.strokeRect(left,boxY,contentW,boxHeight);ctx.fillStyle=p.accent;ctx.fillRect(left,boxY,3,boxHeight);ctx.font=captionFont;ctx.fillStyle=p.fg;ctx.direction=captionDirection;ctx.textAlign=captionDirection==="rtl"?"right":"left";const captionX=captionDirection==="rtl"?left+contentW-16:left+16;captionLines.forEach((line,i)=>ctx.fillText(line,captionX,boxY+10+captionSize+i*captionLineHeight));ctx.direction="ltr";ctx.textAlign="left";}
    if(String(scene.visual_type||"hero")==="hero"||scene.show_orbit===true){
     ctx.strokeStyle=p.accent;ctx.lineWidth=2;ctx.globalAlpha=.35+pulse*.65;
     const cx=w*.84,cy=portrait?h*.22:h*.26,r=Math.min(w,h)*(portrait ? 0.055 : 0.075);
     ctx.beginPath();ctx.arc(cx,cy,r+pulse*8,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,r*1.42+pulse*8,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
    }
-  ctx.font="600 "+Math.max(13,w*.0105)+"px monospace";ctx.fillStyle=p.muted;ctx.fillText("FRAME "+String(globalFrame).padStart(6,"0"),left,footerY);
-  ctx.textAlign="right";ctx.fillText("LOCAL RENDER / "+String(Math.round(progress*100)).padStart(3," ")+"%",w-left,footerY);ctx.textAlign="left";
-  ctx.fillStyle=p.fg;ctx.font="600 "+Math.max(12,w*.0094)+"px monospace";ctx.fillText("OFFLINE AGENT HQ",left,Math.min(h-24,footerY+Math.max(30,w*.035)));
+  ctx.font="600 "+Math.max(13,w*.0105)+"px Arial";ctx.fillStyle="rgba(154,169,198,.82)";ctx.fillText("AGENT HQ  /  MOTION EXPLAINER",left,footerY);
+  ctx.textAlign="right";ctx.fillStyle="rgba(244,247,251,.88)";ctx.fillText(String(scene.eyebrow||"STORY").toUpperCase().slice(0,38)+"  •  "+String(Math.round(progress*100)).padStart(3," ")+"%",w-left,footerY);ctx.textAlign="left";
+  ctx.fillStyle="rgba(100,230,255,.20)";ctx.fillRect(left,footerY+Math.max(18,w*.018),contentW,1);
    const trans=String(scene.transition_in||"none").toLowerCase(),transFrames=Math.max(1,Math.min(60,Number(scene.transition_frames)||12));
    if(!suppressTransition&&trans!=="none"&&localFrame<transFrames){
     const t=Math.max(0,Math.min(1,localFrame/Math.max(1,transFrames-1))),ease=1-Math.pow(1-t,3);
