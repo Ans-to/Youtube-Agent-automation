@@ -19,6 +19,7 @@ from research import research as collect_research, render_markdown as render_res
 from captions import normalize_narration_language, narration_language_instruction, validate_narration_text, validate_english_voice_model
 from voice_backends import get_urdu_tts_command, require_urdu_voice_human_approval, urdu_voice_human_approved, urdu_voice_profile_sha256
 from release_gate import validate_qc_report
+from multimodal_auditor import build_report as build_multimodal_audit_report, technical_findings
 
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
@@ -79,6 +80,18 @@ def run_strict_quality_audit(output_dir):
         raise RuntimeError("strict quality audit returned exit code " + str(result.returncode))
     report = json.loads(report_path.read_text(encoding="utf-8"))
     validate_qc_report(report, video_path)
+    # Emit a structured audit alongside strict technical QA. Until model-backed
+    # detector adapters are configured, the report remains INCOMPLETE rather
+    # than incorrectly claiming that the full multimodal policy audit passed.
+    audit_report = build_multimodal_audit_report({
+        "video": str(video_path),
+        "duration_seconds": report["duration_seconds"],
+        "coverage": {"dead_air_black_screen": "complete"},
+        "findings": technical_findings(report),
+    })
+    audit_path = output_dir / "video.audit.json"
+    audit_path.write_text(json.dumps(audit_report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    print("Structured multimodal audit:", audit_path, "| status:", audit_report["audit_status"])
     return report
 
 
