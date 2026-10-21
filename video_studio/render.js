@@ -105,10 +105,19 @@ async function main(){
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   if(s.style)await page.evaluate(style=>window.setStyle(style),s.style);
   await page.evaluate(rate=>window.setFrameRate(rate),fps);
-  await page.evaluate(()=>document.fonts.ready);
+  // @font-face is lazy: nothing has drawn text yet, so check() would report
+  // false even for fonts that are perfectly available. Ask for each weight we
+  // use, which forces the download, and only then verify.
+  await page.evaluate(async ()=>{
+   const wanted=["400 16px Inter","500 16px Inter","600 16px Inter","700 16px Inter","800 16px Inter",
+    '400 16px "Space Grotesk"','500 16px "Space Grotesk"','600 16px "Space Grotesk"','700 16px "Space Grotesk"'];
+   await Promise.all(wanted.map(spec=>document.fonts.load(spec)));
+   await document.fonts.ready;
+  });
   const fontCheck=await page.evaluate(()=>({
    inter:document.fonts.check('700 64px Inter'),
-   display:document.fonts.check('700 64px "Space Grotesk"')
+   display:document.fonts.check('700 64px "Space Grotesk"'),
+   faces:Array.from(document.fonts).map(face=>face.family+"/"+face.weight+"/"+face.status)
   }));
   if(!fontCheck.inter||!fontCheck.display)throw new Error("Bundled font regression: professional faces did not load. "+JSON.stringify(fontCheck));
   console.log("Font check:",JSON.stringify(fontCheck));
