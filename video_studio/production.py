@@ -90,7 +90,7 @@ def run_strict_quality_audit(output_dir):
         "findings": technical_findings(report),
     })
     audit_path = output_dir / "video.audit.json"
-    audit_path.write_text(json.dumps(audit_report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    audit_path.write_text(json.dumps(audit_report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Structured multimodal audit:", audit_path, "| status:", audit_report["audit_status"])
     return report
 
