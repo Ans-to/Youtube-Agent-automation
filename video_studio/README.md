@@ -161,19 +161,22 @@ Optional local detector adapters are in `auditor_adapters.py`:
 
 - **OCR:** install Tesseract OCR and set `video_studio.auditor.enabled=true`; set
   `tesseract_path` if it is not on PATH.
-- **ASR:** install `faster-whisper` into the same Python environment. The default model profile is
-  CPU/`int8`; the first run may download model weights.
+- **ASR:** install `faster-whisper` into the same Python environment (`python -m pip install faster-whisper`). The default model profile is
+  CPU/`int8`; the first run may download model weights. Configure the model size/language in `config.json`.
 - **Text policy classification:** enable the configured loopback local text model in the root
   `model` configuration. OCR/ASR excerpts are treated as untrusted evidence and mapped back to
-  original timestamps.
+  original timestamps. Malformed model findings, unknown evidence IDs, invalid confidence scores,
+  or out-of-window timestamps fail that detector rather than being silently discarded.
 - **Visual scene/action analysis:** configure a local OpenAI-compatible vision model under
   `video_studio.auditor.vision_model`. The transport only permits a literal loopback IP and
   explicit port, consistent with the existing local-model security boundary. Set
   `competitor_brands` to the actual competitor list; without it, competitor matching is not
   considered covered.
 
-Configure `profanity_terms` to match the languages and spellings relevant to your channel; exact
-term matches are preliminary flags, not context-sensitive hate-speech verdicts. Copyright music
+Configure `profanity_terms` to match the languages and spellings relevant to your channel, and
+`required_disclosures` per campaign/video. Exact term matches are preliminary flags, not context-sensitive
+hate-speech verdicts. Disclosure OCR can flag missing recognition or low OCR confidence, but it does not
+measure font size, contrast, or guaranteed display duration. Copyright music
 fingerprinting/license verification, licensed-visual reference matching, disclosure readability,
 audio-event/music classification, and phoneme-level lip-sync still require dedicated reference
 data or model adapters. They remain missing coverage rather than being silently marked passed.
