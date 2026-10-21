@@ -127,6 +127,7 @@ class MultimodalAuditorTests(unittest.TestCase):
     def test_photosensitivity_screening_becomes_a_timestamped_flag(self):
         findings = AUDIT.technical_findings({
             "duration_seconds": 4,
+            "audio_stream_count": 1,
             "checks": {
                 "photosensitivity": {"available": True, "events": [{
                     "start": 1.0, "end": 1.8, "transition_count": 8, "window_seconds": 1.0
