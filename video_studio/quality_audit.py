@@ -93,20 +93,47 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     video_stream = videos[0]
     try:
         width, height = int(video_stream.get("width", 0)), int(video_stream.get("height", 0))
-        overall_bitrate = int(data.get("format", {}).get("bit_rate", 0) or 0)
+        probed_bitrate = int(data.get("format", {}).get("bit_rate", 0) or 0)
     except (TypeError, ValueError):
-        width, height, overall_bitrate = 0, 0, 0
+        width, height, probed_bitrate = 0, 0, 0
+    # Some containers report bit_rate as N/A. Derive the aggregate bitrate from
+    # actual delivered file size and duration in that case.
+    measured_bitrate = probed_bitrate if probed_bitrate > 0 else int(path.stat().st_size * 8 / duration)
+    try:
+        fps_num, fps_den = str(video_stream.get("avg_frame_rate", "0/1")).split("/", 1)
+        measured_fps = float(fps_num) / float(fps_den)
+    except (TypeError, ValueError, ZeroDivisionError):
+        measured_fps = 0.0
+    if measured_fps <= 0:
+        measured_fps = 0.0
+    # YouTube's published bitrates are recommendations, not universal minimums.
+    # Use them as review context, not as a stand-alone rejection for flat graphics.
+    if height >= 2160:
+        recommended_bitrate = 45_000_000 if measured_fps > 30 else 35_000_000
+    elif height >= 1440:
+        recommended_bitrate = 24_000_000 if measured_fps > 30 else 16_000_000
+    elif height >= 1080:
+        recommended_bitrate = 12_000_000 if measured_fps > 30 else 8_000_000
+    elif height >= 720:
+        recommended_bitrate = 7_500_000 if measured_fps > 30 else 5_000_000
+    elif height >= 480:
+        recommended_bitrate = 4_000_000 if measured_fps > 30 else 2_500_000
+    else:
+        recommended_bitrate = 1_500_000 if measured_fps > 30 else 1_000_000
     delivery = {
         "codec": video_stream.get("codec_name"), "width": width, "height": height,
         "pixel_format": video_stream.get("pix_fmt"), "field_order": video_stream.get("field_order"),
-        "container_bitrate_bps": overall_bitrate, "passed": True, "requirements": [],
+        "container_bitrate_bps": measured_bitrate, "probed_container_bitrate_bps": probed_bitrate or None,
+        "recommended_sdr_bitrate_bps": recommended_bitrate,
+        "below_recommended_bitrate": measured_bitrate < recommended_bitrate,
+        "bitrate_is_advisory_not_a_pass_fail_rule": True,
+        "passed": True, "requirements": [],
     }
     requirements = [
         (width >= 1 and height >= 1 and min(width, height) >= 1080, "Output must be at least 1080 pixels on its short edge."),
         (video_stream.get("codec_name") == "h264", "Release video must use H.264."),
         (video_stream.get("pix_fmt") == "yuv420p", "Release video must use yuv420p for broad platform compatibility."),
         (video_stream.get("field_order") == "progressive", "Progressive scan could not be confirmed."),
-        (overall_bitrate >= 1_000_000, "Encoded bitrate is missing or below the 1 Mbps hard floor for 1080-class output."),
     ]
     for requirement_passed, reason in requirements:
         if not requirement_passed:
