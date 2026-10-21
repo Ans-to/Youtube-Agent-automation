@@ -73,7 +73,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         raise ValueError("Both ffmpeg and ffprobe must be installed.")
     probe = subprocess.run(
         [ffprobe, "-v", "error", "-show_entries",
-         "format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,duration,sample_rate,channels,start_time",
+         "format=duration,bit_rate:stream=codec_type,codec_name,profile,pix_fmt,field_order,width,height,avg_frame_rate,duration,sample_rate,channels,start_time,bit_rate",
          "-of", "json", str(path)], capture_output=True, text=True, check=True, timeout=60)
     data = json.loads(probe.stdout)
     streams = data.get("streams", [])
@@ -89,6 +89,35 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
               "audio_stream_count": len(audios), "checks": {},
               "warnings": [], "passed": True, "strict": bool(strict),
               "audited_at": datetime.now(timezone.utc).isoformat()}
+    # Strict delivery envelope: verify the encoded stream itself, not just the requested storyboard.
+    video_stream = videos[0]
+    try:
+        width, height = int(video_stream.get("width", 0)), int(video_stream.get("height", 0))
+        overall_bitrate = int(data.get("format", {}).get("bit_rate", 0) or 0)
+    except (TypeError, ValueError):
+        width, height, overall_bitrate = 0, 0, 0
+    delivery = {
+        "codec": video_stream.get("codec_name"), "width": width, "height": height,
+        "pixel_format": video_stream.get("pix_fmt"), "field_order": video_stream.get("field_order"),
+        "container_bitrate_bps": overall_bitrate, "passed": True, "requirements": [],
+    }
+    requirements = [
+        (width >= 1 and height >= 1 and min(width, height) >= 1080, "Output must be at least 1080 pixels on its short edge."),
+        (video_stream.get("codec_name") == "h264", "Release video must use H.264."),
+        (video_stream.get("pix_fmt") == "yuv420p", "Release video must use yuv420p for broad platform compatibility."),
+        (video_stream.get("field_order") == "progressive", "Progressive scan could not be confirmed."),
+        (overall_bitrate >= 1_000_000, "Encoded bitrate is missing or below the 1 Mbps hard floor for 1080-class output."),
+    ]
+    for requirement_passed, reason in requirements:
+        if not requirement_passed:
+            delivery["passed"] = False
+            delivery["requirements"].append({"passed": False, "reason": reason})
+            if strict:
+                report["passed"] = False
+                report["warnings"].append(reason)
+        else:
+            delivery["requirements"].append({"passed": True})
+    report["checks"]["delivery_spec"] = delivery
     manifest_path = path.with_name("render-manifest.json")
     evidence_path = path.with_name("impact-frame-evidence.json")
     if manifest_path.is_file():
@@ -191,6 +220,20 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
                 report["warnings"].append("Audio true peak exceeds the configured ceiling.")
         else:
             report["checks"]["audio_loudness"] = {"available": False, "note": "FFmpeg ebur128 metrics are unavailable or not parseable."}
+            if strict:
+                report["passed"] = False
+                report["warnings"].append("Strict audio loudness and true-peak measurement is unavailable; release cannot pass without it.")
+        if strict:
+            for audio in audios:
+                if audio.get("codec_name") != "aac":
+                    report["passed"] = False
+                    report["warnings"].append("Strict delivery requires AAC audio.")
+                if str(audio.get("sample_rate", "")) != "48000":
+                    report["passed"] = False
+                    report["warnings"].append("Strict delivery requires 48 kHz audio.")
+                if int(audio.get("channels", 0) or 0) != 2:
+                    report["passed"] = False
+                    report["warnings"].append("Strict delivery requires stereo audio.")
         code, log = run_filter(ffmpeg, path, audio_filter="silencedetect=noise=-45dB:d=" + str(max_silence_seconds))
         if code:
             raise ValueError("FFmpeg silence detector failed: " + log[-1000:])
