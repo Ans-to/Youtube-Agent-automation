@@ -37,7 +37,7 @@ RULES = {
 }
 REQUIRED_CAPABILITIES = {
     "object_action_detection", "face_scene_analysis", "ocr",
-    "asr_transcription", "audio_event_music_analysis", "temporal_context",
+    "asr_transcription", "text_policy_classification", "audio_event_music_analysis", "temporal_context",
     "brand_logo_matching", "copyright_reference_matching",
     "disclosure_ocr_readability", "children_safety_context",
     "dead_air_black_screen", "photosensitivity", "av_sync",
@@ -261,8 +261,23 @@ def main():
             qc = run_technical_audit(Path(args.video), strict=False)
             evidence["video"] = str(Path(args.video))
             evidence["duration_seconds"] = qc["duration_seconds"]
-            evidence.setdefault("coverage", {})["dead_air_black_screen"] = "complete"
-            evidence.setdefault("findings", []).extend(technical_findings(qc))
+            coverage = evidence.setdefault("coverage", {})
+            findings = evidence.setdefault("findings", [])
+            if not isinstance(coverage, dict) or not isinstance(findings, list):
+                raise ValueError("coverage must be an object and findings must be a list")
+            coverage["dead_air_black_screen"] = "complete"
+            coverage["photosensitivity"] = (
+                "complete" if qc.get("checks", {}).get("photosensitivity", {}).get("available") else "failed"
+            )
+            findings.extend(technical_findings(qc))
+            try:
+                root_config = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                root_config = {}
+            from auditor_adapters import run_optional_detectors
+            detector_result = run_optional_detectors(args.video, root_config, technical_coverage=coverage)
+            coverage.update(detector_result["coverage"])
+            findings.extend(detector_result["findings"])
         report = build_report(evidence)
         rendered = json.dumps(report, ensure_ascii=False, indent=2)
         print(rendered)
