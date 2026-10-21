@@ -209,7 +209,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         + source_reference_instruction
         + "If evidence is missing, explicitly say what needs verification within narration or unresolved_notes. "
         "Impact frames are optional and must be motivated by a genuine action/emphasis beat, not constant decoration. If used, impact_events is an array of up to 8 events per scene: id, type (flash/invert/burst/speed-lines/shockwave), scene-local at_seconds, duration_frames 1–6, optional intensity 0.05–0.75, optional normalized x/y. Keep flashing rare and protect essential text; omit events when not justified. "
-        "Visual metadata rules: diagram -> visual_nodes array; timeline -> timeline_events array; stat -> stat_value and stat_label; 
+        "Visual metadata rules: diagram -> visual_nodes array; timeline -> timeline_events array; stat -> stat_value and stat_label; "
         "comparison -> comparison_left_title, comparison_right_title, comparison_left and comparison_right arrays; "
         "code -> code_lines array; quote -> quote and quote_source only when supplied evidence supports the quote; "
         "bar-chart -> chart_values (2–6 source-supported non-negative numbers) and same-length chart_labels; never invent values. kinetic-type -> a short, readable headline designed for a staggered word reveal. waveform needs no extra data; hero may use graphic_label. Add unresolved_notes as an array of strings.\n"
