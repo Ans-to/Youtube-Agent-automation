@@ -1274,15 +1274,16 @@ function drawGlitch(t, cut) {
   ctx.globalCompositeOperation = 'lighter';
   ctx.globalAlpha = 0.28 * Math.sin(Math.PI * p);
   ctx.drawImage(bufA, 26 * Math.sin(Math.PI * p), 0);
-  ctx.fillStyle = 'rgba(91,143,255,0.25)';
+  ctx.fillStyle = 'rgba(91,143,255,0.18)';
   ctx.fillRect(0, 0, OPTS.width, OPTS.height);
   ctx.globalAlpha = 1;
   ctx.globalCompositeOperation = 'source-over';
 
-  // flash right on the cut
-  const flash = Math.max(0, 1 - Math.abs(p - 0.5) * 14);
-  if (flash > 0) {
-    ctx.fillStyle = `rgba(255,255,255,${0.5 * flash})`;
+  // bloom across the cut rather than a single white frame: a one-frame flash
+  // reads as a pop, and a full-white frame is exactly what a strobe rule looks for
+  const flash = Math.pow(Math.max(0, 1 - Math.abs(p - 0.5) * 6), 2);
+  if (flash > 0.002) {
+    ctx.fillStyle = `rgba(255,255,255,${0.26 * flash})`;
     ctx.fillRect(0, 0, OPTS.width, OPTS.height);
   }
   ctx.restore();

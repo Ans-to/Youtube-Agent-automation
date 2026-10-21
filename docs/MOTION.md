@@ -32,13 +32,13 @@ The driver refuses to call a film finished on its own: it encodes the delivery
 copy, then measures frame-to-frame luma change with FFmpeg (`tblend`) and fails
 if the film regresses toward static slides. The gate is a mean delta of at least
 1.2 with under 15 % near-static frames; the rejected first cut scored 0.82 and
-51.4 %, this film scores 1.86 and 7.0 %.
+51.4 %, this film scores 1.73 and 7.3 %.
 
 | Measurement | Rejected cut | This film |
 |---|---|---|
-| mean frame delta | 0.82 | **1.86** |
-| near-static frames (<0.5) | 51.4 % | **7.0 %** |
-| per-shot mean | 0.71 / 0.79 / 1.18 / 0.43 / 0.97 | 1.97 / 1.51 / 1.79 / 2.08 / 1.03 |
+| mean frame delta | 0.82 | **1.73** |
+| near-static frames (<0.5) | 51.4 % | **7.3 %** |
+| per-shot mean | 0.71 / 0.79 / 1.18 / 0.43 / 0.97 | 2.02 / 1.61 / 1.42 / 2.32 / 1.29 |
 | motion spec | `0/18` clauses | `PASSED` |
 | content audit | `INCOMPLETE` | `INCOMPLETE`, 0 flagged, same 13 unverified rules |
 | audio/video sync | not measured | `lag 0.00 s`, envelope correlation 0.65 |
