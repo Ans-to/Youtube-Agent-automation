@@ -149,6 +149,40 @@ def find_configured_terms(observations, terms):
     return findings
 
 
+def disclosure_findings(ocr_observations, required_disclosures, duration_seconds=None, min_confidence=0.65):
+    """Flag disclosures not recognized in sampled OCR or recognized with low OCR confidence."""
+    findings = []
+    normalized_ocr = [
+        (re.sub(r"\s+", " ", item.get("text", "")).casefold(), item)
+        for item in ocr_observations
+    ]
+    for disclosure in required_disclosures or []:
+        if not isinstance(disclosure, str) or not disclosure.strip():
+            continue
+        needle = re.sub(r"\s+", " ", disclosure).casefold()
+        matches = [item for text, item in normalized_ocr if needle in text]
+        if not matches:
+            end_time = float(duration_seconds or max(
+                (float(item.get("timestamp", 0)) for item in ocr_observations), default=0
+            ))
+            findings.append({
+                "start_seconds": 0, "end_seconds": max(0.0, end_time),
+                "rule": "missing_disclosure",
+                "description": "Required disclosure was not recognized in the sampled on-screen text: " + disclosure[:120],
+                "confidence": 0.80, "source": "tesseract-disclosure-screening",
+            })
+        elif max(float(item.get("ocr_confidence", 0)) for item in matches) < float(min_confidence):
+            start_time = min(float(item.get("timestamp", 0)) for item in matches)
+            end_time = max(float(item.get("timestamp", start_time)) for item in matches)
+            findings.append({
+                "start_seconds": start_time, "end_seconds": end_time,
+                "rule": "unreadable_disclosure",
+                "description": "Required disclosure OCR confidence is below the configured threshold; verify size, contrast, and display duration manually.",
+                "confidence": 0.65, "source": "tesseract-disclosure-screening",
+            })
+    return findings
+
+
 def _call_local_model(config, messages, max_tokens=1800):
     from agent import post_local_model
     response = post_local_model(
@@ -311,32 +345,10 @@ def run_optional_detectors(video_path, root_config, technical_coverage=None, dur
         findings.extend(find_configured_terms(observations["ocr"] + observations["asr"], terms))
         required_disclosures = cfg.get("required_disclosures", [])
         if observations["ocr"] and isinstance(required_disclosures, list):
-            normalized_ocr = [
-                (re.sub(r"\s+", " ", item.get("text", "")).casefold(), item)
-                for item in observations["ocr"]
-            ]
-            for disclosure in required_disclosures:
-                if not isinstance(disclosure, str) or not disclosure.strip():
-                    continue
-                needle = re.sub(r"\s+", " ", disclosure).casefold()
-                matches = [item for text, item in normalized_ocr if needle in text]
-                if not matches:
-                    end_time = float(duration_seconds or (frames[-1]["timestamp"] if frames else 0))
-                    findings.append({
-                        "start_seconds": 0, "end_seconds": max(0.0, end_time),
-                        "rule": "missing_disclosure",
-                        "description": "Required disclosure was not recognized in the sampled on-screen text: " + disclosure[:120],
-                        "confidence": 0.80, "source": "tesseract-disclosure-screening",
-                    })
-                elif max(float(item.get("ocr_confidence", 0)) for item in matches) < float(cfg.get("disclosure_min_ocr_confidence", 0.65)):
-                    start_time = min(float(item.get("timestamp", 0)) for item in matches)
-                    end_time = max(float(item.get("timestamp", start_time)) for item in matches)
-                    findings.append({
-                        "start_seconds": start_time, "end_seconds": end_time,
-                        "rule": "unreadable_disclosure",
-                        "description": "Required disclosure OCR confidence is below the configured threshold; verify size, contrast, and display duration manually.",
-                        "confidence": 0.65, "source": "tesseract-disclosure-screening",
-                    })
+            findings.extend(disclosure_findings(
+                observations["ocr"], required_disclosures, duration_seconds,
+                float(cfg.get("disclosure_min_ocr_confidence", 0.65)),
+            ))
         text_model = root_config.get("model", {})
         if text_model.get("enabled") and (observations["ocr"] or observations["asr"]):
             try:
