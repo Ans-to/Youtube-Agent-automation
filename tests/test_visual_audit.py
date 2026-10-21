@@ -63,7 +63,8 @@ class VisualAuditPolicyTests(unittest.TestCase):
             storyboard_path = root / "storyboard.json"
             scenes = [
                 {"duration_seconds": 2.0, "transition_in": "slide-left" if i % 2 else "none",
-                 "transition_frames": 12, "headline": "Scene " + str(i + 1), "visual_type": "hero"}
+                 "transition_frames": 12, "headline": "Scene " + str(i + 1), "visual_type": "hero",
+                 "narration": "Narration detail for scene " + str(i + 1) + " explains the intended visual topic."}
                 for i in range(10)
             ]
             storyboard_path.write_text(json.dumps({
@@ -112,6 +113,9 @@ class VisualAuditPolicyTests(unittest.TestCase):
 
             def vision_response(_endpoint, request, _timeout):
                 prompt = request["messages"][1]["content"][0]["text"]
+                self.assertIn("narration_context", prompt)
+                self.assertIn("Narration detail for scene", prompt)
+                self.assertIn("compare each scene's actual visible imagery", prompt)
                 marker = "Exact detail-frame timestamps for this batch: "
                 timestamps_json = prompt.split(marker, 1)[1].splitlines()[0]
                 timestamps = json.loads(timestamps_json)
