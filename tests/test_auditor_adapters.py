@@ -73,16 +73,22 @@ class AuditorAdapterTests(unittest.TestCase):
             frame.write_bytes(b"test-jpeg-bytes")
             frames = [{"timestamp": 5.0, "path": frame}, {"timestamp": 6.0, "path": frame}]
             def fake_call(config, messages, max_tokens=1800):
-                return {"findings": [
-                    {"start_seconds": 5.0, "end_seconds": 6.0, "rule": "violence_gore",
-                     "description": "A physical altercation appears across sampled frames.", "confidence": 0.9},
-                    {"start_seconds": 0.0, "end_seconds": 50.0, "rule": "violence_gore",
-                     "description": "Out of sample range.", "confidence": 0.9},
-                ]}
+                return {"findings": [{
+                    "start_seconds": 5.0, "end_seconds": 6.0, "rule": "violence_gore",
+                    "description": "A physical altercation appears across sampled frames.", "confidence": 0.9,
+                }]}
             findings = ADAPTERS.analyze_frame_batches(frames, {}, call_model=fake_call)
             self.assertEqual(len(findings), 1)
             self.assertEqual(findings[0]["start_seconds"], 5.0)
             self.assertEqual(findings[0]["rule"], "violence_gore")
+
+            def out_of_range_call(config, messages, max_tokens=1800):
+                return {"findings": [{
+                    "start_seconds": 0.0, "end_seconds": 50.0, "rule": "violence_gore",
+                    "description": "Out of sample range.", "confidence": 0.9,
+                }]}
+            with self.assertRaisesRegex(ValueError, "outside the sampled frame window"):
+                ADAPTERS.analyze_frame_batches(frames, {}, call_model=out_of_range_call)
 
     def test_frame_sampling_rate_covers_long_videos_within_frame_budget(self):
         self.assertEqual(ADAPTERS.effective_sample_fps(1.0, 120, 60), 1.0)
