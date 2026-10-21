@@ -52,7 +52,7 @@ class PublishApprovalTests(unittest.TestCase):
             "checks":{
                 "delivery_spec":{"passed":True,"codec":"h264","width":1920,"height":1080,"pixel_format":"yuv420p","field_order":"progressive","container_bitrate_bps":4000000},
                 "black_frames":{"count":0,"events":[]},"freezes":{"count":0,"events":[]},
-                "audio_timing":{"verified":True},"audio_loudness":{"available":True,"integrated_lufs":-18.0,"true_peak_dbfs":-2.0},
+                "audio_timing":{"verified":True},"audio_loudness":{"available":True,"integrated_lufs":-18.0,"true_peak_dbfs":-2.0,"min_loudness_lufs":-24.0,"max_true_peak_dbfs":-1.0},
                 "audio_silence":{"count":0},"render_manifest":{"present":True},"impact_frame_evidence":{"present":True},
                 "visual_audit":{"status":"PASS","score":9.0,"model_id":"unit-test-vision","sample_count":6,"sha256":sha256(visual_path)}},
             "visual_audit_sha256":sha256(visual_path),"warnings":[],"passed":True,"strict":True,
