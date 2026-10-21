@@ -76,6 +76,11 @@ jobs:
       - name: Install FFmpeg
         run: sudo apt-get update && sudo apt-get install -y ffmpeg
 
+      - name: Exercise strict visual-audit contact-sheet generation with real FFmpeg
+        env:
+          REQUIRE_FFMPEG_TEST: "1"
+        run: python -m unittest discover -s tests -p "test_visual_audit.py" -v
+
       - name: Install renderer dependencies
         working-directory: video_studio
         run: npm install
@@ -239,3 +244,18 @@ jobs:
 
       - name: Render and validate a 1-second vertical Shorts MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke-shorts.json --output outputs/ci-smoke-shorts.mp4 --language en
+
+      - name: Upload rendered CI video previews and quality reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-studio-render-preview-${{ github.run_number }}
+          path: |
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.mp4
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/video.qc.json
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/package-status.json
+            workspace/orchestration/task-CI-VIDEO-E2E/video-production/storyboard.json
+            video_studio/outputs/ci-smoke.mp4
+            video_studio/outputs/ci-smoke-shorts.mp4
+          if-no-files-found: warn
+          retention-days: 7
