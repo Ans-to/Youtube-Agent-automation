@@ -23,6 +23,10 @@ FPS = 30
 WIDTH = 1920
 HEIGHT = 1080
 MAX_SILENCE_SECONDS = 0.45
+MAX_SCENE_PADDING_SECONDS = 0.22
+# A target is quantized to whole 30-fps frames, so observed padding may exceed the
+# intended 0.22s by at most one frame plus 5ms of rounded metadata.
+MAX_ACCEPTED_PADDING_SECONDS = MAX_SCENE_PADDING_SECONDS + (1.0 / FPS) + 0.005
 
 
 def run(command, timeout=1800):
@@ -204,7 +208,7 @@ def audit_one(topic, output_dir):
                 ) from exc
             if not all(math.isfinite(value) for value in (padding, spoken, duration, coverage)):
                 raise RuntimeError("Scene " + str(index) + " has non-finite speech-pacing metadata.")
-            if padding > 0.24 or padding < 0 or coverage < 0.88:
+            if padding > MAX_ACCEPTED_PADDING_SECONDS or padding < 0 or coverage < 0.88:
                 raise RuntimeError(
                     "Scene " + str(index) + " did not meet speech-coverage limits: "
                     + json.dumps({"padding": padding, "coverage": coverage})
@@ -337,6 +341,8 @@ def main():
             "passed_count": sum(e["status"] == "passed" for e in entries),
             "failed_count": sum(e["status"] != "passed" for e in entries),
             "silence_threshold_seconds": MAX_SILENCE_SECONDS,
+            "intended_scene_padding_max_seconds": MAX_SCENE_PADDING_SECONDS,
+            "accepted_frame_quantized_padding_max_seconds": round(MAX_ACCEPTED_PADDING_SECONDS, 3),
             "entries": entries,
         }
         (output_root / "summary.json").write_text(
