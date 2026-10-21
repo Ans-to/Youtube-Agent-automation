@@ -1,0 +1,536 @@
+{
+  "schema_version": 1,
+  "description": "Ten distinct short-form scripts used for real voiced MP4 regression renders. Synthetic editorial test corpus; not researched publication content.",
+  "topics": [
+    {
+      "id": "01-cybersecurity",
+      "niche": "Cybersecurity",
+      "title": "A trusted-looking email can still be a trap",
+      "description": "Spot the signs of a phishing attempt without relying on the sender's logo.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / CYBERSECURITY",
+          "headline": "A trusted-looking email can still be a trap",
+          "subhead": "Familiar branding does not prove the message is safe.",
+          "narration": "A familiar logo does not prove an email is safe.",
+          "visual_type": "hero",
+          "graphic_label": "VERIFY THE MESSAGE",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / CHECK THE SIGNALS",
+          "headline": "Check the sender and the real destination",
+          "subhead": "Look beyond urgent wording and polished design.",
+          "narration": "Check the sender address and the real destination.",
+          "visual_type": "comparison",
+          "comparison_left_title": "LOOKS REAL",
+          "comparison_right_title": "CHECK FIRST",
+          "comparison_left": [
+            "Familiar logo",
+            "Urgent request",
+            "Short link"
+          ],
+          "comparison_right": [
+            "Sender domain",
+            "Expected context",
+            "Known website"
+          ],
+          "transition_in": "wipe-left",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / SAFER NEXT STEP",
+          "headline": "Open the known website yourself",
+          "subhead": "Avoid following a link from an unexpected message.",
+          "narration": "Open the known website yourself instead of following the link.",
+          "visual_type": "diagram",
+          "visual_nodes": [
+            "MESSAGE",
+            "VERIFY",
+            "KNOWN SITE"
+          ],
+          "transition_in": "slide-left",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "02-cooking-science",
+      "niche": "Cooking science",
+      "title": "A smooth sauce is an exercise in chemistry",
+      "description": "Explain emulsions using a familiar kitchen example.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / FOOD SCIENCE",
+          "headline": "Oil and water do not stay mixed by themselves",
+          "subhead": "A sauce needs help keeping tiny droplets distributed.",
+          "narration": "Oil and water separate when left alone.",
+          "visual_type": "hero",
+          "graphic_label": "MIXING MATTERS",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / WHAT CHANGES",
+          "headline": "An emulsifier helps droplets stay distributed",
+          "subhead": "Ingredients and technique work together.",
+          "narration": "An emulsifier helps tiny droplets stay distributed.",
+          "visual_type": "diagram",
+          "visual_nodes": [
+            "OIL DROPLETS",
+            "EMULSIFIER",
+            "WATER PHASE"
+          ],
+          "transition_in": "zoom",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / TECHNIQUE",
+          "headline": "Add oil slowly while whisking",
+          "subhead": "Steady mixing builds a smoother and more stable sauce.",
+          "narration": "Add oil slowly while whisking for a smoother sauce.",
+          "visual_type": "timeline",
+          "timeline_events": [
+            "START BASE",
+            "ADD SLOWLY",
+            "WHISK",
+            "CHECK TEXTURE"
+          ],
+          "transition_in": "wipe-right",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "03-personal-finance",
+      "niche": "Personal finance",
+      "title": "Compounding rewards time, not shortcuts",
+      "description": "Give a careful introductory explanation of compounding without promising returns.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / MONEY BASICS",
+          "headline": "Growth can build on earlier growth",
+          "subhead": "Compounding describes how returns may accumulate over time.",
+          "narration": "Compounding means returns can build on earlier returns.",
+          "visual_type": "hero",
+          "graphic_label": "TIME HORIZON",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / THE INPUTS",
+          "headline": "Contributions and time both matter",
+          "subhead": "Results depend on the rate, schedule, fees, and risk.",
+          "narration": "Contributions and time matter alongside the rate.",
+          "visual_type": "timeline",
+          "timeline_events": [
+            "START",
+            "CONTRIBUTE",
+            "LET TIME PASS",
+            "REVIEW"
+          ],
+          "transition_in": "slide-left",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / PRACTICAL CHECK",
+          "headline": "Compare fees and risks before investing",
+          "subhead": "Past growth does not guarantee future results.",
+          "narration": "Compare fees and risk before choosing an investment.",
+          "visual_type": "comparison",
+          "comparison_left_title": "CHECK",
+          "comparison_right_title": "DO NOT ASSUME",
+          "comparison_left": [
+            "Fees",
+            "Risk level",
+            "Time horizon"
+          ],
+          "comparison_right": [
+            "No guarantees",
+            "No perfect forecast",
+            "No instant shortcut"
+          ],
+          "transition_in": "wipe-left",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "04-fitness-recovery",
+      "niche": "Fitness and recovery",
+      "title": "Recovery is part of the training plan",
+      "description": "Show how effort and recovery work together in a sustainable routine.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / TRAINING",
+          "headline": "Recovery is where adaptation can happen",
+          "subhead": "Harder sessions are only one part of a training plan.",
+          "narration": "Training challenges the body and recovery supports adaptation.",
+          "visual_type": "hero",
+          "graphic_label": "EFFORT + RECOVERY",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / THE CYCLE",
+          "headline": "Sleep, food, and easy days all count",
+          "subhead": "A plan needs stress and time to recover.",
+          "narration": "Sleep, food, and easy days all count as training.",
+          "visual_type": "timeline",
+          "timeline_events": [
+            "TRAIN",
+            "REFUEL",
+            "SLEEP",
+            "REPEAT"
+          ],
+          "transition_in": "zoom",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / SMART PROGRESSION",
+          "headline": "Increase the load gradually",
+          "subhead": "Stop and seek qualified help for persistent or worsening pain.",
+          "narration": "Increase load gradually and respect persistent pain.",
+          "visual_type": "comparison",
+          "comparison_left_title": "BUILD SLOWLY",
+          "comparison_right_title": "AVOID",
+          "comparison_left": [
+            "Small steps",
+            "Rest days",
+            "Consistent form"
+          ],
+          "comparison_right": [
+            "Sudden jumps",
+            "Ignoring pain",
+            "Chasing fatigue"
+          ],
+          "transition_in": "slide-right",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "05-travel-planning",
+      "niche": "Travel planning",
+      "title": "Pack for the trip, not every possibility",
+      "description": "A practical packing method for a short trip with changing weather.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / TRAVEL",
+          "headline": "Start with the itinerary and weather",
+          "subhead": "Packing works better when it begins with the actual plan.",
+          "narration": "Start packing from your itinerary and the weather forecast.",
+          "visual_type": "hero",
+          "graphic_label": "PACK WITH INTENT",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / BUILD OUTFITS",
+          "headline": "Choose layers that work together",
+          "subhead": "Repeatable combinations reduce unnecessary items.",
+          "narration": "Choose layers that work together in more than one outfit.",
+          "visual_type": "comparison",
+          "comparison_left_title": "LESS USEFUL",
+          "comparison_right_title": "MORE FLEXIBLE",
+          "comparison_left": [
+            "One-use pieces",
+            "Duplicate items",
+            "Last-minute guesses"
+          ],
+          "comparison_right": [
+            "Mixable layers",
+            "Versatile basics",
+            "Forecast-based choices"
+          ],
+          "transition_in": "wipe-right",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / EASY ACCESS",
+          "headline": "Keep essentials easy to reach",
+          "subhead": "Separate important documents from the main packed clothing.",
+          "narration": "Keep documents and everyday essentials easy to reach.",
+          "visual_type": "diagram",
+          "visual_nodes": [
+            "DOCUMENTS",
+            "DAILY ESSENTIALS",
+            "MAIN BAG"
+          ],
+          "transition_in": "slide-left",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "06-ocean-science",
+      "niche": "Ocean science",
+      "title": "The deep sea follows different rules",
+      "description": "Introduce how light, pressure, and food availability shape deep-sea life.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / OCEAN SCIENCE",
+          "headline": "Sunlight fades as you descend",
+          "subhead": "The deep ocean is not simply the surface without color.",
+          "narration": "Sunlight fades quickly as you descend below the surface.",
+          "visual_type": "hero",
+          "graphic_label": "DEPTH CHANGES EVERYTHING",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / DEEP CONDITIONS",
+          "headline": "Darkness and pressure shape survival",
+          "subhead": "Different depths create different environmental constraints.",
+          "narration": "Deep-sea animals face darkness, cold, and high pressure.",
+          "visual_type": "diagram",
+          "visual_nodes": [
+            "LOW LIGHT",
+            "HIGH PRESSURE",
+            "LIMITED FOOD"
+          ],
+          "transition_in": "wipe-left",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / ADAPTATION",
+          "headline": "Different depths invite different strategies",
+          "subhead": "Movement, senses, and energy use depend on the environment.",
+          "narration": "Different depths create different survival strategies.",
+          "visual_type": "waveform",
+          "graphic_label": "ENVIRONMENT → ADAPTATION",
+          "transition_in": "zoom",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "07-history-printing",
+      "niche": "History of technology",
+      "title": "How printing changed the travel of ideas",
+      "description": "A brief historical explainer on movable type and distribution.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / HISTORY",
+          "headline": "Movable type changed how pages were made",
+          "subhead": "Reusable characters made repeated printing more practical.",
+          "narration": "Movable type made repeatable pages faster to produce.",
+          "visual_type": "hero",
+          "graphic_label": "IDEAS AT SCALE",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / DISTRIBUTION",
+          "headline": "More copies helped ideas travel farther",
+          "subhead": "Printing connected workshops with larger reading publics.",
+          "narration": "More copies helped ideas travel beyond a single workshop.",
+          "visual_type": "timeline",
+          "timeline_events": [
+            "SET TYPE",
+            "PRINT PAGES",
+            "DISTRIBUTE",
+            "DISCUSS"
+          ],
+          "transition_in": "slide-left",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / LONG IMPACT",
+          "headline": "The scale of sharing written knowledge changed",
+          "subhead": "Printing was one part of a much wider social transformation.",
+          "narration": "Printing transformed the scale of sharing written knowledge.",
+          "visual_type": "quote",
+          "quote": "Reproduction changes reach.",
+          "quote_source": "HISTORY OF MEDIA",
+          "transition_in": "wipe-right",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "08-home-gardening",
+      "niche": "Home gardening",
+      "title": "Healthy seedlings need balance, not constant watering",
+      "description": "Simple care principles for starting seedlings at home.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / GARDENING",
+          "headline": "Seedlings need moisture without soggy soil",
+          "subhead": "Watering should match the mix, container, and conditions.",
+          "narration": "Seedlings need steady moisture rather than soggy soil.",
+          "visual_type": "hero",
+          "graphic_label": "BALANCED WATERING",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / CHECK BEFORE WATERING",
+          "headline": "Check the soil and drainage first",
+          "subhead": "A dry surface alone does not tell the whole story.",
+          "narration": "Check the soil surface and drainage before watering again.",
+          "visual_type": "diagram",
+          "visual_nodes": [
+            "FEEL SOIL",
+            "CHECK DRAINAGE",
+            "WATER IF NEEDED"
+          ],
+          "transition_in": "zoom",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / STRONG GROWTH",
+          "headline": "Light and airflow help seedlings grow sturdier",
+          "subhead": "Change conditions gradually and watch the plant response.",
+          "narration": "Strong light and airflow help seedlings grow sturdier.",
+          "visual_type": "comparison",
+          "comparison_left_title": "SUPPORT",
+          "comparison_right_title": "WATCH FOR",
+          "comparison_left": [
+            "Adequate light",
+            "Air movement",
+            "Drainage"
+          ],
+          "comparison_right": [
+            "Leggy stems",
+            "Standing water",
+            "Crowded growth"
+          ],
+          "transition_in": "slide-right",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "09-learning-science",
+      "niche": "Learning and memory",
+      "title": "Remember more by recalling before rereading",
+      "description": "A practical learning routine using retrieval and spaced review.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / LEARNING",
+          "headline": "Try to recall before opening your notes",
+          "subhead": "Retrieval practice makes gaps in memory visible.",
+          "narration": "Retrieval practice asks your brain to recall before checking notes.",
+          "visual_type": "hero",
+          "graphic_label": "RETRIEVE FIRST",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / SPACING",
+          "headline": "Return to the idea after a delay",
+          "subhead": "Spaced reviews distribute practice across time.",
+          "narration": "Spacing reviews gives forgetting a chance to become visible.",
+          "visual_type": "timeline",
+          "timeline_events": [
+            "LEARN",
+            "WAIT",
+            "RECALL",
+            "CHECK"
+          ],
+          "transition_in": "wipe-left",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / SIMPLE ROUTINE",
+          "headline": "Mix recall, feedback, and later review",
+          "subhead": "Use mistakes to choose what needs another look.",
+          "narration": "Mix recall, feedback, and later review into one routine.",
+          "visual_type": "diagram",
+          "visual_nodes": [
+            "RECALL",
+            "FEEDBACK",
+            "REVISIT"
+          ],
+          "transition_in": "zoom",
+          "transition_frames": 10
+        }
+      ]
+    },
+    {
+      "id": "10-small-business",
+      "niche": "Small business",
+      "title": "Good onboarding removes the next unknown",
+      "description": "Show a customer onboarding sequence that makes progress clear.",
+      "scenes": [
+        {
+          "duration_seconds": 4,
+          "eyebrow": "01 / CUSTOMER EXPERIENCE",
+          "headline": "New customers should know the next step",
+          "subhead": "Confusion at the beginning can stall useful progress.",
+          "narration": "New customers should know the next step immediately.",
+          "visual_type": "hero",
+          "graphic_label": "MAKE PROGRESS CLEAR",
+          "transition_in": "none",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "02 / ONE ACTION",
+          "headline": "One clear action beats competing instructions",
+          "subhead": "Give the customer one useful move at a time.",
+          "narration": "One clear action beats a list of competing instructions.",
+          "visual_type": "comparison",
+          "comparison_left_title": "TOO MUCH",
+          "comparison_right_title": "CLEAR NEXT STEP",
+          "comparison_left": [
+            "Many choices",
+            "Long checklist",
+            "Unclear outcome"
+          ],
+          "comparison_right": [
+            "One action",
+            "Short guidance",
+            "Visible result"
+          ],
+          "transition_in": "wipe-right",
+          "transition_frames": 10
+        },
+        {
+          "duration_seconds": 4,
+          "eyebrow": "03 / MEASURE VALUE",
+          "headline": "Track the first useful customer outcome",
+          "subhead": "Measure progress, not just sign-ups and page views.",
+          "narration": "Measure how quickly each customer reaches first value.",
+          "visual_type": "diagram",
+          "visual_nodes": [
+            "SIGN UP",
+            "FIRST TASK",
+            "FIRST VALUE"
+          ],
+          "transition_in": "slide-left",
+          "transition_frames": 10
+        }
+      ]
+    }
+  ]
+}
