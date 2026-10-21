@@ -13,9 +13,9 @@ SPEC.loader.exec_module(ADAPTERS)
 class AuditorAdapterTests(unittest.TestCase):
     def test_tesseract_tsv_parsing_keeps_text_and_confidence(self):
         tsv = (
-            "level\\tpage_num\\tblock_num\\tpar_num\\tline_num\\tword_num\\tleft\\ttop\\twidth\\theight\\tconf\\ttext\\n"
-            "5\\t1\\t1\\t1\\t1\\t1\\t0\\t0\\t20\\t10\\t90\\tSponsored\\n"
-            "5\\t1\\t1\\t1\\t1\\t2\\t22\\t0\\t30\\t10\\t80\\tcontent\\n"
+            "level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n"
+            "5\t1\t1\t1\t1\t1\t0\t0\t20\t10\t90\tSponsored\n"
+            "5\t1\t1\t1\t1\t2\t22\t0\t30\t10\t80\tcontent\n"
         )
         parsed = ADAPTERS.parse_tesseract_tsv(tsv)
         self.assertEqual(parsed["text"], "Sponsored content")
