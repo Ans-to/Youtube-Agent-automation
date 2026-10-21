@@ -25,8 +25,8 @@ HEIGHT = 1080
 MAX_SILENCE_SECONDS = 0.30
 MAX_SCENE_PADDING_SECONDS = 0.22
 # Scene durations are frame-quantized with the maximum tail rounded DOWN, so the
-# measured padding must stay inside the declared cap (with 1 ms for serialization).
-MAX_ACCEPTED_PADDING_SECONDS = MAX_SCENE_PADDING_SECONDS + 0.001
+# measured padding must stay inside the declared cap (with one microsecond for serialization).
+MAX_ACCEPTED_PADDING_SECONDS = MAX_SCENE_PADDING_SECONDS + 0.000001
 
 
 def pacing_failure_reason(scene_number, padding, coverage):

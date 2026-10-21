@@ -72,7 +72,7 @@ class MultiTopicRegressionCorpusTests(unittest.TestCase):
         self.assertIsNotNone(regression.pacing_failure_reason(5, float("nan"), 0.91))
         self.assertAlmostEqual(
             regression.MAX_ACCEPTED_PADDING_SECONDS,
-            regression.MAX_SCENE_PADDING_SECONDS + 0.001,
+            regression.MAX_SCENE_PADDING_SECONDS + 0.000001,
         )
 
     def test_contact_sheet_includes_every_rendered_topic_even_if_qc_failed(self):
