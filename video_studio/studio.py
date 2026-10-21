@@ -44,7 +44,7 @@ def probe_duration(ffprobe, path):
         raise ValueError("Could not determine audio duration for " + str(path))
     return duration
 
-def paced_scene_duration(planned_seconds, narration_seconds, fps, minimum_gap=0.12, maximum_gap=0.45):
+def paced_scene_duration(planned_seconds, narration_seconds, fps, minimum_gap=0.06, maximum_gap=0.22):
     """Keep the visual hold close to spoken audio; never pad a short line to a stale scene target."""
     try:
         planned = float(planned_seconds)
@@ -287,7 +287,7 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
         trim_filter = (
             "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-55dB:start_silence=0.03,"
             "areverse,"
-            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-55dB:start_silence=0.14,"
+            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-55dB:start_silence=0.05,"
             "areverse"
         )
         run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw),
