@@ -58,7 +58,7 @@ class ReleaseQualityGateTests(unittest.TestCase):
             "black_frames": {"count": 0, "events": []},
             "freezes": {"count": 0, "events": []},
             "audio_timing": {"verified": True},
-            "audio_loudness": {"available": True, "integrated_lufs": -18.0, "true_peak_dbfs": -2.0},
+            "audio_loudness": {"available": True, "integrated_lufs": -18.0, "true_peak_dbfs": -2.0, "min_loudness_lufs": -24.0, "max_true_peak_dbfs": -1.0},
             "audio_silence": {"count": 0},
             "render_manifest": {"present": True},
             "impact_frame_evidence": {"present": True},
