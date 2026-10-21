@@ -66,10 +66,10 @@ def parse_silence_events(stderr, duration):
 def parse_luminance_frames(stderr):
     """Parse FFmpeg signalstats YAVG metadata into (timestamp, luma) samples."""
     frames = []
-    blocks = re.split(r"(?=frame:\\s*\\d+\\s+pts:)", stderr)
+    blocks = re.split(r"(?=frame:\s*\d+\s+pts:)", stderr)
     for block in blocks:
-        time_match = re.search(r"frame:\\s*\\d+\\s+pts:\\S+\\s+pts_time:([0-9.]+)", block)
-        luma_match = re.search(r"lavfi\\.signalstats\\.YAVG=([0-9.]+)", block)
+        time_match = re.search(r"frame:\s*\d+\s+pts:\S+\s+pts_time:([0-9.]+)", block)
+        luma_match = re.search(r"lavfi\.signalstats\.YAVG=([0-9.]+)", block)
         if not time_match or not luma_match:
             continue
         try:
@@ -103,9 +103,9 @@ def detect_luminance_flash_events(frames, min_luma_delta=51.0,
         count = end_index - index
         if count >= min_transitions:
             events.append({
-                "start": round(transitions[index - 1] if index > 0 else max(0.0, transitions[index] - 0.1), 3),
+                "start": round(transitions[index], 3),
                 "end": round(transitions[end_index - 1], 3),
-                "duration": round(transitions[end_index - 1] - (transitions[index - 1] if index > 0 else max(0.0, transitions[index] - 0.1)), 3),
+                "duration": round(transitions[end_index - 1] - transitions[index], 3),
                 "transition_count": count,
                 "window_seconds": window_seconds,
                 "min_luma_delta": min_luma_delta,
