@@ -24,6 +24,15 @@ from production_readiness import evaluate_production_readiness
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
 TRANSITION_TYPES = {"none", "fade", "wipe-left", "wipe-right", "slide-left", "slide-right", "zoom"}
+CAMERA_MOTIONS = {"static", "push-in", "pull-out", "pan-left", "pan-right", "drift"}
+
+
+def normalize_camera_motion(value, scene_index=1):
+    motion = str(value or "static").strip().lower()
+    if motion not in CAMERA_MOTIONS:
+        raise ValueError("Scene " + str(scene_index) + " uses unsupported camera_motion: " + motion)
+    return motion
+
 
 
 def load_config():
@@ -198,7 +207,8 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
         "Choose transition_in intentionally: none for a clean hard cut; fade for a temporal bridge; wipe-left/right for a directional reveal; slide-left/right for spatial movement; zoom for a motivated scale transition. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
-        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional expression (confident, focused, curious, or concerned). Keep appearance consistent across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
+        "Choose camera_motion per scene: static, push-in, pull-out, pan-left, pan-right, or drift. Use subtle motivated camera movement for emphasis, vary it across scenes, and keep captions/readable text inside safe margins.\\n"
+        "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, walk_from_x and walk_to_x when walking, and optional expression (confident, focused, curious, or concerned) and pose (explain, point, think). Keep the same character palette and proportions across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
         "Section: " + json.dumps(section, ensure_ascii=False) + "\n"
@@ -233,7 +243,17 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     character.setdefault("x", 0.91)
     character.setdefault("y", 0.63)
     character.setdefault("scale", 0.28)
-    character.setdefault("walking", 0)
+    character.setdefault("walking", 1 if index % 5 == 2 else 0)
+    for position_key, default_position in (("x", 0.91), ("y", 0.63)):
+        try:
+            position_value = float(character.get(position_key, default_position))
+        except (TypeError, ValueError):
+            position_value = default_position
+        if not math.isfinite(position_value) or not 0 <= position_value <= 1:
+            position_value = default_position
+        character[position_key] = position_value
+    character.setdefault("walk_from_x", round(max(0.05, character["x"] - 0.12), 3))
+    character.setdefault("walk_to_x", round(min(0.95, character["x"]), 3))
     character.setdefault("expression", ("curious", "confident", "focused", "concerned")[index % 4])
     character.setdefault("pose", ("explain", "point", "think", "explain")[index % 4])
     character.setdefault("shirt", "#6479b8")
@@ -264,6 +284,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     if transition not in TRANSITION_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported transition_in: " + transition)
     scene["transition_in"] = transition
+    scene["camera_motion"] = normalize_camera_motion(scene.get("camera_motion", ("push-in", "static", "pan-left", "pull-out", "pan-right")[index % 5]), index);
     if "transition_frames" in scene:
         if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 1 <= scene["transition_frames"] <= 60:
             raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
@@ -327,10 +348,13 @@ def fallback(topic):
          "transition_in": "wipe-right", "transition_frames": 10},
     ]
     # Fallback previews must exercise the integrated character/graphics composition.
+    camera_motions = ("push-in", "pan-left", "pull-out", "drift", "pan-right", "static")
     for index, scene in enumerate(scenes):
+        scene["camera_motion"] = camera_motions[index % len(camera_motions)]
         scene["character"] = {
             "enabled": True, "speaking": True, "x": 0.92, "y": 0.63,
-            "scale": 0.33, "walking": 0,
+            "scale": 0.33, "walking": 1 if index == 1 else 0,
+            "walk_from_x": 0.78, "walk_to_x": 0.92,
             "expression": ("curious", "confident", "focused", "concerned")[index % 4],
             "pose": ("explain", "point", "think", "explain")[index % 4],
             "skin": "#c58e72", "hair": "#25212a", "shirt": "#6479b8",

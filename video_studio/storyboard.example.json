@@ -13,7 +13,23 @@
       "visual_type": "hero",
       "graphic_label": "DETERMINISTIC",
       "transition_in": "fade",
-      "transition_frames": 18
+      "transition_frames": 18,
+      "camera_motion": "push-in",
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.88,
+        "y": 0.62,
+        "scale": 0.24,
+        "walking": 0,
+        "walk_from_x": 0.74,
+        "walk_to_x": 0.88,
+        "expression": "curious",
+        "pose": "explain",
+        "shirt": "#6479b8",
+        "hair": "#25212a",
+        "skin": "#c58e72"
+      }
     },
     {
       "duration_seconds": 4,
@@ -28,7 +44,23 @@
         "PNG FRAMES"
       ],
       "transition_in": "wipe-left",
-      "transition_frames": 18
+      "transition_frames": 18,
+      "camera_motion": "pan-left",
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.88,
+        "y": 0.62,
+        "scale": 0.24,
+        "walking": 1,
+        "walk_from_x": 0.74,
+        "walk_to_x": 0.88,
+        "expression": "confident",
+        "pose": "point",
+        "shirt": "#6479b8",
+        "hair": "#25212a",
+        "skin": "#c58e72"
+      }
     },
     {
       "duration_seconds": 4,
@@ -38,7 +70,23 @@
       "narration": "Same input.",
       "visual_type": "kinetic-type",
       "transition_in": "wipe-right",
-      "transition_frames": 18
+      "transition_frames": 18,
+      "camera_motion": "pull-out",
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.88,
+        "y": 0.62,
+        "scale": 0.24,
+        "walking": 0,
+        "walk_from_x": 0.74,
+        "walk_to_x": 0.88,
+        "expression": "focused",
+        "pose": "think",
+        "shirt": "#6479b8",
+        "hair": "#25212a",
+        "skin": "#c58e72"
+      }
     },
     {
       "duration_seconds": 4,
@@ -60,7 +108,23 @@
         "Same layout"
       ],
       "transition_in": "fade",
-      "transition_frames": 18
+      "transition_frames": 18,
+      "camera_motion": "drift",
+      "character": {
+        "enabled": true,
+        "speaking": true,
+        "x": 0.88,
+        "y": 0.62,
+        "scale": 0.24,
+        "walking": 0,
+        "walk_from_x": 0.74,
+        "walk_to_x": 0.88,
+        "expression": "concerned",
+        "pose": "explain",
+        "shirt": "#6479b8",
+        "hair": "#25212a",
+        "skin": "#c58e72"
+      }
     }
   ]
 }

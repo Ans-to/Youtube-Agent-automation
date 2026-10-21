@@ -20,6 +20,12 @@ from voice_backends import get_urdu_tts_command, resolve_urdu_tts_command, urdu_
 
 
 class VideoStudioTests(unittest.TestCase):
+    def test_camera_motion_profiles_are_allowlisted_and_defaulted(self):
+        self.assertEqual(production.normalize_camera_motion("push-in", 2), "push-in")
+        self.assertEqual(production.normalize_camera_motion(None, 2), "static")
+        with self.assertRaisesRegex(ValueError, "unsupported camera_motion"):
+            production.normalize_camera_motion("teleport", 2)
+
     def test_procedural_sound_design_is_deterministic_format_and_scene_timed(self):
         with tempfile.TemporaryDirectory() as tmp:
             first = Path(tmp) / "sound-a.wav"
@@ -383,6 +389,10 @@ class VideoStudioTests(unittest.TestCase):
         self.assertTrue(all(scene.get("transition_in") in production.TRANSITION_TYPES for scene in scenes))
         self.assertGreater(len({scene["transition_in"] for scene in scenes[1:]}), 1)
         self.assertTrue(all(1 <= scene.get("transition_frames", 12) <= 60 for scene in scenes))
+        self.assertTrue(all(scene.get("camera_motion") in production.CAMERA_MOTIONS for scene in scenes))
+        walking = [scene["character"] for scene in scenes if scene["character"].get("walking") == 1]
+        self.assertEqual(len(walking), 1)
+        self.assertLess(walking[0]["walk_from_x"], walking[0]["walk_to_x"])
 
     def test_all_fallback_narration_is_english(self):
         result = production.fallback("Test topic")

@@ -126,12 +126,32 @@
  }
  window.captionLayoutForTest=captionLayout;
  function easeSmooth(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t)}
+ function cameraTransformFor(scene,progress,width,height){
+  const mode=String(scene&&scene.camera_motion||"static").toLowerCase(),q=easeSmooth(progress);
+  const scale=mode==="push-in"?1+.055*q:mode==="pull-out"?1.055-.055*q:1;
+  const offsetX=mode==="pan-left"?-width*.028*q:mode==="pan-right"?width*.028*q:mode==="drift"?Math.sin(progress*Math.PI*2)*width*.008:0;
+  const offsetY=mode==="drift"?Math.cos(progress*Math.PI*2)*height*.004:0;
+  return {scale,offsetX,offsetY,mode};
+ }
+ function characterPosition(c,progress,width,height){
+  const portrait=height>width;
+  let x=Number.isFinite(Number(c&&c.x))?Number(c.x):(portrait ? 0.78 : 0.92);
+  if(Number(c&&c.walking)===1&&Number.isFinite(Number(c.walk_from_x))&&Number.isFinite(Number(c.walk_to_x))){
+   x=Number(c.walk_from_x)+(Number(c.walk_to_x)-Number(c.walk_from_x))*easeSmooth(progress);
+  }
+  x=Math.max(.05,Math.min(.95,x));
+  if(portrait)x=Math.min(x,.82);
+  return {x,y:Number.isFinite(Number(c&&c.y))?Math.max(.05,Math.min(.95,Number(c.y))):(portrait ? 0.70 : 0.56)};
+ }
+ window.cameraTransformForTest=cameraTransformFor;
+ window.characterPositionForTest=characterPosition;
+
  const characterRigVisemeGeometry={closed:[.22,.006],open:[.30,.028],wide:[.48,.018],round:[.24,.028],teeth:[.38,.024],tongue:[.30,.026],sibilant:[.44,.009],lip:[.25,.012],open_wide:[.50,.026],open_round:[.25,.030]};
  function drawCharacter(c,progress,frame){
   if(!c||c.enabled!==true)return;
   const portrait=canvas.height>canvas.width,w=canvas.width,h=canvas.height;
-  const scale=Math.min(w,h)*(Number(c.scale)||(portrait?0.36:0.33)),requestedX=Number(c.x),cx=w*(portrait?Math.min(requestedX||0.78,0.82):(requestedX||0.92)),cy=h*(Number(c.y)||(portrait?0.70:0.56));
-  const bob=Math.sin(frame*0.10)*scale*.012,breath=Math.sin(frame*.055)*scale*.009;
+  const scale=Math.min(w,h)*(Number(c.scale)||(portrait?0.36:0.33)),position=characterPosition(c,progress,w,h),cx=w*position.x,cy=h*position.y;
+  const gait=Number(c.walking)===1?Math.abs(Math.sin(frame*.12)):0,bob=Math.sin(frame*0.10)*scale*.012+gait*scale*.012,breath=Math.sin(frame*.055)*scale*.009;
   const gesture=easeSmooth((progress-.08)/.18)*(1-easeSmooth((progress-.78)/.14));
   const beatPulse=Math.pow(Math.max(0,Math.sin(progress*Math.PI*4.0)),1.8);
   const idleSway=Math.sin(frame*.052)*.035;
@@ -164,8 +184,8 @@
   joint(kneeL,scale*.035);joint(kneeR,scale*.035);shoe({x:ankleL.x-scale*.025,y:ankleL.y+scale*.015},-walk*.2);shoe({x:ankleR.x+scale*.025,y:ankleR.y+scale*.015},walk*.2);
   // Shoulder, elbow and wrist pivots are independent. The gesture is driven by eased scene progress.
   const shoulderL={x:-scale*.205,y:-scale*.185},shoulderR={x:scale*.205,y:-scale*.185};
-  const leftUpperAngle=2.05-gesture*.24+idleSway+(pose==="think"?-.18:0)-beatPulse*.10;
-  const rightUpperAngle=.98-gesture*.82+(pose==="point"?-.18:0)-beatPulse*.42;
+  const leftUpperAngle=2.05-gesture*.24+idleSway+(pose==="think"?-.18:0)-beatPulse*.10+walk*.22;
+  const rightUpperAngle=.98-gesture*.82+(pose==="point"?-.18:0)-beatPulse*.42-walk*.22;
   const elbowL=endpoint(shoulderL,scale*.205,leftUpperAngle);
   const elbowR=endpoint(shoulderR,scale*.205,rightUpperAngle);
   const leftForeAngle=2.05+gesture*.28+beatPulse*.18;
@@ -229,7 +249,7 @@
   ctx.restore();ctx.restore();
  }
  window.drawCharacterForTest=drawCharacter;
- window.characterRigCapabilitiesForTest=()=>({version:2,joints:["shoulder","elbow","wrist","hip","knee","ankle","neck","head"],visemeShapes:Object.keys(characterRigVisemeGeometry)});
+ window.characterRigCapabilitiesForTest=()=>({version:3,joints:["shoulder","elbow","wrist","hip","knee","ankle","neck","head"],visemeShapes:Object.keys(characterRigVisemeGeometry),travelMotion:true,expressions:true});
  async function drawTransitionFrame(previous,previousFrame,previousCount,previousGlobal,current,currentFrame,currentCount,currentGlobal,kind,t){
   window.drawFrame(previous,previousFrame,previousCount,previousGlobal,true);
   const outgoing=new Image();outgoing.src=canvas.toDataURL("image/png");await outgoing.decode();
@@ -266,7 +286,7 @@
   window.drawFrame=function(scene,localFrame,sceneFrames,globalFrame,suppressTransition){
   const w=canvas.width,h=canvas.height,portrait=h>w,progress=sceneFrames<=1?1:localFrame/(sceneFrames-1),pulse=.5+.5*Math.sin(globalFrame/30*Math.PI*1.2);
    const left=w*.078,contentW=w*.844,textW=portrait?contentW:(String(scene.visual_type||"hero")==="hero"?w*.66:w*.49),grid=Math.max(24,Math.round(w/30)),fontSize=portrait?Math.min(72,w*.07):Math.min(88,w*.046),eyebrowY=portrait?h*.31:h*.19,headlineY=portrait?h*.43:h*.46,subY=portrait?h*.59:h*.60,barY=portrait?h*.78:h*.73,footerY=h*.91,barW=contentW*.58;
-  ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
+  ctx.fillStyle=p.bg;ctx.fillRect(0,0,w,h);const camera=cameraTransformFor(scene,progress,w,h);ctx.save();ctx.translate(w/2+camera.offsetX,h/2+camera.offsetY);ctx.scale(camera.scale,camera.scale);ctx.translate(-w/2,-h/2);ctx.strokeStyle=p.grid;ctx.lineWidth=1;
   for(let x=0;x<w;x+=grid){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke()}
   for(let y=0;y<h;y+=grid){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke()}
   // Multi-depth motion-design layer: drifting particles, perspective streaks, and
@@ -331,6 +351,7 @@
   ctx.font="600 "+Math.max(13,w*.0105)+"px monospace";ctx.fillStyle=p.muted;ctx.fillText("FRAME "+String(globalFrame).padStart(6,"0"),left,footerY);
   ctx.textAlign="right";ctx.fillText("HUMAN REVIEW PREVIEW",w-left,footerY);ctx.textAlign="left";
   ctx.fillStyle=p.fg;ctx.font="600 "+Math.max(12,w*.0094)+"px monospace";ctx.fillText("OFFLINE AGENT HQ",left,Math.min(h-24,footerY+Math.max(30,w*.035)));
+   ctx.restore();
    const trans=String(scene.transition_in||"none").toLowerCase(),transFrames=Math.max(1,Math.min(60,Number(scene.transition_frames)||12));
    if(!suppressTransition&&trans!=="none"&&localFrame<transFrames){
     const t=Math.max(0,Math.min(1,localFrame/Math.max(1,transFrames-1))),ease=1-Math.pow(1-t,3);

@@ -13,6 +13,7 @@ async function main(){
  if(!Array.isArray(s.scenes)||s.scenes.length<1||s.scenes.length>100)throw new Error("scenes must contain 1..100 entries");
  const visualTypes=new Set(["hero","stat","timeline","diagram","comparison","code","quote","waveform","kinetic-type","bar-chart"]);
  const transitionTypes=new Set(["none","fade","wipe-left","wipe-right","slide-left","slide-right","zoom"]);
+ const cameraMotionTypes=new Set(["static","push-in","pull-out","pan-left","pan-right","drift"]);
  for(const [index,scene] of s.scenes.entries()){
   if(!scene||typeof scene!=="object"||Array.isArray(scene))throw new Error("Scene "+index+" must be a JSON object.");
   const kind=String(scene.visual_type||"hero").toLowerCase();
@@ -20,6 +21,14 @@ async function main(){
   const transition=String(scene.transition_in||"none").toLowerCase();
   if(!transitionTypes.has(transition))throw new Error("Unsupported transition_in in scene "+index+": "+transition);
   scene.transition_in=transition;
+  const cameraMotion=String(scene.camera_motion||"static").toLowerCase();
+  if(!cameraMotionTypes.has(cameraMotion))throw new Error("Unsupported camera_motion in scene "+index+": "+cameraMotion);
+  scene.camera_motion=cameraMotion;
+  if(scene.character!==undefined&&scene.character!==null){
+   if(typeof scene.character!=="object"||Array.isArray(scene.character))throw new Error("Scene "+index+" character must be an object.");
+   for(const key of ["x","y","walk_from_x","walk_to_x"])if(scene.character[key]!==undefined&&(!Number.isFinite(Number(scene.character[key]))||Number(scene.character[key])<0||Number(scene.character[key])>1))throw new Error("Scene "+index+" character "+key+" must be between 0 and 1.");
+   if(scene.character.walking!==undefined&&![0,1,false,true].includes(scene.character.walking))throw new Error("Scene "+index+" character walking must be 0 or 1.");
+  }
   if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
   for(const key of ["headline","eyebrow","subhead","narration","caption"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
   for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
@@ -65,9 +74,22 @@ async function main(){
   }
 
   const rigCheck=await page.evaluate(()=>window.characterRigCapabilitiesForTest());
+  if(rigCheck.version!==3||rigCheck.travelMotion!==true)throw new Error("Character travel-motion capability regression: "+JSON.stringify(rigCheck));
+  const motionCheck=await page.evaluate(()=>{
+   const pushStart=window.cameraTransformForTest({camera_motion:"push-in"},0,1920,1080);
+   const pushEnd=window.cameraTransformForTest({camera_motion:"push-in"},1,1920,1080);
+   const panEnd=window.cameraTransformForTest({camera_motion:"pan-left"},1,1920,1080);
+   const walkStart=window.characterPositionForTest({x:.8,walking:1,walk_from_x:.2,walk_to_x:.8},0,1920,1080);
+   const walkMid=window.characterPositionForTest({x:.8,walking:1,walk_from_x:.2,walk_to_x:.8},.5,1920,1080);
+   const walkEnd=window.characterPositionForTest({x:.8,walking:1,walk_from_x:.2,walk_to_x:.8},1,1920,1080);
+   return {pushStart:pushStart.scale,pushEnd:pushEnd.scale,panEnd:panEnd.offsetX,walk:[walkStart.x,walkMid.x,walkEnd.x]};
+  });
+  if(!(motionCheck.pushStart===1&&motionCheck.pushEnd>1&&motionCheck.panEnd<0&&motionCheck.walk[0]===.2&&motionCheck.walk[1]===.5&&motionCheck.walk[2]===.8))throw new Error("Camera or character travel motion regression: "+JSON.stringify(motionCheck));
+  console.log("Camera/character motion smoke check:",JSON.stringify(motionCheck));
+
   const requiredJoints=["shoulder","elbow","wrist","hip","knee","ankle","neck","head"];
   const requiredVisemes=["closed","open","wide","round","teeth","tongue","sibilant","lip","open_wide","open_round"];
-  if(!rigCheck||rigCheck.version!==2||!requiredJoints.every(x=>rigCheck.joints.includes(x))||!requiredVisemes.every(x=>rigCheck.visemeShapes.includes(x)))throw new Error("Character-rig capability regression: "+JSON.stringify(rigCheck));
+  if(!rigCheck||rigCheck.version!==3||!requiredJoints.every(x=>rigCheck.joints.includes(x))||!requiredVisemes.every(x=>rigCheck.visemeShapes.includes(x)))throw new Error("Character-rig capability regression: "+JSON.stringify(rigCheck));
   const rigDrawCheck=await page.evaluate(()=>{
    const shapes=window.characterRigCapabilitiesForTest().visemeShapes;
    for(const shape of shapes){
