@@ -141,6 +141,18 @@ Example private upload, only after local approval:
 
 Public uploads require the additional --confirm-public flag. The uploader revalidates the strict QA report and its hash, the approved video/script/storyboard hashes, and exact metadata before upload. It uses user OAuth rather than an API key and defaults to private visibility. OAuth setup, account consent, YouTube API access, and upload processing cannot be completed by repository code alone. Never commit client_secret.json or youtube-token.json.
 
+## Ten-niche voiced regression suite
+
+After installing the local Piper CLI and setting `PIPER_MODEL`, run the cross-topic regression harness from the repository root:
+
+```powershell
+python video_studio/multi_topic_regression.py --output-root workspace/multi-topic-regression
+```
+
+The corpus has ten distinct niches: cybersecurity, cooking science, personal finance, fitness and recovery, travel planning, ocean science, history of technology, home gardening, learning and memory, and small business onboarding. Each topic has its own three-scene script. The harness creates real narrated MP4s through `studio.py`, runs strict FFmpeg video/audio QA on every final file, checks measured scene padding and voice coverage, and creates a contact sheet from the actual rendered style frames. It continues across all ten topics after a failure and returns a failing exit code if any topic fails. The report, render logs, scripts, storyboards, subtitles, QC JSON, videos, and contact sheet are saved under the requested output root.
+
+The CI workflow runs this suite with its pinned English voice and uploads the ten video outputs plus diagnostics even when a topic fails. These synthetic scripts are regression fixtures, not researched or publication-approved content. A passing suite demonstrates cross-topic renderer robustness; it does not replace source verification, multimodal semantic review, or human creative approval.
+
 ## Speech-first pacing and visual treatment
 
 Narrated scenes are cut to the measured, edge-trimmed voice segment instead of holding to a stale storyboard duration. The renderer retains only a short 0.06–0.22 second editorial tail, preserves pauses inside the utterance, and records the final narration duration, padding, and voice-coverage ratio per scene. A longer line extends the scene rather than clipping speech. For model-generated packages, the final render is rejected if speech-led timing changes the requested runtime by more than 5% (with a 1-second tolerance); regenerate fuller narration or select a shorter target rather than silently under-delivering.
