@@ -354,22 +354,36 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
 
 
 def fallback(topic):
+    # The no-model preview should demonstrate an edited video, not a set of four
+    # underscripted cards. Narration is paced for roughly five seconds per scene.
     scenes = [
-        {"duration_seconds": 5, "eyebrow": "THE QUESTION", "headline": topic[:80],
-         "subhead": "A topic package created with the offline template.", "narration": topic,
-         "visual_type": "hero", "graphic_label": "THE CORE IDEA"},
-        {"duration_seconds": 5, "eyebrow": "THE CONTEXT", "headline": "What we know",
-         "subhead": "Add trusted source notes before presenting factual claims.",
-         "narration": "Start with what is known, and verify factual claims against reliable sources.",
-         "visual_type": "diagram", "visual_nodes": ["EVIDENCE", "EXPLANATION", "TAKEAWAY"]},
-        {"duration_seconds": 5, "eyebrow": "THE EXPLANATION", "headline": "How it works",
-         "subhead": "Use one concept per scene, with a simple visual metaphor.",
-         "narration": "Explain the core idea step by step, with one concept in each scene.",
-         "visual_type": "code", "code_lines": ["input = evidence;", "process = explain(input);", "output = clear_idea;"]},
-        {"duration_seconds": 5, "eyebrow": "THE TAKEAWAY", "headline": "What to remember",
-         "subhead": "Review, fact-check, and edit before publication.",
-         "narration": "Summarize the practical takeaway. This is a template, not researched or fact-checked content.",
-         "visual_type": "timeline", "timeline_events": ["QUESTION", "EVIDENCE", "EXPLAIN", "REVIEW"]},
+        {"duration_seconds": 5, "eyebrow": "01 / THE FIRST FRAME",
+         "headline": "Looks finished. Is it ready?",
+         "subhead": "Test the actual output before a viewer ever sees it.",
+         "narration": "A finished-looking video can still fail before the first viewer sees it.",
+         "visual_type": "hero", "graphic_label": "RELEASE CHECK", "transition_in": "none",
+         "transition_frames": 9},
+        {"duration_seconds": 5, "eyebrow": "02 / TEST THE WHOLE CHAIN",
+         "headline": "A script is not a video",
+         "subhead": "Verify every stage, including the encoded file.",
+         "narration": "Test the source, dependencies, render, audio, and final encoded file—not just the script.",
+         "visual_type": "comparison", "comparison_left_title": "UNVERIFIED",
+         "comparison_right_title": "CHECKED OUTPUT",
+         "comparison_left": ["Source only", "No audio QA", "Untested MP4"],
+         "comparison_right": ["Full test", "Speech measured", "Encoded output"],
+         "transition_in": "wipe-left", "transition_frames": 9},
+        {"duration_seconds": 5, "eyebrow": "03 / SPEECH TO SCREEN",
+         "headline": "Pacing is part of quality",
+         "subhead": "The picture should move with the line—not wait for it.",
+         "narration": "Measure speech timing, inspect real frames, and catch long pauses before release.",
+         "visual_type": "diagram", "visual_nodes": ["SOURCE", "RENDER", "AUDIO", "AUDIT"],
+         "transition_in": "zoom", "transition_frames": 9},
+        {"duration_seconds": 5, "eyebrow": "04 / RELEASE CHECK",
+         "headline": "Every second earns its place",
+         "subhead": "Tight edits. Distinct visuals. Evidence before approval.",
+         "narration": "Only the exact output that passes its checks moves on to human creative review.",
+         "visual_type": "kinetic-type", "graphic_label": "HUMAN REVIEW REQUIRED",
+         "transition_in": "slide-left", "transition_frames": 9},
     ]
     return {"title": topic[:90],
             "description": "Offline template package. Research and verify factual claims before publication.",
@@ -637,7 +651,7 @@ def main():
         "speaker_identity_human_reviewed": bool(language == "ur-en" and voice_profile_human_approved),
         "approved_voice_profile_sha256": voice_profile_sha256 if (language == "ur-en" and voice_profile_human_approved) else None,
         "forced_phoneme_alignment": False,
-        "note": ("Model output is a draft; factual claims and the actual rendered voice still need human review." if model_enabled else "Deterministic 20-second template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
+        "note": ("Model output is a draft; factual claims and the actual rendered voice still need human review." if model_enabled else "Deterministic offline template only; it is not a full-length AI-written script. Supplied source notes are attached for human review."),
     }
     (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Draft package:", output_dir)
@@ -657,8 +671,13 @@ def main():
             status["character_animation"] = character_alignment_summary(aligned)
             status["storyboard_seconds"] = sum(float(scene["duration_seconds"]) for scene in aligned["scenes"])
             status["rendered_duration_seconds"] = status["storyboard_seconds"]
-            status["duration_target_met"] = abs(status["rendered_duration_seconds"] - target_seconds) <= 1 / 30
-            status["narration_alignment"] = "per-scene " + language_label + " audio; scene-level subtitle cues emitted as SRT and WebVTT"
+            status["duration_target_met"] = abs(status["rendered_duration_seconds"] - target_seconds) <= max(1.0, target_seconds * 0.05)
+            if model_enabled and not status["duration_target_met"]:
+                raise SystemExit(
+                    "Voice-paced scene edits changed the requested runtime by more than 5%. "
+                    "The package is not accepted; regenerate fuller narration or choose a shorter target duration."
+                )
+            status["narration_alignment"] = "speech-timed scene cuts; scene-level subtitle cues emitted as SRT and WebVTT"
             status["subtitle_files"] = ["video.srt", "video.vtt"]
             status["voice_language"] = language_label
             (output_dir / "package-status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
