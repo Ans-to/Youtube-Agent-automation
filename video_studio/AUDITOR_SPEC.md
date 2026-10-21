@@ -8,7 +8,7 @@ when a required detector did not run successfully.
 
 ## Capability groups
 
-- **Visual understanding:** objects, environments, faces, actions/gestures over time, and OCR.
+- **Visual understanding:** optional local vision-model analysis of sampled objects, environments, faces, actions/gestures over time, and OCR.
 - **Audio and speech:** ASR with word/segment timestamps, profanity and sentiment/tone analysis,
   non-speech sound/music classification, and licensed-reference fingerprint matching.
 - **Temporal context:** correlate frames, OCR, ASR, scene boundaries, and sound events; a knife
@@ -35,6 +35,7 @@ A configured detector adapter contributes observations to an evidence bundle:
     "face_scene_analysis": "complete",
     "ocr": "complete",
     "asr_transcription": "complete",
+    "text_policy_classification": "complete",
     "audio_event_music_analysis": "complete",
     "temporal_context": "complete",
     "brand_logo_matching": "complete",
