@@ -51,14 +51,21 @@ class AuditorAdapterTests(unittest.TestCase):
         self.assertEqual(findings[0]["end_seconds"], 9.5)
         self.assertEqual(findings[0]["confidence"], 0.88)
 
-    def test_text_classifier_ignores_unmapped_ids_and_invalid_rules(self):
+    def test_text_classifier_fails_closed_on_unmapped_ids_and_invalid_rules(self):
         observations = [{"start_seconds": 1, "end_seconds": 2, "text": "sample", "source": "asr"}]
         def fake_call(config, messages):
             return {"findings": [
                 {"evidence_id": "T9", "rule": "profanity", "description": "bad", "confidence": 0.8},
+            ]}
+        with self.assertRaisesRegex(ValueError, "unmapped evidence ID"):
+            ADAPTERS.classify_text_observations(observations, {}, call_model=fake_call)
+
+        def invalid_rule_call(config, messages):
+            return {"findings": [
                 {"evidence_id": "T0", "rule": "invented_rule", "description": "bad", "confidence": 0.8},
             ]}
-        self.assertEqual(ADAPTERS.classify_text_observations(observations, {}, call_model=fake_call), [])
+        with self.assertRaisesRegex(ValueError, "invalid rule"):
+            ADAPTERS.classify_text_observations(observations, {}, call_model=invalid_rule_call)
 
     def test_vision_findings_are_bounded_to_the_sampled_frame_window(self):
         with tempfile.TemporaryDirectory() as tmp:
