@@ -177,7 +177,7 @@ Landscape and vertical regression storyboards are provided at `storyboard.motion
     npm install
     python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4 --language en
 
-This command can produce English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
+This command can produce English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Release approval requires strict technical checks plus a separate vision-model review of samples from the actual encoded MP4. The visual reviewer fails closed if vision support is disabled, unavailable, returns malformed evidence, scores below 8.5/10, or reports unresolved issues. It cannot prove audio intelligibility, factual accuracy, phoneme-accurate lip-sync, or smooth motion from still frames; human review remains mandatory. Do not describe the procedural presenter as fully lip-synced or a template demo as production-ready.
 
 ## Impact-frame rendering and release evidence
 
@@ -185,3 +185,19 @@ Storyboard scenes may declare up to eight \`impact_events\` each. Events include
 
 The final MP4 package includes \`impact-frame-evidence.json\` and PNGs extracted from the encoded MP4 at each impact timestamp, plus \`style-frame.png\`. Three pending/unapproved templates require actual creative review, asset-provenance confirmation, and style-frame approval. The strict release and publishing gates bind those records to the final video, manifest, evidence images, and QC report hashes. Automated technical checks do not substitute for human review of timing, continuity, or readability.
 
+
+
+## Final visual-quality gate (required for release)
+
+The release gate audits the encoded MP4 using FFmpeg/ffprobe, then sends timestamped frame samples to a local vision-capable chat-completions model. It requires a score of at least 8.5/10, evidence-bearing PASS results for each required visual category and every sampled frame, zero unresolved visual issues, and SHA-256 binding to the exact video and sample images. Missing vision support, malformed responses, missing samples, stale hashes, unavailable audio measurements, or failed technical checks block release. A manually set `passed: true` cannot override these validations.
+
+Keep the model endpoint on loopback. To use a separate vision model, set these optional keys in your **local, untracked** `config.json` under `video_studio`:
+
+    "visual_audit_base_url": "http://127.0.0.1:8080/v1/chat/completions",
+    "visual_audit_model": "YOUR_LOADED_VISION_MODEL_ID",
+    "visual_audit_timeout_seconds": 240,
+    "visual_audit_max_output_tokens": 2600
+
+The model must actually accept OpenAI-compatible `image_url` input; a text-only model is insufficient. Empty optional values fall back to `model.base_url` and `model.model`, but release still blocks if `model.enabled` is false or the selected model cannot process images. Never commit `config.json` or credentials.
+
+The technical gate requires progressive H.264/yuv420p output, at least 1080 pixels on the short edge, verified audio/video duration parity, AAC stereo 48 kHz audio, measurable loudness and true peak within configured limits, no flagged long freezes or long silence, and fresh render/impact-frame evidence. These checks catch common defects but do not objectively measure aesthetics. The vision model sees sampled still frames, not every frame or audio; independent human review remains required before package approval or upload.
