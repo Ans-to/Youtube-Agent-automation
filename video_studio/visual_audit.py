@@ -227,6 +227,33 @@ def _make_contact_sheet(root, frames, sample_dir, ffmpeg):
     }
 
 
+def scene_context_for_timestamp_range(scenes, scene_summaries, video_duration, first_timestamp, last_timestamp):
+    """Keep model text context local to this batch; the contact sheet carries global visual context."""
+    durations = []
+    for index, scene in enumerate(scenes, 1):
+        try:
+            seconds = float(scene.get("duration_seconds", 0))
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Storyboard scene " + str(index) + " has invalid duration.") from exc
+        if not math.isfinite(seconds) or seconds <= 0:
+            raise ValueError("Storyboard scene " + str(index) + " duration must be positive.")
+        durations.append(seconds)
+    total = sum(durations)
+    if total <= 0 or not math.isfinite(total):
+        raise ValueError("Storyboard total duration is invalid.")
+    scale = video_duration / total
+    batch_start, batch_end = min(first_timestamp, last_timestamp), max(first_timestamp, last_timestamp)
+    cursor = 0.0
+    result = []
+    for index, (scene, seconds) in enumerate(zip(scenes, durations)):
+        start = cursor
+        end = cursor + seconds * scale
+        if end >= batch_start - 0.15 and start <= batch_end + 0.15:
+            result.append(scene_summaries[index])
+        cursor = end
+    return result
+
+
 def run_visual_audit(video, storyboard_path, package_root, config_path=None):
     """Run a batch-based vision audit over every storyboard scene; uncertainty blocks release."""
     video = Path(video).resolve()
@@ -304,6 +331,10 @@ def run_visual_audit(video, storyboard_path, package_root, config_path=None):
     summaries = []
     failed_due_to_transport = False
     for batch_index, batch_frames in enumerate(batches, 1):
+        batch_scene_summary = scene_context_for_timestamp_range(
+            scenes, scene_summary, duration,
+            batch_frames[0]["timestamp_seconds"], batch_frames[-1]["timestamp_seconds"],
+        )
         schema = {
             "overall_score": 0.0,
             "overall_status": "PASS|FAIL|REVIEW_REQUIRED",
@@ -323,12 +354,12 @@ def run_visual_audit(video, storyboard_path, package_root, config_path=None):
             "Include one frame record for EVERY listed timestamp, using exact 3-decimal timestamps. No generic 'looks good' evidence.",
             "Return ONLY valid JSON following this schema: " + json.dumps(schema, ensure_ascii=False),
             "Batch " + str(batch_index) + " of " + str(len(batches)) + ". Video duration %.3f seconds, FPS %.3f." % (duration, fps),
-            "Storyboard overview: " + json.dumps({
+            "Storyboard context for this batch (global style/variety is judged from the full-sequence contact sheet): " + json.dumps({
                 "title": storyboard.get("title", ""),
                 "width": expected_width,
                 "height": expected_height,
-                "scene_count": len(scene_summary),
-                "scenes": scene_summary,
+                "total_scene_count": len(scene_summary),
+                "scenes_overlapping_this_batch": batch_scene_summary,
             }, ensure_ascii=False),
             "Full sequence contact-sheet metadata: " + json.dumps(contact_sheet, ensure_ascii=False),
             "Exact detail-frame timestamps for this batch: " + json.dumps([frame["timestamp_seconds"] for frame in batch_frames]),
