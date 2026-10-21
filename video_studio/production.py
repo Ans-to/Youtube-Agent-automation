@@ -83,17 +83,20 @@ def run_strict_quality_audit(output_dir):
     # Emit a structured audit alongside strict technical QA. Until model-backed
     # detector adapters are configured, the report remains INCOMPLETE rather
     # than incorrectly claiming that the full multimodal policy audit passed.
+    technical_coverage = {
+        "dead_air_black_screen": "complete",
+        "photosensitivity": (
+            "complete" if report.get("checks", {}).get("photosensitivity", {}).get("available")
+            else "failed"
+        ),
+    }
+    from auditor_adapters import run_optional_detectors
+    detector_result = run_optional_detectors(video_path, load_config(), technical_coverage=technical_coverage)
     audit_report = build_multimodal_audit_report({
         "video": str(video_path),
         "duration_seconds": report["duration_seconds"],
-        "coverage": {
-            "dead_air_black_screen": "complete",
-            "photosensitivity": (
-                "complete" if report.get("checks", {}).get("photosensitivity", {}).get("available")
-                else "failed"
-            ),
-        },
-        "findings": technical_findings(report),
+        "coverage": detector_result["coverage"],
+        "findings": technical_findings(report) + detector_result["findings"],
     })
     audit_path = output_dir / "video.audit.json"
     audit_path.write_text(json.dumps(audit_report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
