@@ -38,7 +38,7 @@ def run_filter(binary, path, video_filter=None, audio_filter=None, timeout=300):
     result = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
     # Some FFmpeg filters (notably metadata=print:file=-) write their
     # machine-readable evidence to stdout, while diagnostics go to stderr.
-    return result.returncode, result.stderr + "\\n" + result.stdout
+    return result.returncode, result.stderr + "\n" + result.stdout
 
 
 def intervals(stderr, start_pattern, end_pattern=None):
