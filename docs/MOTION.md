@@ -42,8 +42,62 @@ python video_studio/audit_video.py film-4k.mp4 --report audit.md
 
 The direction audit passed 18/18 clauses with the beat check now verified, not
 skipped. The content audit returned `INCOMPLETE`, which is the honest result:
-nothing was flagged, but twelve rules still need evidence this machine does not
+nothing was flagged, but thirteen rules still need evidence this machine does not
 have (ASR, OCR, a vision model, a licensed-content reference, a local LLM).
+
+## 0.1 Rendering it on a GitHub runner
+
+`.github/workflows/render-motion-film.yml` runs the same five steps on a clean
+Ubuntu 24.04 runner and publishes the result as the `motion-film` artifact
+(30-day retention): both MP4s, the soundtrack, the audit reports, the direction
+package and a contact sheet. Nothing about the render depends on the developer
+machine — the runner installs FFmpeg and `npm ci`, and the fonts, renderer and
+direction code all come from the repository.
+
+```bash
+# manual run; every input has a default
+gh workflow run render-motion-film.yml \
+  -f brief=video_studio/brief.example.json -f scale=1.0 -f delivery_height=1080
+```
+
+The workflow also runs on pushes to `main` that touch the renderer. A manual
+dispatch only works once the workflow file exists on the default branch —
+GitHub does not register a `workflow_dispatch` entry from a feature branch.
+
+It does not trust exit codes. Before uploading, the job probes every output and
+fails on: a non-passing motion spec, a flagged audit, a missing video or audio
+stream, a codec other than H.264, a resolution other than 3840x2160 for the
+master or the requested height for the delivery copy, or a duration that does
+not match the frame count at the declared frame rate.
+
+A run on a 4-core hosted runner produced:
+
+| Measurement | Value |
+|---|---|
+| frames | 600 at 3840x2160, 30 fps |
+| frame render | 193 s |
+| 4K master | 13.85 MB, sha256 `ab4815ce…` |
+| 1080p delivery | 4.26 MB, sha256 `642024b0…` |
+| motion spec | `PASSED - No violations detected.` (18/18) |
+| content audit | `INCOMPLETE`, 0 flagged, the same 13 unverified rules |
+
+### What the clean machine exposed
+
+Three defects only a fresh runner could find, all fixed:
+
+1. The direction layer writes `transition_frames: 0` for a hard cut, but the
+   browser renderer rejected anything below 1, so every upgraded storyboard
+   failed to render. Zero now means what it says: no transition frames.
+2. Chrome treats a `file://` page as an opaque origin and refused the bundled
+   `@font-face` files, which the new typography gate correctly reported as a
+   system-font regression. The renderer now serves `video_studio/` from a
+   loopback server on an ephemeral port.
+3. `document.fonts.check()` reports whether a face is *loaded*, not whether it
+   is declared, so the font gate was false until something requested each
+   weight. The renderer now loads all nine faces first.
+
+A fourth, smaller one: the camera self-check compared an interpolated walk
+position to `0.5` exactly, and the eased midpoint is `0.4999999999`.
 
 ## 1. Three commands
 
