@@ -38,10 +38,14 @@ class PublishApprovalTests(unittest.TestCase):
                 "file":str(frame_path.relative_to(root)).replace("\\","/"),
                 "sha256":sha256(frame_path),"size_bytes":frame_path.stat().st_size,
                 "status":"PASS","observations":"Frame fixture has readable layout and clear visual structure."})
+        contact_path=frame_dir/"contact-sheet.jpg"; contact_path.write_bytes(fixture_jpeg)
         visual_path=root/"visual-audit.json"
         visual={"schema_version":1,"status":"PASS","overall_score":9.0,"model_id":"unit-test-vision",
             "video_sha256":sha256(video),"reviewed_at":datetime.now(timezone.utc).isoformat(),
             "duration_seconds":12.5,"sample_count":6,
+            "contact_sheet":{"file":str(contact_path.relative_to(root)).replace("\\","/"),
+                "sha256":sha256(contact_path),"size_bytes":contact_path.stat().st_size,
+                "tile_columns":5,"tile_rows":2,"sample_count":6},
             "checks":[{"id":name,"status":"PASS","evidence":"Specific test evidence for this visual rubric check."}
                 for name in REQUIRED_VISUAL_CHECKS],
             "frames":frame_records,"issues":[],"summary":"Unit-test visual evidence."}
