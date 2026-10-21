@@ -462,15 +462,11 @@
         {
           "duration_seconds": 4,
           "eyebrow": "03 / SIMPLE ROUTINE",
-          "headline": "Mix recall, feedback, and later review",
+          "headline": "Recall. Feedback. Repeat.",
           "subhead": "Use mistakes to choose what needs another look.",
-          "narration": "Mix recall, feedback, and later review into one routine.",
-          "visual_type": "diagram",
-          "visual_nodes": [
-            "RECALL",
-            "FEEDBACK",
-            "REVISIT"
-          ],
+          "narration": "Combine recall with feedback and later review.",
+          "visual_type": "kinetic-type",
+          "graphic_label": "LEARN IN CYCLES",
           "transition_in": "zoom",
           "transition_frames": 10
         }
