@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 "use strict";
-const fs=require("fs"),path=require("path"),puppeteer=require("puppeteer");
+const fs=require("fs"),path=require("path"),http=require("http"),puppeteer=require("puppeteer");
 async function main(){
  const storyboardPath=path.resolve(process.argv[2]||"storyboard.example.json");
  if(!fs.existsSync(storyboardPath))throw new Error("Storyboard not found: "+storyboardPath);
@@ -76,28 +76,32 @@ async function main(){
  const dir=path.resolve(__dirname,"frames");fs.mkdirSync(dir,{recursive:true});
  for(const f of fs.readdirSync(dir))if(/^frame-\d{6}\.png$/.test(f))fs.unlinkSync(path.join(dir,f));
  const browser=await puppeteer.launch({headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});
+ let server=null;
  try{
   const page=await browser.newPage({viewport:{width:w,height:h},deviceScaleFactor:1});
-  await page.goto("file://"+path.resolve(__dirname,"render.html"),{waitUntil:"load"});await page.setViewport({width:w,height:h,deviceScaleFactor:1});
-  // Chrome treats a file:// page as an opaque origin and refuses to fetch the
-  // @font-face files beside it, so a clean machine renders in a system font.
-  // Hand the page the same bundled files as data URLs instead: no origin rules
-  // apply, nothing is downloaded, and the typography promise still holds.
-  const fontFiles=[["Inter",400,"inter-latin-400-normal.woff2"],["Inter",500,"inter-latin-500-normal.woff2"],
-   ["Inter",600,"inter-latin-600-normal.woff2"],["Inter",700,"inter-latin-700-normal.woff2"],
-   ["Inter",800,"inter-latin-800-normal.woff2"],["Space Grotesk",400,"space-grotesk-latin-400-normal.woff2"],
-   ["Space Grotesk",500,"space-grotesk-latin-500-normal.woff2"],["Space Grotesk",600,"space-grotesk-latin-600-normal.woff2"],
-   ["Space Grotesk",700,"space-grotesk-latin-700-normal.woff2"]];
-  const fontPayload=fontFiles.map(([family,weight,file])=>({family,weight,
-   url:"data:font/woff2;base64,"+fs.readFileSync(path.join(__dirname,"fonts",file)).toString("base64")}));
-  await page.evaluate(async faces=>{
-   for(const face of faces){
-    const loaded=new FontFace(face.family,"url("+face.url+")",{style:"normal",weight:String(face.weight)});
-    await loaded.load();
-    document.fonts.add(loaded);
-   }
-   await document.fonts.ready;
-  },fontPayload);
+  // A file:// page is an opaque origin, so Chrome blocks the @font-face files
+  // beside it and the film would silently fall back to a system font. Serve the
+  // studio directory from a throwaway loopback server instead: the page gets a
+  // real origin, every relative asset resolves normally, and nothing is
+  // downloaded or exposed beyond 127.0.0.1.
+  const MIME={".html":"text/html; charset=utf-8",".js":"text/javascript; charset=utf-8",
+   ".css":"text/css; charset=utf-8",".woff2":"font/woff2",".woff":"font/woff",".ttf":"font/ttf",
+   ".png":"image/png",".jpg":"image/jpeg",".jpeg":"image/jpeg",".svg":"image/svg+xml",".json":"application/json"};
+  const studioRoot=__dirname+path.sep;
+  server=http.createServer((req,res)=>{
+   const requested=decodeURIComponent((req.url||"/").split("?")[0]);
+   const target=path.resolve(__dirname,requested==="/"?"render.html":"."+requested);
+   if(!target.startsWith(studioRoot)){res.writeHead(403);res.end("forbidden");return;}
+   fs.readFile(target,(error,data)=>{
+    if(error){res.writeHead(404);res.end("not found");return;}
+    res.writeHead(200,{"Content-Type":MIME[path.extname(target).toLowerCase()]||"application/octet-stream"});
+    res.end(data);
+   });
+  });
+  await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const origin="http://127.0.0.1:"+server.address().port;
+  await page.goto(origin+"/render.html",{waitUntil:"load"});
+  await page.setViewport({width:w,height:h,deviceScaleFactor:1});
   await page.evaluate((width,height)=>window.setCanvasSize(width,height),w,h);
   if(s.style)await page.evaluate(style=>window.setStyle(style),s.style);
   await page.evaluate(rate=>window.setFrameRate(rate),fps);
@@ -211,6 +215,6 @@ async function main(){
   }
   fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,style:s.style||null,tone:(s.style&&s.style.tone)||null,generated_at:new Date().toISOString()},null,2)+"\n");
   console.log("Rendered "+total+" frames to "+dir);
- }finally{await browser.close()}
+ }finally{await browser.close();if(server)await new Promise(resolve=>server.close(resolve))}
 }
 main().catch(e=>{console.error("RENDER ERROR: "+(e&&e.message?e.message:String(e)));process.exitCode=1});
