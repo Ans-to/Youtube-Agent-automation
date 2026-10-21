@@ -2,6 +2,11 @@
 import html
 import re
 
+def esc(value):
+    """Escape text before inserting it into generated HTML."""
+    return html.escape(str(value), quote=True)
+
+
 def render_markdown_safe(source):
     """Render a safe, readable subset of Markdown without executing generated HTML."""
     output = []
