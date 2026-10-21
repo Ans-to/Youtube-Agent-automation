@@ -329,7 +329,10 @@ class VideoStudioTests(unittest.TestCase):
         self.assertEqual(len(result["scenes"]), 4)
         self.assertIn("no web research was performed", result["script"])
         self.assertTrue(all(scene["duration_seconds"] > 0 for scene in result["scenes"]))
-        self.assertTrue(all(scene.get("visual_type") in {"hero", "diagram", "code", "timeline"} for scene in result["scenes"]))
+        self.assertEqual(
+            [scene.get("visual_type") for scene in result["scenes"]],
+            ["hero", "comparison", "diagram", "kinetic-type"],
+        )
 
 
 
