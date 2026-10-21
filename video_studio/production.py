@@ -92,6 +92,7 @@ def run_strict_quality_audit(output_dir):
     audit_path = output_dir / "video.audit.json"
     audit_path.write_text(json.dumps(audit_report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("Structured multimodal audit:", audit_path, "| status:", audit_report["audit_status"])
+    report["multimodal_audit_status"] = audit_report["audit_status"]
     return report
 
 
@@ -659,6 +660,8 @@ def main():
                 "quality_audit_passed": True,
                 "quality_report": "video.qc.json",
                 "quality_report_video_sha256": qc_report["video_sha256"],
+                "multimodal_audit_report": "video.audit.json",
+                "multimodal_audit_status": qc_report["multimodal_audit_status"],
                 "publishable": False,
                 "human_review_required": True,
                 "published": False,
