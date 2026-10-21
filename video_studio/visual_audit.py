@@ -91,10 +91,15 @@ def run_visual_audit(video, storyboard_path, package_root, config_path=None):
     except (OSError, json.JSONDecodeError) as exc:
         raise ValueError("Visual audit needs a valid local config.json.") from exc
     model = config.get("model", {}) if isinstance(config, dict) else {}
+    video_config = config.get("video_studio", {}) if isinstance(config, dict) else {}
+    if not isinstance(video_config, dict):
+        video_config = {}
     if model.get("enabled") is not True:
         raise ValueError("Release blocked: enable model.enabled and configure a vision-capable local model.")
-    endpoint = str(model.get("base_url", "")).strip()
-    model_id = str(model.get("model", "")).strip()
+    endpoint = str(video_config.get("visual_audit_base_url") or model.get("base_url", "")).strip()
+    model_id = str(video_config.get("visual_audit_model") or model.get("model", "")).strip()
+    timeout = video_config.get("visual_audit_timeout_seconds", model.get("timeout_seconds", 240))
+    max_output_tokens = video_config.get("visual_audit_max_output_tokens", model.get("visual_audit_max_output_tokens", 2600))
     parts = urlsplit(endpoint)
     if parts.scheme != "http" or not parts.hostname or not parts.port or not model_id:
         raise ValueError("Vision audit requires a model ID and local chat-completions endpoint.")
@@ -210,9 +215,9 @@ def run_visual_audit(video, storyboard_path, package_root, config_path=None):
             {"role": "user", "content": message_content},
         ],
         "temperature": 0,
-        "max_tokens": min(4000, max(2200, int(model.get("visual_audit_max_output_tokens", 2600)))),
+        "max_tokens": min(4000, max(2200, int(max_output_tokens))),
     }
-    response = post_local_model(endpoint, request, model.get("timeout_seconds", 240))
+    response = post_local_model(endpoint, request, timeout)
     try:
         verdict = parse_response(response["choices"][0]["message"]["content"])
     except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
