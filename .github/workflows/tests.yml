@@ -32,7 +32,7 @@ jobs:
           failures = []
           for workflow in sorted(Path(".github/workflows").glob("*.y*ml")):
               for line_number, line in enumerate(workflow.read_text(encoding="utf-8").splitlines(), 1):
-                  match = re.match(r"^\s*uses:\s*([^\s]+)$", line)
+                  match = re.match(r"^\s*uses:\s*([^\s#]+)(?:\s+#.*)?$", line)
                   if not match:
                       continue
                   reference = match.group(1).rsplit("@", 1)
