@@ -50,13 +50,30 @@ async function main(){
   const titleLayoutCheck=await page.evaluate(()=>[
    window.titleLayoutForTest("Pacing is part of quality","The picture should move with the line—not wait for it.",1920,1080,"diagram"),
    window.titleLayoutForTest("A very long production-quality headline needs to wrap and fit without overlap","Supporting copy must stay beneath the complete title block.",1920,1080,"comparison"),
+   window.titleLayoutForTest("This is an intentionally long portrait headline that must fit in the visible title area","Keep the explanatory copy below the title and above the captions.",1080,1920,"comparison"),
    window.titleLayoutForTest("A script is not a video","Verify every stage, including the encoded file.",1080,1920,"comparison")
   ]);
   for(const [index,layout] of titleLayoutCheck.entries()){
-   if(!layout||layout.subtitle_y<layout.title_bottom_y+layout.headline_font_size*.20)
-    throw new Error("Headline/subhead collision regression at layout "+index+": "+JSON.stringify(layout));
+   if(!layout||layout.headline_overflow||layout.subtitle_y<layout.title_bottom_y+layout.headline_font_size*.20||layout.subtitle_bottom_y> (index>=2?1920:1080)*.78)
+    throw new Error("Headline/subhead collision or overflow regression at layout "+index+": "+JSON.stringify(layout));
   }
   console.log("Responsive title-layout checks:",JSON.stringify(titleLayoutCheck));
+  // Also test every title/subtitle pair in the current storyboard in the real browser.
+  const sceneTitleLayoutCheck=await page.evaluate(({scenes,width,height})=>scenes.map((scene,index)=>({
+   index,headline:scene.headline||"",layout:window.titleLayoutForTest(
+    scene.headline||"",scene.subhead||"",width,height,scene.visual_type||"hero"
+   )
+  })),{
+   scenes:s.scenes.map(scene=>({headline:scene.headline||"",subhead:scene.subhead||"",visual_type:scene.visual_type||"hero"})),
+   width:w,height:h
+  });
+  for(const item of sceneTitleLayoutCheck){
+   const layout=item.layout;
+   if(!layout||layout.headline_overflow||layout.subtitle_y<layout.title_bottom_y+layout.headline_font_size*.20||layout.subtitle_bottom_y>h*.78){
+    throw new Error("Storyboard text-overflow/collision regression at scene "+item.index+": "+JSON.stringify(item));
+   }
+  }
+  console.log("Storyboard scene text-layout checks:",JSON.stringify(sceneTitleLayoutCheck.map(item=>({scene:item.index,lines:item.layout.headline_line_count,font:item.layout.headline_font_size,subtitle_y:item.layout.subtitle_y,subtitle_bottom_y:item.layout.subtitle_bottom_y}))));
   const directionCheck=await page.evaluate(()=>({
    urdu:window.textDirectionForTest("یہ Python API ہے"),
    english:window.textDirectionForTest("English API")
