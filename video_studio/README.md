@@ -146,6 +146,44 @@ Copy storyboard.example.json and change title, canvas size, fps, scenes, duratio
 
 The renderer writes frames under `video_studio/frames/` and a render manifest beside the renderer. It validates field-specific array sizes to prevent silent truncation (4 diagram nodes, 4 timeline events, 3 comparison bullets per side, 6 code lines, and 2–6 chart values/labels). PNG frames are deleted after a successful MP4 render to conserve storage; pass `--keep-frames` to retain them. It sizes the Canvas2D drawing buffer to the requested storyboard dimensions, including 1080×1920 Shorts. Rendering is capped at 1000 seconds and 30000 frames to limit storage use. `ffprobe` is required and validates H.264, duration, exact dimensions, frame rate, and requested audio presence.
 
+## Multimodal auditor (optional local engines)
+
+Every final render writes `video.audit.json` beside `video.qc.json`. The report stays
+`INCOMPLETE` until required detector coverage is actually configured and completed; a clean
+technical render is not a clean safety/legal audit.
+
+The dependency-light technical layer checks dead air, black frames, frozen frames, audio/video
+duration parity, available loudness, and candidate rapid flashing. Photosensitivity screening uses
+FFmpeg average-luminance changes as a conservative heuristic; it is not formal compliance
+certification and cannot reliably measure flash area or red flashes.
+
+Optional local detector adapters are in `auditor_adapters.py`:
+
+- **OCR:** install Tesseract OCR and set `video_studio.auditor.enabled=true`; set
+  `tesseract_path` if it is not on PATH.
+- **ASR:** install `faster-whisper` into the same Python environment. The default model profile is
+  CPU/`int8`; the first run may download model weights.
+- **Text policy classification:** enable the configured loopback local text model in the root
+  `model` configuration. OCR/ASR excerpts are treated as untrusted evidence and mapped back to
+  original timestamps.
+- **Visual scene/action analysis:** configure a local OpenAI-compatible vision model under
+  `video_studio.auditor.vision_model`. The transport only permits a literal loopback IP and
+  explicit port, consistent with the existing local-model security boundary. Set
+  `competitor_brands` to the actual competitor list; without it, competitor matching is not
+  considered covered.
+
+Configure `profanity_terms` to match the languages and spellings relevant to your channel; exact
+term matches are preliminary flags, not context-sensitive hate-speech verdicts. Copyright music
+fingerprinting/license verification, licensed-visual reference matching, disclosure readability,
+audio-event/music classification, and phoneme-level lip-sync still require dedicated reference
+data or model adapters. They remain missing coverage rather than being silently marked passed.
+Optional model engines are not installed by default, and this repository does not claim full
+multimodal coverage until they are configured and validated on labeled videos.
+
+Run a one-off audit from the repository root:
+
+    python video_studio/multimodal_auditor.py --video workspace/generated/video.mp4 --output workspace/generated/video.audit.json
+
 ## Current limits
 This is a deterministic starter renderer, not a professional editor or anime rig system. It draws typography, grids, progress bars, geometric accents, and a procedural 2D presenter. Eased fade, wipe, slide, and zoom transitions are supported. Advanced skeletal character rigs, forced phoneme alignment, independent claim-by-claim fact verification, and automatic YouTube publishing remain outside the current implementation. Publishing is approval-gated; the code cannot promise monetization or income.
 
