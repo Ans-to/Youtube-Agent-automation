@@ -52,6 +52,9 @@ MAX_STATIC_SHARE = 0.15
 DEFAULT_GATE = {"min_mean": MIN_MEAN_DELTA, "max_static": MAX_STATIC_SHARE}
 STATIC_BELOW = 0.5
 
+# The contact sheet is a 5x2 tile: this many frames spans the whole film.
+CONTACT_TILES = 10
+
 
 def log(message: str) -> None:
     base.log(message)
@@ -119,6 +122,84 @@ def step_mix(score: Path, voice_path: Path, output: Path, depth_db: float) -> di
     import voice_mix
 
     return voice_mix.mix(score, voice_path, output, depth_db=depth_db)
+
+
+def segment_plan(total_frames: int, segments: int) -> list[tuple[int, int]]:
+    """Split a frame range into contiguous [start, count) runs for one-pass-each.
+
+    Encoding a 3840x2160 film in a single x264 process needs far more memory than
+    a 4 GB laptop or a small CI box has; the process is killed part-way through
+    and the driver sees only an empty error. Chunking bounds the encoder's frame
+    pools, and concat joins the parts losslessly afterwards.
+    """
+    if total_frames <= 0:
+        raise ValueError("a film needs at least one frame")
+    segments = max(1, min(int(segments), total_frames))
+    base = total_frames // segments
+    extra = total_frames % segments
+    plan = []
+    cursor = 0
+    for index in range(segments):
+        count = base + (1 if index < extra else 0)
+        plan.append((cursor, count))
+        cursor += count
+    return plan
+
+
+def encode_segmented(frames_dir: Path, audio: Path, output: Path, ffmpeg: str, *,
+                     fps: int, crf: int, preset: str, audio_bitrate: str,
+                     total_frames: int, segments: int, work_dir: Path,
+                     extra: list[str] | None = None) -> dict:
+    """Encode in chunks, concat them, then mux the audio. Same result, less RAM."""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    parts = []
+    for index, (start, count) in enumerate(segment_plan(total_frames, segments)):
+        part = work_dir / ("part-%03d.mp4" % index)
+        command = [
+            ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+            "-framerate", str(fps), "-start_number", str(start),
+            "-i", str(frames_dir / "frame-%06d.jpg"),
+            "-frames:v", str(count),
+            "-c:v", "libx264", "-preset", preset, "-crf", str(crf),
+            "-pix_fmt", "yuv420p",
+        ]
+        if extra:
+            command += extra
+        command += [str(part)]
+        result = base.run(command, timeout=7200)
+        if result.returncode != 0 or not part.is_file() or part.stat().st_size == 0:
+            raise RuntimeError("segmented encode failed at part %d: %s"
+                               % (index, (result.stderr or result.stdout or "")[-800:]))
+        parts.append(part)
+        log("   part %d/%d: frames %d-%d" % (index + 1, len(parts) if False else segments,
+                                             start, start + count - 1))
+
+    listing = work_dir / "concat.txt"
+    listing.write_text("".join("file '%s'\n" % part.resolve() for part in parts), encoding="utf-8")
+    command = [
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+        "-f", "concat", "-safe", "0", "-i", str(listing),
+    ]
+    if audio.is_file():
+        command += ["-i", str(audio)]
+    command += ["-c:v", "copy"]
+    if audio.is_file():
+        command += ["-c:a", "aac", "-b:a", audio_bitrate, "-ar", "48000", "-shortest"]
+    command += ["-movflags", "+faststart", str(output)]
+    result = base.run(command, timeout=3600)
+    if result.returncode != 0 or not output.is_file() or output.stat().st_size == 0:
+        raise RuntimeError("concat failed: " + (result.stderr or result.stdout or "")[-1200:])
+    for part in parts:
+        part.unlink(missing_ok=True)
+    listing.unlink(missing_ok=True)
+    return {
+        "path": str(output),
+        "bytes": output.stat().st_size,
+        "sha256": base.sha256_file(output),
+        "command": command,
+        "mode": "segmented",
+        "segments": len(parts),
+    }
 
 
 def step_validate(frames_dir: Path) -> dict:
@@ -209,6 +290,10 @@ def main(argv: list[str] | None = None) -> int:
                         help="never download voice weights (fail instead)")
     parser.add_argument("--duck-db", type=float, default=8.5,
                         help="how far the score drops under speech")
+    parser.add_argument("--encode-segments", type=int, default=0,
+                        help="encode the master in N chunks (0 = one pass, fall back "
+                             "to 6 chunks if the single pass is killed)")
+    parser.add_argument("--master-crf", type=int, default=20, help="CRF for the master")
     parser.add_argument("--json", action="store_true", help="print the summary as JSON")
     args = parser.parse_args(argv)
 
@@ -254,24 +339,49 @@ def main(argv: list[str] | None = None) -> int:
             log("   %s, %.2fs, %d lines" % (voice_info["backend"], voice_info["duration_seconds"],
                                             voice_info["line_count"]))
         elif voice_wav.is_file():
-            log("   voice present: %s" % voice_wav)
+            # A pre-rendered narration (a hosted model, a human read) is assembled
+            # by tools/assemble_voiceover.py; read its report so the summary says
+            # what the picture was actually cut to, not just that a file existed.
             voice_info = {"path": str(voice_wav), "reused": True}
+            report_path = voice_dir / "voiceover.json"
+            if report_path.is_file():
+                report = json.loads(report_path.read_text(encoding="utf-8"))
+                for key in ("backend", "voice", "duration_seconds", "line_count", "model"):
+                    if report.get(key) is not None:
+                        voice_info[key] = report[key]
+            elif voice_lines.is_file():
+                voice_info["line_count"] = len(
+                    json.loads(voice_lines.read_text(encoding="utf-8")).get("lines", []))
+            log("   voice present: %s%s" % (
+                voice_wav.name,
+                " (%s, %.2fs, %d lines)" % (voice_info.get("backend", "pre-rendered"),
+                                            voice_info["duration_seconds"],
+                                            voice_info["line_count"])
+                if voice_info.get("duration_seconds") and voice_info.get("line_count") else ""))
         if voice_info is not None and not voice_lines.is_file():
             raise RuntimeError("a voice track exists without lines.json; the picture cannot sync to it")
 
         if args.frames:
             frames_dir = Path(args.frames).resolve()
             manifest = json.loads((frames_dir / "manifest.json").read_text(encoding="utf-8"))
+            # A previous pass moves film.json / timeline.txt out to the delivery
+            # folder, so a *second* pass over the same frames must read them there.
+            if not (frames_dir / "film.json").is_file() and (out_dir / "film.json").is_file():
+                log("   using %s from the previous pass" % (out_dir / "film.json").name)
+                film_json = out_dir / "film.json"
+            else:
+                film_json = frames_dir / "film.json"
             log(step("reuse %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"])))
         else:
             log(step("render frames"))
             manifest = step_frames(script, frames_dir, args.width, args.height, args.fps, args.quality,
                                    voice_lines if voice_info else None)
             log("   %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"]))
+            film_json = frames_dir / "film.json"
 
         log(step("soundtrack"))
         soundtrack = out_dir / "soundtrack.wav"
-        audio_info = step_soundtrack(frames_dir / "film.json", soundtrack)
+        audio_info = step_soundtrack(film_json, soundtrack)
         log("   %d sfx cues, %.1fs" % (audio_info.get("sfx_cue_count", 0), audio_info["duration_seconds"]))
 
         audio_track = soundtrack
@@ -294,17 +404,44 @@ def main(argv: list[str] | None = None) -> int:
 
         log(step("encode"))
         outputs = []
+        # A 4K x264 pass needs more memory than a small laptop or CI box has. The
+        # single pass is tried first because it is fastest when it fits; if the
+        # encoder is killed (exit 137, empty stderr) the chunked path takes over
+        # and produces the same file.
+        segment_mode = args.encode_segments or 0
+
+        def encode_master(path: Path) -> dict:
+            nonlocal segment_mode
+            if segment_mode:
+                log("   encoding %d segments" % segment_mode)
+                return encode_segmented(
+                    frames_dir, audio_track, path, ffmpeg, fps=args.fps, crf=args.master_crf,
+                    preset="veryfast", audio_bitrate="192k",
+                    total_frames=manifest["frame_count"], segments=segment_mode,
+                    work_dir=out_dir / "build" / "segments",
+                    extra=["-threads", "2", "-x264-params", "rc-lookahead=4:ref=1:bframes=0"])
+            try:
+                return base.encode(frames_dir, audio_track, path, ffmpeg, fps=args.fps,
+                                   crf=args.master_crf, preset="veryfast", audio_bitrate="192k",
+                                   extra=["-threads", "1",
+                                          "-x264-params", "rc-lookahead=8:ref=1:bframes=2"])
+            except RuntimeError as exc:
+                message = str(exc)
+                out_of_memory = any(token in message for token in ("137", "Killed", "killed")) \
+                    or message.rstrip().endswith("(no output)")
+                if not out_of_memory:
+                    raise  # a real encode error, not an out-of-memory kill
+                log("   single-pass encode was killed; retrying in 6 segments")
+                segment_mode = 6
+                path.unlink(missing_ok=True)
+                return encode_master(path)
+
         if not args.skip_4k:
             master = out_dir / ("film-%dx%d.mp4" % (args.width, args.height))
-            outputs.append(
-                # 4K x264 at default thread counts needs more memory than a
-                # small CI box or laptop has; these settings keep it near 1 GB.
-                base.encode(frames_dir, audio_track, master, ffmpeg, fps=args.fps, crf=20,
-                            preset="veryfast", audio_bitrate="192k",
-                            extra=["-threads", "1",
-                                   "-x264-params", "rc-lookahead=8:ref=1:bframes=2"])
-            )
-            log("   4K master %s (%.1f MB)" % (master.name, master.stat().st_size / 1048576))
+            info = encode_master(master)
+            info.setdefault("mode", "single-pass")
+            outputs.append(info)
+            log("   master %s (%.1f MB, %s)" % (master.name, info["bytes"] / 1048576, info["mode"]))
         delivery = out_dir / ("film-%dp.mp4" % args.delivery_height)
         outputs.append(
             base.encode(frames_dir, audio_track, delivery, ffmpeg, fps=args.fps, crf=21,
@@ -314,24 +451,33 @@ def main(argv: list[str] | None = None) -> int:
         log("   delivery %s (%.1f MB)" % (delivery.name, delivery.stat().st_size / 1048576))
 
         log(step("measure motion"))
-        film_meta = json.loads((frames_dir / "film.json").read_text(encoding="utf-8"))
+        film_meta = json.loads(film_json.read_text(encoding="utf-8"))
         gate = film_meta.get("motion_gate") or DEFAULT_GATE
         motion = measure_motion(delivery, ffmpeg, out_dir / "build", gate)
         log("   " + motion["statement"])
+
+        probed = base.probe(delivery, ffprobe)
+        film_duration = float(probed.get("duration_seconds") or 0) or float(
+            manifest["frame_count"] / args.fps)
 
         log(step("content audit"))
         audit = base.step_audit(delivery, out_dir / "audit", ffmpeg)
         log("   " + audit["statement"])
 
         contact = out_dir / "contact-sheet.jpg"
+        # The sheet has to show the *whole* film, not the first ten beats of it: a
+        # fixed 1 frame every 2 s silently truncated anything longer than 20 s, so
+        # the sampling rate is derived from the delivered duration instead.
+        sheet_fps = max(0.02, min(0.5, CONTACT_TILES / max(0.1, film_duration)))
         base.run(
             [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(delivery),
-             "-vf", "fps=1/2,scale=480:-2:flags=lanczos,tile=5x2:padding=6:color=0x101010",
+             "-vf", "fps=%.4f,scale=480:-2:flags=lanczos,tile=5x2:padding=6:color=0x101010"
+                    % sheet_fps,
              "-frames:v", "1", str(contact)],
             timeout=600,
         )
 
-        film = json.loads((frames_dir / "film.json").read_text(encoding="utf-8"))
+        film = json.loads(film_json.read_text(encoding="utf-8"))
         summary = {
             "title": film["title"],
             "source": args.script,
@@ -359,8 +505,10 @@ def main(argv: list[str] | None = None) -> int:
         (out_dir / "render-summary.json").write_text(
             json.dumps(summary, indent=2) + "\n", encoding="utf-8"
         )
-        (frames_dir / "film.json").replace(out_dir / "film.json")
-        (frames_dir / "timeline.txt").replace(out_dir / "timeline.txt")
+        for name in ("film.json", "timeline.txt"):
+            source = frames_dir / name
+            if source.is_file() and source.resolve() != (out_dir / name).resolve():
+                source.replace(out_dir / name)
 
         ok = motion["status"] == "passed" and audit.get("status") != "flagged"
         if args.json:

@@ -94,6 +94,31 @@ def trim_silence(signal, rate: int, floor: float = SILENCE_FLOOR, handle: float 
     return signal[start:stop]
 
 
+def match_loudness(signal, *, target_rms_db: float = -20.0, ceiling_db: float = -3.0,
+                   max_boost_db: float = 20.0):
+    """Bring one line to a common dialogue level before the lines are joined.
+
+    Takes recorded by different prompts (or by the same model, but short) do not
+    arrive at the same level: in this film's first assembly the two short opening
+    lines sat 14 dB under the rest, so the opening chapter whispered while the
+    middle of the film shouted. The whole-file normaliser cannot fix that — it
+    only moves the average. Matching each line first, then normalising the
+    assembly, is the order a mixer uses.
+    """
+    import numpy as np
+
+    if signal.size == 0:
+        return signal
+    rms = float(np.sqrt(np.mean(signal.astype(np.float64) ** 2)))
+    if rms <= 1e-9:
+        return signal
+    gain_db = target_rms_db - 20 * np.log10(rms)
+    peak = float(np.max(np.abs(signal)))
+    headroom_db = ceiling_db - 20 * np.log10(max(peak, 1e-9))
+    gain_db = max(-24.0, min(gain_db, headroom_db, max_boost_db))
+    return (signal * (10 ** (gain_db / 20))).astype(np.float32)
+
+
 def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
              backend: str = "external clip") -> dict:
     try:
@@ -119,6 +144,7 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
             audio = trim_silence(audio, rate)
             if audio.size == 0:
                 raise ValueError(f"{clip.name} contains no audio above the silence floor")
+            audio = match_loudness(audio)
             rendered.append((line, audio))
 
         pieces = []
@@ -132,6 +158,8 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
             pieces.extend([np.zeros(int(rate * gap_before), dtype=np.float32), clip])
             timeline.append({
                 "id": line.id,
+                "rms_db": round(20 * float(np.log10(
+                    max(1e-9, float(np.sqrt(np.mean(clip.astype(np.float64) ** 2)))))), 1),
                 "text": line.text,
                 "spoken": voiceover.spoken_text(line.text),
                 "start": round(start, 3),
@@ -173,7 +201,8 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
         "line_count": len(timeline),
         "path": str(voice_path),
         "lines": timeline,
-        "processing": ["trim < -45 dBFS", "highpass 78Hz", "de-ess", "presence +2dB @2.9k",
+        "processing": ["trim < -45 dBFS", "per-line loudness match -20 dBFS RMS",
+                       "highpass 78Hz", "de-ess", "presence +2dB @2.9k",
                        "compress 3:1", "normalise -1.5dBFS"],
     }
     (out_dir / "voiceover.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")

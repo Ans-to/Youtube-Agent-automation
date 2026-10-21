@@ -166,7 +166,10 @@ def encode(frames_dir: Path, audio: Path, output: Path, ffmpeg: str, *,
     output.parent.mkdir(parents=True, exist_ok=True)
     result = run(command, timeout=7200)
     if result.returncode != 0:
-        raise RuntimeError("encode failed: " + (result.stderr or result.stdout)[-1500:])
+        # Report the exit code: when the OOM killer takes the encoder, stderr is
+        # empty and the only surviving evidence is the signal number (137 = 128+9).
+        detail = (result.stderr or result.stdout or "").strip()[-1500:] or "(no output)"
+        raise RuntimeError("encode failed (exit %s): %s" % (result.returncode, detail))
     if not output.is_file() or output.stat().st_size == 0:
         raise RuntimeError("encode produced no file: " + str(output))
     return {"path": str(output), "bytes": output.stat().st_size,

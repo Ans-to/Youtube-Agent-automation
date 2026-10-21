@@ -525,8 +525,17 @@ jobs:
           print("::notice title=Motion::" + motion["statement"])
           print("::notice title=Audit::" + summary.get("audit", {}).get("statement", "n/a"))
           assert motion["status"] == "passed", motion
-          assert summary["voice"] is not None
+          voice = summary["voice"]
+          assert voice is not None, "the film has no narration attached"
+          assert voice.get("line_count") == 8, voice
           assert summary["mix"]["voice_to_bed_db"] >= 4.0, summary["mix"]
+          # every chapter must be the same distance from the frame, not just the
+          # middle of the film: the loudest and quietest line are compared here
+          levels = [line["rms_db"] for line in
+                    json.loads((out / "voice" / "voiceover.json").read_text(encoding="utf-8"))["lines"]]
+          assert max(levels) - min(levels) <= 6.0, levels
+          print("::notice title=Dialogue level::%.1f..%.1f dBFS RMS across 8 lines"
+                % (min(levels), max(levels)))
           delivery = next(out.glob("film-1080p.mp4"))
           probe = summary["outputs"][0]["probe"]
           assert probe.get("available"), probe

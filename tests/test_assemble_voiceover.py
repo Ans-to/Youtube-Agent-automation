@@ -141,6 +141,36 @@ class AssembleVoiceoverTests(unittest.TestCase):
             report = self.build(clips, script_file(tmp), tmp / "voice")
         self.assertEqual(report["line_count"], 3)
 
+    def test_quiet_and_loud_lines_are_matched_to_one_level(self):
+        """Short takes arrive quieter; the assembly must not whisper one chapter."""
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            clips = tmp / "clips"
+            clips.mkdir()
+            write_wav(clips / "L1.wav", spoken_burst(0.6, amplitude=0.02))
+            write_wav(clips / "L2.wav", spoken_burst(0.6, amplitude=0.8))
+            write_wav(clips / "L3.wav", spoken_burst(0.6, amplitude=0.05))
+            out = tmp / "voice"
+            self.build(clips, script_file(tmp), out)
+            report = json.loads((out / "voiceover.json").read_text(encoding="utf-8"))
+            signal, rate = voiceover.read_wav(out / "voiceover.wav")
+
+        levels = []
+        for line in report["lines"]:
+            window = signal[int(line["start"] * rate):int(line["end"] * rate)]
+            levels.append(20 * math.log10(max(1e-9, float(np.sqrt(np.mean(window ** 2))))))
+        spread = max(levels) - min(levels)
+        # before matching, the 0.02 and 0.8 amplitude takes were ~32 dB apart
+        self.assertLess(spread, 6.0, [round(level, 1) for level in levels])
+
+    def test_matching_never_lets_a_line_clip(self):
+        quiet = spoken_burst(0.4, amplitude=0.001)
+        boosted = assemble_voiceover.match_loudness(quiet)
+        self.assertGreater(float(np.max(np.abs(boosted))), 10 ** (-20 / 20) * 0.05)
+        loud = spoken_burst(0.4, amplitude=0.9)
+        limited = assemble_voiceover.match_loudness(loud)
+        self.assertLessEqual(float(np.max(np.abs(limited))), 10 ** (-3.0 / 20) + 1e-6)
+
     def test_the_mix_leaves_headroom(self):
         with tempfile.TemporaryDirectory() as tmp:
             tmp = Path(tmp)
