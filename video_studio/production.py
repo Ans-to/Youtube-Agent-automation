@@ -91,6 +91,32 @@ def run_strict_quality_audit(output_dir):
     return report
 
 
+def run_content_audit(output_dir, *, required_disclosures=None, competitor_terms=None):
+    """Run the offline content auditor over the rendered MP4 and record the result.
+
+    This is deliberately non-fatal for the package: an incomplete audit (missing OCR
+    or ASR) is information for the human reviewer, not a pipeline failure. The
+    package status records the verdict so publishing stays gated on a human.
+    """
+    from audit import audit_video, render_markdown
+    from audit.media import capabilities
+
+    video = output_dir / "video.mp4"
+    subtitles = output_dir / "video.srt"
+    report = audit_video(
+        video,
+        subtitle_path=subtitles if subtitles.is_file() else None,
+        competitor_terms=competitor_terms or None,
+        required_disclosures=required_disclosures or None,
+    )
+    report["capabilities"] = capabilities()
+    (output_dir / "audit.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (output_dir / "audit.md").write_text(render_markdown(report), encoding="utf-8")
+    return report
+
+
 def should_collect_research(*, research_requested, render_template):
     """Require web research for every non-template package; keep offline demos deterministic."""
     return bool(research_requested or not render_template)
@@ -425,6 +451,9 @@ def main():
     parser.add_argument("--render", action="store_true", help="Render final storyboard to MP4.")
     parser.add_argument("--render-template", action="store_true", help="Explicitly permit a short, clearly labelled template demo without AI generation.")
     parser.add_argument("--with-voice", action="store_true", help="Add narration using the selected local voice backend.")
+    parser.add_argument("--audit", action="store_true", help="After rendering, run the offline content/brand/legal/technical auditor and write audit.json + audit.md.")
+    parser.add_argument("--require-disclosure", action="append", default=[], help="Legal text that must appear on screen for --audit (repeatable).")
+    parser.add_argument("--competitor", action="append", default=[], help="Competitor brand name for --audit (repeatable).")
     parser.add_argument("--language", choices=["en", "ur-en"], help="Narration language profile; defaults to config.json video_studio.narration_language (ur-en when unset).")
     args = parser.parse_args()
     cfg = load_config()
@@ -715,6 +744,27 @@ def main():
                 json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
             raise SystemExit("Strict technical QA failed; release is blocked: " + str(exc))
+        if args.audit:
+            try:
+                audit_report = run_content_audit(
+                    output_dir,
+                    required_disclosures=args.require_disclosure,
+                    competitor_terms=args.competitor,
+                )
+                status.update({
+                    "content_audit_status": audit_report["status"],
+                    "content_audit_findings": audit_report["summary"]["findings"],
+                    "content_audit_unverified_rules": audit_report["unverified_rule_ids"],
+                    "content_audit_report": "audit.md",
+                    "content_audit_scope": "automated_checks_only_not_a_legal_or_editorial_verdict",
+                })
+                print("Content audit:", audit_report["statement"])
+            except (OSError, ValueError, KeyError) as exc:
+                status.update({
+                    "content_audit_status": "error",
+                    "content_audit_error": type(exc).__name__ + ": " + str(exc)[:300],
+                })
+                print("Content audit could not run:", type(exc).__name__, file=sys.stderr)
         (output_dir / "package-status.json").write_text(
             json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )
