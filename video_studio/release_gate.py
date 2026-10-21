@@ -8,8 +8,10 @@ from pathlib import Path
 
 try:
     from .release_evidence import parse_timestamp, validate_release_evidence
+    from .visual_audit import validate_visual_audit_report
 except ImportError:
     from release_evidence import parse_timestamp, validate_release_evidence
+    from visual_audit import validate_visual_audit_report
 
 
 def sha256(path):
@@ -43,6 +45,53 @@ def validate_qc_report(report, video):
         raise ValueError("The final video must contain an audio stream.")
     if report.get("video_sha256") != sha256(video):
         raise ValueError("Quality report does not match the exact video file.")
+
+    # A self-declared passed=True flag is never sufficient: every release-critical
+    # automated check and the separate vision-model verdict must exist and pass.
+    checks = report.get("checks")
+    if not isinstance(checks, dict):
+        raise ValueError("Quality report is missing its structured checks.")
+    required_checks = (
+        "delivery_spec", "black_frames", "freezes", "audio_timing",
+        "audio_loudness", "audio_silence", "render_manifest", "impact_frame_evidence",
+    )
+    for name in required_checks:
+        if not isinstance(checks.get(name), dict):
+            raise ValueError("Quality report is missing required check: " + name)
+    delivery = checks["delivery_spec"]
+    if delivery.get("passed") is not True or delivery.get("codec") != "h264" or delivery.get("pixel_format") != "yuv420p":
+        raise ValueError("Encoded video delivery-specification check did not pass.")
+    if min(int(delivery.get("width", 0) or 0), int(delivery.get("height", 0) or 0)) < 1080:
+        raise ValueError("Release video must be at least 1080 pixels on its short edge.")
+    if delivery.get("field_order") != "progressive" or int(delivery.get("container_bitrate_bps", 0) or 0) < 1000000:
+        raise ValueError("Progressive scan or minimum encoded bitrate could not be confirmed.")
+    if checks["audio_timing"].get("verified") is not True:
+        raise ValueError("Audio/video duration parity was not verified.")
+    if checks["audio_loudness"].get("available") is not True:
+        raise ValueError("Audio loudness and true peak were not measured.")
+    if checks["audio_silence"].get("count") != 0:
+        raise ValueError("Unexpected or unreviewed long audio silence blocks release.")
+    if checks["freezes"].get("count") != 0:
+        raise ValueError("Freeze detection reported static intervals; release is blocked.")
+    if checks["render_manifest"].get("present") is not True or checks["impact_frame_evidence"].get("present") is not True:
+        raise ValueError("Render manifest and encoded impact-frame evidence are mandatory.")
+
+    visual_path = video.with_name("visual-audit.json")
+    if not visual_path.is_file():
+        raise ValueError("Independent multimodal visual audit is missing; release is blocked.")
+    try:
+        visual_report = json.loads(visual_path.read_text(encoding="utf-8"))
+        validate_visual_audit_report(visual_report, video, video.parent)
+    except (OSError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError("Independent visual audit failed validation: " + str(exc)) from exc
+    actual_visual_sha = sha256(visual_path)
+    if report.get("visual_audit_sha256") != actual_visual_sha:
+        raise ValueError("Quality report has a missing or stale visual-audit hash.")
+    visual_check = checks.get("visual_audit")
+    if not isinstance(visual_check, dict) or visual_check.get("status") != "PASS" or visual_check.get("sha256") != actual_visual_sha:
+        raise ValueError("Quality report does not bind a passing visual-audit result.")
+    if visual_check.get("score", 0) < 8.5 or visual_check.get("sample_count", 0) < 6:
+        raise ValueError("Visual audit score or sample coverage is below release thresholds.")
     manifest_path = video.with_name("render-manifest.json")
     if manifest_path.is_file():
         evidence_path = video.with_name("impact-frame-evidence.json")
