@@ -44,6 +44,25 @@ def probe_duration(ffprobe, path):
         raise ValueError("Could not determine audio duration for " + str(path))
     return duration
 
+def paced_scene_duration(planned_seconds, narration_seconds, fps, minimum_gap=0.12, maximum_gap=0.45):
+    """Keep the visual hold close to spoken audio; never pad a short line to a stale scene target."""
+    try:
+        planned = float(planned_seconds)
+        narration = float(narration_seconds)
+        rate = int(fps)
+        min_gap = float(minimum_gap)
+        max_gap = float(maximum_gap)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Scene pacing requires numeric durations and a valid frame rate.") from exc
+    if (not all(math.isfinite(value) for value in (planned, narration, min_gap, max_gap))
+            or planned <= 0 or narration <= 0 or rate < 1 or rate > 60
+            or min_gap < 0 or max_gap < min_gap):
+        raise ValueError("Scene pacing requires finite positive durations, fps 1–60, and ordered non-negative gap limits.")
+    # Retain only a short editorial beat. If narration is longer than the storyboard,
+    # extend the scene; if narration is shorter, shorten the scene rather than padding it.
+    target = max(narration + min_gap, min(planned, narration + max_gap))
+    return math.ceil(target * rate - 1e-9) / rate
+
 
 def build_audio_gated_visemes(text, audio_path, scene_duration_seconds, window_seconds=0.08):
     """Create approximate mouth-shape cues from real audio energy and grapheme classes.
@@ -262,17 +281,35 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
         raw = voice_dir / ("raw-%03d.wav" % index)
         if not raw.is_file() or raw.stat().st_size == 0:
             raise RuntimeError("Voice backend did not create a non-empty WAV for scene " + str(index + 1) + ".")
-        spoken_duration = probe_duration(ffprobe, raw)
-        scene["narration_duration_seconds"] = spoken_duration
-        target_seconds = max(float(scene["duration_seconds"]), spoken_duration + 0.45)
-        target_frames = max(1, math.ceil(target_seconds * fps))
+        # Trim only leading/trailing quiet tails; preserve natural pauses inside the sentence.
+        # Reversing the clip lets the start-trim filter safely target its trailing edge.
+        trimmed = voice_dir / ("trimmed-%03d.wav" % index)
+        trim_filter = (
+            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-55dB:start_silence=0.03,"
+            "areverse,"
+            "silenceremove=start_periods=1:start_duration=0.05:start_threshold=-55dB:start_silence=0.14,"
+            "areverse"
+        )
+        run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw),
+             "-af", trim_filter, "-ar", "48000", "-ac", "1", "-c:a", "pcm_s16le", str(trimmed)])
+        if not trimmed.is_file() or trimmed.stat().st_size < 1024:
+            raise RuntimeError("Voice backend produced no usable speech after silence trimming for scene " + str(index + 1) + ".")
+        spoken_duration = probe_duration(ffprobe, trimmed)
+        if spoken_duration < 0.20:
+            raise RuntimeError("Narration for scene " + str(index + 1) + " is too short to pace as a real scene.")
+        scene["narration_duration_seconds"] = round(spoken_duration, 3)
+        target_frames = max(1, int(round(paced_scene_duration(
+            scene["duration_seconds"], spoken_duration, fps
+        ) * fps)))
         aligned_seconds = target_frames / fps
         scene["duration_seconds"] = aligned_seconds
+        scene["narration_padding_seconds"] = round(max(0.0, aligned_seconds - spoken_duration), 3)
+        scene["voice_coverage_ratio"] = round(min(1.0, spoken_duration / aligned_seconds), 3)
         character = scene.get("character")
         if isinstance(character, dict) and character.get("enabled") is True:
             if not character.get("visemes"):
                 character["visemes"] = build_audio_gated_visemes(
-                    scene.get("narration", ""), raw, aligned_seconds
+                    scene.get("narration", ""), trimmed, aligned_seconds
                 )
                 character["viseme_alignment"] = (
                     "audio-energy-gated grapheme approximation; not forced phoneme alignment"
@@ -286,7 +323,7 @@ def prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language="en", confi
                 )
             scene["viseme_alignment"] = character["viseme_alignment"]
         normalized = voice_dir / ("segment-%03d.wav" % index)
-        run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(raw),
+        run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(trimmed),
              "-af", "apad,atrim=duration=" + ("%.6f" % aligned_seconds),
              "-ar", "48000", "-ac", "2", "-c:a", "pcm_s16le", str(normalized)])
         segments.append(normalized)
