@@ -390,7 +390,8 @@ class ToolRegistry:
             raise ToolError(f"program '{program}' is not installed on this machine")
         args = list(arguments.get("args") or [])
         timeout = arguments.get("timeout_seconds") or self.sandbox.timeout_seconds
-        completed = subprocess.run(
+        # argv list, no shell, program already allowlisted and resolved to a path.
+        completed = subprocess.run(  # noqa: S603
             [resolved, *args],
             cwd=str(self.sandbox.root),
             env=self._clean_environment(),

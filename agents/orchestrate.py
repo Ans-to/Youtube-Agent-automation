@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import os
 import re
 import sys
 import subprocess
@@ -14,6 +15,7 @@ BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 sys.path.insert(0, str(ROOT / "tools"))
 from path_utils import canonical_path, is_within, safe_relative_path
+import tool_agent
 WORKSPACE = canonical_path(ROOT / "workspace")
 sys.path.insert(0, str(BASE))
 import dispatch
@@ -298,6 +300,34 @@ def plan_delegation(task, context, cfg, roles_by_id):
     return assignments, "heuristic_no_model"
 
 
+def tool_model_call(cfg):
+    """Adapter that lets the tool planner use the configured loopback model.
+
+    Returns ``None`` when no model is enabled so the planner falls back to its
+    deterministic scaffold instead of pretending to plan.
+    """
+    model = cfg.get("model", {}) if isinstance(cfg, dict) else {}
+    if not model.get("enabled"):
+        return None
+    url = model.get("base_url", "")
+    timeout = int(model.get("timeout_seconds", 240))
+
+    def call(prompt, max_tokens):
+        body = {
+            "model": model.get("model", "local-model"),
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "max_tokens": max(256, min(int(max_tokens), 4000)),
+        }
+        data = dispatch.post_local_model(url, body, max(timeout, 240))
+        try:
+            return data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ValueError("Local model response did not contain choices[0].message.content.") from exc
+
+    return call
+
+
 def run_builtin_tools(task, destination, cfg, source_context=""):
     """Run only fixed, repository-owned artifact builders selected by clear task intent."""
     results = []
@@ -320,9 +350,21 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         intent_lower,
     ) or re.search(r"\bproduct idea for (?:a )?tool\b", intent_lower))
     render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", intent_lower))
+    # A web build is executed by the sandboxed tool loop (write, verify, repair),
+    # not by the single-file product template.
+    web_requested = bool(re.search(
+        r"\b(?:build|create|make|develop|implement|launch|design|code)\s+"
+        r"(?:(?:me|a|an|the|my)\s+)?"
+        r"(?:(?:simple|small|local|offline|responsive|basic|functional|custom|tiny|working|modern|"
+        r"personal|professional|static|single[- ]page)\s+){0,3}"
+        r"(?:website|web\s?app|webapp|landing\s+page|static\s+site|web\s+site|site|portfolio)\b",
+        intent_lower,
+    ))
+    if web_requested:
+        product_requested = False
     template_demo = bool(re.search(r"\b(template demo|demo render)\b", intent_lower)) and not model_enabled
     source_path = None
-    if source_context.strip() and (video_requested or product_requested):
+    if source_context.strip() and (video_requested or product_requested or web_requested):
         source_path = destination / "source-notes.md"
         source_path.write_text(source_context[:50000], encoding="utf-8")
     if video_requested:
@@ -366,6 +408,23 @@ def run_builtin_tools(task, destination, cfg, source_context=""):
         if not model_enabled:
             tool_result["note"] = "No local model is enabled: script and storyboard are deterministic scaffolding, not a researched or AI-written final video."
         results.append(tool_result)
+
+    if web_requested:
+        allow_exec = os.environ.get("AGENT_HQ_ALLOW_EXEC", "").strip().lower() in {"1", "true", "yes", "on"}
+        result = tool_agent.run_tool_agent(
+            goal=intent_text,
+            workspace_root=destination,
+            task_id=destination.name + "-web",
+            model_call=tool_model_call(cfg),
+            allow_exec=allow_exec,
+        )
+        result["tool"] = "tool_agent"
+        artifact_dir = result.get("artifact_dir")
+        if artifact_dir:
+            result["artifact_dir"] = safe_relative_path(destination / artifact_dir, ROOT).as_posix()
+        result["generation_mode"] = "local_model_tool_loop" if result.get("mode") == "model" else "deterministic_scaffold"
+        result["human_review_required"] = True
+        results.append(result)
 
     if product_requested:
         title_match = re.search(r"(?i)\b(?:product|prototype|app|tool|website)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", intent_text)
@@ -434,7 +493,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
 
     for result in tool_runs or []:
         tool = str(result.get("tool", ""))
-        if tool not in {"video_studio", "product_studio"}:
+        if tool not in {"video_studio", "product_studio", "tool_agent"}:
             continue
 
         check = {
@@ -444,7 +503,13 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
             "checks": [],
             "errors": [],
         }
-        if result.get("status") != "completed":
+        if tool == "tool_agent":
+            # The tool loop reports "partial" for a verified deterministic scaffold.
+            if result.get("status") not in {"completed", "partial"}:
+                check["reason"] = "Tool loop did not report a verified result; its failure is preserved."
+                checks.append(check)
+                continue
+        elif result.get("status") != "completed":
             check["reason"] = "Builder did not report success; its failure or blocked status is preserved."
             checks.append(check)
             continue
@@ -645,6 +710,44 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                     errors.append("WebVTT subtitle file is empty.")
                 check["checks"].append("mp4_subtitles_strict_qc_and_hash")
             check["checks"].append("release_safety_flags")
+        elif tool == "tool_agent":
+            index_path = require_file(target, "index.html", errors)
+            summary_path = require_file(target, "tool-summary.json", errors)
+            plan_path = require_file(target, "tool-plan.json", errors)
+            if nonempty_file(index_path):
+                html_text = index_path.read_text(encoding="utf-8", errors="replace")
+                lowered = html_text.lower()
+                if "<!doctype html" not in lowered or "<html" not in lowered:
+                    errors.append("Web artifact is not a complete HTML document.")
+                if "connect-src 'none'" not in lowered:
+                    errors.append("Web artifact does not declare a no-network Content-Security-Policy.")
+                if "http://" in lowered or "https://" in lowered.replace("http://www.w3.org", ""):
+                    # Any external asset would break the offline guarantee.
+                    external = [url for url in re.findall(r"https?://[^\s\"'<>]+", html_text) if "www.w3.org" not in url]
+                    if external:
+                        errors.append("Web artifact references external URLs: " + ", ".join(sorted(set(external))[:5]))
+            verification_errors = []
+            if nonempty_file(summary_path):
+                try:
+                    summary = json.loads(summary_path.read_text(encoding="utf-8"))
+                    if not isinstance(summary, dict):
+                        raise ValueError("Tool summary must be a JSON object.")
+                    if summary.get("status") not in {"completed", "partial"}:
+                        errors.append("Tool summary does not record a verified run.")
+                    if summary.get("human_review_required") is not True:
+                        errors.append("Tool summary must require human review.")
+                except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                    errors.append("Tool summary JSON could not be validated: " + str(exc)[:250])
+            declared_checks = result.get("verification")
+            if not isinstance(declared_checks, list) or not declared_checks:
+                verification_errors.append("Tool run recorded no acceptance checks.")
+            else:
+                failed_checks = [item for item in declared_checks if not isinstance(item, dict) or item.get("status") != "passed"]
+                if failed_checks:
+                    verification_errors.append(f"{len(failed_checks)} acceptance check(s) did not pass.")
+            if verification_errors:
+                errors.extend(verification_errors)
+            check["checks"].append("web_offline_csp_tool_summary_and_acceptance_checks")
         elif tool == "product_studio":
             candidates = sorted(
                 child for child in target.iterdir()

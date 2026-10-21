@@ -18,6 +18,7 @@ import ast
 import ipaddress
 import json
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -141,15 +142,19 @@ class Finding:
 
 def _iter_files(root: Path) -> list[Path]:
     """List repository files, preferring git so ignored trees are never scanned."""
-    try:
-        result = subprocess.run(
-            ["git", "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
-            capture_output=True,
-            check=False,
-            timeout=60,
-        )
-    except (OSError, subprocess.SubprocessError):
-        result = None
+    git = shutil.which("git")
+    result = None
+    if git:
+        try:
+            # Fixed argv, no shell: git is the intended tool, not user input.
+            result = subprocess.run(  # noqa: S603
+                [git, "-C", str(root), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+                capture_output=True,
+                check=False,
+                timeout=60,
+            )
+        except (OSError, subprocess.SubprocessError):
+            result = None
     names: list[str] = []
     if result is not None and result.returncode == 0 and result.stdout:
         names = [name for name in result.stdout.decode("utf-8", "replace").split("\0") if name]

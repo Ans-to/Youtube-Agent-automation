@@ -157,8 +157,8 @@ Levels are cumulative.
 | --- | --- | --- |
 | Offline operation | **L0 ✅** | 274 tests, quality gate, no key required |
 | Video pipeline | **L1 ✅** | Deterministic MP4 with technical QA; not studio-grade |
-| Tool use | **L2 🚧** | Runtime exists (`tools/tool_runtime.py`); orchestration wiring pending |
-| General task automation | **L3 ❌** | Tool choice is currently regex-based, not model-planned |
+| Tool use | **L2 ✅** | `tools/tool_runtime.py` + `tools/tool_agent.py`, wired into `agents/orchestrate.py`; web builds are confined, verified, and repaired (`tests/test_tool_agent.py`) |
+| General task automation | **L3 🚧** | The CEO plans tool steps from the catalog, but only for web builds, with one planning call plus at most two repairs — no long-horizon memory or multi-artifact decomposition |
 | Professional motion design | **L4 ❌ partly L2** | 10 visual types, 7 transitions, 5 camera moves, box-figure rig |
 
 Do not raise a level in this table without linking the evidence.

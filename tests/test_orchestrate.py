@@ -307,7 +307,7 @@ class CEODelegationTests(unittest.TestCase):
             self.assertEqual(results[0]["status"], "completed")
             self.assertIn("build_product.py", run_tool.call_args.args[1][1])
 
-    def test_small_web_app_request_routes_clean_user_request_to_product_builder(self):
+    def test_small_web_app_request_runs_the_verified_tool_loop(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             workspace = root / "workspace"
@@ -318,17 +318,67 @@ class CEODelegationTests(unittest.TestCase):
                 "TASK TYPE: draft\nTASK TITLE: Invoice matcher\nUSER REQUEST:\n" + request
                 + "\n\nREQUIRED OUTCOME: produce the requested usable deliverable, not just advice."
             )
-            with patch.object(orchestrate, "ROOT", root), \
-                 patch.object(orchestrate, "_run_fixed_tool", return_value={"tool": "product_studio", "status": "completed"}) as run_tool:
+            with patch.object(orchestrate, "ROOT", root):
                 results = orchestrate.run_builtin_tools(
                     wrapped,
                     destination,
                     {"model": {"enabled": False}},
                 )
-            self.assertEqual(results[0]["tool"], "product_studio")
-            command = run_tool.call_args.args[1]
-            self.assertEqual(command[command.index("--idea") + 1], request)
-            self.assertNotIn("TASK TYPE", command[command.index("--idea") + 1])
+            self.assertEqual(len(results), 1)
+            result = results[0]
+            self.assertEqual(result["tool"], "tool_agent")
+            self.assertIn(result["status"], {"completed", "partial"})
+            self.assertEqual(result["generation_mode"], "deterministic_scaffold")
+            self.assertEqual(result["goal"], request)
+            artifact_dir = root / result["artifact_dir"]
+            self.assertTrue((artifact_dir / "index.html").is_file())
+            self.assertTrue((artifact_dir / "app.js").is_file())
+            self.assertTrue((artifact_dir / "tool-summary.json").is_file())
+            self.assertTrue(all(check["status"] == "passed" for check in result["verification"]))
+
+    def test_tool_loop_artifact_validation_passes_for_the_offline_scaffold(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            destination = workspace / "run-1"
+            destination.mkdir(parents=True)
+            with patch.object(orchestrate, "ROOT", root):
+                runs = orchestrate.run_builtin_tools(
+                    "Build a portfolio site for a photographer",
+                    destination,
+                    {"model": {"enabled": False}},
+                )
+                checks = orchestrate.verify_artifact_tool_runs(runs, project_root=root)
+            self.assertEqual(len(checks), 1)
+            self.assertEqual(checks[0]["status"], "passed", checks[0]["errors"])
+            self.assertIn("web_offline_csp_tool_summary_and_acceptance_checks", checks[0]["checks"])
+
+    def test_tool_loop_artifact_validation_rejects_external_assets(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            workspace = root / "workspace"
+            destination = workspace / "run-1"
+            project = destination / "projects" / "run-1-web"
+            project.mkdir(parents=True)
+            (project / "index.html").write_text(
+                "<!doctype html><html><head></head><body>"
+                "<script src=\"https://cdn.example.com/lib.js\"></script></body></html>",
+                encoding="utf-8",
+            )
+            (project / "tool-summary.json").write_text(json.dumps({
+                "status": "completed", "human_review_required": True,
+            }), encoding="utf-8")
+            (project / "tool-plan.json").write_text("{}", encoding="utf-8")
+            runs = [{
+                "tool": "tool_agent",
+                "status": "completed",
+                "artifact_dir": "workspace/run-1/projects/run-1-web",
+                "verification": [{"path": "index.html", "status": "passed"}],
+            }]
+            checks = orchestrate.verify_artifact_tool_runs(runs, project_root=root)
+            self.assertEqual(checks[0]["status"], "failed")
+            self.assertTrue(any("external URLs" in error or "no-network" in error for error in checks[0]["errors"]))
+            self.assertEqual(runs[0]["status"], "failed")
 
     def test_youtube_automation_software_does_not_trigger_video_builder(self):
         with tempfile.TemporaryDirectory() as directory:

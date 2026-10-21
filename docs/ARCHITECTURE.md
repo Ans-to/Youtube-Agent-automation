@@ -62,8 +62,32 @@ Rules for extending it:
    interpreter can execute arbitrary code from files inside the sandbox.
 
 The planner-facing projection is `ToolRegistry.prompt_catalog()`, a compact JSON
-list of tool names, summaries, side effects, and input schemas. That catalog —
-not regexes over the task text — is how the CEO will choose tools.
+list of tool names, summaries, side effects, and input schemas. That catalog is
+what the planning prompt receives — the planner never sees the filesystem.
+
+`tools/tool_agent.py` is the loop built on top of the registry:
+
+```text
+goal -> plan (model or deterministic fallback) -> validate each step against
+the tool schema -> execute in a per-task sandbox -> verify acceptance checks
+-> repair with the failure observations (bounded attempts) -> report
+```
+
+`run_tool_agent()` returns a manifest-safe dict (`status`, `mode`, `attempts`,
+`verification`, `artifacts`, `artifact_dir`) and writes `tool-plan.json`,
+`tool-runs.json`, and `tool-summary.json` into the sandbox. File bodies are
+never copied into those reports. Status semantics:
+
+| Status | Meaning |
+| --- | --- |
+| `completed` | A model-planned run whose acceptance checks all passed |
+| `partial` | A verified deterministic scaffold — real files, but not model-authored work |
+| `failed` | At least one step or acceptance check failed; the workspace is preserved |
+
+`agents/orchestrate.py` routes website and web-app goals to this loop and then
+independently re-verifies the artifacts (`verify_artifact_tool_runs`): HTML
+structure, offline Content-Security-Policy, no external URLs, a passing tool
+summary, and every declared acceptance check.
 
 ## Configuration and error handling
 
