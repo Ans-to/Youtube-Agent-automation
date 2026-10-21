@@ -76,11 +76,15 @@ RULES: tuple[Rule, ...] = (
         intent="Flag physical altercations, blood, injury, and graphic harm.",
         severity="high",
         feasibility=MODEL_REQUIRED,
-        requires=("transcript", "ocr"),
-        detection="Transcript and on-screen text are scanned for violence and gore terms.",
+        requires=(),
+        detection=(
+            "Local vision observations (--observations) are evaluated over time: weapon or blood "
+            "labels, violence actions, and their duration and scene context. Transcript and "
+            "on-screen text are scanned in parallel for violence and gore terms."
+        ),
         limitation=(
-            "Visual violence detection needs a local action/gore classifier. Text cues miss "
-            "silent footage entirely, so a clean text result is not proof the video is safe."
+            "Needs a local action/object detector to see footage. Without one, only text cues run "
+            "and the rule stays unverified for silent video."
         ),
     ),
     Rule(
@@ -90,9 +94,12 @@ RULES: tuple[Rule, ...] = (
         intent="Flag firearms, blades, and other weapons shown as objects.",
         severity="high",
         feasibility=MODEL_REQUIRED,
-        requires=("transcript", "ocr"),
-        detection="Text cues only until an object-detection model is installed.",
-        limitation="Recording a weapon requires an object detector; text cannot see a prop.",
+        requires=(),
+        detection=(
+            "Object observations labelled as weapons are scored by confidence, duration, and "
+            "scene context; text cues are scanned in parallel."
+        ),
+        limitation="Requires a local object detector for visual evidence; text cannot see a prop.",
     ),
     Rule(
         id="CS-SELFHARM",
@@ -127,9 +134,12 @@ RULES: tuple[Rule, ...] = (
         intent="Flag explicit nudity, sexual behaviour, and restricted substances.",
         severity="high",
         feasibility=MODEL_REQUIRED,
-        requires=("transcript",),
-        detection="Text cues; visual detection needs a local NSFW classifier.",
-        limitation="A skin-ratio heuristic is not shipped because its error rate is unacceptable for this decision.",
+        requires=(),
+        detection="Nudity and sexual-content labels from local vision observations.",
+        limitation=(
+            "Requires a local NSFW classifier. A skin-ratio heuristic is not shipped because its "
+            "error rate is unacceptable for this decision."
+        ),
     ),
     Rule(
         id="CS-CONTRABAND",
@@ -138,8 +148,8 @@ RULES: tuple[Rule, ...] = (
         intent="Flag depiction or promotion of drugs and illegal substances.",
         severity="high",
         feasibility=MODEL_REQUIRED,
-        requires=("transcript", "ocr"),
-        detection="Text cues only until an object detector is installed.",
+        requires=(),
+        detection="Contraband labels from local object observations, plus transcript and on-screen text cues.",
         limitation="Visual substance identification requires a trained detector.",
     ),
     # ------------------------------------------------------------ brand safety
@@ -150,10 +160,10 @@ RULES: tuple[Rule, ...] = (
         intent="Flag rival brand names, logos, or distinct competitor products.",
         severity="medium",
         feasibility=AUTOMATIC,
-        requires=("competitor_terms", "transcript", "ocr"),
+        requires=("competitor_terms",),
         detection=(
-            "Operator-supplied brand names are matched against the transcript and on-screen "
-            "text. Logo and product-image matching needs reference images plus a model."
+            "Operator-supplied brand names are matched against logo/text observations, the "
+            "transcript, and on-screen text."
         ),
         limitation="Only runs when --competitor is supplied; text matching cannot see an unlabelled logo.",
     ),
@@ -285,6 +295,43 @@ RULES: tuple[Rule, ...] = (
         detection=(
             "Counts luminance transitions of at least 10% of range inside one-second windows; "
             "three or more transitions flash at over 3 Hz. Saturated red flashes are counted separately."
+        ),
+    ),
+    Rule(
+        id="TQ-CLIPPING",
+        category="Technical QA",
+        name="Audio clipping and distortion",
+        intent="Flag a master that is driven into clipping.",
+        severity="medium",
+        feasibility=AUTOMATIC,
+        requires=("audio_profile",),
+        detection="Counts samples at or above 99.5% of full scale; more than 0.1% per 64 ms window is a clip.",
+    ),
+    Rule(
+        id="TQ-LOUDNESS",
+        category="Technical QA",
+        name="Loudness outside a usable range",
+        intent="Flag audio that is too quiet to hear or too hot to survive platform loudness normalization.",
+        severity="low",
+        feasibility=AUTOMATIC,
+        requires=("audio_profile",),
+        detection="Per-window dBFS; sustained spans below -45 dBFS or at or above -6 dBFS RMS are reported.",
+    ),
+    Rule(
+        id="TQ-LIPSYNC",
+        category="Technical QA",
+        name="Lip-sync alignment",
+        intent="Check that mouth movement follows the speech it belongs to.",
+        severity="medium",
+        feasibility=MODEL_REQUIRED,
+        requires=("faces", "mouth_motion", "audio_rms"),
+        detection=(
+            "Correlates motion inside the lower face box with the speech envelope, searching "
+            "lags of +/-0.4 s. Face boxes must come from local vision observations."
+        ),
+        limitation=(
+            "This measures mouth-region motion, not phonemes. It needs a face detector, and it "
+            "cannot judge a speaker who is off-screen or covered."
         ),
     ),
     Rule(

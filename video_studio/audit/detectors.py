@@ -9,6 +9,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from . import vision
 from .rules import rule_by_id
 from .signals import best_lag, format_timestamp, normalize, resample
 
@@ -517,3 +518,219 @@ DATA_CUES: dict[str, tuple[str, str]] = {
     for word in ("enter your email", "download the app", "giveaway", "subscribe now",
                  "visit our website", "sign up", "link in the description", "free trial")
 }
+
+
+# ---------------------------------------------------------------------------
+# Audio-profile detectors
+# ---------------------------------------------------------------------------
+
+def detect_clipping(profile, *, min_ratio: float = 0.001, min_seconds: float = 0.1) -> list[Finding]:
+    """Report spans of clipped samples (a distorted master)."""
+    spans = profile.spans(lambda frame: frame.clipped_ratio > min_ratio)
+    findings = []
+    for start, end in spans:
+        if end - start + 1e-9 < min_seconds:
+            continue
+        peak_ratio = max(
+            (frame.clipped_ratio for frame in profile.frames if start <= frame.time <= end),
+            default=0.0,
+        )
+        findings.append(Finding(
+            rule_id="TQ-CLIPPING", start=start, end=end,
+            description=(
+                f"Audio is clipped for {end - start:.1f} s; up to {peak_ratio:.1%} of samples in a "
+                "window sit at full scale. Clipping cannot be repaired by normalizing."
+            ),
+            confidence=96.0,
+            evidence={"max_clipped_ratio": round(peak_ratio, 4)},
+        ))
+    return findings[:MAX_FINDINGS_PER_RULE]
+
+
+def detect_loudness(profile, *, quiet_dbfs: float = -45.0, hot_dbfs: float = -6.0,
+                    min_seconds: float = 2.0) -> list[Finding]:
+    """Report sustained too-quiet or too-hot audio."""
+    findings: list[Finding] = []
+    for start, end in profile.spans(lambda frame: frame.rms_db < quiet_dbfs):
+        if end - start + 1e-9 < min_seconds:
+            continue
+        findings.append(Finding(
+            rule_id="TQ-LOUDNESS", start=start, end=end,
+            description=(
+                f"Program audio sits below {quiet_dbfs:.0f} dBFS for {end - start:.1f} s "
+                "(integrated " + f"{profile.integrated_db:.1f} dBFS). Viewers will reach for the volume."
+            ),
+            confidence=85.0,
+            evidence={"integrated_dbfs": round(profile.integrated_db, 2)},
+        ))
+    for start, end in profile.spans(lambda frame: frame.rms_db >= hot_dbfs):
+        if end - start + 1e-9 < min_seconds:
+            continue
+        findings.append(Finding(
+            rule_id="TQ-LOUDNESS", start=start, end=end,
+            description=(
+                f"Program audio reaches {hot_dbfs:.0f} dBFS or above for {end - start:.1f} s; "
+                "platform loudness normalization will pull it down and may expose distortion."
+            ),
+            confidence=80.0,
+            evidence={"peak_dbfs": round(profile.peak_db, 2)},
+        ))
+    return findings[:MAX_FINDINGS_PER_RULE]
+
+
+def detect_lipsync(mouth: list[tuple[float, float]], rms: list[tuple[float, float]],
+                   *, step: float = 0.1, tolerance: float = 0.12,
+                   min_correlation: float = 0.30) -> list[Finding]:
+    """Compare mouth-region motion with the speech envelope."""
+    if len(mouth) < 10 or len(rms) < 10:
+        return []
+    duration = max(mouth[-1][0], rms[-1][0]) + step
+    visual = normalize(resample(mouth, step, duration))
+    audio = normalize(resample(rms, step, duration))
+    if not any(audio):
+        # No speech energy means there is nothing for a mouth to match.
+        return []
+    lag, score = best_lag(audio, visual, step)
+    if score >= min_correlation and abs(lag) <= tolerance:
+        return []
+    if score < min_correlation:
+        description = (
+            f"Mouth-region motion and the speech envelope do not correspond "
+            f"(correlation {score:.2f}, below {min_correlation:.2f}). Check for detached narration "
+            "or a speaker who is not on camera."
+        )
+        confidence = 45.0
+    else:
+        direction = "mouth movement lags the speech" if lag > 0 else "mouth movement leads the speech"
+        description = (
+            f"{direction.capitalize()} by {abs(lag):.2f} s, beyond the {tolerance:.2f} s tolerance "
+            f"(correlation {score:.2f})."
+        )
+        confidence = min(80.0, 45.0 + score * 45.0)
+    return [Finding(
+        rule_id="TQ-LIPSYNC", start=0.0, end=duration,
+        description=description,
+        confidence=confidence,
+        evidence={"lag_seconds": round(lag, 3), "correlation": round(score, 3)},
+    )]
+
+
+# ---------------------------------------------------------------------------
+# Visual observation detectors (temporal)
+# ---------------------------------------------------------------------------
+
+def _visual_confidence(base: float, event, *, benign: bool) -> float:
+    """Scale confidence by detector confidence, dwell time, and scene context."""
+    duration_factor = min(1.0, 0.55 + event.duration / 3.0)
+    value = base * event.confidence * duration_factor
+    if benign:
+        value *= 0.35
+    return round(max(5.0, min(96.0, value)), 1)
+
+
+def _is_benign_tool_use(event, events) -> bool:
+    """A knife in a kitchen while chopping is not violence."""
+    if event.kind != "object" or event.label not in vision.WEAPON_LABELS:
+        return False
+    contexts = set(event.scenes) | vision.scene_context(events, event.start, event.end)
+    if contexts & vision.BENIGN_SCENES:
+        return True
+    return any(
+        other.kind == "action" and other.label in vision.SAFE_TOOL_ACTIONS
+        and other.start < event.end and other.end > event.start
+        for other in events
+    )
+
+
+def detect_visual_content(observations) -> list[Finding]:
+    """Temporal, context-aware findings from local vision observations."""
+    events = vision.build_events(observations)
+    findings: list[Finding] = []
+    for event in events:
+        if event.kind not in {"object", "action"}:
+            continue
+        label = event.label
+        benign = _is_benign_tool_use(event, events)
+        context_note = (
+            f" Scene context: {', '.join(event.scenes)}." if event.scenes else " No scene context was supplied."
+        )
+        if label in vision.VIOLENCE_ACTIONS:
+            findings.append(Finding(
+                rule_id="CS-VIOLENCE", start=event.start, end=event.end,
+                description=(
+                    f"Action '{label}' detected for {event.duration:.1f} s "
+                    f"(detector confidence {event.confidence:.0%}).{context_note}"
+                ),
+                confidence=_visual_confidence(85.0, event, benign=benign),
+                evidence=event.as_dict(),
+            ))
+        elif label in vision.GORE_LABELS:
+            findings.append(Finding(
+                rule_id="CS-VIOLENCE", start=event.start, end=event.end,
+                description=(
+                    f"Gore-related label '{label}' visible for {event.duration:.1f} s.{context_note}"
+                ),
+                confidence=_visual_confidence(80.0, event, benign=benign),
+                evidence=event.as_dict(),
+            ))
+        elif label in vision.WEAPON_LABELS:
+            description = (
+                f"Weapon '{label}' visible for {event.duration:.1f} s "
+                f"(detector confidence {event.confidence:.0%}).{context_note}"
+            )
+            if benign:
+                description += (
+                    " A benign scene or food-preparation action overlaps this span, so this is "
+                    "most likely a tool or prop rather than a threat."
+                )
+            findings.append(Finding(
+                rule_id="CS-WEAPONS", start=event.start, end=event.end,
+                description=description,
+                confidence=_visual_confidence(75.0, event, benign=benign),
+                evidence=event.as_dict(),
+            ))
+        elif label in vision.ADULT_LABELS:
+            findings.append(Finding(
+                rule_id="CS-ADULT", start=event.start, end=event.end,
+                description=(
+                    f"Adult-content label '{label}' detected for {event.duration:.1f} s "
+                    f"(detector confidence {event.confidence:.0%})."
+                ),
+                confidence=_visual_confidence(88.0, event, benign=False),
+                evidence=event.as_dict(),
+            ))
+        elif label in vision.CONTRABAND_LABELS:
+            findings.append(Finding(
+                rule_id="CS-CONTRABAND", start=event.start, end=event.end,
+                description=(
+                    f"Contraband-related label '{label}' detected for {event.duration:.1f} s.{context_note}"
+                ),
+                confidence=_visual_confidence(60.0, event, benign=benign),
+                evidence=event.as_dict(),
+            ))
+    return findings[:MAX_FINDINGS_PER_RULE]
+
+
+def detect_visual_competitors(observations, competitor_terms: list[str]) -> list[Finding]:
+    """Match competitor names against logo and on-screen text observations."""
+    findings: list[Finding] = []
+    display_terms = {term.strip().lower(): term.strip() for term in competitor_terms if term.strip()}
+    if not display_terms:
+        return findings
+    for event in vision.build_events(observations):
+        if event.kind not in {"logo", "text"}:
+            continue
+        label = normalize_text(event.label)
+        for key in sorted(display_terms):
+            term = display_terms[key]
+            if _word_pattern(key).search(label):
+                findings.append(Finding(
+                    rule_id="BS-COMPETITOR", start=event.start, end=event.end,
+                    description=(
+                        f"Competitor '{term}' appears as a {event.kind} for {event.duration:.1f} s "
+                        f"(detector confidence {event.confidence:.0%})."
+                    ),
+                    confidence=round(min(95.0, 60.0 + event.confidence * 35.0), 1),
+                    evidence=event.as_dict(),
+                ))
+    return findings[:MAX_FINDINGS_PER_RULE]

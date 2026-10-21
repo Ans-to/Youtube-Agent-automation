@@ -14,6 +14,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from . import audio, vision
 from .signals import Interval, MediaSignals, TextBlock, TranscriptCue
 
 FFMPEG_TIMEOUT_SECONDS = 1_800
@@ -32,6 +33,8 @@ def capabilities() -> dict[str, bool]:
         "ocr": tesseract and pytesseract,
         "ocr_engine": tesseract,
         "asr": _module_available("faster_whisper") or _module_available("whisper"),
+        "audio_analysis": True,
+        "vision_observations": True,
         "local_model": False,
     }
 
@@ -77,15 +80,21 @@ def _read_exact(stream, size: int) -> bytes | None:
 
 
 def extract_frames(path: Path, sample_fps: float = 10.0,
-                   ffmpeg: str | None = None) -> tuple[list[tuple[float, float]], list[tuple[float, float]], list[tuple[float, float]]]:
-    """Stream small RGB frames and return (luminance, motion, red) series.
+                   ffmpeg: str | None = None) -> tuple[
+                       list[tuple[float, float]],
+                       list[tuple[float, float]],
+                       list[tuple[float, float]],
+                       list[tuple[float, tuple[float, ...]]],
+                   ]:
+    """Stream small RGB frames and return (luminance, motion, red, 3x3 grid motion).
 
     Frames are decoded at low resolution and streamed, so memory stays flat even
-    for long videos. Values are 0..1.
+    for long videos. Values are 0..1. The 3x3 grid is how mouth-region motion is
+    measured when face boxes are supplied by a local detector.
     """
     ffmpeg = ffmpeg or shutil.which("ffmpeg")
     if not ffmpeg:
-        return [], [], []
+        return [], [], [], []
     command = [
         ffmpeg, "-hide_banner", "-nostats", "-loglevel", "error", "-i", str(path),
         "-an", "-vf", f"fps={sample_fps},scale={FRAME_WIDTH}:{FRAME_HEIGHT}",
@@ -95,6 +104,7 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
     luminance: list[tuple[float, float]] = []
     motion: list[tuple[float, float]] = []
     red: list[tuple[float, float]] = []
+    grid_motion: list[tuple[float, tuple[float, ...]]] = []
     previous: bytes | None = None
     index = 0
     try:
@@ -122,11 +132,25 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
             red.append((time, red_total / (pixels * 255.0)))
             if previous is not None:
                 difference = 0
+                cells = [0] * 9
+                counts = [0] * 9
                 for offset in range(0, frame_bytes, 12):
-                    difference += abs(frame[offset] - previous[offset])
-                    difference += abs(frame[offset + 1] - previous[offset + 1])
-                    difference += abs(frame[offset + 2] - previous[offset + 2])
+                    delta = (
+                        abs(frame[offset] - previous[offset])
+                        + abs(frame[offset + 1] - previous[offset + 1])
+                        + abs(frame[offset + 2] - previous[offset + 2])
+                    )
+                    difference += delta
+                    pixel = offset // 3
+                    column = (pixel % FRAME_WIDTH) * 3 // FRAME_WIDTH
+                    row = (pixel // FRAME_WIDTH) * 3 // FRAME_HEIGHT
+                    cell = row * 3 + column
+                    cells[cell] += delta
+                    counts[cell] += 1
                 motion.append((time, difference / (pixels * 3 * 255.0)))
+                grid_motion.append((time, tuple(
+                    round(cells[cell] / (max(1, counts[cell]) * 3 * 255.0), 5) for cell in range(9)
+                )))
             previous = frame
             index += 1
     finally:
@@ -135,7 +159,7 @@ def extract_frames(path: Path, sample_fps: float = 10.0,
             process.wait(timeout=30)
         except subprocess.TimeoutExpired:
             process.kill()
-    return luminance, motion, red
+    return luminance, motion, red, grid_motion
 
 
 def extract_audio_rms(path: Path, window: float = 0.1, sample_rate: int = 16_000,
@@ -307,7 +331,8 @@ def collect(path: str | Path, *, sample_fps: float = 10.0,
             subtitle_path: str | Path | None = None,
             whisper_model: str | None = None,
             ocr: bool = False,
-            competitor_terms: list[str] | None = None) -> MediaSignals:
+            competitor_terms: list[str] | None = None,
+            observations_path: str | Path | None = None) -> MediaSignals:
     """Build :class:`MediaSignals` from a media file plus whatever tools exist."""
     path = Path(path)
     signals = MediaSignals(competitor_terms=list(competitor_terms or []))
@@ -328,16 +353,29 @@ def collect(path: str | Path, *, sample_fps: float = 10.0,
         except (TypeError, ValueError, ZeroDivisionError):
             signals.fps = None
 
-    luminance, motion, red = extract_frames(path, sample_fps=sample_fps)
+    luminance, motion, red, grid_motion = extract_frames(path, sample_fps=sample_fps)
     signals.luminance, signals.motion, signals.red_level = luminance, motion, red
+    signals.grid_motion = grid_motion
     if luminance:
         signals.sources["luminance"] = f"ffmpeg frames at {sample_fps:g} fps"
         signals.duration = signals.duration or luminance[-1][0]
 
-    rms = extract_audio_rms(path)
+    profile = audio.analyze_file(path)
+    rms: list[tuple[float, float]] = []
+    if profile is not None and profile.frames:
+        signals.audio_profile = profile
+        rms = [(frame.time, 10 ** (frame.rms_db / 20.0)) for frame in profile.frames]
+        signals.music_detected = profile.music.present
+        signals.music_confidence = profile.music.confidence
+        signals.sources["audio_profile"] = (
+            f"local DSP: {profile.integrated_db:.1f} dBFS integrated, "
+            f"music heuristics {profile.music.confidence:.0f}% confident"
+        )
+    else:
+        rms = extract_audio_rms(path)
     signals.audio_rms = rms
     if rms:
-        signals.sources["audio_rms"] = "ffmpeg PCM, 0.1 s windows"
+        signals.sources.setdefault("audio_rms", "ffmpeg PCM, 0.1 s windows")
         signals.duration = signals.duration or rms[-1][0]
 
     signals.silence = [
@@ -358,6 +396,16 @@ def collect(path: str | Path, *, sample_fps: float = 10.0,
         if cues:
             signals.transcript = cues
             signals.sources["transcript"] = f"local ASR (faster-whisper, {whisper_model})"
+
+    if observations_path:
+        observations, provider = vision.load_observations(observations_path)
+        signals.observations = observations
+        signals.sources["vision"] = f"observations: {Path(observations_path).name}" + (
+            f" ({provider})" if provider else ""
+        )
+        signals.mouth_motion = vision.mouth_motion_series(grid_motion, vision.face_observations(observations))
+        if signals.mouth_motion:
+            signals.sources["mouth_motion"] = "lower face-box motion from local observations"
 
     if ocr:
         blocks = read_on_screen_text(path, signals.duration)

@@ -18,7 +18,7 @@ committed.
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
 | Plan → act → verify → repair | **Done for web builds** | `tools/tool_agent.py`, `agents/orchestrate.py` |
-| Offline content auditor | **Done (tier 0/1/2)** | `video_studio/audit/`, 18 rules, honest unverified states |
+| Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 21 rules, local vision evidence, honest unverified states |
 | Professional motion design (L4) | **Gap** | 10 visual types, 7 transitions, 5 camera moves, box-figure rig |
 | General task automation (L3) | **Partial** | Web builds only; no long-horizon memory |
 | Code quality of local models | **Gap** | Small models route well but write weak code |
@@ -100,18 +100,20 @@ manual repair, and automated visual QA catches a deliberately seeded layout bug.
 
 ### Auditor follow-on
 
-The auditor (`docs/AUDITOR.md`) covers technical QA and text-based content rules
-today. Still missing, and honestly reported as `unverified`:
+The auditor (`docs/AUDITOR.md`) now has all four evidence paths: technical DSP,
+text, background-audio analysis, and a validated local-vision contract
+(`--observations`) that feeds objects, faces, actions, scenes, and logos into
+temporal logic. Remaining work is to **bundle a default detector** so those rules
+work without the operator supplying a file:
 
-1. A local object/action classifier so `CS-VIOLENCE`, `CS-WEAPONS`, and
-   `CS-CONTRABAND` can see silent footage rather than only read text.
-2. A local NSFW classifier for `CS-ADULT`.
-3. Logo matching from operator-supplied reference images for `BS-COMPETITOR`,
-   replacing text-only matching.
-4. Phoneme/viseme alignment to replace the envelope-correlation A/V proxy.
+1. Ship an optional CPU detector (ONNX YOLO + a small NSFW head) that emits the
+   observations contract automatically.
+2. Logo matching from reference images rather than label text.
+3. Phoneme/viseme alignment to replace the mouth-motion correlation.
 
-`LE-MUSIC` and `LE-CLIPS` stay `manual` permanently: ownership cannot be
-verified offline without a licensed fingerprint database.
+`LE-CLIPS` stays `manual` permanently: provenance cannot be established offline
+without a licensed reference corpus. `LE-MUSIC` detects presence, never
+ownership.
 
 ## Phase 5 — Operating it
 

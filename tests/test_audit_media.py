@@ -57,7 +57,8 @@ class CapabilityTests(unittest.TestCase):
         caps = media.capabilities()
         self.assertEqual(
             set(caps),
-            {"ffmpeg", "ffprobe", "ocr", "ocr_engine", "asr", "local_model"},
+            {"ffmpeg", "ffprobe", "ocr", "ocr_engine", "asr", "audio_analysis",
+             "vision_observations", "local_model"},
         )
         self.assertTrue(all(isinstance(value, bool) for value in caps.values()))
 

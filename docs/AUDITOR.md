@@ -57,7 +57,7 @@ rule is `passed`, `not_applicable`, or `attested`. Otherwise the auditor prints
 
 | ID | Rule | Feasibility |
 | --- | --- | --- |
-| `LE-MUSIC` | Copyrighted music | **Not detectable offline.** No fingerprint database exists locally |
+| `LE-MUSIC` | Copyrighted music | Detects **presence** via local DSP; ownership still **not verifiable offline** |
 | `LE-CLIPS` | Unlicensed footage | **Not detectable offline.** Requires a reference corpus |
 | `LE-DISCLOSURE` | Mandatory legal text | OCR + presence, legibility (text height), and dwell time |
 | `LE-CHILDREN` | Children's privacy | Screening heuristic: child cues + data-collection cues |
@@ -71,6 +71,80 @@ rule is `passed`, `not_applicable`, or `attested`. Otherwise the auditor prints
 | `TQ-FREEZE` | Stalled picture | Automatic |
 | `TQ-STROBE` | Photosensitive flashing | Automatic (>3 transitions/s at ≥10% luminance step) |
 | `TQ-AVSYNC` | Audio/video drift | Automatic envelope correlation, ±0.5 s |
+| `TQ-LIPSYNC` | Mouth movement vs speech | Automatic when face boxes are supplied |
+| `TQ-CLIPPING` | Clipped, distorted master | Automatic (sample-level) |
+| `TQ-LOUDNESS` | Too quiet / too hot | Automatic per-window dBFS |
+
+## Visual scene understanding
+
+No model ships here, and no paid API may be called (P1). Local vision output
+enters through a small validated contract instead — an **observations JSON**,
+produced by whatever runs on your machine: a YOLO/ONNX detector, InsightFace,
+Tesseract, or a hand annotation.
+
+```json
+{
+  "schema_version": 1,
+  "provider": "yolo11n.onnx (local, CPU)",
+  "observations": [
+    {"start": 1.0, "end": 6.0, "kind": "object", "label": "knife", "confidence": 0.9},
+    {"start": 0.0, "end": 10.0, "kind": "action", "label": "cooking", "confidence": 0.8},
+    {"start": 0.0, "end": 10.0, "kind": "scene", "label": "kitchen", "confidence": 0.85},
+    {"start": 0.4, "end": 9.6, "kind": "face", "label": "face", "confidence": 0.92,
+     "box": [0.40, 0.20, 0.20, 0.30]},
+    {"start": 12.0, "end": 15.0, "kind": "logo", "label": "Acme", "confidence": 0.88}
+  ]
+}
+```
+
+```bash
+python video_studio/audit_video.py video.mp4 --observations observations.json
+```
+
+Kinds: `object`, `face`, `action`, `scene`, `logo`, `text`. Boxes are normalized
+`[x, y, width, height]`. Validation is strict — an unsupported kind, a negative
+time, or an out-of-range box rejects the whole file with a specific message
+rather than silently dropping evidence.
+
+### Temporal logic
+
+Single-frame detections are weak evidence. Observations are merged into **events**
+by label across time, then scored on duration, detector confidence, and scene
+context:
+
+```
+knife (1.0–6.0 s) + scene "kitchen" + action "cooking"  →  9% confidence,
+    "most likely a tool or prop rather than a threat"
+gun (1.0–5.0 s), no benign context                      →  62% confidence
+punching (3.0–6.0 s), 3 s                               →  76% confidence → CS-VIOLENCE
+```
+
+A one-second detection scores far below a five-second one, because dwell time is
+what separates a prop from a scene.
+
+### Lip-sync from face boxes
+
+When face observations are supplied, the auditor measures motion inside the
+**lower third of the face box** on a 3×3 motion grid and correlates it with the
+speech envelope (±0.4 s). That is a real mouth-movement signal, not a proxy for
+picture change — but it is still not phoneme alignment, and the rule says so.
+Without face boxes, `TQ-LIPSYNC` stays `unverified`.
+
+## Background audio analysis
+
+`video_studio/audit/audio.py` is pure-Python DSP — no NumPy, no model:
+
+| Measurement | Method |
+| --- | --- |
+| Music presence | continuity + spectral stability + rhythmic flux + tonality |
+| Clipping | samples at ≥99.5% of full scale per 64 ms window |
+| Loudness | per-window dBFS, integrated and peak |
+
+A sustained tone, a music bed, white noise, and speech-like bursts are separated
+by spectral flatness and flux periodicity — white noise is flat, speech pauses,
+music sustains. The result is a **heuristic**, reported with its confidence and
+its reasoning, and it drives `LE-MUSIC`: music present → flagged for a rights
+check; none detected → passed with the caveat that quiet beds can slip under it.
 
 ## What it can and cannot prove
 
@@ -80,10 +154,11 @@ Be precise about this before acting on a result.
 | --- | --- |
 | "No black frames, dead air, freezes, or strobing were detected." | **Yes**, deterministic measurement |
 | "Audio and picture agree within ~0.15 s." | **Yes**, as an envelope correlation — not phoneme/viseme alignment |
+| "Mouth movement follows the speech." | **Yes, with face boxes**; otherwise unverified |
 | "No required disclosure is missing or illegible." | **Yes, if OCR ran** |
 | "The transcript contains no profanity above the threshold." | **Yes, if a transcript exists** |
-| "No weapons or violence appear." | **No.** Text cues only; silent footage is invisible to it |
-| "The music is licensed." | **No.** Impossible offline |
+| "No weapons or violence appear." | **Only with `--observations`.** Text cues alone cannot see silent footage |
+| "The music is licensed." | **No.** Presence is detected; ownership is impossible offline |
 | "The footage is original or licensed." | **No.** Impossible offline |
 | "The video is suitable for children." | **No.** A heuristic, not a legal determination |
 
@@ -109,7 +184,7 @@ ceiling of a text-only method, and the report says so.
 | 0 (default) | All technical QA, profanity, controversy, competitor text, children heuristic | Nothing — FFmpeg only |
 | 1 (OCR) | Disclosure verification: presence, size, dwell | `pip install pytesseract pillow` + Tesseract binary |
 | 2 (ASR) | Speech-based rules without subtitles | `pip install faster-whisper` (downloads a model once) |
-| 3 (models) | Visual content rules | A local object/NSFW classifier (roadmap) |
+| 3 (vision) | Visual content rules, lip-sync | Any local detector that emits observations JSON |
 
 Everything stays local. `faster-whisper` runs on the CPU and never phones home.
 
@@ -179,3 +254,6 @@ publishes and never overrides the human approval gate.
 - The strobing threshold (≥10% luminance change, >3 per second) is a screening
   rule, not a certified Harding analysis. Treat a flag as "review this", and a
   pass as "nothing measurable at this sampling rate".
+- Visual rules are exactly as good as the observations you feed them. The audit
+  report records the provider name so a reviewer can judge that. The auditor
+  never claims to have seen anything the provider did not report.

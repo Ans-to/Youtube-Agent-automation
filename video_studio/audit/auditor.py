@@ -44,7 +44,8 @@ def audit_video(path: str | Path, *, subtitle_path: str | Path | None = None,
                 max_profanity_per_minute: float = 2.0,
                 sample_fps: float = 10.0,
                 attested: list[str] | tuple[str, ...] = (),
-                attested_by: str = "") -> dict:
+                attested_by: str = "",
+                observations_path: str | Path | None = None) -> dict:
     """Audit a media file end to end.
 
     Optional models are attempted only when the caller asks for them, and every
@@ -60,6 +61,7 @@ def audit_video(path: str | Path, *, subtitle_path: str | Path | None = None,
         whisper_model=whisper_model,
         ocr=ocr,
         competitor_terms=competitor_terms,
+        observations_path=observations_path,
     )
     return audit_signals(
         signals,
@@ -135,15 +137,31 @@ def audit_signals(signals: MediaSignals, *, video_name: str = "video",
         signals.luminance, signals.red_level))
     record(rule_by_id("TQ-AVSYNC"), lambda: detectors.detect_av_sync(
         signals.audio_rms, signals.motion))
+    profile = signals.audio_profile
+    record(rule_by_id("TQ-CLIPPING"), (lambda: detectors.detect_clipping(profile)) if profile else None)
+    record(rule_by_id("TQ-LOUDNESS"), (lambda: detectors.detect_loudness(profile)) if profile else None)
+    record(rule_by_id("TQ-LIPSYNC"), lambda: detectors.detect_lipsync(signals.mouth_motion, signals.audio_rms))
 
     record(rule_by_id("BS-PROFANITY"), lambda: detectors.detect_profanity(
         signals.transcript_text(), start=0.0, duration=duration,
         max_per_minute=max_profanity_per_minute))
 
     if signals.competitor_terms:
-        competitor_text = signals.transcript_text() + " " + signals.ocr_text()
-        record(rule_by_id("BS-COMPETITOR"), lambda: detectors.detect_competitors(
-            competitor_text, signals.competitor_terms, start=0.0, duration=duration))
+        text_ready = signals.has("transcript") or signals.has("ocr")
+        vision_ready = signals.has("vision")
+
+        def competitor_detector():
+            found = []
+            if text_ready:
+                text = signals.transcript_text() + " " + signals.ocr_text()
+                found += detectors.detect_competitors(text, signals.competitor_terms, start=0.0, duration=duration)
+            if vision_ready:
+                found += detectors.detect_visual_competitors(signals.observations, signals.competitor_terms)
+            return found
+
+        record(rule_by_id("BS-COMPETITOR"),
+               competitor_detector if (text_ready or vision_ready) else None,
+               requires=())
     else:
         results.append(_result(
             rule_by_id("BS-COMPETITOR"), STATUS_NOT_APPLICABLE,
@@ -154,12 +172,30 @@ def audit_signals(signals: MediaSignals, *, video_name: str = "video",
         signals.transcript_text() + " " + signals.ocr_text(), start=0.0, duration=duration))
 
     content_text_present = signals.has("transcript") or signals.has("ocr")
+    vision_present = signals.has("vision")
+
+    def content_detector(rule_id):
+        def run():
+            found = []
+            if content_text_present:
+                found += [
+                    finding for finding in detectors.detect_content_terms(signals.transcript, signals.ocr)
+                    if finding.rule_id == rule_id
+                ]
+            if vision_present:
+                found += [
+                    finding for finding in detectors.detect_visual_content(signals.observations)
+                    if finding.rule_id == rule_id
+                ]
+            return found
+        return run
+
     for rule_id in ("CS-VIOLENCE", "CS-WEAPONS", "CS-SELFHARM", "CS-CONTRABAND"):
         rule = rule_by_id(rule_id)
-        if not content_text_present:
-            maybe_attested(rule, "Missing evidence: transcript, ocr. Text cues cannot run.")
+        if not (content_text_present or vision_present):
+            maybe_attested(rule, "Missing evidence: transcript, ocr, vision. No content signal is available.")
             continue
-        record(rule, lambda: detectors.detect_content_terms(signals.transcript, signals.ocr))
+        record(rule, content_detector(rule_id), requires=())
 
     # Rules with no offline detector: attested, or honestly unverified.
     rule = rule_by_id("CS-HATE-SPEECH")
@@ -187,9 +223,14 @@ def audit_signals(signals: MediaSignals, *, video_name: str = "video",
             "Requires a local language model or an operator-supplied --hate-lexicon.",
         ))
 
-    for rule_id in ("CS-ADULT", "BS-SENTIMENT"):
-        rule = rule_by_id(rule_id)
-        maybe_attested(rule, "Requires a local visual or language classifier, which is not installed.")
+    adult_rule = rule_by_id("CS-ADULT")
+    if vision_present:
+        record(adult_rule, lambda: detectors.detect_visual_content(signals.observations), requires=())
+    else:
+        maybe_attested(adult_rule, "Requires local vision observations from an NSFW classifier.")
+
+    maybe_attested(rule_by_id("BS-SENTIMENT"),
+                   "Requires a local language model, which is not configured.")
 
     if required_disclosures:
         record(rule_by_id("LE-DISCLOSURE"), lambda: detectors.detect_disclosures(
@@ -205,15 +246,21 @@ def audit_signals(signals: MediaSignals, *, video_name: str = "video",
 
     for rule_id in ("LE-MUSIC", "LE-CLIPS"):
         rule = rule_by_id(rule_id)
-        if rule_id == "LE-MUSIC" and signals.music_detected is True and rule.id not in attested_ids:
+        if rule_id == "LE-MUSIC" and signals.music_detected is False and rule.id not in attested_ids:
+            results.append(_result(
+                rule, STATUS_PASSED,
+                "No music bed detected by the local audio heuristics. Music below the detection "
+                "threshold, or buried under dialogue, would escape this check."
+            ))
+        elif rule_id == "LE-MUSIC" and signals.music_detected is True and rule.id not in attested_ids:
             findings.append(detectors.Finding(
                 rule_id=rule_id, start=0.0, end=duration,
                 description=(
                     "Music is present in the mix. The auditor cannot determine ownership or "
                     "licensing offline; confirm every track against its licence document."
                 ),
-                confidence=95.0,
-                evidence={"music_detected": True},
+                confidence=max(60.0, signals.music_confidence or 70.0),
+                evidence={"music_detected": True, "heuristic_confidence": signals.music_confidence},
             ))
             results.append(_result(rule, STATUS_FLAGGED, "Music present; rights cannot be verified offline."))
         elif rule.id in attested_ids:

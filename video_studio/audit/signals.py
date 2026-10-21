@@ -71,6 +71,11 @@ class MediaSignals:
     ocr: list[TextBlock] = field(default_factory=list)
     competitor_terms: list[str] = field(default_factory=list)
     music_detected: bool | None = None
+    music_confidence: float = 0.0
+    audio_profile: object | None = None
+    observations: list = field(default_factory=list)
+    mouth_motion: list[tuple[float, float]] = field(default_factory=list)
+    grid_motion: list[tuple[float, tuple[float, ...]]] = field(default_factory=list)
     sources: dict[str, str] = field(default_factory=dict)
     notes: list[str] = field(default_factory=list)
 
@@ -95,6 +100,14 @@ class MediaSignals:
             return bool(self.competitor_terms)
         if signal == "music":
             return self.music_detected is not None
+        if signal == "audio_profile":
+            return bool(self.audio_profile is not None and getattr(self.audio_profile, "frames", None))
+        if signal == "vision":
+            return bool(self.observations)
+        if signal == "faces":
+            return any(getattr(item, "kind", "") == "face" and getattr(item, "box", None) for item in self.observations)
+        if signal == "mouth_motion":
+            return len(self.mouth_motion) >= 5
         return False
 
     def missing(self, required: tuple[str, ...]) -> tuple[str, ...]:

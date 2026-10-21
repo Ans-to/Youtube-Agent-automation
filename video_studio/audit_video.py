@@ -46,6 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--hate-lexicon", help="JSON file containing a list of terms to match in the transcript")
     parser.add_argument("--max-profanity-per-minute", type=float, default=2.0,
                         help="profanity rate that triggers a brand-safety flag (default: 2.0)")
+    parser.add_argument("--observations", help=(
+        "JSON file of local vision observations (objects, faces, actions, scenes, logos). "
+        "Enables visual content rules and lip-sync. See docs/AUDITOR.md."))
     parser.add_argument("--sample-fps", type=float, default=10.0,
                         help="frame sampling rate for luminance and strobe analysis (default: 10)")
     parser.add_argument("--json", action="store_true", help="print the machine-readable report")
@@ -103,6 +106,7 @@ def main(argv: list[str] | None = None) -> int:
             sample_fps=args.sample_fps,
             attested=args.attest,
             attested_by=args.attested_by,
+            observations_path=args.observations,
         )
     except (OSError, ValueError) as exc:
         print(f"error: audit failed: {type(exc).__name__}: {exc}", file=sys.stderr)

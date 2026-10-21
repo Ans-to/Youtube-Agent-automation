@@ -11,8 +11,10 @@ from video_studio.audit.auditor import (
     render_json,
     render_markdown,
 )
+from video_studio.audit.audio import AudioProfile, FrameFeatures, MusicEstimate
 from video_studio.audit.rules import RULES
 from video_studio.audit.signals import MediaSignals, TextBlock, TranscriptCue
+from video_studio.audit.vision import Observation
 
 
 def series(values, step=0.1):
@@ -33,7 +35,41 @@ def clean_signals(duration=30.0, frames=100):
     ]
     signals.ocr = [TextBlock(1, 8, "Sponsored by Northwind", confidence=0.95, height_ratio=0.04)]
     signals.competitor_terms = ["Acme"]
-    signals.sources = {"luminance": "test", "audio_rms": "test", "transcript": "test", "ocr": "test"}
+
+    # A speech-like audio profile: varied centroid, pauses, no music bed.
+    frames = []
+    for index in range(100):
+        audible = index % 12 not in (0, 1)
+        frames.append(FrameFeatures(
+            time=round(index * 0.1, 3),
+            rms_db=-20.0 + (index % 5) if audible else -70.0,
+            zcr=0.08 + 0.01 * (index % 4),
+            centroid_hz=900.0 + 120.0 * (index % 7),
+            flatness=0.18,
+            flux=0.02 + 0.01 * (index % 3),
+            low_ratio=0.3, mid_ratio=0.5, high_ratio=0.2,
+            clipped_ratio=0.0,
+        ))
+    signals.audio_profile = AudioProfile(
+        duration=duration, frames=frames,
+        integrated_db=-21.0, peak_db=-9.0,
+        music=MusicEstimate(present=False, confidence=62.0, reason="Speech-like."),
+    )
+    signals.music_detected = False
+    signals.music_confidence = 62.0
+    # A face on screen for the whole clip, and mouth motion that follows the audio.
+    signals.observations = [
+        Observation(0.0, duration, "face", "face", 0.92, box=(0.40, 0.20, 0.20, 0.30)),
+        Observation(0.0, duration, "scene", "studio", 0.85),
+    ]
+    signals.mouth_motion = [
+        (frame.time, max(0.0, 10 ** (frame.rms_db / 20.0)))
+        for frame in frames
+    ]
+    signals.sources = {
+        "luminance": "test", "audio_rms": "test", "transcript": "test",
+        "ocr": "test", "audio_profile": "test", "vision": "test", "mouth_motion": "test",
+    }
     return signals
 
 
@@ -101,15 +137,27 @@ class StatusTests(unittest.TestCase):
     def test_attestation_is_required_for_rules_without_detectors(self):
         report = clean_audit(attested=(), attested_by="")
         self.assertEqual(report["status"], INCOMPLETE)
-        self.assertIn("CS-ADULT", report["unverified_rule_ids"])
         self.assertIn("BS-SENTIMENT", report["unverified_rule_ids"])
+        self.assertIn("LE-CLIPS", report["unverified_rule_ids"])
+
+    def test_adult_content_is_machine_checkable_once_vision_is_supplied(self):
+        report = clean_audit(attested=("BS-SENTIMENT",))
+        adult = next(item for item in report["rules"] if item["id"] == "CS-ADULT")
+        self.assertEqual(adult["status"], "passed")
+
+        # Without vision observations there is no way to see, so it stays unverified.
+        signals = clean_signals()
+        signals.observations = []
+        report = clean_audit(signals=signals, attested=("BS-SENTIMENT",))
+        adult = next(item for item in report["rules"] if item["id"] == "CS-ADULT")
+        self.assertEqual(adult["status"], "unverified")
 
     def test_attestation_is_recorded_with_the_name(self):
-        report = clean_audit(attested=("CS-ADULT", "BS-SENTIMENT"), attested_by="A. Reviewer")
+        report = clean_audit(attested=("LE-CLIPS", "BS-SENTIMENT"), attested_by="A. Reviewer")
         by_id = {item["id"]: item for item in report["rules"]}
-        self.assertEqual(by_id["CS-ADULT"]["status"], "attested")
+        self.assertEqual(by_id["LE-CLIPS"]["status"], "attested")
         self.assertEqual(report["attestation"]["attested_by"], "A. Reviewer")
-        self.assertEqual(sorted(report["attestation"]["rule_ids"]), ["BS-SENTIMENT", "CS-ADULT"])
+        self.assertEqual(sorted(report["attestation"]["rule_ids"]), ["BS-SENTIMENT", "LE-CLIPS"])
 
     def test_attestation_requires_a_name_and_a_known_rule(self):
         signals = clean_signals()
@@ -138,13 +186,25 @@ class StatusTests(unittest.TestCase):
         self.assertEqual(by_id["LE-DISCLOSURE"]["status"], "not_applicable")
         self.assertEqual(by_id["BS-COMPETITOR"]["status"], "not_applicable")
 
-    def test_unattested_licensing_rules_block_a_clean_pass(self):
+    def test_unattested_provenance_rule_blocks_a_clean_pass(self):
+        # Footage provenance cannot be checked offline, so it must be attested or listed.
         complete = clean_audit(attested=ALL_ATTESTED)
         self.assertEqual(complete["status"], PASSED)
-        partial = clean_audit(attested=("CS-ADULT", "BS-SENTIMENT"))
+        partial = clean_audit(attested=("LE-MUSIC", "BS-SENTIMENT"))
         self.assertEqual(partial["status"], INCOMPLETE)
-        self.assertIn("LE-MUSIC", partial["unverified_rule_ids"])
         self.assertIn("LE-CLIPS", partial["unverified_rule_ids"])
+
+    def test_music_heuristic_drives_le_music(self):
+        clean = clean_audit(attested=("LE-CLIPS", "BS-SENTIMENT"))
+        music = next(item for item in clean["rules"] if item["id"] == "LE-MUSIC")
+        self.assertEqual(music["status"], "passed")
+        self.assertIn("No music bed detected", music["reason"])
+
+        signals = clean_signals()
+        signals.music_detected = None
+        unknown = clean_audit(signals=signals, attested=("LE-CLIPS", "BS-SENTIMENT"))
+        music = next(item for item in unknown["rules"] if item["id"] == "LE-MUSIC")
+        self.assertEqual(music["status"], "manual")
 
     def test_competitor_supply_turns_a_not_applicable_rule_into_a_real_check(self):
         report = clean_audit()
