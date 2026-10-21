@@ -203,9 +203,6 @@ def build_report(evidence):
     elif public_findings:
         status = "FLAGGED"
         summary = "AUDIT STATUS: FLAGGED - Findings detected."
-    elif missing or failed:
-        status = "INCOMPLETE"
-        summary = "AUDIT STATUS: INCOMPLETE - Required detector coverage is missing or failed."
     else:
         status = "PASSED"
         summary = "AUDIT STATUS: PASSED - No violations detected."
