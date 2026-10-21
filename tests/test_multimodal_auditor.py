@@ -124,6 +124,27 @@ class MultimodalAuditorTests(unittest.TestCase):
         self.assertEqual(report["audit_status"], "FLAGGED")
         self.assertEqual(len(report["findings"]), 6)
 
+    def test_photosensitivity_screening_becomes_a_timestamped_flag(self):
+        findings = AUDIT.technical_findings({
+            "duration_seconds": 4,
+            "checks": {
+                "photosensitivity": {"available": True, "events": [{
+                    "start": 1.0, "end": 1.8, "transition_count": 8, "window_seconds": 1.0
+                }]}
+            }
+        })
+        self.assertEqual(len(findings), 1)
+        self.assertEqual(findings[0]["rule"], "photosensitivity")
+        self.assertEqual(findings[0]["start_seconds"], 1.0)
+        report = AUDIT.build_report({
+            "duration_seconds": 4,
+            "coverage": self.complete_coverage(),
+            "findings": findings,
+        })
+        self.assertEqual(report["audit_status"], "FLAGGED")
+        self.assertEqual(report["findings"][0]["Violation Category"], "Technical QA")
+        self.assertEqual(report["findings"][0]["Rule Broken"], "Rapid Flashing / Photosensitivity")
+
     def test_timestamp_rejects_invalid_minute_and_second_ranges(self):
         for invalid in ("00:61:00", "00:00:61"):
             with self.assertRaisesRegex(ValueError, "invalid timestamp"):
