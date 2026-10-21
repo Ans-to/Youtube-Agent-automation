@@ -23,6 +23,7 @@ from release_gate import validate_qc_report
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
 TRANSITION_TYPES = {"none", "fade", "wipe-left", "wipe-right", "slide-left", "slide-right", "zoom"}
+IMPACT_TYPES = {"flash", "invert", "burst", "speed-lines", "shockwave"}
 
 
 def load_config():
@@ -207,7 +208,8 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "Do not invent citations, dates, measurements, attributed quotations, or claims of web research. "
         + source_reference_instruction
         + "If evidence is missing, explicitly say what needs verification within narration or unresolved_notes. "
-        "Visual metadata rules: diagram -> visual_nodes array; timeline -> timeline_events array; stat -> stat_value and stat_label; "
+        "Impact frames are optional and must be motivated by a genuine action/emphasis beat, not constant decoration. If used, impact_events is an array of up to 8 events per scene: id, type (flash/invert/burst/speed-lines/shockwave), scene-local at_seconds, duration_frames 1–6, optional intensity 0.05–0.75, optional normalized x/y. Keep flashing rare and protect essential text; omit events when not justified. "
+        "Visual metadata rules: diagram -> visual_nodes array; timeline -> timeline_events array; stat -> stat_value and stat_label; 
         "comparison -> comparison_left_title, comparison_right_title, comparison_left and comparison_right arrays; "
         "code -> code_lines array; quote -> quote and quote_source only when supplied evidence supports the quote; "
         "bar-chart -> chart_values (2–6 source-supported non-negative numbers) and same-length chart_labels; never invent values. kinetic-type -> a short, readable headline designed for a staggered word reveal. waveform needs no extra data; hero may use graphic_label. Add unresolved_notes as an array of strings.\n"
@@ -251,6 +253,36 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
             raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
     else:
         scene["transition_frames"] = 12
+    if "impact_events" in scene:
+        events = scene["impact_events"]
+        if not isinstance(events, list) or len(events) > 8:
+            raise ValueError("Scene " + str(index) + " impact_events must be an array of at most 8 events.")
+        impact_ids = set()
+        scene_duration = float(scene.get("duration_seconds", 0))
+        for event_index, event in enumerate(events):
+            label = "Scene " + str(index) + " impact event " + str(event_index + 1)
+            if not isinstance(event, dict):
+                raise ValueError(label + " must be an object.")
+            event_type = str(event.get("type", "")).lower()
+            if event_type not in IMPACT_TYPES:
+                raise ValueError(label + " has an unsupported type.")
+            event_id = event.get("id", "scene-" + str(index + 1) + "-impact-" + str(event_index + 1))
+            if not isinstance(event_id, str) or not event_id.strip() or len(event_id) > 64 or event_id in impact_ids:
+                raise ValueError(label + " id must be unique within the scene and at most 64 characters.")
+            impact_ids.add(event_id)
+            at_seconds = event.get("at_seconds")
+            if isinstance(at_seconds, bool) or not isinstance(at_seconds, (int, float)) or not math.isfinite(at_seconds) or at_seconds < 0 or at_seconds >= scene_duration:
+                raise ValueError(label + " at_seconds must be finite and within scene duration.")
+            frames = event.get("duration_frames")
+            if isinstance(frames, bool) or not isinstance(frames, int) or not 1 <= frames <= 6:
+                raise ValueError(label + " duration_frames must be an integer from 1 to 6.")
+            intensity = event.get("intensity", 0.45)
+            if isinstance(intensity, bool) or not isinstance(intensity, (int, float)) or not math.isfinite(intensity) or not 0.05 <= intensity <= 0.75:
+                raise ValueError(label + " intensity must be from 0.05 to 0.75.")
+            for coord in ("x", "y"):
+                value = event.get(coord, 0.5)
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 1:
+                    raise ValueError(label + " " + coord + " must be normalized from 0 to 1.")
     array_limits = {
         "visual_nodes": 4, "timeline_events": 4, "comparison_left": 3,
         "comparison_right": 3, "code_lines": 6, "chart_labels": 6,
