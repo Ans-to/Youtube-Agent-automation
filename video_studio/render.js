@@ -151,7 +151,8 @@ async function main(){
    const walkEnd=window.characterPositionForTest({x:.8,walking:1,walk_from_x:.2,walk_to_x:.8},1,1920,1080);
    return {pushStart:pushStart.scale,pushEnd:pushEnd.scale,panEnd:panEnd.offsetX,walk:[walkStart.x,walkMid.x,walkEnd.x]};
   });
-  if(!(motionCheck.pushStart===1&&motionCheck.pushEnd>1&&motionCheck.panEnd<0&&motionCheck.walk[0]===.2&&motionCheck.walk[1]===.5&&motionCheck.walk[2]===.8))throw new Error("Camera or character travel motion regression: "+JSON.stringify(motionCheck));
+  const near=(a,b)=>Math.abs(a-b)<1e-6;
+  if(!(motionCheck.pushStart===1&&motionCheck.pushEnd>1&&motionCheck.panEnd<0&&near(motionCheck.walk[0],.2)&&near(motionCheck.walk[1],.5)&&near(motionCheck.walk[2],.8)))throw new Error("Camera or character travel motion regression: "+JSON.stringify(motionCheck));
   console.log("Camera/character motion smoke check:",JSON.stringify(motionCheck));
 
   const requiredJoints=["shoulder","elbow","wrist","hip","knee","ankle","neck","head"];
