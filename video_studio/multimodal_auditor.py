@@ -180,19 +180,27 @@ def build_report(evidence):
     for name, status in coverage.items():
         if status in (True, "complete", "passed"):
             completed.add(name)
+        elif status in ("failed", "error", "timeout"):
+            failed[name] = str(status)
         elif status not in (False, "not_configured", "skipped", None):
             failed[name] = str(status)
         elif status is False:
             failed[name] = "failed"
     missing = sorted(REQUIRED_CAPABILITIES - completed)
-    findings = [normalize_finding(x, duration) for x in evidence.get("findings", [])]
+    raw_findings = evidence.get("findings", [])
+    if not isinstance(raw_findings, list):
+        raise ValueError("findings must be a list")
+    findings = [normalize_finding(x, duration) for x in raw_findings]
     findings.sort(key=lambda x: (x["start"], x["end"], x["Violation Category"], x["Rule Broken"]))
 
     public_findings = []
     for finding in findings:
         public_findings.append({k: v for k, v in finding.items() if not k.startswith("_")})
 
-    if public_findings:
+    if missing or failed:
+        status = "INCOMPLETE"
+        summary = "AUDIT STATUS: INCOMPLETE - Required detector coverage is missing or failed."
+    elif public_findings:
         status = "FLAGGED"
         summary = "AUDIT STATUS: FLAGGED - Findings detected."
     elif missing or failed:
