@@ -29,6 +29,28 @@ MAX_SCENE_PADDING_SECONDS = 0.22
 MAX_ACCEPTED_PADDING_SECONDS = MAX_SCENE_PADDING_SECONDS + (1.0 / FPS) + 0.005
 
 
+def pacing_failure_reason(scene_number, padding, coverage):
+    """Validate spoken coverage using a frame-rate-aware padding tolerance."""
+    try:
+        padding = float(padding)
+        coverage = float(coverage)
+    except (TypeError, ValueError):
+        return "Scene " + str(scene_number) + " has invalid speech-pacing metrics."
+    if not math.isfinite(padding) or not math.isfinite(coverage):
+        return "Scene " + str(scene_number) + " has non-finite speech-pacing metrics."
+    if padding > MAX_ACCEPTED_PADDING_SECONDS or padding < 0 or coverage < 0.88:
+        return (
+            "Scene " + str(scene_number) + " did not meet speech-coverage limits: "
+            + json.dumps({
+                "padding": round(padding, 3),
+                "coverage": round(coverage, 3),
+                "max_accepted_padding": round(MAX_ACCEPTED_PADDING_SECONDS, 3),
+                "min_voice_coverage": 0.88,
+            })
+        )
+    return None
+
+
 def run(command, timeout=1800):
     return subprocess.run(
         [str(part) for part in command],
@@ -208,11 +230,9 @@ def audit_one(topic, output_dir):
                 ) from exc
             if not all(math.isfinite(value) for value in (padding, spoken, duration, coverage)):
                 raise RuntimeError("Scene " + str(index) + " has non-finite speech-pacing metadata.")
-            if padding > MAX_ACCEPTED_PADDING_SECONDS or padding < 0 or coverage < 0.88:
-                raise RuntimeError(
-                    "Scene " + str(index) + " did not meet speech-coverage limits: "
-                    + json.dumps({"padding": padding, "coverage": coverage})
-                )
+            pacing_error = pacing_failure_reason(index, padding, coverage)
+            if pacing_error:
+                raise RuntimeError(pacing_error)
             pacing.append({
                 "scene": index,
                 "headline": scene.get("headline", ""),
