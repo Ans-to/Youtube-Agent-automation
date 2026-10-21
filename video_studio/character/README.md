@@ -19,6 +19,19 @@ node character/selfcheck.mjs                      # JSON, non-zero on failure
 node films/character_speaks.mjs --out /tmp/frames --width 1920
 ```
 
+## The two films
+
+```
+films/character_speaks.mjs     12 s dialogue vignette: walk in, four lines, wave
+films/character_ships_it.mjs   32 s, eight chapters, one instrument panel each
+```
+
+The long cut is the one to study for framing: its camera takes the solved
+skeleton's bounding box every frame, clamps the chapter's zoom to it and scales
+about the soles, so a raised hand is never cropped and the figure never floats
+above the floor line. `GROUND.sole` in `animate.mjs` is the offset that keeps the
+*shoe* — not the ankle — on the ground.
+
 ## Design rules the code enforces
 
 - **One space.** `solve()` applies the root scale to every length and offset;
@@ -26,6 +39,9 @@ node films/character_speaks.mjs --out /tmp/frames --width 1920
   the two silently produced NaN geometry and detached limbs during development.
 - **Feet are planted, not drawn.** `plantFoot()` solves the ankle from the ground
   line and clamps when the target is out of reach instead of teleporting the foot.
+  The ankle sits one *sole* above the line, because the artwork draws a shoe that
+  wraps the ankle; standing the hips exactly `HIP_HEIGHT` above the floor buried
+  the soles into the ground.
 - **Deterministic.** The same `t` always yields the same pose, so frames can be
   rendered out of order, retried, or split across CI jobs.
 - **Lip-sync is a timeline, gated by audio.** `sampleVisemes()` eases between

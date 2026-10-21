@@ -20,7 +20,22 @@ const HIP_HEIGHT = (() => {
   return rest.footL.end[1] - rest.hips.origin[1];
 })();
 
-export const GROUND = { hipHeight: HIP_HEIGHT };
+/**
+ * How far the *shoe* reaches below the ankle line.
+ *
+ * `HIP_HEIGHT` measures hips to ankle, but the artwork draws a shoe that wraps
+ * the ankle (`drawShoe` centres a rect of 0.40 * foot length on it). Standing
+ * the figure with its hips exactly `HIP_HEIGHT` above the floor therefore buried
+ * the soles roughly 30 units into the ground. The floor is where the sole is,
+ * not where the ankle is, so every grounded pose adds this offset.
+ */
+const SOLE = (() => {
+  const rest = solve({}, { x: 0, y: 0, scale: 1 });
+  return rest.footL.length * 0.20;
+})();
+
+export const GROUND = { hipHeight: HIP_HEIGHT, sole: SOLE };
+
 
 /** Smallest deterministic noise in [-1,1] for handheld camera and idle drift. */
 function hash(n) {
@@ -88,7 +103,7 @@ export function walkPose(t, { stride = 1.1, hipX = 0, groundY = 0, scale = 1, sp
   const pose = {};
   const phase = (t / stride) % 1;
   const bob = Math.abs(Math.sin(phase * Math.PI * 2)) * 6 * scale;
-  const hipY = groundY - HIP_HEIGHT * scale - bob;
+  const hipY = groundY - (HIP_HEIGHT + SOLE) * scale - bob;
 
   // foot placement: each foot is planted for the stance half of the cycle, then
   // swings forward; the ankle x is derived from the phase, not hand-keyed
@@ -109,7 +124,8 @@ export function walkPose(t, { stride = 1.1, hipX = 0, groundY = 0, scale = 1, sp
   // world space: solved bone lengths already carry the root scale.
   const footY = (offset) => groundY - lift(offset);
   const base = solve(pose, { x: 0, y: 0, scale });
-  const ankle = 34 * scale;
+  // the ankle sits one sole above the floor, so the shoe lands on the line
+  const ankle = SOLE * scale;
   const leftX = footX(0) - hipX;
   const rightX = footX(0.5) - hipX;
   const leftY = footY(0) - hipY;
@@ -206,7 +222,7 @@ export function characterFrame(t, spec = {}) {
   } else {
     pose = idlePose(t, { breathe: spec.breathe });
     const bob = Math.sin(t * 0.55 * Math.PI * 2) * 5 * scale;
-    hips = { x: spec.hipX || 0, y: groundY - HIP_HEIGHT * scale - bob, scale };
+    hips = { x: spec.hipX || 0, y: groundY - (HIP_HEIGHT + SOLE) * scale - bob, scale };
   }
 
   if (spec.gesture > 0.01) {

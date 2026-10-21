@@ -14,7 +14,13 @@ import unittest
 import wave
 from pathlib import Path
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:  # noqa: BLE001 - the DSP dependency is optional on CI images
+    # The runtime voice chain needs numpy, but the project checks job installs no
+    # third-party packages. Skip the module there instead of failing discovery:
+    # an import error inside a test module used to turn the whole suite red.
+    raise unittest.SkipTest("numpy is required to exercise the voice DSP") from None
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "video_studio"))

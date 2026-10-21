@@ -30,7 +30,10 @@ on:
     # `main` always renders. The PR branch is listed so a pull request can get a
     # real 4K artifact from CI without merging; the job-level `if` below keeps it
     # inert unless the commit message asks for a render with [render].
-    branches: [main, arena/118abf10-youtube-agent-automation]
+    branches:
+      - main
+      - arena/118abf10-youtube-agent-automation
+      - arena/8e0c89ef-youtube-agent-automation
     paths:
       - "video_studio/films/**"
       - "video_studio/render_skia.js"
@@ -41,6 +44,8 @@ on:
       - "video_studio/audit_video.py"
       - "video_studio/validate_frames.py"
       - "tools/render_authored_film.py"
+      - "tools/assemble_voiceover.py"
+      - "tools/check_invariants.py"
       - ".github/workflows/render-motion-film.yml"
 
 permissions:
@@ -432,5 +437,116 @@ jobs:
             workspace/generated/character-film/*.jpg
             workspace/generated/character-film/*.txt
             workspace/generated/character-film/*.log
+          if-no-files-found: error
+          retention-days: 30
+
+  # The long cut: eight chapters, one instrument panel each, 3840x2160 design
+  # canvas. Its narration was rendered outside the repository, so the job mixes
+  # the committed voice artifacts (voice/, lines.json, envelope.json) instead of
+  # synthesising a new one — the picture is re-rendered from code every time, the
+  # audio it is cut to does not change under it.
+  long-cut:
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      contains(github.event.head_commit.message, '[render-long]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      LONG_OUT: workspace/generated/ships-it
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/package-lock.json
+
+      - name: Install FFmpeg and renderer dependencies
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install numpy
+          cd video_studio
+          npm ci
+          node -e "require('@napi-rs/canvas'); console.log('canvas ok')"
+
+      - name: Check the character rig
+        run: node video_studio/character/selfcheck.mjs
+
+      - name: Prove the committed narration is present
+        run: |
+          set -eu
+          test -f "$LONG_OUT/voice/voiceover.wav"
+          test -f "$LONG_OUT/voice/lines.json"
+          test -f "$LONG_OUT/voice/envelope.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ["LONG_OUT"])
+          lines = json.loads((out / "voice" / "lines.json").read_text(encoding="utf-8"))["lines"]
+          assert len(lines) == 8, len(lines)
+          for previous, current in zip(lines, lines[1:]):
+              assert current["start"] > previous["start"], (previous, current)
+          print("::notice title=Narration::8 lines, %.2fs..%.2fs"
+                % (lines[0]["start"], lines[-1]["end"]))
+          PY
+
+      - name: Render the long cut
+        run: |
+          set -euo pipefail
+          python tools/render_authored_film.py \
+            --script video_studio/films/character_ships_it.mjs \
+            --voice-dir "$LONG_OUT/voice" \
+            --out "$LONG_OUT" \
+            --width 3840 --height 2160 --fps 30 --delivery-height 1080 \
+            --json | tee "$LONG_OUT/render.log"
+
+      - name: Verify the delivery contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ["LONG_OUT"])
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+          motion = summary["motion_spec"]
+          print("::notice title=Motion::" + motion["statement"])
+          print("::notice title=Audit::" + summary.get("audit", {}).get("statement", "n/a"))
+          assert motion["status"] == "passed", motion
+          assert summary["voice"] is not None
+          assert summary["mix"]["voice_to_bed_db"] >= 4.0, summary["mix"]
+          delivery = next(out.glob("film-1080p.mp4"))
+          probe = summary["outputs"][0]["probe"]
+          assert probe.get("available"), probe
+          assert probe["video"]["width"] == 1920, probe
+          assert (out / "contact-sheet.jpg").stat().st_size > 5000
+          print("::notice title=Delivery::%s %.1f MB"
+                % (delivery.name, delivery.stat().st_size / 1048576))
+          PY
+
+      - name: Upload the long cut
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: character-long-cut
+          path: |
+            workspace/generated/ships-it/*.mp4
+            workspace/generated/ships-it/*.wav
+            workspace/generated/ships-it/*.json
+            workspace/generated/ships-it/*.md
+            workspace/generated/ships-it/*.jpg
+            workspace/generated/ships-it/*.txt
+            workspace/generated/ships-it/*.log
           if-no-files-found: error
           retention-days: 30

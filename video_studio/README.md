@@ -52,6 +52,46 @@ The film is retimed to the synthesised audio rather than the other way round: th
 cut ends when the voice does, and the mouth is gated by the measured envelope, so
 it closes in every pause.
 
+#### The full character piece: `character_ships_it.mjs`
+
+`video_studio/films/character_ships_it.mjs` is the long-form cut: eight chapters,
+each one a different shot with its own instrument panel drawn in Canvas — the
+rejected NLE timeline, a compiling terminal, the pipeline with a packet travelling
+it, the raster grid, the score with the voice drawn over it, the release audit,
+the local stack and the ship card. Every caption, cut, gesture and panel is
+retimed from `lines.json`, so the picture follows the voice.
+
+Two details worth knowing when reading the code:
+
+- **The camera frames the subject it actually has.** Each chapter declares a
+  zoom, but the shot is clamped to the solved skeleton's bounding box and scales
+  about the soles, so a raised hand is never cropped and a figure that shrinks
+  stays standing on the floor line.
+- **The gate is declared by the film, not relaxed by the driver.** This cut
+  promises motion in every chapter, so it ships `motion_gate: {min_mean: 0.95,
+  max_static: 0.34}` in its `film.json`; the driver measures frame-to-frame luma
+  on the encoded delivery copy and fails the render if the film drifts back into
+  slides.
+
+A voice that was rendered outside the repo (a hosted model, a human read) is
+assembled into the exact artifacts the film consumes with `tools/assemble_voiceover.py`:
+
+    python tools/assemble_voiceover.py \
+        --script video_studio/films/character_ships_it.voice.json \
+        --clips workspace/voice-source \
+        --out workspace/generated/ships-it/voice
+
+    python tools/render_authored_film.py \
+        --script video_studio/films/character_ships_it.mjs \
+        --voice-dir workspace/generated/ships-it/voice \
+        --out workspace/generated/ships-it \
+        --width 3840 --height 2160 --fps 30 --delivery-height 1080
+
+The assembler runs the same loudness chain as `voiceover.py`, derives every
+timestamp from the audio it just decoded (never from typed-in numbers), and
+measures the mouth envelope from the assembled signal, so the pipeline cannot
+tell an imported voice from a synthesised one.
+
 English voice setup:
 
 1. Install Piper in the selected Python environment: python -m pip install piper-tts.

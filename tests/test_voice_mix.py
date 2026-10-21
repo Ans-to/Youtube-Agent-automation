@@ -10,7 +10,12 @@ import tempfile
 import unittest
 from pathlib import Path
 
-import numpy as np
+try:
+    import numpy as np
+except ImportError:  # noqa: BLE001 - the DSP dependency is optional on CI images
+    # Same contract as test_voiceover: without numpy the mixing maths cannot be
+    # exercised, so skip the module rather than break unittest discovery.
+    raise unittest.SkipTest("numpy is required to exercise the voice DSP") from None
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "video_studio"))
