@@ -91,7 +91,7 @@ def run_strict_quality_audit(output_dir):
         ),
     }
     from auditor_adapters import run_optional_detectors
-    detector_result = run_optional_detectors(video_path, load_config(), technical_coverage=technical_coverage)
+    detector_result = run_optional_detectors(video_path, load_config(), technical_coverage=technical_coverage, duration_seconds=report["duration_seconds"])
     audit_report = build_multimodal_audit_report({
         "video": str(video_path),
         "duration_seconds": report["duration_seconds"],
