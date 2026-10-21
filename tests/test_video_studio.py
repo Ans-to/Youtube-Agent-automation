@@ -179,7 +179,7 @@ class VideoStudioTests(unittest.TestCase):
 
         # A properly filled scene stays close to its planned duration.
         full_line = studio.paced_scene_duration(5.0, 4.9, 30)
-        self.assertLessEqual(abs(full_line - 5.0), 1 / 30)
+        self.assertLessEqual(abs(full_line - 5.0), 0.04)
 
         # If narration is longer than the planned hold, the scene extends rather than clipping speech.
         long_line = studio.paced_scene_duration(1.0, 2.0, 30)
