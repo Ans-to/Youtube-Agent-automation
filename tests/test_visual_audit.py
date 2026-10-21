@@ -8,10 +8,14 @@ import unittest
 from datetime import datetime, timezone
 from pathlib import Path
 
+from unittest.mock import patch
+
 from video_studio.visual_audit import (
     REQUIRED_CHECKS,
     _make_contact_sheet,
     build_visual_sample_timestamps,
+    scene_context_for_timestamp_range,
+    run_visual_audit,
     validate_visual_audit_report,
 )
 
@@ -41,6 +45,114 @@ class VisualAuditPolicyTests(unittest.TestCase):
         samples = build_visual_sample_timestamps(scenes, duration=4.0, fps=30.0)
         self.assertGreaterEqual(len(samples), 6)
         self.assertEqual(samples, sorted(set(samples)))
+
+    def test_batch_prompt_context_only_includes_scenes_near_its_samples(self):
+        scenes = [{"duration_seconds": 2.0} for _ in range(40)]
+        summaries = [{"scene": i + 1, "headline": "scene " + str(i + 1)} for i in range(40)]
+        selected = scene_context_for_timestamp_range(scenes, summaries, 80.0, 28.5, 33.5)
+        self.assertGreaterEqual(len(selected), 3)
+        self.assertLess(len(selected), 8)
+        self.assertIn(16, [item["scene"] for item in selected])
+        self.assertIn(17, [item["scene"] for item in selected])
+
+    def test_run_visual_audit_batches_all_scene_samples_and_passes_hash_bound_report(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            video = root / "video.mp4"
+            video.write_bytes(b"final-encoded-video-fixture-" * 400)
+            storyboard_path = root / "storyboard.json"
+            scenes = [
+                {"duration_seconds": 2.0, "transition_in": "slide-left" if i % 2 else "none",
+                 "transition_frames": 12, "headline": "Scene " + str(i + 1), "visual_type": "hero"}
+                for i in range(10)
+            ]
+            storyboard_path.write_text(json.dumps({
+                "title": "Visual audit batch fixture", "width": 1920, "height": 1080, "fps": 30, "scenes": scenes,
+            }), encoding="utf-8")
+            config_path = root / "config.json"
+            config_path.write_text(json.dumps({
+                "model": {"enabled": True, "base_url": "http://127.0.0.1:8080/v1/chat/completions", "model": "unit-vision"},
+                "video_studio": {},
+            }), encoding="utf-8")
+            fake_jpeg = bytes([255, 216]) + (b"valid-fixture-jpeg-payload-" * 100) + bytes([255, 217])
+
+            def fake_extract(_video, package_root, timestamps, _ffmpeg, fps):
+                sample_dir = package_root / "visual-audit-frames"
+                sample_dir.mkdir(parents=True, exist_ok=True)
+                frames = []
+                seen_indices = set()
+                for index, stamp in enumerate(timestamps, 1):
+                    frame_index = int(round(stamp * fps))
+                    if frame_index in seen_indices:
+                        continue
+                    seen_indices.add(frame_index)
+                    actual_stamp = round(frame_index / fps, 3)
+                    path = sample_dir / ("frame-%03d.jpg" % len(frames) + ".jpg")
+                    path.write_bytes(fake_jpeg)
+                    frames.append({
+                        "timestamp_seconds": actual_stamp,
+                        "frame_index": frame_index,
+                        "file": str(path.relative_to(package_root)).replace("\\", "/"),
+                        "sha256": digest(path),
+                        "size_bytes": path.stat().st_size,
+                    })
+                return frames, sample_dir
+
+            def fake_sheet(package_root, frames, sample_dir, _ffmpeg):
+                path = sample_dir / "contact-sheet.jpg"
+                path.write_bytes(fake_jpeg)
+                return {
+                    "file": str(path.relative_to(package_root)).replace("\\", "/"),
+                    "sha256": digest(path),
+                    "size_bytes": path.stat().st_size,
+                    "tile_columns": 5,
+                    "tile_rows": max(1, (len(frames) + 4) // 5),
+                    "sample_count": len(frames),
+                }
+
+            def vision_response(request, _timeout):
+                prompt = request["messages"][1]["content"][0]["text"]
+                marker = "Exact detail-frame timestamps for this batch: "
+                timestamps_json = prompt.split(marker, 1)[1].splitlines()[0]
+                timestamps = json.loads(timestamps_json)
+                verdict = {
+                    "overall_score": 9.2,
+                    "overall_status": "PASS",
+                    "checks": [
+                        {"id": check_id, "status": "PASS",
+                         "evidence": "Specific measured test evidence for " + check_id + " in this batch."}
+                        for check_id in REQUIRED_CHECKS
+                    ],
+                    "frames": [
+                        {"timestamp_seconds": stamp, "status": "PASS",
+                         "observations": "Typography and composition are legible in the inspected frame."}
+                        for stamp in timestamps
+                    ],
+                    "issues": [],
+                    "summary": "All supplied detail frames passed the strict fixture review.",
+                }
+                return {"choices": [{"message": {"content": json.dumps(verdict)}}]}
+
+            ffprobe_output = json.dumps({
+                "format": {"duration": "20.0"},
+                "streams": [{
+                    "codec_type": "video", "width": 1920, "height": 1080, "avg_frame_rate": "30/1",
+                }],
+            })
+            completed = subprocess.CompletedProcess(args=["ffprobe"], returncode=0, stdout=ffprobe_output, stderr="")
+            with patch("video_studio.visual_audit.shutil.which", side_effect=lambda name: name), \
+                 patch("video_studio.visual_audit.subprocess.run", return_value=completed), \
+                 patch("video_studio.visual_audit._extract_visual_frames", side_effect=fake_extract), \
+                 patch("video_studio.visual_audit._make_contact_sheet", side_effect=fake_sheet), \
+                 patch("video_studio.visual_audit.post_local_model", side_effect=vision_response) as mocked_vision:
+                report = run_visual_audit(video, storyboard_path, root, config_path)
+
+            self.assertEqual(report["status"], "PASS")
+            self.assertGreaterEqual(report["sample_count"], len(scenes))
+            self.assertEqual(report["batch_count"], mocked_vision.call_count)
+            self.assertGreater(report["batch_count"], 1)
+            self.assertEqual(len(report["checks"]), len(REQUIRED_CHECKS))
+            self.assertTrue(validate_visual_audit_report(report, video, root))
 
     def make_passing_report(self, root):
         video = root / "video.mp4"
