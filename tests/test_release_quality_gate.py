@@ -52,6 +52,45 @@ class ReleaseQualityGateTests(unittest.TestCase):
         self.report["audited_at"]=datetime.now(timezone.utc).isoformat()
         self.report["render_manifest_sha256"]=file_sha256(self.manifest_path)
         self.report["impact_frame_evidence_sha256"]=file_sha256(self.impact_evidence_path)
+        self.report["checks"] = {
+            "delivery_spec": {"passed": True, "codec": "h264", "width": 1920, "height": 1080,
+                "pixel_format": "yuv420p", "field_order": "progressive", "container_bitrate_bps": 4000000},
+            "black_frames": {"count": 0, "events": []},
+            "freezes": {"count": 0, "events": []},
+            "audio_timing": {"verified": True},
+            "audio_loudness": {"available": True, "integrated_lufs": -18.0, "true_peak_dbfs": -2.0},
+            "audio_silence": {"count": 0},
+            "render_manifest": {"present": True},
+            "impact_frame_evidence": {"present": True},
+        }
+        frame_dir = self.root / "visual-audit-frames"
+        frame_dir.mkdir()
+        frame_records = []
+        fixture_jpeg = bytes([255, 216]) + (b"fixture-frame-" * 100) + bytes([255, 217])
+        for index in range(6):
+            frame_path = frame_dir / ("frame-%03d.jpg" % (index + 1))
+            frame_path.write_bytes(fixture_jpeg)
+            frame_records.append({
+                "timestamp_seconds": float(index + 1), "file": str(frame_path.relative_to(self.root)).replace("\\", "/"),
+                "sha256": file_sha256(frame_path), "size_bytes": frame_path.stat().st_size,
+                "status": "PASS", "observations": "Sampled frame has adequate layout and readable visible elements.",
+            })
+        from video_studio.visual_audit import REQUIRED_CHECKS as REQUIRED_VISUAL_CHECKS
+        self.visual_path = self.root / "visual-audit.json"
+        visual_report = {
+            "schema_version": 1, "status": "PASS", "overall_score": 9.0, "model_id": "unit-test-vision",
+            "video_sha256": file_sha256(self.video), "reviewed_at": datetime.now(timezone.utc).isoformat(),
+            "duration_seconds": 12.5, "sample_count": 6,
+            "checks": [{"id": name, "status": "PASS", "evidence": "Specific unit-test evidence for this visual rubric check."}
+                       for name in REQUIRED_VISUAL_CHECKS],
+            "frames": frame_records, "issues": [], "summary": "All fixture frame checks passed.",
+        }
+        self.visual_path.write_text(json.dumps(visual_report, indent=2), encoding="utf-8")
+        self.report["visual_audit_sha256"] = file_sha256(self.visual_path)
+        self.report["checks"]["visual_audit"] = {
+            "status": "PASS", "score": 9.0, "model_id": "unit-test-vision",
+            "sample_count": 6, "sha256": self.report["visual_audit_sha256"],
+        }
         self.write_report()
         self.review_path=self.root/"creative-review.json"
         self.review={"schema_version":1,"reviewer":"Local reviewer","reviewed_at":datetime.now(timezone.utc).isoformat(),
