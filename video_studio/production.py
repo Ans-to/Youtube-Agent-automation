@@ -207,7 +207,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
         "Choose transition_in intentionally: none for a clean hard cut; fade for a temporal bridge; wipe-left/right for a directional reveal; slide-left/right for spatial movement; zoom for a motivated scale transition. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
-        "\"Choose camera_motion per scene: static, push-in, pull-out, pan-left, pan-right, or drift. Use subtle motivated camera movement for emphasis, vary it across scenes, and keep captions/readable text inside safe margins.\\\\n"
+        "Choose camera_motion per scene: static, push-in, pull-out, pan-left, pan-right, or drift. Use subtle motivated camera movement for emphasis, vary it across scenes, and keep captions/readable text inside safe margins.\\n"
         "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional expression (confident, focused, curious, or concerned). Keep appearance consistent across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
