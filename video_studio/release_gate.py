@@ -93,16 +93,17 @@ def validate_qc_report(report, video):
     if visual_check.get("score", 0) < 8.5 or visual_check.get("sample_count", 0) < 6:
         raise ValueError("Visual audit score or sample coverage is below release thresholds.")
     manifest_path = video.with_name("render-manifest.json")
-    if manifest_path.is_file():
-        evidence_path = video.with_name("impact-frame-evidence.json")
-        if report.get("render_manifest_sha256") != sha256(manifest_path):
-            raise ValueError("Quality report has a missing or stale render-manifest binding.")
-        if not evidence_path.is_file() or report.get("impact_frame_evidence_sha256") != sha256(evidence_path):
-            raise ValueError("Quality report has a missing or stale impact-frame evidence binding.")
-        audited_at = parse_timestamp(report.get("audited_at"), "Quality report audited_at")
-        newest = max(video.stat().st_mtime, manifest_path.stat().st_mtime, evidence_path.stat().st_mtime)
-        if audited_at.timestamp() + 2 < newest:
-            raise ValueError("Quality report predates the current video or renderer evidence.")
+    evidence_path = video.with_name("impact-frame-evidence.json")
+    if not manifest_path.is_file() or not evidence_path.is_file():
+        raise ValueError("Strict release requires the render manifest and extracted impact-frame evidence.")
+    if report.get("render_manifest_sha256") != sha256(manifest_path):
+        raise ValueError("Quality report has a missing or stale render-manifest binding.")
+    if report.get("impact_frame_evidence_sha256") != sha256(evidence_path):
+        raise ValueError("Quality report has a missing or stale impact-frame evidence binding.")
+    audited_at = parse_timestamp(report.get("audited_at"), "Quality report audited_at")
+    newest = max(video.stat().st_mtime, manifest_path.stat().st_mtime, evidence_path.stat().st_mtime)
+    if audited_at.timestamp() + 2 < newest:
+        raise ValueError("Quality report predates the current video or renderer evidence.")
     return True
 
 
