@@ -255,6 +255,42 @@ refresh();setInterval(refresh,4000);
 if('serviceWorker' in navigator){navigator.serviceWorker.register('/service-worker.js').catch(()=>{});}
 </script></body></html>'''
 
+def validate_post_request(headers, server_port):
+    """Reject browser POSTs without a same-origin loopback context."""
+    host_header = headers.get("Host", "")
+    origin = headers.get("Origin")
+    content_type = headers.get("Content-Type", "")
+    if not host_header:
+        return "Missing Host header."
+    try:
+        parsed_host = urlparse("//" + host_header)
+        host_port = parsed_host.port
+    except ValueError:
+        return "Invalid Host header."
+    if (parsed_host.username or parsed_host.password or
+            parsed_host.hostname not in {"127.0.0.1", "localhost", "::1"} or
+            host_port != server_port or parsed_host.path or parsed_host.query or parsed_host.fragment):
+        return "Host must match this loopback dashboard and port."
+    # Browser form submissions from modern browsers include Origin. Requiring it
+    # closes the missing-Origin CSRF bypass; this dashboard is not a general API.
+    if not origin:
+        return "Missing Origin header; POST requests must be same-origin."
+    try:
+        parsed_origin = urlparse(origin)
+        origin_port = parsed_origin.port
+    except ValueError:
+        return "Invalid Origin header."
+    if (parsed_origin.scheme != "http" or parsed_origin.username or parsed_origin.password or
+            parsed_origin.hostname != parsed_host.hostname or origin_port != server_port or
+            parsed_origin.path or parsed_origin.query or parsed_origin.fragment):
+        return "Cross-origin POST requests are not allowed."
+    if content_type.split(";", 1)[0].strip().lower() != "application/x-www-form-urlencoded":
+        return "Unsupported request content type."
+    if headers.get("Transfer-Encoding"):
+        return "Transfer-Encoding is not supported."
+    return None
+
+
 class Handler(BaseHTTPRequestHandler):
     def send(self, body, content_type="text/html; charset=utf-8", status=200):
         raw = body.encode("utf-8") if isinstance(body, str) else body
@@ -303,17 +339,20 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         global RUNNING
         path = urlparse(self.path).path
+        request_error = validate_post_request(self.headers, self.server.server_port)
+        if request_error:
+            return self.send(esc(request_error), status=403)
+        raw_length = self.headers.get("Content-Length")
+        if raw_length is None:
+            return self.send("Missing Content-Length.", status=411)
         try:
-            length = int(self.headers.get("Content-Length", "0"))
+            length = int(raw_length)
         except ValueError:
             return self.send("Invalid Content-Length.", status=400)
-        if length < 0 or length > MAX_FORM_BODY_BYTES:
+        if length < 0:
+            return self.send("Invalid Content-Length.", status=400)
+        if length > MAX_FORM_BODY_BYTES:
             return self.send("Request body must not exceed 128,000 bytes.", status=413)
-        origin = self.headers.get("Origin")
-        if origin:
-            parsed_origin = urlparse(origin)
-            if parsed_origin.scheme != "http" or parsed_origin.hostname not in {"127.0.0.1", "localhost", "::1"} or parsed_origin.port != self.server.server_port:
-                return self.send("Cross-origin POST requests are not allowed.", status=403)
         form = parse_qs(self.rfile.read(length).decode("utf-8", "replace"))
         if path == "/add":
             title = form.get("title", [""])[0].strip()[:160]
