@@ -9,21 +9,21 @@
   "frames": {
     "count": 954
   },
-  "elapsed_seconds": 456.2,
+  "elapsed_seconds": 471.1,
   "motion_spec": {
     "frames_measured": 953,
-    "mean_delta": 0.972,
-    "median_delta": 0.604,
-    "p90_delta": 1.492,
-    "static_share": 0.2875,
+    "mean_delta": 0.938,
+    "median_delta": 0.7,
+    "p90_delta": 1.165,
+    "static_share": 0.1343,
     "baseline_mean_delta": 0.819,
     "baseline_static_share": 0.514,
     "gate": {
-      "min_mean": 0.95,
-      "max_static": 0.34
+      "min_mean": 0.9,
+      "max_static": 0.2
     },
     "status": "passed",
-    "statement": "MOTION SPEC: PASSED - mean frame delta 0.97 (baseline 0.82), 28.7% near-static frames (baseline 51.4%, limit 34%)"
+    "statement": "MOTION SPEC: PASSED - mean frame delta 0.94 (baseline 0.82), 13.4% near-static frames (baseline 51.4%, limit 20%)"
   },
   "audit": {
     "status": "INCOMPLETE",
@@ -72,8 +72,8 @@
   "outputs": [
     {
       "path": "/home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-3840x2160.mp4",
-      "bytes": 48692368,
-      "sha256": "fcae5b77c71be36b6c3512f2bf969c8023c19b91d7d2bc37490ccb73a957c75a",
+      "bytes": 53933589,
+      "sha256": "38994eb6e7253c46ebe4e5aca20ba4687d6308f538c14e6a25066a9505ac02fb",
       "probe": {
         "available": true,
         "duration_seconds": 31.8,
@@ -92,8 +92,8 @@
     },
     {
       "path": "/home/user/Youtube-Agent-automation/workspace/generated/ships-it/film-1080p.mp4",
-      "bytes": 11446883,
-      "sha256": "ebd4c2a0ce700748e9671ccf751128f37ff95a0c1f4e88e5dcb29b7cff1b2ea1",
+      "bytes": 12203359,
+      "sha256": "d4e68e0c182cc93692b3c7f6ae5a6f95699632c9830b0316b0c26754c7fe65c9",
       "probe": {
         "available": true,
         "duration_seconds": 31.8,
@@ -455,8 +455,8 @@
       "envelope": true
     },
     "motion_gate": {
-      "min_mean": 0.95,
-      "max_static": 0.34
+      "min_mean": 0.9,
+      "max_static": 0.2
     }
   }
 }

@@ -182,12 +182,18 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
     for item in timeline:
         first = int(round(item["start"] * rate))
         last = int(round(item["end"] * rate))
-        values = voiceover.openness_envelope(full[first:max(first + 1, last)], rate, fps=fps)
+        window = full[first:max(first + 1, last)]
+        values = voiceover.openness_envelope(window, rate, fps=fps)
+        bright = voiceover.spectral_brightness(window, rate, fps=fps)
         expected = max(1, int(round((item["end"] - item["start"]) * fps)))
         if len(values) < expected:
             values = values + [0.0] * (expected - len(values))
+        bright = voiceover.normalise_brightness(bright)
+        if len(bright) < expected:
+            bright = bright + [bright[-1] if bright else 0.5] * (expected - len(bright))
         envelope.append({"id": item["id"], "start": item["start"], "end": item["end"],
-                         "fps": fps, "openness": values[:expected]})
+                         "fps": fps, "openness": values[:expected],
+                         "brightness": bright[:expected]})
     (out_dir / "envelope.json").write_text(
         json.dumps({"fps": fps, "lines": envelope}, indent=2) + "\n", encoding="utf-8")
 
@@ -201,6 +207,7 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
         "line_count": len(timeline),
         "path": str(voice_path),
         "lines": timeline,
+        "analysis": ["per-frame RMS openness", "per-frame spectral centroid (vowel colour)"],
         "processing": ["trim < -45 dBFS", "per-line loudness match -20 dBFS RMS",
                        "highpass 78Hz", "de-ess", "presence +2dB @2.9k",
                        "compress 3:1", "normalise -1.5dBFS"],

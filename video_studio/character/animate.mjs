@@ -176,25 +176,91 @@ export function wavePose(t, { at = 0, dur = 1.6, scale = 1 } = {}) {
 }
 
 /**
- * Speaking: the mouth is driven by a viseme timeline, and the head/body get the
- * small accents speech actually produces — a nod on stressed syllables, a brow
- * lift on questions, and shoulders that move with emphasis.
+ * Read one audio frame. The envelope may be a plain number (loudness only) or
+ * `{open, bright}`; the second form is what the pipeline writes now.
+ */
+function readAudioFrame(sample) {
+  if (sample === null || sample === undefined) return { open: 0, bright: 0.5 };
+  if (typeof sample === 'number') return { open: clamp01(sample), bright: 0.5 };
+  return {
+    open: clamp01(sample.open === undefined ? sample.openness : sample.open),
+    bright: sample.bright === undefined ? 0.5 : clamp01(sample.bright),
+  };
+}
+
+/**
+ * Mouth shapes measured from the voice, not guessed from the caption.
+ *
+ * The previous layer multiplied a *text-derived* viseme timeline by the audio
+ * envelope. The envelope only scaled whatever shape the text had picked, so the
+ * mouth could be nearly shut on a loud syllable and wide open in a pause: the
+ * picture had motion but no sync. This layer reads two real measurements per
+ * video frame — RMS openness and spectral centroid — and builds the mouth from
+ * them, so loudness sets the jaw and vowel colour sets the shape.
+ *
+ * @param {number} t seconds
+ * @param {(t:number)=>number|{open:number,bright:number}} envelope
+ */
+export function mouthFromAudio(t, envelope, opts = {}) {
+  if (typeof envelope !== 'function') return { ...VISEMES.REST };
+  const now = readAudioFrame(envelope(t));
+  const before = readAudioFrame(envelope(t - 0.033));
+  const after = readAudioFrame(envelope(t + 0.033));
+
+  // Jaw: fast attack (a syllable is already open when its energy peaks) and a
+  // slower release, plus a little anticipation from the frame ahead so the mouth
+  // is not permanently one frame behind the voice.
+  const attack = Math.max(now.open, after.open * 0.9);
+  const release = Math.max(now.open, before.open * 0.55);
+  // A held loud note must not pin the jaw at 1.0 for four seconds, but the mouth
+  // also has to *open* on a loud frame: normalising to a mean level left the
+  // face nearly still. The energy is mapped through a floor-and-ceiling window
+  // and the fast fluctuation of speech supplies the rest of the articulation.
+  const motion = Math.abs(now.open - before.open) + Math.abs(after.open - now.open) * 0.6;
+  const articulation = clamp01(motion * 2.6);
+  const level = clamp01((Math.max(attack * 0.75 + release * 0.25, now.open) - 0.10) / 0.80);
+  // The opening floor only applies while there is speech to open for; silence is
+  // still an explicit closure, never a half-open mouth.
+  const voiced = clamp01((now.open - 0.06) / 0.22);
+  const jaw = clamp01((0.18 + level * 0.72) * clamp01(0.78 + 0.22 * articulation)) * voiced;
+
+  // Silence is not "closed by default": it is an explicit closure, which is
+  // what makes a /m/ at the end of a word read as a mouth that shut.
+  if (jaw < 0.08) {
+    return { open: 0.02, wide: 0.28, round: 0.10, teeth: 0, press: 0.9 };
+  }
+
+  const bright = clamp01(now.bright * 0.7 + Math.max(now.bright, after.bright) * 0.3);
+  const wide = lerp(0.16, 0.94, bright) * lerp(0.55, 1, clamp01(jaw * 1.6));
+  const round = lerp(0.82, 0.10, bright);
+  const teeth = clamp01((bright - 0.35) * 1.6) * clamp01(jaw * 1.4) * 0.85;
+  const press = clamp01((0.22 - jaw) / 0.22) * 0.7;
+  return { open: jaw, wide, round, teeth, press };
+}
+
+/**
+ * Speaking layer: the mouth comes from `mouthFromAudio`, and the head/neck/chest
+ * get the accents speech actually produces — a small nod per stressed syllable,
+ * a brow lift, shoulders that move with emphasis.
  */
 export function speechLayer(pose, t, timeline, opts = {}) {
-  const viseme = sampleVisemes(timeline, t);
-  // The timeline says *which* shape; the envelope says *how much* of it. A
-  // viseme timeline alone keeps the mouth moving through pauses, which reads as
-  // a puppet. Gating it on the measured audio closes the mouth when the voice
-  // stops, and opens it on the syllable that is actually loud.
-  const amp = typeof opts.envelope === 'function' ? clamp01(opts.envelope(t)) : 1;
-  const gate = amp <= 0.12 ? 0 : (amp - 0.12) / 0.88;
-  const shaped = amp >= 0.999 ? viseme : { ...viseme, open: viseme.open * gate };
-  const energy = clamp01(shaped.open * 1.4);
-  pose.head = (pose.head || 0) + Math.sin(t * 3.1) * 0.012 + energy * 0.05;
-  pose.neck = (pose.neck || 0) + energy * 0.02;
-  pose.chest = (pose.chest || 0) + energy * 0.02;
-  pose.browRaise = (opts.brow === undefined ? 0.15 : opts.brow) + energy * 0.35;
-  return shaped;
+  const viseme = typeof opts.envelope === 'function'
+    ? mouthFromAudio(t, opts.envelope)
+    : sampleVisemes(timeline, t);
+  const energy = clamp01((viseme.open || 0) * 1.4);
+  // Syllable-synchronous head accent: the head lifts on the attack and settles
+  // on the release, so the neck is never still while the mouth is working.
+  const accent = clamp01((viseme.open || 0)) * 0.085;
+  const settle = Math.sin(t * 2.3) * 0.012;
+  pose.head = (pose.head || 0) + accent + settle;
+  pose.neck = (pose.neck || 0) + accent * 0.45;
+  pose.chest = (pose.chest || 0) + accent * 0.35;
+  // shoulders and free arm take a small counter-beat: the body answers speech
+  pose.armR = (pose.armR || 0) - accent * 0.22;
+  pose.forearmR = (pose.forearmR || 0) + accent * 0.30;
+  pose.spine = (pose.spine || 0) + accent * 0.18;
+  pose.browRaise = (opts.brow === undefined ? 0.15 : opts.brow) + clamp01(viseme.open || 0) * 0.45;
+  return viseme;
 }
 
 /**

@@ -109,7 +109,7 @@ function check(name, ok, detail) {
   check('blink amount stays in [0,1]', blinkOk, 'blink out of range');
 }
 
-// 7. the envelope gates the mouth
+// 7. the mouth is driven by the audio, not by the caption
 {
   const tl = speechTimeline(['EVERY', 'FRAME'], { start: 0, end: 1.2 });
   const scan = (envelope) => {
@@ -122,18 +122,43 @@ function check(name, ok, detail) {
     }
     return { peak, mean: total / 121 };
   };
-  const open = scan(() => 1);
-  const shut = scan(() => 0);
-  const half = scan(() => 0.55);
-  check('full envelope opens the mouth', open.peak > 0.35,
-    `peak openness ${open.peak.toFixed(3)} at envelope 1`);
-  check('silent envelope closes the mouth', shut.peak === 0,
-    `peak openness ${shut.peak.toFixed(3)} at envelope 0`);
-  check('envelope scales openness monotonically', half.peak > 0 && half.peak < open.peak,
-    `half ${half.peak.toFixed(3)} vs open ${open.peak.toFixed(3)}`);
-  check('an unmodulated timeline is unchanged',
-    Math.abs(scan(undefined).peak - open.peak) < 1e-9,
-    'passing no envelope changed the mouth');
+  const open = scan(() => ({ open: 1, bright: 0.5 }));
+  const shut = scan(() => ({ open: 0, bright: 0.5 }));
+  check('loud audio opens the mouth', open.peak > 0.35,
+    `peak openness ${open.peak.toFixed(3)} at full energy`);
+  check('silent audio closes the mouth', shut.peak <= 0.05,
+    `peak openness ${shut.peak.toFixed(3)} in silence`);
+
+  // A real signal: syllables separated by closures. The mouth has to follow it,
+  // frame for frame — this is the property the old layer did not have, because
+  // it scaled a text-derived shape instead of reading the audio.
+  const signal = (t) => ({ open: Math.max(0, Math.sin(t * Math.PI * 2 * 2.2)) ** 0.8,
+                           bright: 0.5 });
+  let sumXY = 0; let sumXX = 0; let sumYY = 0;
+  let n = 0;
+  for (let t = 0; t <= 1.2; t += 0.01) {
+    const want = signal(t).open;
+    const got = characterFrame(t, { speech: { timeline: tl, envelope: signal } }).viseme.open;
+    sumXY += (want - 0.5) * (got - 0.5);
+    sumXX += (want - 0.5) ** 2;
+    sumYY += (got - 0.5) ** 2;
+    n += 1;
+  }
+  const correlation = sumXY / Math.sqrt(sumXX * sumYY || 1);
+  check('mouth openness follows the audio envelope', n > 100 && correlation > 0.90,
+    `correlation ${correlation.toFixed(3)} over ${n} frames`);
+
+  // Bright and dark vowels at the same loudness must not look identical.
+  const bright = characterFrame(0.4, { speech: { timeline: tl, envelope: () => ({ open: 0.8, bright: 0.95 }) } }).viseme;
+  const dark = characterFrame(0.4, { speech: { timeline: tl, envelope: () => ({ open: 0.8, bright: 0.05 }) } }).viseme;
+  check('vowel colour changes the mouth shape',
+    Math.abs(bright.wide - dark.wide) > 0.3 && Math.abs(bright.round - dark.round) > 0.3,
+    `wide ${bright.wide.toFixed(2)} vs ${dark.wide.toFixed(2)}, round ${bright.round.toFixed(2)} vs ${dark.round.toFixed(2)}`);
+
+  // A text timeline on its own still animates (films without a voice).
+  const silentFilm = scan(undefined);
+  check('the text timeline still animates an unvoiced film', silentFilm.peak > 0.3,
+    `peak ${silentFilm.peak.toFixed(3)} with no envelope`);
 }
 
 const failed = failures.length > 0;

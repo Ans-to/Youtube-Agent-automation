@@ -97,6 +97,10 @@
       "emphasis": []
     }
   ],
+  "analysis": [
+    "per-frame RMS openness",
+    "per-frame spectral centroid (vowel colour)"
+  ],
   "processing": [
     "trim < -45 dBFS",
     "per-line loudness match -20 dBFS RMS",

@@ -416,6 +416,59 @@ def fade_edges(signal: np.ndarray, rate: int, ms: float = 8.0) -> np.ndarray:
 
 
 # ----------------------------------------------------------------------- main
+def spectral_brightness(signal: np.ndarray, rate: int, fps: int = 30) -> list[float]:
+    """Per-video-frame spectral centroid, normalised to 0..1.
+
+    Loudness alone cannot say *which* mouth shape a frame needs: "oo" and "ee"
+    can carry the same energy. The centroid separates them — a bright frame is a
+    spread vowel, a dark one is round — so the rig gets a second real measurement
+    from the audio instead of guessing shapes from the caption text.
+    """
+    hop = max(1, int(round(rate / fps)))
+    if signal.size < hop * 2:
+        return [0.5]
+    frames = signal.size // hop
+    frames = min(frames, 4096)  # a bounded window keeps this linear
+    window = np.hanning(hop)
+    freqs = np.fft.rfftfreq(hop, 1.0 / rate)
+    lo, hi = 120.0, 3400.0                      # the band that carries vowel colour
+    band = (freqs >= lo) & (freqs <= hi)
+    if not band.any():
+        return [0.5] * frames
+    out = []
+    for index in range(frames):
+        chunk = signal[index * hop:(index + 1) * hop]
+        if chunk.size < hop:
+            break
+        magnitude = np.abs(np.fft.rfft(chunk * window))[band]
+        energy = float(magnitude.sum())
+        if energy <= 1e-6:
+            out.append(0.0)
+            continue
+        centroid = float((magnitude * freqs[band]).sum() / energy)
+        out.append(round(float(np.clip((centroid - lo) / (hi - lo), 0.0, 1.0)), 3))
+    return out or [0.5]
+
+
+def normalise_brightness(values: list[float]) -> list[float]:
+    """Rescale a line's centroids to its own 10th-90th percentile.
+
+    A speaker's band sits inside a slice of 120-3400 Hz, so the raw centroid only
+    ever spans part of 0..1. Fitting each line to its own range keeps the colour
+    contrast between a bright and a dark vowel visible on a face that is a few
+    hundred pixels wide.
+    """
+    if not values:
+        return []
+    import numpy as np
+
+    array = np.asarray(values, dtype=np.float64)
+    low, high = float(np.percentile(array, 10)), float(np.percentile(array, 90))
+    if high - low < 1e-6:
+        return [round(float(np.clip(v, 0.0, 1.0)), 3) for v in values]
+    return [round(float(np.clip((v - low) / (high - low), 0.0, 1.0)), 3) for v in values]
+
+
 def openness_envelope(signal: np.ndarray, rate: int, fps: int = 30) -> list[float]:
     """Per-video-frame mouth openness, measured from the audio itself.
 
@@ -512,12 +565,18 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
     for item in timeline:
         first = int(round(item["start"] * SAMPLE_RATE))
         last = int(round(item["end"] * SAMPLE_RATE))
-        values = openness_envelope(full[first:max(first + 1, last)], SAMPLE_RATE, fps=fps)
+        window = full[first:max(first + 1, last)]
+        values = openness_envelope(window, SAMPLE_RATE, fps=fps)
+        bright = spectral_brightness(window, SAMPLE_RATE, fps=fps)
         expected = max(1, int(round((item["end"] - item["start"]) * fps)))
         if len(values) < expected:
             values = values + [0.0] * (expected - len(values))
+        bright = normalise_brightness(bright)
+        if len(bright) < expected:
+            bright = bright + [bright[-1] if bright else 0.5] * (expected - len(bright))
         envelope.append({"id": item["id"], "start": item["start"], "end": item["end"],
-                         "fps": fps, "openness": values[:expected]})
+                         "fps": fps, "openness": values[:expected],
+                         "brightness": bright[:expected]})
     (out_dir / "envelope.json").write_text(
         json.dumps({"fps": fps, "lines": envelope}, indent=2) + "\n", encoding="utf-8")
 

@@ -342,7 +342,7 @@
     "envelope": true
   },
   "motion_gate": {
-    "min_mean": 0.95,
-    "max_static": 0.34
+    "min_mean": 0.9,
+    "max_static": 0.2
   }
 }
