@@ -60,6 +60,8 @@ class VisualAuditPolicyTests(unittest.TestCase):
                 "status": "PASS",
                 "observations": "Observed clear typography and stable composition in this frame.",
             })
+        contact_path = root / "contact-sheet.jpg"
+        contact_path.write_bytes(jpeg_fixture)
         report = {
             "schema_version": 1,
             "status": "PASS",
@@ -69,6 +71,14 @@ class VisualAuditPolicyTests(unittest.TestCase):
             "reviewed_at": datetime.now(timezone.utc).isoformat(),
             "duration_seconds": 8.0,
             "sample_count": len(frames),
+            "contact_sheet": {
+                "file": contact_path.name,
+                "sha256": digest(contact_path),
+                "size_bytes": contact_path.stat().st_size,
+                "tile_columns": 5,
+                "tile_rows": 2,
+                "sample_count": len(frames),
+            },
             "checks": [
                 {"id": check, "status": "PASS", "evidence": "Specific test evidence for this required visual category."}
                 for check in REQUIRED_CHECKS
