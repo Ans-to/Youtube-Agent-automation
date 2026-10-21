@@ -21,8 +21,8 @@ TEXT_RULES = {
 }
 VISION_RULES = {
     "violence_gore", "weapons_self_harm", "adult_content", "contraband",
-    "competitor_presence", "unlicensed_visual", "missing_disclosure",
-    "unreadable_disclosure", "child_safety_privacy", "photosensitivity", "ocr_text",
+    "competitor_presence", "missing_disclosure", "unreadable_disclosure",
+    "child_safety_privacy", "ocr_text",
 }
 
 
@@ -58,21 +58,28 @@ def parse_tesseract_tsv(tsv):
     return {"text": " ".join(words), "confidence": round(sum(confidences) / len(confidences), 4) if confidences else 0.0}
 
 
-def sample_frames(video_path, output_dir, ffmpeg="ffmpeg", fps=1.0, max_frames=120):
+def effective_sample_fps(fps, max_frames, duration_seconds=None):
     if fps <= 0 or fps > 2:
         raise ValueError("frame_sample_fps must be greater than 0 and no more than 2")
     if max_frames < 1 or max_frames > 600:
         raise ValueError("max_frames must be between 1 and 600")
+    if duration_seconds is not None and duration_seconds > 0:
+        return min(float(fps), float(max_frames) / float(duration_seconds))
+    return float(fps)
+
+
+def sample_frames(video_path, output_dir, ffmpeg="ffmpeg", fps=1.0, max_frames=120, duration_seconds=None):
+    sample_fps = effective_sample_fps(fps, max_frames, duration_seconds)
     pattern = Path(output_dir) / "frame-%05d.jpg"
     result = subprocess.run(
         [ffmpeg, "-hide_banner", "-loglevel", "error", "-i", str(video_path),
-         "-vf", "fps=" + str(fps), "-frames:v", str(max_frames), "-q:v", "3", str(pattern)],
+         "-vf", "fps=" + str(sample_fps), "-frames:v", str(max_frames), "-q:v", "3", str(pattern)],
         capture_output=True, text=True, timeout=300,
     )
     if result.returncode:
         raise RuntimeError("FFmpeg frame sampling failed: " + result.stderr[-1000:])
     paths = sorted(Path(output_dir).glob("frame-*.jpg"))
-    return [{"timestamp": round(index / fps, 3), "path": path} for index, path in enumerate(paths)]
+    return [{"timestamp": round(index / sample_fps, 3), "path": path} for index, path in enumerate(paths)]
 
 
 def run_ocr(frames, tesseract="tesseract", timeout_seconds=30):
@@ -205,7 +212,7 @@ def classify_text_observations(observations, model_config, call_model=None):
     return output
 
 
-def analyze_frame_batches(frames, vision_config, competitor_brands=None, call_model=None, batch_size=6):
+def analyze_frame_batches(frames, vision_config, competitor_brands=None, required_disclosures=None, call_model=None, batch_size=6):
     """Ask a configured local vision model to inspect sampled frames and their temporal context."""
     if not frames:
         return []
@@ -223,6 +230,7 @@ def analyze_frame_batches(frames, vision_config, competitor_brands=None, call_mo
                 "competitor_presence, unlicensed_visual, child_safety_privacy, photosensitivity, ocr_text. Use temporal "
                 "context; a chef holding a knife is not violence. Do not claim copyright infringement from visual similarity. "
                 "Competitor reference list: " + json.dumps(competitor_brands, ensure_ascii=False) + ". "
+                "Required disclosures for this video: " + json.dumps(required_disclosures or [], ensure_ascii=False) + ". "
                 "Only report evidence actually visible in the supplied frames. Sample timestamps (seconds): " +
                 json.dumps([x["timestamp"] for x in batch])
             )
@@ -258,7 +266,7 @@ def analyze_frame_batches(frames, vision_config, competitor_brands=None, call_mo
     return findings
 
 
-def run_optional_detectors(video_path, root_config, technical_coverage=None):
+def run_optional_detectors(video_path, root_config, technical_coverage=None, duration_seconds=None):
     """Run only configured local adapters and return explicit coverage plus timestamped findings."""
     video_path = Path(video_path)
     cfg = root_config.get("video_studio", {}).get("auditor", {})
@@ -279,7 +287,7 @@ def run_optional_detectors(video_path, root_config, technical_coverage=None):
         frames = []
         if ffmpeg:
             try:
-                frames = sample_frames(video_path, tmp, ffmpeg=ffmpeg, fps=fps, max_frames=max_frames)
+                frames = sample_frames(video_path, tmp, ffmpeg=ffmpeg, fps=fps, max_frames=max_frames, duration_seconds=duration_seconds)
             except (OSError, RuntimeError, ValueError, subprocess.SubprocessError):
                 frames = []
         if tesseract and frames:
@@ -301,6 +309,34 @@ def run_optional_detectors(video_path, root_config, technical_coverage=None):
             except (RuntimeError, OSError, ValueError, subprocess.SubprocessError):
                 coverage["asr_transcription"] = "failed"
         findings.extend(find_configured_terms(observations["ocr"] + observations["asr"], terms))
+        required_disclosures = cfg.get("required_disclosures", [])
+        if observations["ocr"] and isinstance(required_disclosures, list):
+            normalized_ocr = [
+                (re.sub(r"\\s+", " ", item.get("text", "")).casefold(), item)
+                for item in observations["ocr"]
+            ]
+            for disclosure in required_disclosures:
+                if not isinstance(disclosure, str) or not disclosure.strip():
+                    continue
+                needle = re.sub(r"\\s+", " ", disclosure).casefold()
+                matches = [item for text, item in normalized_ocr if needle in text]
+                if not matches:
+                    end_time = float(duration_seconds or (frames[-1]["timestamp"] if frames else 0))
+                    findings.append({
+                        "start_seconds": 0, "end_seconds": max(0.0, end_time),
+                        "rule": "missing_disclosure",
+                        "description": "Required disclosure was not recognized in the sampled on-screen text: " + disclosure[:120],
+                        "confidence": 0.80, "source": "tesseract-disclosure-screening",
+                    })
+                elif max(float(item.get("ocr_confidence", 0)) for item in matches) < float(cfg.get("disclosure_min_ocr_confidence", 0.65)):
+                    start_time = min(float(item.get("timestamp", 0)) for item in matches)
+                    end_time = max(float(item.get("timestamp", start_time)) for item in matches)
+                    findings.append({
+                        "start_seconds": start_time, "end_seconds": end_time,
+                        "rule": "unreadable_disclosure",
+                        "description": "Required disclosure OCR confidence is below the configured threshold; verify size, contrast, and display duration manually.",
+                        "confidence": 0.65, "source": "tesseract-disclosure-screening",
+                    })
         text_model = root_config.get("model", {})
         if text_model.get("enabled") and (observations["ocr"] or observations["asr"]):
             try:
@@ -312,6 +348,7 @@ def run_optional_detectors(video_path, root_config, technical_coverage=None):
             try:
                 findings.extend(analyze_frame_batches(
                     frames, vision_cfg, competitor_brands=competitor_brands,
+                    required_disclosures=required_disclosures,
                     batch_size=max(1, min(int(vision_cfg.get("batch_size", 6)), 8)),
                 ))
                 coverage["object_action_detection"] = "complete"
