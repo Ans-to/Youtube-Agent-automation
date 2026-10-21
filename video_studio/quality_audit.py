@@ -20,6 +20,10 @@ except ImportError:
     from release_evidence import validate_render_manifest, validate_impact_frame_evidence
 
 
+# Viewer-retention pacing contract: long unscored gaps are a release defect.
+MAX_ALLOWED_SILENCE_SECONDS = 0.75
+
+
 def file_sha256(path):
     digest = hashlib.sha256()
     with Path(path).open("rb") as stream:
@@ -64,7 +68,7 @@ def parse_silence_events(stderr, duration):
 
 
 def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
-          max_silence_seconds=1.5, min_loudness_lufs=-24.0, max_true_peak_dbfs=-1.0):
+          max_silence_seconds=MAX_ALLOWED_SILENCE_SECONDS, min_loudness_lufs=-24.0, max_true_peak_dbfs=-1.0):
     path = Path(path)
     if not path.is_file() or path.stat().st_size < 1024:
         raise ValueError("Video file missing or too small.")
@@ -290,7 +294,7 @@ def main():
     p.add_argument("--strict", action="store_true")
     p.add_argument("--max-black-seconds", type=float, default=0.20)
     p.add_argument("--max-freeze-seconds", type=float, default=3.0)
-    p.add_argument("--max-silence-seconds", type=float, default=1.5)
+    p.add_argument("--max-silence-seconds", type=float, default=MAX_ALLOWED_SILENCE_SECONDS)
     p.add_argument("--min-loudness-lufs", type=float, default=-24.0)
     p.add_argument("--max-true-peak-dbfs", type=float, default=-1.0)
     p.add_argument("--report", help="Optional JSON report output path.")
