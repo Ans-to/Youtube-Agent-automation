@@ -382,6 +382,21 @@ class VideoStudioTests(unittest.TestCase):
 
 
 
+    def test_direction_upgrade_keeps_transition_frames_renderable(self):
+        # The direction layer writes 0 for a hard cut. Both renderers accept
+        # that value (it means "no transition frames"), so no upgraded
+        # storyboard may fall outside the range the renderer enforces.
+        from motion import direction
+
+        upgraded = direction.upgrade_storyboard(production.fallback("Test topic"), tone="corporate")
+        for scene in upgraded["scenes"]:
+            frames = scene.get("transition_frames", 12)
+            self.assertIsInstance(frames, int)
+            self.assertGreaterEqual(frames, 0)
+            self.assertLessEqual(frames, 60)
+            if frames == 0:
+                self.assertIn(scene["transition_in"], ("cut", "none"))
+
     def test_fallback_uses_intentional_scene_transitions(self):
         result = production.fallback("Test topic")
         scenes = result["scenes"]

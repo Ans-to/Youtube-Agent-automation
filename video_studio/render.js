@@ -32,7 +32,7 @@ async function main(){
    for(const key of ["x","y","walk_from_x","walk_to_x"])if(scene.character[key]!==undefined&&(!Number.isFinite(Number(scene.character[key]))||Number(scene.character[key])<0||Number(scene.character[key])>1))throw new Error("Scene "+index+" character "+key+" must be between 0 and 1.");
    if(scene.character.walking!==undefined&&![0,1,false,true].includes(scene.character.walking))throw new Error("Scene "+index+" character walking must be 0 or 1.");
   }
-  if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<1||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 1 to 60.");
+  if(scene.transition_frames!==undefined&&(!Number.isInteger(Number(scene.transition_frames))||Number(scene.transition_frames)<0||Number(scene.transition_frames)>60))throw new Error("transition_frames must be an integer from 0 to 60; 0 is a hard cut.");
   for(const key of ["headline","eyebrow","subhead","narration","caption"])if(scene[key]!==undefined&&typeof scene[key]!=="string")throw new Error("Scene "+index+" field "+key+" must be text.");
   for(const key of ["headline","eyebrow","subhead","narration","stat_value","stat_label","quote","quote_source","graphic_label","comparison_left_title","comparison_right_title"])if(scene[key]!==undefined&&typeof scene[key]==="string"&&scene[key].length>12000)throw new Error("Scene "+index+" field "+key+" exceeds the 12000-character safety limit.");
   const arrayLimits={visual_nodes:4,timeline_events:4,comparison_left:3,comparison_right:3,code_lines:6,chart_labels:6};

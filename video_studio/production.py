@@ -317,8 +317,10 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     scene["transition_in"] = transition
     scene["camera_motion"] = normalize_camera_motion(scene.get("camera_motion", ("push-in", "static", "pan-left", "pull-out", "pan-right")[index % 5]), index);
     if "transition_frames" in scene:
-        if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 1 <= scene["transition_frames"] <= 60:
-            raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
+        # 0 is a real value: the direction layer emits it for a hard cut, and the
+        # renderer clamps it to a single frame so no cross-fade is drawn.
+        if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 0 <= scene["transition_frames"] <= 60:
+            raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 0 to 60.")
     else:
         scene["transition_frames"] = 12
     array_limits = {
