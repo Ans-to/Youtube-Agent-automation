@@ -239,6 +239,20 @@ jobs:
           print("Honest status: partial; semantic quality gate unconfirmed; template-only; not publishable.")
           PY
 
+      - name: Render and strict-audit ten distinct niche scripts
+        env:
+          PIPER_MODEL: ${{ github.workspace }}/video_studio/voices/en_US-lessac-medium/en_US-lessac-medium.onnx
+        run: python video_studio/multi_topic_regression.py --output-root workspace/multi-topic-regression
+
+      - name: Upload ten-niche voiced MP4s and diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: video-studio-ten-niche-regression-${{ github.run_number }}
+          path: workspace/multi-topic-regression
+          if-no-files-found: warn
+          retention-days: 7
+
       - name: Render and validate a 1-second landscape MP4
         run: python video_studio/studio.py --storyboard storyboard.smoke.json --output outputs/ci-smoke.mp4 --language en
 
