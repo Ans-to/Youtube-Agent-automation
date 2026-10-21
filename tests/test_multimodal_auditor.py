@@ -45,6 +45,29 @@ class MultimodalAuditorTests(unittest.TestCase):
         self.assertEqual(finding["Confidence Score"], "91%")
         self.assertIn("Description", finding)
 
+    def test_findings_do_not_hide_missing_coverage(self):
+        report = AUDIT.build_report({
+            "duration_seconds": 10,
+            "coverage": {},
+            "findings": [{"start": 1, "end": 2, "rule": "profanity",
+                          "description": "A profanity was detected.",
+                          "confidence": 0.8}],
+        })
+        self.assertEqual(report["audit_status"], "INCOMPLETE")
+        self.assertIn("INCOMPLETE", report["summary"])
+        self.assertEqual(len(report["findings"]), 1)
+
+    def test_detector_failure_is_reported_as_failed(self):
+        coverage = self.complete_coverage()
+        coverage["ocr"] = "failed"
+        report = AUDIT.build_report({"duration_seconds": 10, "coverage": coverage, "findings": []})
+        self.assertEqual(report["audit_status"], "INCOMPLETE")
+        self.assertEqual(report["coverage"]["failed_capabilities"]["ocr"], "failed")
+
+    def test_rejects_non_list_findings(self):
+        with self.assertRaisesRegex(ValueError, "findings must be a list"):
+            AUDIT.build_report({"coverage": self.complete_coverage(), "findings": {}})
+
     def test_rejects_confidence_out_of_range(self):
         with self.assertRaisesRegex(ValueError, "confidence"):
             AUDIT.build_report({
