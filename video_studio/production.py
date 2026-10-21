@@ -348,10 +348,13 @@ def fallback(topic):
          "transition_in": "wipe-right", "transition_frames": 10},
     ]
     # Fallback previews must exercise the integrated character/graphics composition.
+    camera_motions = ("push-in", "pan-left", "pull-out", "drift", "pan-right", "static")
     for index, scene in enumerate(scenes):
+        scene["camera_motion"] = camera_motions[index % len(camera_motions)]
         scene["character"] = {
             "enabled": True, "speaking": True, "x": 0.92, "y": 0.63,
-            "scale": 0.33, "walking": 0,
+            "scale": 0.33, "walking": 1 if index == 1 else 0,
+            "walk_from_x": 0.78, "walk_to_x": 0.92,
             "expression": ("curious", "confident", "focused", "concerned")[index % 4],
             "pose": ("explain", "point", "think", "explain")[index % 4],
             "skin": "#c58e72", "hair": "#25212a", "shirt": "#6479b8",
