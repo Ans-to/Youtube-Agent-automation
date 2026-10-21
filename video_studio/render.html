@@ -135,13 +135,13 @@
  }
  function characterPosition(c,progress,width,height){
   const portrait=height>width;
-  let x=Number.isFinite(Number(c&&c.x))?Number(c.x):(portrait?.78:.92);
+  let x=Number.isFinite(Number(c&&c.x))?Number(c.x):(portrait ? 0.78 : 0.92);
   if(Number(c&&c.walking)===1&&Number.isFinite(Number(c.walk_from_x))&&Number.isFinite(Number(c.walk_to_x))){
    x=Number(c.walk_from_x)+(Number(c.walk_to_x)-Number(c.walk_from_x))*easeSmooth(progress);
   }
   x=Math.max(.05,Math.min(.95,x));
   if(portrait)x=Math.min(x,.82);
-  return {x,y:Number.isFinite(Number(c&&c.y))?Math.max(.05,Math.min(.95,Number(c.y))):(portrait?.70:.56)};
+  return {x,y:Number.isFinite(Number(c&&c.y))?Math.max(.05,Math.min(.95,Number(c.y))):(portrait ? 0.70 : 0.56)};
  }
  window.cameraTransformForTest=cameraTransformFor;
  window.characterPositionForTest=characterPosition;
