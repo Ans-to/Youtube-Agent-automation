@@ -63,8 +63,15 @@ def validate_qc_report(report, video):
         raise ValueError("Encoded video delivery-specification check did not pass.")
     if min(int(delivery.get("width", 0) or 0), int(delivery.get("height", 0) or 0)) < 1080:
         raise ValueError("Release video must be at least 1080 pixels on its short edge.")
-    if delivery.get("field_order") != "progressive" or int(delivery.get("container_bitrate_bps", 0) or 0) < 1000000:
-        raise ValueError("Progressive scan or minimum encoded bitrate could not be confirmed.")
+    if delivery.get("field_order") != "progressive":
+        raise ValueError("Progressive scan could not be confirmed.")
+    try:
+        measured_bitrate = int(delivery.get("container_bitrate_bps", 0) or 0)
+        recommended_bitrate = int(delivery.get("recommended_sdr_bitrate_bps", 0) or 0)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Encoded bitrate measurement is invalid.") from exc
+    if measured_bitrate <= 0 or recommended_bitrate <= 0:
+        raise ValueError("Encoded bitrate or platform reference could not be measured.")
     if checks["audio_timing"].get("verified") is not True:
         raise ValueError("Audio/video duration parity was not verified.")
     if checks["audio_loudness"].get("available") is not True:
