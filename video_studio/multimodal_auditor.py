@@ -275,7 +275,7 @@ def main():
             except (OSError, json.JSONDecodeError):
                 root_config = {}
             from auditor_adapters import run_optional_detectors
-            detector_result = run_optional_detectors(args.video, root_config, technical_coverage=coverage)
+            detector_result = run_optional_detectors(args.video, root_config, technical_coverage=coverage, duration_seconds=qc["duration_seconds"])
             coverage.update(detector_result["coverage"])
             findings.extend(detector_result["findings"])
         report = build_report(evidence)
