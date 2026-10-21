@@ -88,7 +88,7 @@ def evaluate_production_readiness(status, research_evidence, storyboard):
             blockers.append("Presenter performance lacks scene-specific pose variation; at least two distinct poses are required.")
         if len(enabled_scenes) >= 3 and len(expressions) < 2:
             blockers.append("Presenter performance lacks expressive variation; at least two distinct expressions are required.")
-        if len(scenes) >= 4 and len(visual_types) < 2:
+        if len(scenes) >= 3 and len(visual_types) < 2:
             blockers.append("Visual direction lacks composition variety; at least two visual types are required.")
 
     alignment = status.get("character_animation", {})
