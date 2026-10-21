@@ -346,7 +346,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send("Target minutes must be between 0.25 and 16.", status=400)
             if with_voice and mode != "render":
                 return self.send("Local narration can only be selected with the full render mode.", status=400)
-            if mode == "render" and not load(CONFIG, {}).get("model", {}).get("enabled"):
+            if mode == "render" and not load_config(CONFIG).get("model", {}).get("enabled"):
                 return self.send("A local model is disabled. Enable a compatible local model to render a full-length video, or choose the explicit template-demo mode.", status=400)
             if mode == "template" and (source_file or with_voice):
                 return self.send("Template demo mode cannot be combined with source files or voice.", status=400)
