@@ -61,7 +61,10 @@ def parse_timestamp(value):
     if not isinstance(value, str) or not TIMESTAMP_RE.fullmatch(value):
         raise ValueError(f"invalid timestamp: {value!r}")
     parts = value.split(":")
-    return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+    hours, minutes, seconds = int(parts[0]), int(parts[1]), float(parts[2])
+    if minutes >= 60 or seconds >= 60:
+        raise ValueError(f"invalid timestamp: {value!r}")
+    return hours * 3600 + minutes * 60 + seconds
 
 
 def normalize_finding(item, duration):
@@ -193,10 +196,7 @@ def build_report(evidence):
     findings = [normalize_finding(x, duration) for x in raw_findings]
     findings.sort(key=lambda x: (x["start"], x["end"], x["Violation Category"], x["Rule Broken"]))
 
-    public_findings = []
-    for finding in findings:
-        public_findings.append({k: v for k, v in finding.items() if not k.startswith("_")})
-
+    public_findings = [{k: v for k, v in finding.items() if not k.startswith("_")} for finding in findings]
     if missing or failed:
         status = "INCOMPLETE"
         summary = "AUDIT STATUS: INCOMPLETE - Required detector coverage is missing or failed."
@@ -232,7 +232,7 @@ def build_report(evidence):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence", help="JSON evidence bundle emitted by configured detector adapters")
-    parser.add_argument("--video", help="Optional MP4 path; runs the existing FFmpeg/ffprobe technical checks")
+    parser.add_argument("--video", help="Optional MP4 path; runs existing FFmpeg/ffprobe technical checks")
     parser.add_argument("--output", help="Optional JSON report path")
     args = parser.parse_args()
     try:
@@ -254,9 +254,7 @@ def main():
         print(rendered)
         if args.output:
             Path(args.output).write_text(rendered + "\n", encoding="utf-8")
-        if report["audit_status"] != "PASSED":
-            return 1
-        return 0
+        return 0 if report["audit_status"] == "PASSED" else 1
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         print("AUDIT ERROR: " + str(exc), file=sys.stderr)
         return 2
