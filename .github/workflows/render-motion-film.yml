@@ -275,3 +275,78 @@ jobs:
             workspace/generated/motion-film/*.jpg
           if-no-files-found: warn
           retention-days: 7
+
+  # The character cut is a dialogue scene (rig, lip-sync, coverage) rather than the
+  # kinetic type piece, so it renders in its own job and its own artifact.
+  character:
+    if: >-
+      contains(github.event.head_commit.message, '[render-character]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CHAR_OUT: workspace/generated/character-film
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/package-lock.json
+
+      - name: Install FFmpeg and renderer dependencies
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          cd video_studio
+          npm ci
+          node -e "require('@napi-rs/canvas'); console.log('canvas ok')"
+
+      - name: Check the character rig
+        run: node video_studio/character/selfcheck.mjs
+
+      - name: Render the character cut
+        run: |
+          set -euo pipefail
+          mkdir -p "$CHAR_OUT"
+          python tools/render_authored_film.py             --script video_studio/films/character_speaks.mjs             --out "$CHAR_OUT"             --width 1920 --height 1080 --fps 30 --delivery-height 1080             --json | tee "$CHAR_OUT/render.log"
+
+      - name: Publish what the run produced
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          out = Path("workspace/generated/character-film")
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+          for item in summary.get("outputs", []):
+              print("::notice title=Character cut::%s | %.2f MB | sha256 %s"
+                    % (Path(item["path"]).name, item["bytes"] / 1048576, item["sha256"]))
+          print("::notice title=Motion::" + summary["motion_spec"]["statement"])
+          print("::notice title=Audit::" + (summary.get("audit", {}).get("statement") or "skipped"))
+          PY
+
+      - name: Upload the character cut
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: character-film
+          path: |
+            workspace/generated/character-film/*.mp4
+            workspace/generated/character-film/*.wav
+            workspace/generated/character-film/*.json
+            workspace/generated/character-film/*.md
+            workspace/generated/character-film/*.jpg
+            workspace/generated/character-film/*.txt
+            workspace/generated/character-film/*.log
+          if-no-files-found: error
+          retention-days: 30

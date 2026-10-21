@@ -38,10 +38,15 @@ import render_motion_film as base  # noqa: E402 - path set up above
 
 DEFAULT_SCRIPT = "video_studio/films/every_frame_is_code.mjs"
 
+
 # The rejected first cut measured a mean delta of 0.819 with 51.4% near-static
 # frames. These gates are deliberately stricter than that baseline.
 MIN_MEAN_DELTA = 1.2
 MAX_STATIC_SHARE = 0.15
+
+# Defaults for the kinetic film. A film may declare `motion_gate` in its own
+# film.json and override these; the summary always records which gate was used.
+DEFAULT_GATE = {"min_mean": MIN_MEAN_DELTA, "max_static": MAX_STATIC_SHARE}
 STATIC_BELOW = 0.5
 
 
@@ -111,7 +116,7 @@ def step_validate(frames_dir: Path) -> dict:
         return {"raw": result.stdout.strip()}
 
 
-def measure_motion(video: Path, ffmpeg: str, work_dir: Path) -> dict:
+def measure_motion(video: Path, ffmpeg: str, work_dir: Path, gate: dict | None = None) -> dict:
     """Frame-to-frame luma difference, the same measure the critique was based on."""
     stats_file = work_dir / ".motion-stats.txt"
     if stats_file.exists():
@@ -138,7 +143,11 @@ def measure_motion(video: Path, ffmpeg: str, work_dir: Path) -> dict:
         "baseline_mean_delta": 0.819,
         "baseline_static_share": 0.514,
     }
-    passed = metrics["mean_delta"] >= MIN_MEAN_DELTA and metrics["static_share"] <= MAX_STATIC_SHARE
+    limits = gate or DEFAULT_GATE
+    min_mean = float(limits.get("min_mean", DEFAULT_GATE["min_mean"]))
+    max_static = float(limits.get("max_static", DEFAULT_GATE["max_static"]))
+    metrics["gate"] = {"min_mean": min_mean, "max_static": max_static}
+    passed = metrics["mean_delta"] >= min_mean and metrics["static_share"] <= max_static
     metrics["status"] = "passed" if passed else "failed"
     metrics["statement"] = (
         "MOTION SPEC: %s - mean frame delta %.2f (baseline 0.82), "
@@ -147,7 +156,7 @@ def measure_motion(video: Path, ffmpeg: str, work_dir: Path) -> dict:
             "PASSED" if passed else "FAILED",
             metrics["mean_delta"],
             100 * metrics["static_share"],
-            100 * MAX_STATIC_SHARE,
+            100 * max_static,
         )
     )
     return metrics
@@ -226,7 +235,9 @@ def main(argv: list[str] | None = None) -> int:
         log("   delivery %s (%.1f MB)" % (delivery.name, delivery.stat().st_size / 1048576))
 
         log("== 5/6 measure motion")
-        motion = measure_motion(delivery, ffmpeg, out_dir / "build")
+        film_meta = json.loads((frames_dir / "film.json").read_text(encoding="utf-8"))
+        gate = film_meta.get("motion_gate") or DEFAULT_GATE
+        motion = measure_motion(delivery, ffmpeg, out_dir / "build", gate)
         log("   " + motion["statement"])
 
         log("== 6/6 content audit")
