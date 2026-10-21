@@ -24,6 +24,15 @@ from production_readiness import evaluate_production_readiness
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
 TRANSITION_TYPES = {"none", "fade", "wipe-left", "wipe-right", "slide-left", "slide-right", "zoom"}
+CAMERA_MOTIONS = {"static", "push-in", "pull-out", "pan-left", "pan-right", "drift"}
+
+
+def normalize_camera_motion(value, scene_index=1):
+    motion = str(value or "static").strip().lower()
+    if motion not in CAMERA_MOTIONS:
+        raise ValueError("Scene " + str(scene_index) + " uses unsupported camera_motion: " + motion)
+    return motion
+
 
 
 def load_config():
@@ -198,6 +207,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
         "Choose transition_in intentionally: none for a clean hard cut; fade for a temporal bridge; wipe-left/right for a directional reveal; slide-left/right for spatial movement; zoom for a motivated scale transition. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
+        "\"Choose camera_motion per scene: static, push-in, pull-out, pan-left, pan-right, or drift. Use subtle motivated camera movement for emphasis, vary it across scenes, and keep captions/readable text inside safe margins.\\\\n"
         "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, and optional expression (confident, focused, curious, or concerned). Keep appearance consistent across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
         "Scene " + str(index) + " of " + str(total) + "\n"
@@ -264,6 +274,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     if transition not in TRANSITION_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported transition_in: " + transition)
     scene["transition_in"] = transition
+    scene["camera_motion"] = normalize_camera_motion(scene.get("camera_motion", ("push-in", "static", "pan-left", "pull-out", "pan-right")[index % 5]), index);
     if "transition_frames" in scene:
         if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 1 <= scene["transition_frames"] <= 60:
             raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
