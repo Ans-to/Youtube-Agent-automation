@@ -16,6 +16,7 @@ BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 sys.path.insert(0, str(ROOT / "tools"))
 from path_utils import canonical_path, is_within, safe_relative_path
+import test_fix
 import tool_agent
 WORKSPACE = canonical_path(ROOT / "workspace")
 sys.path.insert(0, str(BASE))
@@ -359,6 +360,8 @@ def run_builtin_tools(task, destination, cfg, source_context="", route_sink=None
                                                template_demo, source_path, video_plan))
         elif request.pipeline in {"web_build", "document_deliverable", "cli_tool", "data_deliverable"}:
             results.append(_run_tool_loop(request, intent_text, destination, cfg))
+        elif request.pipeline == "test_fix":
+            results.append(_run_test_fix(request, destination, cfg))
         elif request.pipeline == "product_prototype":
             results.append(_run_product_pipeline(request, destination, model_enabled, source_path))
     return results
@@ -468,6 +471,94 @@ def _read_dataset(reference, project_root=None):
     return text, target.name, ""
 
 
+def _resolve_project(reference, project_root=None):
+    """Resolve a project the user named. Returns (path or None, error).
+
+    The repair loop writes into this directory, so the same confinement rules as
+    dataset reads apply, plus one: the target must be a directory (or a test file
+    whose project directory can be derived), never a bare file path.
+    """
+    reference = str(reference or "").strip()
+    if not reference:
+        return None, "no project directory was named in the request"
+    root = canonical_path(project_root or ROOT)
+    parts = reference.replace("\\", "/").split("/")
+    if reference.startswith(("/", "\\")) or ":" in reference or ".." in parts:
+        return None, "project path must be a relative path inside the project"
+    if any(part.startswith(".") for part in parts):
+        return None, "project path must not contain hidden or dot-directories"
+    try:
+        target = canonical_path(root / reference)
+    except (OSError, RuntimeError, ValueError):
+        return None, "project path could not be resolved"
+    if not is_within(target, root, allow_equal=False):
+        return None, "project path resolves outside the project"
+    if target.is_file():
+        # "fix the tests in tests/test_api.py" names a file but means its project.
+        target = target.parent
+        if target.name.lower() in {"tests", "test", "__tests__"}:
+            target = target.parent
+    if not target.is_dir():
+        return None, "project directory was not found"
+    return target, ""
+
+
+def _run_test_fix(request, destination, cfg):
+    """Run a project's suite, diagnose it, and keep a repair only if it verifies."""
+    allow_exec = os.environ.get("AGENT_HQ_ALLOW_EXEC", "").strip().lower() in {"1", "true", "yes", "on"}
+    artifact_dir = destination / "projects" / (destination.name + "-fix")
+    artifact_dir.mkdir(parents=True, exist_ok=True)
+    relative_out = safe_relative_path(artifact_dir, ROOT).as_posix()
+    project_dir, problem = _resolve_project(request.args.get("project"))
+    propose = None
+    if project_dir is not None and allow_exec:
+        call = tool_model_call(cfg)
+        if call is not None:
+            propose = test_fix.model_proposer(call, project_dir)
+    report = test_fix.diagnose(
+        project_dir if project_dir is not None else artifact_dir,
+        allow_exec=allow_exec and project_dir is not None,
+        title=str(request.args.get("title") or "") or (
+            f"Test report: {project_dir.name}" if project_dir is not None
+            else f"Test report: {destination.name}"),
+        propose=propose,
+    )
+    if problem:
+        report["no_run_reason"] = problem
+        report["green"] = False
+        report["verified_fix"] = False
+    test_fix.write_report(report, artifact_dir)
+    if report.get("verified_fix"):
+        status = "completed"
+    elif report.get("no_run_reason") or report.get("runs"):
+        status = "partial"
+    else:
+        status = "failed"
+    return {
+        "tool": "test_fix",
+        "status": status,
+        "deliverable": "fix",
+        "project": report.get("project", ""),
+        "command": report.get("command_text", ""),
+        "runs": len(report.get("runs") or []),
+        "tests_ran": report.get("tests_ran", 0),
+        "failures": len(report.get("failures") or []),
+        "repairs": len(report.get("repairs") or []),
+        "verified_fix": bool(report.get("verified_fix")),
+        "test_files_modified": bool(report.get("test_files_modified")),
+        "no_run_reason": report.get("no_run_reason", ""),
+        "artifact_dir": relative_out,
+        "artifacts": ["test-report.json", "fix-plan.md"],
+        "selected_by": request.pipeline,
+        "generation_mode": "local_model_test_repair" if propose else "deterministic_test_doctor",
+        "human_review_required": True,
+        "summary": (
+            "Suite passing after a verified repair." if report.get("verified_fix")
+            else report.get("no_run_reason") or "Suite still failing; diagnosis recorded."
+        )[:400],
+    }
+
+
 def _run_tool_loop(request, intent_text, destination, cfg):
     """Execute a web, document, CLI, or data deliverable in the confined tool loop."""
     deliverable = routing.PIPELINES_BY_ID[request.pipeline].deliverable
@@ -568,7 +659,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
 
     for result in tool_runs or []:
         tool = str(result.get("tool", ""))
-        if tool not in {"video_studio", "product_studio", "tool_agent"}:
+        if tool not in {"video_studio", "product_studio", "tool_agent", "test_fix"}:
             continue
 
         check = {
@@ -578,8 +669,9 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
             "checks": [],
             "errors": [],
         }
-        if tool == "tool_agent":
-            # The tool loop reports "partial" for a verified deterministic scaffold.
+        if tool in {"tool_agent", "test_fix"}:
+            # Both report "partial" when the artifact is honest but the work is not
+            # fully done: a scaffold for the tool loop, an unrepaired suite here.
             if result.get("status") not in {"completed", "partial"}:
                 check["reason"] = "Tool loop did not report a verified result; its failure is preserved."
                 checks.append(check)
@@ -927,6 +1019,53 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                 check["checks"].append("cli_parses_self_test_and_readme")
             if not nonempty_file(plan_path):
                 errors.append("Missing or empty artifact: tool-plan.json")
+        elif tool == "test_fix":
+            report_path = require_file(target, "test-report.json", errors)
+            plan_path = require_file(target, "fix-plan.md", errors)
+            if nonempty_file(report_path):
+                try:
+                    report = json.loads(report_path.read_text(encoding="utf-8"))
+                    if not isinstance(report, dict):
+                        raise ValueError("Test report must be a JSON object.")
+                    if report.get("schema") != 1:
+                        errors.append("Test report does not declare schema 1.")
+                    if report.get("human_review_required") is not True:
+                        errors.append("Test report must require human review.")
+                    if report.get("ai_generated") is not False:
+                        errors.append("Test report must not claim AI authorship.")
+                    if not str(report.get("project", "")).strip():
+                        errors.append("Test report names no project.")
+                    runs = report.get("runs")
+                    if not isinstance(runs, list):
+                        errors.append("Test report has no run history.")
+                        runs = []
+                    if not runs and not report.get("no_run_reason"):
+                        errors.append("Test report records no run and does not explain why.")
+                    if report.get("test_files_modified"):
+                        errors.append("A test file was modified; that is not a repair.")
+                    if report.get("verified_fix"):
+                        # A claimed fix must be backed by a green run and a repair
+                        # that the run itself confirmed.
+                        last = runs[-1] if runs else {}
+                        if last.get("exit_code") != 0 or last.get("green") is not True:
+                            errors.append("Test report claims a verified fix without a passing run.")
+                        verified_repairs = [item for item in report.get("repairs") or []
+                                            if isinstance(item, dict) and item.get("verified")]
+                        if not verified_repairs:
+                            errors.append("Test report claims a verified fix with no verified repair.")
+                    for failure in report.get("failures") or []:
+                        if isinstance(failure, dict) and not str(failure.get("test", "")).strip():
+                            errors.append("Test report contains a failure with no test name.")
+                            break
+                except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                    errors.append("Test report JSON could not be validated: " + str(exc)[:250])
+            if nonempty_file(plan_path):
+                plan = plan_path.read_text(encoding="utf-8", errors="replace")
+                if not plan.lstrip().startswith("# "):
+                    errors.append("Fix plan does not open with a level-1 heading.")
+                if "## Limits" not in plan:
+                    errors.append("Fix plan is missing the ## Limits section.")
+            check["checks"].append("test_report_diagnosis_and_verified_repair")
         elif tool == "product_studio":
             candidates = sorted(
                 child for child in target.iterdir()

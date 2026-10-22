@@ -70,6 +70,14 @@ standard-library CSV parsing, per-column profiling, and deterministic SVG/Markdo
 rendering. It never imports the tool loop, so it can be reasoned about (and re-run)
 on its own — `analyze.py` in a finished artifact is that module, driven by a CLI.
 
+`tools/test_fix.py` is the repair loop used by the `test_fix` pipeline. It runs a
+project's own `unittest` command, parses the failure out of the output, applies at
+most three repairs, and keeps a repair only when the following run passes. Code
+edits are reverted when they do not help; test files are hashed before and after
+and never edited. With no model it can still correct the two harness faults the
+output proves — a discovery pattern that skips `*_test.py`, or a `tests` directory
+unittest cannot import — and otherwise reports the failure instead of guessing.
+
 `tools/tool_agent.py` is the loop built on top of the registry:
 
 ```text
@@ -99,6 +107,7 @@ deliverable kind.
 | `web` | complete HTML document, `connect-src 'none'`, no external URLs |
 | `document` | `deliverable.md` opens with a level-1 heading and has an acceptance-criteria section; `deliverable.json` declares `ai_generated: false`, `human_review_required: true`, and non-empty criteria |
 | `cli` | `tool.py` parses as Python, exposes `--self-test`, and a README exists |
+| `fix` | `test-report.json` declares schema 1, names the project, requires human review, and explains itself when no run happened; a `verified_fix` claim needs a passing run and a verified repair; `test_files_modified` must be false; `fix-plan.md` has a Findings and a Limits section |
 | `data` | `summary.json` declares schema 1, profiles every column, claims no AI authorship or interpretation, and explains itself when empty; `analysis.md` has Findings and Limits; `chart.svg` is a complete SVG with no script or external reference; `analyze.py` parses as Python |
 
 The kind is fixed by the caller (the router), never by the plan: a plan describes

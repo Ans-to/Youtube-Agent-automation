@@ -213,6 +213,33 @@ PIPELINES: tuple[PipelineSpec, ...] = (
         requires="a local CSV/TSV file to measure; without one the artifact says so",
     ),
     PipelineSpec(
+        id="test_fix",
+        summary=("Run a project's Python tests, diagnose the failure, and repair it only "
+                 "when the suite passes afterwards."),
+        deliverable="fix",
+        executor="test_fix",
+        examples=(
+            "Fix the failing tests in the api-service project",
+            "Make the failing test suite pass in calculator",
+        ),
+        arguments={
+            "project": {"type": "string", "maxLength": 200,
+                        "pattern": r"^[A-Za-z0-9._\-]+(?:[/\\][A-Za-z0-9._\-]+)*$"},
+        },
+        vetoes=(
+            (r"(?i)\bwrite\s+(?:me\s+)?(?:some\s+|new\s+|unit\s+|more\s+)?tests?\b",
+             "the goal asks for tests to be written, not for a failing suite to be repaired"),
+        ),
+        policy=(
+            "A repair counts only when the suite passes afterwards; anything else is "
+            "reverted and reported as a diagnosis.",
+            "Test files are fingerprinted before and after; a green suite reached by "
+            "editing a test is reported as tampering, never as a fix.",
+            "Only Python unittest suites run; npm is not on the execution allowlist.",
+        ),
+        requires="a local Python project with tests; suite execution is opt-in",
+    ),
+    PipelineSpec(
         id="product_prototype",
         summary="Package a digital-product prototype with a README, status file, and archive.",
         deliverable="product_prototype",
@@ -398,6 +425,53 @@ def is_measurement_request(intent_text: str) -> bool:
     return bool(find_dataset_reference(text))
 
 
+TEST_TROUBLE = re.compile(
+    r"(?i)\b(?:failing|broken|red)\s+(?:unit\s+|integration\s+)?tests?\b"
+    r"|\btests?\s+(?:are|is|keep|keeps|kept)\s+(?:failing|broken|red)\b"
+    r"|\btest\s+suite\s+(?:is\s+|keeps?\s+)?(?:failing|broken|red)\b"
+    r"|\bmake\s+(?:the\s+|all\s+)?(?:unit\s+)?tests?\s+pass\b"
+    r"|\btest[- ](?:failure|failures|run)\b"
+)
+
+#: A repair request, as distinct from a request to write new tests. "Write tests for
+#: the CLI" and "fix the failing tests" share a noun and nothing else.
+FIX_VERB = re.compile(r"(?i)\b(?:fix|repair|debug|resolve|correct|make|get)\b")
+
+
+def is_test_fix_request(intent_text: str) -> bool:
+    """True when the request asks for a broken suite to be made to pass."""
+    text = str(intent_text or "")
+    return bool(TEST_TROUBLE.search(text) and FIX_VERB.search(text))
+
+
+def find_project_reference(intent_text: str) -> str:
+    """Return a project directory named in the request, or an empty string.
+
+    Only a relative path is returned. As with datasets, an absolute path or one
+    containing ``..`` is not carried into the arguments at all, so wording alone
+    cannot point the repair loop outside the project.
+    """
+    text = str(intent_text or "")
+    pattern = re.compile(r"[A-Za-z0-9._\-]+(?:[/\\][A-Za-z0-9._\-]+)+")
+    candidates = []
+    for match in pattern.finditer(text):
+        # A token that follows a separator is the tail of an absolute path; the
+        # leading separator must not be silently dropped.
+        if match.start() > 0 and text[match.start() - 1] in "/\\":
+            continue
+        candidates.append(match.group(0))
+    directories = [value for value in candidates if not value.lower().endswith((".py", ".csv", ".tsv"))]
+    for candidate in directories or candidates:
+        value = candidate.strip().rstrip(".,;:")
+        if not value or value.startswith(("/", "\\")) or ":" in value:
+            continue
+        if ".." in value.replace("\\", "/").split("/"):
+            continue
+        if len(value) <= 200:
+            return value
+    return ""
+
+
 #: Openings that ask for an explanation even when they start with a measurement
 #: verb — "explain how to analyse survey data" is a question, "analyse
 #: sales.csv" is work. The difference is grammatical mood, not vocabulary.
@@ -500,6 +574,12 @@ def heuristic_route(task: str, cfg: Mapping[str, Any] | None = None) -> Route:
         intent_lower,
     ))
     data_requested = is_measurement_request(intent)
+    testfix_requested = is_test_fix_request(intent)
+    if testfix_requested:
+        # Repairing an existing project produces a diagnosis and a verified patch,
+        # not a new artifact; nothing else should claim the same request.
+        web_requested = cli_requested = document_requested = data_requested = False
+        product_requested = False
     if web_requested or cli_requested or document_requested or data_requested:
         # A concrete artifact is the more specific deliverable; the product
         # packager is the fallback for everything else.
@@ -552,6 +632,16 @@ def heuristic_route(task: str, cfg: Mapping[str, Any] | None = None) -> Route:
         requests.append(RouteRequest(
             pipeline="data_deliverable", args=args,
             why="a dataset is named with a measurement verb",
+        ))
+
+    if testfix_requested:
+        args = {}
+        project = find_project_reference(intent)
+        if project:
+            args["project"] = project
+        requests.append(RouteRequest(
+            pipeline="test_fix", args=args,
+            why="a failing test suite is named with a repair verb",
         ))
 
     if document_requested:
@@ -757,7 +847,8 @@ def apply_policy(route: Route, intent_text: str) -> Route:
         route.requests = []
 
     if route.requests and not (re.search(BUILD_VERBS, intent_text.lower())
-                               or is_measurement_request(intent_text)):
+                               or is_measurement_request(intent_text)
+                               or is_test_fix_request(intent_text)):
         for request in route.requests:
             route.vetoed.append(f"{request.pipeline}: the request names no build verb")
         route.requests = []
