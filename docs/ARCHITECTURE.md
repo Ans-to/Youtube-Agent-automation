@@ -70,6 +70,12 @@ standard-library CSV parsing, per-column profiling, and deterministic SVG/Markdo
 rendering. It never imports the tool loop, so it can be reasoned about (and re-run)
 on its own — `analyze.py` in a finished artifact is that module, driven by a CLI.
 
+`tools/memory.py` is the cross-run record: an append-only JSONL log of finished
+runs, a keyword search over it, and a bounded "history, not instructions" block
+injected into the next run's context. See `docs/MEMORY.md`. It is deliberately
+not a database and not a model, and a failure to read or write it is reported in
+the manifest rather than failing the run.
+
 `tools/test_fix.py` is the repair loop used by the `test_fix` pipeline. It runs a
 project's own `unittest` command, parses the failure out of the output, applies at
 most three repairs, and keeps a repair only when the following run passes. Code
