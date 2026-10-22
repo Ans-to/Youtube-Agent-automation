@@ -156,6 +156,96 @@ class MemoryPressureTests(unittest.TestCase):
         self.assertEqual(self._plan(free=10 ** 10, available=int(6 * GIB))["warnings"], [])
 
 
+class FakeClock:
+    """A clock the test advances by hand, so budget arithmetic is exact."""
+
+    def __init__(self):
+        self.now = 1000.0
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+
+
+class RunBudgetTests(unittest.TestCase):
+    def _budget(self, total=600):
+        clock = FakeClock()
+        return resources.RunBudget(total, clock=clock), clock
+
+    def test_a_fresh_budget_has_all_of_its_time(self):
+        budget, _ = self._budget(600)
+        self.assertEqual(budget.remaining(), 600)
+        self.assertEqual(budget.spent(), 0)
+
+    def test_time_is_charged_as_it_passes(self):
+        budget, clock = self._budget(600)
+        clock.advance(120)
+        self.assertEqual(budget.spent(), 120)
+        self.assertEqual(budget.remaining(), 480)
+
+    def test_remaining_never_goes_negative(self):
+        budget, clock = self._budget(60)
+        clock.advance(10_000)
+        self.assertEqual(budget.remaining(), 0)
+        self.assertFalse(budget.can_start(1))
+
+    def test_a_stage_that_fits_is_allowed_and_one_that_does_not_is_refused(self):
+        budget, _ = self._budget(600)
+        self.assertTrue(budget.can_start(300))
+        self.assertFalse(budget.can_start(601))
+
+    def test_reserved_time_is_kept_back_for_later_work(self):
+        budget, _ = self._budget(600)
+        self.assertTrue(budget.can_start(200, reserve_seconds=300))
+        self.assertFalse(budget.can_start(400, reserve_seconds=300))
+
+    def test_the_reviewer_only_gets_a_reservation_when_it_is_still_ahead(self):
+        budget, _ = self._budget(600)
+        self.assertEqual(budget.reserve_for(reviewer_waiting=True, min_stage_seconds=150), 150)
+        self.assertEqual(budget.reserve_for(reviewer_waiting=False, min_stage_seconds=150), 0)
+
+    def test_a_slice_is_the_smaller_of_the_ceiling_and_what_is_left(self):
+        budget, clock = self._budget(600)
+        self.assertEqual(budget.slice_for(900), 600)
+        clock.advance(400)
+        self.assertEqual(budget.slice_for(900), 200)
+        self.assertEqual(budget.slice_for(900, reserve_seconds=100), 100)
+        clock.advance(1000)
+        self.assertEqual(budget.slice_for(900), 0)
+
+    def test_skipping_is_remembered_and_reported(self):
+        budget, _ = self._budget(600)
+        budget.note_stage("AGENT-02", 30)
+        budget.note_stage("AGENT-09", 0, skipped_reason="out of time")
+        record = budget.as_dict()
+        self.assertTrue(record["stopped_early"])
+        self.assertEqual(record["skipped"], ["AGENT-09"])
+        self.assertEqual(record["stages"][0], {"agent_id": "AGENT-02", "seconds": 30.0})
+
+    def test_a_run_inside_its_budget_is_not_reported_as_stopped(self):
+        budget, clock = self._budget(600)
+        budget.note_stage("AGENT-02", 30)
+        clock.advance(30)
+        record = budget.as_dict()
+        self.assertFalse(record["stopped_early"])
+        self.assertEqual(record["skipped"], [])
+        self.assertEqual(record["remaining_seconds"], 570)
+
+    def test_every_tier_has_a_budget_and_a_floor(self):
+        for tier in resources.TIERS:
+            with self.subTest(tier=tier):
+                limits = resources.TIER_LIMITS[tier]
+                self.assertGreater(limits["run_budget_seconds"], limits["min_stage_seconds"])
+
+    def test_a_bigger_machine_gets_more_time_not_less(self):
+        order = list(reversed(resources.TIERS))
+        for smaller, larger in zip(order[1:], order[:-1]):
+            self.assertLess(resources.TIER_LIMITS[smaller]["run_budget_seconds"],
+                            resources.TIER_LIMITS[larger]["run_budget_seconds"])
+
+
 class LimitsFromConfigTests(unittest.TestCase):
     def test_a_config_without_a_plan_behaves_like_balanced(self):
         self.assertEqual(resources.limits_from({}),
@@ -320,6 +410,103 @@ class PipelineRecordsThePlanTests(unittest.TestCase):
                     config={"model": {"enabled": False}},
                 )
         self.assertEqual(manifest["resources"]["tier"], "low")
+
+
+class PipelineBudgetTests(unittest.TestCase):
+    """A run must stop at the time it was given, and say what it did not do."""
+
+    def _run(self, directory, advance_per_stage, budget_minutes=None, cfg=None):
+        sys.path.insert(0, str(ROOT / "agents"))
+        import orchestrate
+
+        root = Path(directory)
+        workspace = root / "workspace"
+        workspace.mkdir(exist_ok=True)
+        clock = FakeClock()
+        real_budget = resources.RunBudget
+
+        def factory(total_seconds, **kwargs):
+            return real_budget(total_seconds, clock=clock, **kwargs)
+
+        def fake_role(role, task, context, cfg):
+            clock.advance(advance_per_stage)
+            if role["id"] == "AGENT-08":
+                return "# Review\n\nOVERALL QUALITY GATE: PASS"
+            return "# Draft\n\n" + role["id"]
+
+        with patch.object(orchestrate, "ROOT", root), \
+             patch.object(orchestrate, "WORKSPACE", workspace), \
+             patch.object(orchestrate, "run_builtin_tools", return_value=[]), \
+             patch.object(orchestrate.dispatch, "run_role", side_effect=fake_role), \
+             patch.object(orchestrate.resources, "RunBudget", side_effect=factory):
+            return orchestrate.run_pipeline(
+                "Write a short changelog for the release",
+                output_dir=workspace / "run-budget",
+                config=cfg or {"model": {"enabled": False}},
+                budget_minutes=budget_minutes,
+            )
+
+    def test_a_run_that_runs_out_of_time_skips_the_stages_it_cannot_finish(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination, manifest = self._run(directory, advance_per_stage=10_000,
+                                              budget_minutes=10)
+        budget = manifest["resources"]["budget"]
+        self.assertTrue(budget["stopped_early"])
+        self.assertTrue(budget["skipped"])
+        skipped = [item for item in manifest["pipeline"]
+                   if item.get("status") == "skipped_out_of_time"]
+        self.assertTrue(skipped)
+        self.assertTrue(all(item.get("reason") for item in skipped))
+
+    def test_a_skipped_stage_makes_the_run_partial_not_done(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _, manifest = self._run(directory, advance_per_stage=10_000, budget_minutes=10)
+        self.assertEqual(manifest["status"], "partial")
+
+    def test_the_final_reviewer_still_runs_when_the_budget_is_gone(self):
+        # Stopping with output nobody checked is worse than stopping earlier, so
+        # the gate is never the stage that gets skipped.
+        with tempfile.TemporaryDirectory() as directory:
+            _, manifest = self._run(directory, advance_per_stage=10_000, budget_minutes=10)
+        reviewer = [item for item in manifest["pipeline"] if item.get("agent_id") == "AGENT-08"]
+        self.assertTrue(reviewer)
+        self.assertNotEqual(reviewer[-1].get("status"), "skipped_out_of_time")
+
+    def test_a_run_inside_its_budget_finishes_every_stage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _, manifest = self._run(directory, advance_per_stage=5, budget_minutes=30)
+        budget = manifest["resources"]["budget"]
+        self.assertFalse(budget["stopped_early"])
+        self.assertNotEqual(manifest["status"], "partial")
+        self.assertTrue(all(item.get("status") != "skipped_out_of_time"
+                            for item in manifest["pipeline"]))
+
+    def test_the_budget_is_written_beside_the_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination, _ = self._run(directory, advance_per_stage=5, budget_minutes=30)
+            record = __import__("json").loads((destination / "budget.json").read_text())
+        self.assertIn("total_seconds", record)
+        self.assertEqual(record["total_seconds"], 1800)
+        self.assertIn("stages", record)
+
+    def test_every_stage_time_is_charged_to_the_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _, manifest = self._run(directory, advance_per_stage=5, budget_minutes=30)
+        stages = manifest["resources"]["budget"]["stages"]
+        self.assertTrue(stages)
+        self.assertTrue(all(entry["seconds"] >= 5 for entry in stages))
+
+    def test_the_budget_defaults_to_the_device_tier(self):
+        with tempfile.TemporaryDirectory() as directory:
+            _, manifest = self._run(directory, advance_per_stage=0.5)
+        budget = manifest["resources"]["budget"]
+        self.assertEqual(budget["total_seconds"],
+                         resources.TIER_LIMITS[manifest["resources"]["tier"]]["run_budget_seconds"])
+
+    def test_a_nonsense_budget_is_refused_rather_than_ignored(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaises(ValueError):
+                self._run(directory, advance_per_stage=1, budget_minutes="soon")
 
 
 if __name__ == "__main__":

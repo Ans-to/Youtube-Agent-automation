@@ -94,6 +94,11 @@ directly). The icon bytes come from `tools/make_icons.py`, which draws them with
 the standard library and can prove the committed files are its own output. See
 `docs/INSTALL.md`.
 
+The run's wall clock lives there too, as `RunBudget`: the orchestrator creates one
+per run, charges each stage as it finishes, and refuses to start a stage that
+cannot fit in what is left. The final reviewer keeps a reserved slot, and a run
+that skipped a stage is recorded as `partial`, never complete.
+
 `tools/resources.py` is the one place that decides how much work this machine
 should be asked to do. It turns hardware facts — cores, total and *available*
 memory, free disk — into a tier and a small set of integer limits, and every
