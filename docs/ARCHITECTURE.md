@@ -65,6 +65,11 @@ The planner-facing projection is `ToolRegistry.prompt_catalog()`, a compact JSON
 list of tool names, summaries, side effects, and input schemas. That catalog is
 what the planning prompt receives — the planner never sees the filesystem.
 
+`tools/data_analysis.py` is the measurement layer used by the `data` deliverable:
+standard-library CSV parsing, per-column profiling, and deterministic SVG/Markdown
+rendering. It never imports the tool loop, so it can be reasoned about (and re-run)
+on its own — `analyze.py` in a finished artifact is that module, driven by a CLI.
+
 `tools/tool_agent.py` is the loop built on top of the registry:
 
 ```text
@@ -94,6 +99,7 @@ deliverable kind.
 | `web` | complete HTML document, `connect-src 'none'`, no external URLs |
 | `document` | `deliverable.md` opens with a level-1 heading and has an acceptance-criteria section; `deliverable.json` declares `ai_generated: false`, `human_review_required: true`, and non-empty criteria |
 | `cli` | `tool.py` parses as Python, exposes `--self-test`, and a README exists |
+| `data` | `summary.json` declares schema 1, profiles every column, claims no AI authorship or interpretation, and explains itself when empty; `analysis.md` has Findings and Limits; `chart.svg` is a complete SVG with no script or external reference; `analyze.py` parses as Python |
 
 The kind is fixed by the caller (the router), never by the plan: a plan describes
 how to meet a request, not what was asked for.

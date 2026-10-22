@@ -357,7 +357,7 @@ def run_builtin_tools(task, destination, cfg, source_context="", route_sink=None
         if request.pipeline == "video_production":
             results.extend(_run_video_pipeline(request, destination, model_enabled,
                                                template_demo, source_path, video_plan))
-        elif request.pipeline in {"web_build", "document_deliverable", "cli_tool"}:
+        elif request.pipeline in {"web_build", "document_deliverable", "cli_tool", "data_deliverable"}:
             results.append(_run_tool_loop(request, intent_text, destination, cfg))
         elif request.pipeline == "product_prototype":
             results.append(_run_product_pipeline(request, destination, model_enabled, source_path))
@@ -422,11 +422,60 @@ def _run_video_pipeline(request, destination, model_enabled, template_demo, sour
     return ([blocked] if blocked is not None else []) + [tool_result]
 
 
+#: A dataset is read only from inside the project and only up to this size. The
+#: cap exists because the analysis runs on a phone: a 500 MB CSV would fail as a
+#: memory error halfway through a task instead of as a clear refusal.
+MAX_DATASET_BYTES = 2_000_000
+DATASET_SUFFIXES = (".csv", ".tsv")
+
+
+def _read_dataset(reference, project_root=None):
+    """Read one dataset named by a task. Returns (text, name, error).
+
+    Confinement matters here: this is the first pipeline that reads a file the
+    user named, so it must not become a way to read arbitrary disk content. The
+    path is resolved, confined to the project root, restricted to table suffixes,
+    and size-capped before a byte is read.
+    """
+    reference = str(reference or "").strip()
+    if not reference:
+        return "", "", "no dataset file was named in the request"
+    root = canonical_path(project_root or ROOT)
+    parts = reference.replace("\\", "/").split("/")
+    if reference.startswith(("/", "\\")) or ":" in reference or ".." in parts:
+        return "", "", "dataset path must be a relative path inside the project"
+    if any(part.startswith(".") for part in parts):
+        # A named dataset is input data, not a way to reach .git, .env or tooling
+        # directories. Dot-paths are refused rather than resolved and checked.
+        return "", "", "dataset path must not contain hidden or dot-directories"
+    candidate = root / reference
+    try:
+        target = canonical_path(candidate)
+    except (OSError, RuntimeError, ValueError):
+        return "", "", "dataset path could not be resolved"
+    if not is_within(target, root, allow_equal=False):
+        return "", "", "dataset path resolves outside the project"
+    if target.suffix.lower() not in DATASET_SUFFIXES:
+        return "", "", "only .csv and .tsv files are read"
+    if not target.is_file():
+        return "", "", "dataset file was not found"
+    try:
+        if target.stat().st_size > MAX_DATASET_BYTES:
+            return "", "", f"dataset is larger than the {MAX_DATASET_BYTES:,}-byte limit"
+        text = target.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return "", "", "dataset file could not be read"
+    return text, target.name, ""
+
+
 def _run_tool_loop(request, intent_text, destination, cfg):
-    """Execute a web, document, or CLI deliverable in the confined tool loop."""
+    """Execute a web, document, CLI, or data deliverable in the confined tool loop."""
     deliverable = routing.PIPELINES_BY_ID[request.pipeline].deliverable
-    suffix = {"web": "-web", "document": "-document", "cli": "-cli"}[deliverable]
+    suffix = {"web": "-web", "document": "-document", "cli": "-cli", "data": "-data"}[deliverable]
     allow_exec = os.environ.get("AGENT_HQ_ALLOW_EXEC", "").strip().lower() in {"1", "true", "yes", "on"}
+    data_text, data_name, data_error = "", "", ""
+    if deliverable == "data":
+        data_text, data_name, data_error = _read_dataset(request.args.get("source"))
     result = tool_agent.run_tool_agent(
         goal=intent_text,
         workspace_root=destination,
@@ -436,7 +485,10 @@ def _run_tool_loop(request, intent_text, destination, cfg):
         deliverable=deliverable,
         # A name the router read from the goal ("called photo-dedupe") is used
         # verbatim; the scaffold re-derives one when this is empty.
-        deliverable_name=str(request.args.get("name", "") or ""),
+        deliverable_name=str(request.args.get("name") or request.args.get("title") or ""),
+        data_text=data_text,
+        data_name=data_name,
+        data_reason=data_error,
     )
     result["tool"] = "tool_agent"
     result["selected_by"] = request.pipeline
@@ -805,6 +857,62 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                     except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
                         errors.append("Document metadata could not be validated: " + str(exc)[:250])
                 check["checks"].append("document_structure_metadata_and_acceptance_criteria")
+            elif deliverable == "data":
+                summary_path = require_file(target, "summary.json", errors)
+                report_path = require_file(target, "analysis.md", errors)
+                chart_path = require_file(target, "chart.svg", errors)
+                script_path = require_file(target, "analyze.py", errors)
+                if nonempty_file(summary_path):
+                    try:
+                        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+                        if not isinstance(summary, dict):
+                            raise ValueError("Dataset summary must be a JSON object.")
+                        if summary.get("schema") != 1:
+                            errors.append("Dataset summary does not declare schema 1.")
+                        if not isinstance(summary.get("columns"), list):
+                            errors.append("Dataset summary has no column list.")
+                        if not isinstance(summary.get("columns_detail"), dict):
+                            errors.append("Dataset summary has no per-column profile.")
+                        rows = summary.get("rows")
+                        if not isinstance(rows, int) or isinstance(rows, bool) or rows < 0:
+                            errors.append("Dataset summary reports an invalid row count.")
+                        if summary.get("ai_generated") is not False:
+                            errors.append("Dataset summary must not claim AI authorship.")
+                        if summary.get("interpretation_performed") is not False:
+                            errors.append("Dataset summary must not claim interpretation.")
+                        if summary.get("human_review_required") is not True:
+                            errors.append("Dataset summary must require human review.")
+                        # A summary with rows but no profile (or the reverse) is a
+                        # claim that was never measured.
+                        if rows and not summary.get("columns_detail"):
+                            errors.append("Dataset summary reports rows but profiles no columns.")
+                        if not rows and not summary.get("no_data_reason"):
+                            errors.append("Empty dataset summary does not explain why nothing was measured.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Dataset summary could not be validated: " + str(exc)[:250])
+                if nonempty_file(report_path):
+                    report = report_path.read_text(encoding="utf-8", errors="replace")
+                    if not report.lstrip().startswith("# "):
+                        errors.append("Analysis report does not open with a level-1 heading.")
+                    for section in ("## Findings", "## Limits"):
+                        if section not in report:
+                            errors.append("Analysis report is missing the " + section + " section.")
+                if nonempty_file(chart_path):
+                    chart = chart_path.read_text(encoding="utf-8", errors="replace")
+                    if "<svg" not in chart or "</svg>" not in chart:
+                        errors.append("Chart is not a complete SVG document.")
+                    if "<script" in chart.lower():
+                        errors.append("Chart contains a script element; charts must be inert.")
+                    external = [url for url in re.findall(r"https?://[^\s\"'<>]+", chart)
+                                if "www.w3.org/2000/svg" not in url]
+                    if external:
+                        errors.append("Chart references external resources: " + ", ".join(sorted(set(external))[:3]))
+                if nonempty_file(script_path):
+                    try:
+                        ast.parse(script_path.read_text(encoding="utf-8", errors="replace"))
+                    except (SyntaxError, ValueError) as exc:
+                        errors.append("Analyzer script is not valid Python: " + str(exc)[:200])
+                check["checks"].append("data_summary_report_chart_and_analyzer")
             elif deliverable == "cli":
                 cli_path = require_file(target, "tool.py", errors)
                 require_file(target, "README.md", errors)

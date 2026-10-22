@@ -56,11 +56,13 @@ ModelCall = Callable[[str, int], str]
 # Pipelines that write files through the confined tool loop. One run per task:
 # two of them would produce two unrelated workspaces and two competing claims
 # about what the deliverable is.
-TOOL_LOOP_PIPELINES = ("web_build", "document_deliverable", "cli_tool")
+TOOL_LOOP_PIPELINES = ("web_build", "document_deliverable", "cli_tool", "data_deliverable")
 
 BUILD_VERB_WORDS = (
     "build|create|make|generate|produce|develop|implement|write|draft|compose"
     "|design|code|render|export|assemble|scaffold|prototype"
+    # Measurement is production for a dataset: the artifact is the profile.
+    "|analyze|analyse|summarize|summarise|chart|plot|profile|visualize|visualise"
 )
 BUILD_VERBS = r"\b(?:" + BUILD_VERB_WORDS + r")\b"
 
@@ -186,6 +188,29 @@ PIPELINES: tuple[PipelineSpec, ...] = (
                             "pattern": r"^[a-z][a-z0-9_-]*$"}},
         vetoes=(),
         policy=("Python standard library only; no package installation, no network.",),
+    ),
+    PipelineSpec(
+        id="data_deliverable",
+        summary="Profile a local CSV/TSV and chart it: real column statistics, no interpretation.",
+        deliverable="data",
+        executor="tool_agent",
+        examples=(
+            "Analyse sales.csv and chart the units column",
+            "Summarise this dataset and give me a chart",
+        ),
+        arguments={
+            "title": {"type": "string", "maxLength": 100},
+            "source": {"type": "string", "maxLength": 200,
+                       "pattern": r"^[A-Za-z0-9._\-]+(?:[/\\][A-Za-z0-9._\-]+)*$"},
+        },
+        vetoes=(),
+        policy=(
+            "Reports counts, ranges and central tendency only; no trend, correlation "
+            "or causal claim is computed or implied.",
+            "Reads one local file inside the project, capped at 2 MB; it never fetches "
+            "data from the network.",
+        ),
+        requires="a local CSV/TSV file to measure; without one the artifact says so",
     ),
     PipelineSpec(
         id="product_prototype",
@@ -328,10 +353,74 @@ def requested_narration_language(text: str):
     return "en" if selected.strip().lower() in {"english", "en"} else "ur-en"
 
 
+DATASET_SUFFIXES = (".csv", ".tsv")
+
+
+def find_dataset_reference(intent_text: str) -> str:
+    """Return a dataset filename named in the request, or an empty string.
+
+    Only a relative path is accepted. An absolute path or one containing ``..`` is
+    not returned at all, so a task cannot point the reader outside the project by
+    wording alone.
+    """
+    for match in re.finditer(r"[A-Za-z0-9._/\\-]+\.(?:csv|tsv)", str(intent_text or ""), re.IGNORECASE):
+        candidate = match.group(0).strip()
+        if not candidate or candidate.startswith(("/", "\\")) or ":" in candidate:
+            continue
+        if ".." in candidate.split("/") or ".." in candidate.split("\\"):
+            continue
+        if len(candidate) <= 200:
+            return candidate
+    return ""
+
+
+#: Verbs that produce an artifact from data rather than prose from a model.
+MEASUREMENT_VERBS = (
+    r"(?:analy[sz]e|analys(?:is|e)|summari[sz]e|summar(?:y|ise)|chart|plot|profile"
+    r"|visuali[sz]e|break\s*down|breakdown|tabulate)"
+)
+
+
+def is_measurement_request(intent_text: str) -> bool:
+    """True when the request asks for a dataset to be measured.
+
+    Kept separate from the verb list because "analyse my landing page" is advice
+    and "analyse sales.csv" is work; the difference is the dataset, not the verb.
+    """
+    text = str(intent_text or "")
+    lowered = text.lower()
+    if re.search(MEASUREMENT_VERBS + r"\b[^\n]{0,60}"
+                 r"\b(?:csv|tsv|dataset|data set|spreadsheet|table|numbers|data)\b", lowered):
+        return True
+    if re.search(r"\b(?:csv|tsv|spreadsheet|dataset)\b[^\n]{0,60}"
+                 r"\b(?:chart|plot|report|summary|analy[sz]|profile|breakdown|summar)\b", lowered):
+        return True
+    return bool(find_dataset_reference(text))
+
+
+#: Openings that ask for an explanation even when they start with a measurement
+#: verb — "explain how to analyse survey data" is a question, "analyse
+#: sales.csv" is work. The difference is grammatical mood, not vocabulary.
+QUESTION_OPENING = re.compile(
+    r"(?i)^\s*(?:how\s+(?:do|can|would|should|to)\b|what\s+(?:is|are|would|should)\b"
+    r"|why\b|explain\b|compare\b|tell\s+me\b|should\s+i\b|could\s+i\b|can\s+i\b"
+    r"|is\s+it\b|are\s+there\b|recommend\b|suggest\b|review\b|critique\b"
+    r"|describe\b|brainstorm\b|ideas?\b)"
+)
+
+
 def is_advisory(intent_text: str) -> bool:
     """True when the request asks for an answer rather than an artifact."""
     text = str(intent_text or "").strip()
-    return bool(ADVISORY_OPENING.match(text)) and not PRODUCE_MARKER.search(text)
+    if PRODUCE_MARKER.search(text):
+        return False
+    if QUESTION_OPENING.match(text):
+        return True
+    if not ADVISORY_OPENING.match(text):
+        return False
+    # "Analyse sales.csv" and "summarise this dataset" start with verbs that also
+    # appear in questions; naming a dataset settles it as work.
+    return not is_measurement_request(text)
 
 
 # ---------------------------------------------------------------------------
@@ -410,10 +499,15 @@ def heuristic_route(task: str, cfg: Mapping[str, Any] | None = None) -> Route:
         r"|spec(?:ification)?|guide|checklist|outline|proposal|policy\s+document)\b",
         intent_lower,
     ))
-    if web_requested or cli_requested or document_requested:
+    data_requested = is_measurement_request(intent)
+    if web_requested or cli_requested or document_requested or data_requested:
         # A concrete artifact is the more specific deliverable; the product
         # packager is the fallback for everything else.
         product_requested = False
+    if data_requested:
+        # A measured report outranks a written-document scaffold: it is the same
+        # request, answered with numbers instead of headings.
+        document_requested = False
 
     if video_requested:
         instructions = video_instructions(intent)
@@ -444,6 +538,20 @@ def heuristic_route(task: str, cfg: Mapping[str, Any] | None = None) -> Route:
             pipeline="cli_tool",
             args={"name": name_match.group(1)} if name_match else {},
             why="a command-line tool is named with a build verb",
+        ))
+
+    if data_requested:
+        title_match = re.search(
+            r"(?i)\b(?:called|named|titled)\s+[`'\"]?([^.;\n]{1,80})", intent)
+        args: dict[str, Any] = {}
+        if title_match:
+            args["title"] = title_match.group(1).strip()[:100]
+        source = find_dataset_reference(intent)
+        if source:
+            args["source"] = source
+        requests.append(RouteRequest(
+            pipeline="data_deliverable", args=args,
+            why="a dataset is named with a measurement verb",
         ))
 
     if document_requested:
@@ -648,7 +756,8 @@ def apply_policy(route: Route, intent_text: str) -> Route:
                 "not for an artifact this pipeline can produce")
         route.requests = []
 
-    if route.requests and not re.search(BUILD_VERBS, intent_text.lower()):
+    if route.requests and not (re.search(BUILD_VERBS, intent_text.lower())
+                               or is_measurement_request(intent_text)):
         for request in route.requests:
             route.vetoed.append(f"{request.pipeline}: the request names no build verb")
         route.requests = []
