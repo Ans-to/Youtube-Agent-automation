@@ -191,9 +191,20 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
         bright = voiceover.normalise_brightness(bright)
         if len(bright) < expected:
             bright = bright + [bright[-1] if bright else 0.5] * (expected - len(bright))
+        # Same articulation measurement the synthesised path uses, so an
+        # imported narration gets the same lip sync as a generated one.
+        analyser = getattr(voiceover, "estimate_visemes", None)
+        formatter = getattr(voiceover, "as_renderer_channels", None)
+        visemes = (formatter(analyser(window, rate, fps=fps))
+                   if analyser and formatter else [])
+        if len(visemes) < expected:
+            filler = visemes[-1] if visemes else {"open": 0.02, "wide": 0.28,
+                                                  "round": 0.1, "teeth": 0.0, "press": 0.9}
+            visemes = visemes + [dict(filler)] * (expected - len(visemes))
         envelope.append({"id": item["id"], "start": item["start"], "end": item["end"],
                          "fps": fps, "openness": values[:expected],
-                         "brightness": bright[:expected]})
+                         "brightness": bright[:expected],
+                         "visemes": visemes[:expected]})
     (out_dir / "envelope.json").write_text(
         json.dumps({"fps": fps, "lines": envelope}, indent=2) + "\n", encoding="utf-8")
 

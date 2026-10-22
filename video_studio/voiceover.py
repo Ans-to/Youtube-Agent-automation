@@ -50,6 +50,17 @@ try:  # numpy makes the DSP honest rather than approximate
 except ImportError:  # pragma: no cover - the fallback is slow but correct
     np = None
 
+# Articulation analysis needs numpy. The loudness fallback below does not, so a
+# missing numpy must not turn into an import error for the whole module.
+try:
+    from .visemes import estimate_visemes, as_renderer_channels
+except ImportError:  # running as a script rather than a package, or no numpy
+    try:
+        from visemes import estimate_visemes, as_renderer_channels
+    except ImportError:  # pragma: no cover - exercised on numpy-less installs
+        estimate_visemes = None
+        as_renderer_channels = None
+
 ROOT = Path(__file__).resolve().parents[1]
 VOICE_DIR = ROOT / "video_studio" / "voices"
 DEFAULT_VOICE = "en_US-lessac-medium"
@@ -574,9 +585,18 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
         bright = normalise_brightness(bright)
         if len(bright) < expected:
             bright = bright + [bright[-1] if bright else 0.5] * (expected - len(bright))
+        # Articulation, measured from the spectrum rather than the loudness:
+        # this is what separates a /p/ from an /a/ at the same volume.
+        visemes = (as_renderer_channels(estimate_visemes(window, SAMPLE_RATE, fps=fps))
+                   if estimate_visemes and as_renderer_channels else [])
+        if len(visemes) < expected:
+            filler = visemes[-1] if visemes else {"open": 0.02, "wide": 0.28,
+                                                  "round": 0.1, "teeth": 0.0, "press": 0.9}
+            visemes = visemes + [dict(filler)] * (expected - len(visemes))
         envelope.append({"id": item["id"], "start": item["start"], "end": item["end"],
                          "fps": fps, "openness": values[:expected],
-                         "brightness": bright[:expected]})
+                         "brightness": bright[:expected],
+                         "visemes": visemes[:expected]})
     (out_dir / "envelope.json").write_text(
         json.dumps({"fps": fps, "lines": envelope}, indent=2) + "\n", encoding="utf-8")
 

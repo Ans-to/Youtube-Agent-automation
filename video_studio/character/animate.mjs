@@ -180,11 +180,26 @@ export function wavePose(t, { at = 0, dur = 1.6, scale = 1 } = {}) {
  * `{open, bright}`; the second form is what the pipeline writes now.
  */
 function readAudioFrame(sample) {
-  if (sample === null || sample === undefined) return { open: 0, bright: 0.5 };
-  if (typeof sample === 'number') return { open: clamp01(sample), bright: 0.5 };
+  if (sample === null || sample === undefined) return { open: 0, bright: 0.5, vis: null };
+  if (typeof sample === 'number') return { open: clamp01(sample), bright: 0.5, vis: null };
+  // `vis` is a *measured* viseme from the acoustic analyser (formant-based
+  // articulation). When it is present the mouth is drawn from it directly
+  // instead of being reconstructed from loudness.
+  const raw = sample.vis || sample.viseme || null;
+  let vis = null;
+  if (raw && typeof raw === 'object') {
+    vis = {
+      open: clamp01(raw.open || 0),
+      wide: clamp01(raw.wide === undefined ? 0.5 : raw.wide),
+      round: clamp01(raw.round === undefined ? 0.3 : raw.round),
+      teeth: clamp01(raw.teeth || 0),
+      press: clamp01(raw.press || 0),
+    };
+  }
   return {
     open: clamp01(sample.open === undefined ? sample.openness : sample.open),
     bright: sample.bright === undefined ? 0.5 : clamp01(sample.bright),
+    vis,
   };
 }
 
@@ -206,6 +221,24 @@ export function mouthFromAudio(t, envelope, opts = {}) {
   const now = readAudioFrame(envelope(t));
   const before = readAudioFrame(envelope(t - 0.033));
   const after = readAudioFrame(envelope(t + 0.033));
+
+  // --- measured articulation ------------------------------------------------
+  // When the analyser supplied a viseme, use it. The mouth then reflects which
+  // sounds are being made (a /p/ closure, an /s/, an open /a/) rather than how
+  // loud the frame is, which is the difference between lip sync and a flap.
+  if (now.vis) {
+    const blend = (a, b) => (b && b.vis ? (a + b.vis.open) * 0.5 : a);
+    const lead = now.vis;
+    const prev = before.vis;
+    const next = after.vis;
+    // a little temporal shaping only: the analyser already smoothed coarticulation
+    const open = clamp01(lead.open * 0.86 + blend(lead.open, next) * 0.14);
+    const wide = clamp01(prev && next ? (lead.wide * 0.7 + prev.wide * 0.15 + next.wide * 0.15) : lead.wide);
+    const round = clamp01(prev && next ? (lead.round * 0.7 + prev.round * 0.15 + next.round * 0.15) : lead.round);
+    const teeth = clamp01(lead.teeth);
+    const press = clamp01(lead.press);
+    return { open, wide, round, teeth, press };
+  }
 
   // Jaw: fast attack (a syllable is already open when its energy peaks) and a
   // slower release, plus a little anticipation from the frame ahead so the mouth
