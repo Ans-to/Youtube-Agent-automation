@@ -30,6 +30,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 SCHEMA = 1
@@ -51,6 +52,8 @@ TIER_LIMITS = {
         "test_timeout_seconds": 60,
         "test_max_attempts": 1,
         "min_free_disk_bytes": 200_000_000,
+        "run_budget_seconds": 1_200,
+        "min_stage_seconds": 90,
     },
     "low": {
         "max_parallel_heavy_jobs": 1,
@@ -63,6 +66,8 @@ TIER_LIMITS = {
         "test_timeout_seconds": 90,
         "test_max_attempts": 2,
         "min_free_disk_bytes": 500_000_000,
+        "run_budget_seconds": 1_800,
+        "min_stage_seconds": 120,
     },
     "balanced": {
         "max_parallel_heavy_jobs": 1,
@@ -75,6 +80,8 @@ TIER_LIMITS = {
         "test_timeout_seconds": 120,
         "test_max_attempts": 3,
         "min_free_disk_bytes": 1_000_000_000,
+        "run_budget_seconds": 3_600,
+        "min_stage_seconds": 150,
     },
     "high": {
         "max_parallel_heavy_jobs": 1,
@@ -87,6 +94,8 @@ TIER_LIMITS = {
         "test_timeout_seconds": 180,
         "test_max_attempts": 3,
         "min_free_disk_bytes": 2_000_000_000,
+        "run_budget_seconds": 10_800,
+        "min_stage_seconds": 240,
     },
 }
 
@@ -286,6 +295,77 @@ def plan(profile="auto", *, cpu_count=None, ram_bytes=None, free_disk_bytes=None
         "never_changes": list(NEVER_CHANGED_BY_TIER),
         "reasons": reasons,
     }
+
+
+class RunBudget:
+    """The wall clock one run is allowed to use, shared by every stage.
+
+    Per-stage ceilings are not a budget: seven stages that each stay inside their
+    own timeout can still add up to a run nobody planned for. This object is the
+    total, and it answers the only question a stage needs to ask — is there enough
+    time left to be worth starting?
+
+    A stage that cannot fit is **not run at all**. Half a stage produces half a
+    deliverable, and a truncated stage that reports success is worse than one that
+    never started. Time already spent is charged as it happens, so a run that
+    stops early can say exactly where the budget went.
+    """
+
+    def __init__(self, total_seconds, clock=time.monotonic, started_at=None):
+        self.total = max(0, int(total_seconds))
+        self._clock = clock
+        self._started = clock() if started_at is None else started_at
+        self.stages = []
+        self.skipped = []
+
+    def timestamp(self):
+        """The clock this run is measured against.
+
+        Stages time themselves with this rather than calling `time.monotonic`
+        directly, so there is exactly one notion of "now" in a run and the
+        per-stage figures add up to the total.
+        """
+        return self._clock()
+
+    def spent(self):
+        return max(0.0, self._clock() - self._started)
+
+    def remaining(self):
+        return max(0.0, self.total - self.spent())
+
+    def reserve_for(self, *, reviewer_waiting, min_stage_seconds):
+        """Time that must be kept back for work still to come.
+
+        The final reviewer is kept a slot unconditionally: a run that spent its
+        whole budget on drafting and then had no time to check itself produced
+        output nobody is allowed to trust.
+        """
+        return int(min_stage_seconds) if reviewer_waiting else 0
+
+    def can_start(self, need_seconds, reserve_seconds=0):
+        return self.remaining() - int(reserve_seconds) >= int(need_seconds)
+
+    def note_stage(self, agent_id, seconds, skipped_reason=""):
+        entry = {"agent_id": str(agent_id)[:20], "seconds": round(float(seconds), 1)}
+        if skipped_reason:
+            entry["skipped"] = str(skipped_reason)[:160]
+            self.skipped.append(entry)
+        self.stages.append(entry)
+
+    def slice_for(self, ceiling_seconds, reserve_seconds=0):
+        """The smaller of a per-step ceiling and what is actually left."""
+        return max(0, int(min(int(ceiling_seconds), self.remaining() - int(reserve_seconds))))
+
+    def as_dict(self):
+        remaining = self.remaining()
+        return {
+            "total_seconds": self.total,
+            "spent_seconds": round(self.spent(), 1),
+            "remaining_seconds": round(remaining, 1),
+            "stopped_early": bool(self.skipped),
+            "stages": list(self.stages),
+            "skipped": [entry["agent_id"] for entry in self.skipped],
+        }
 
 
 def limits_from(cfg):

@@ -13,7 +13,7 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 979 tests, quality gate 77/77, invariant check |
+| Offline operation, no key | **Done** | 998 tests, quality gate 77/77, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
@@ -22,8 +22,8 @@ committed.
 | Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 22 rules, local vision evidence, honest unverified states |
 | Professional motion design (L4) | **Partial - direction + spec layer done** | `video_studio/motion/`, 6 designed transitions, 9 camera moves, bundled Inter/Space Grotesk, bezier/anticipation/follow-through, `docs/MOTION.md`; asset import and character rig still limited |
 | Task routing (which pipeline runs) | **Done for the 7 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 96 tests |
-| General task automation (L3) | **Partial** | Routing plus web/document/CLI/data builds and bounded test repair; no multi-artifact plans; memory records, recalls and resumes a run, but no shared budget across stages |
-| Cross-run memory and resume | **Partial** | `tools/memory.py`, `tests/test_memory.py` + `tests/test_resume.py` (49 tests): runs are recorded, recalled by keyword, injected as history, and `--resume` continues the unfinished stages of a run; shared budgets and diff review still open |
+| General task automation (L3) | **Partial** | Routing plus web/document/CLI/data builds and bounded test repair, under one shared wall-clock budget that skips stages it cannot finish (`docs/ADAPTIVE.md`); multi-artifact plans still missing |
+| Cross-run memory and resume | **Done for record, recall, resume and review** | `tools/memory.py`, `--resume`, `tools/review.py`, and one shared run budget; still one task per run |
 | Installs as an app (Windows + Android) | **Done for the web-app path** | `web/manifest.webmanifest`, `tools/make_icons.py`, `docs/INSTALL.md`: real PNG icons at 192/512 plus a maskable one, served as `image/png`, precached by the service worker, and a launcher that opens the app and explains a busy port. Not a native `.exe`/`.apk` |
 | Running on a weak machine | **Done for batch limits** | `tools/resources.py`, `docs/ADAPTIVE.md`, 41 tests: four tiers, one heavy job at a time, tier-bounded model wait, dataset ceiling, repair count and suite timeout, memory-pressure downgrade, low-disk warning; recorded in every manifest |
 | Code quality of local models | **Gap** | Small models route well but write weak code |

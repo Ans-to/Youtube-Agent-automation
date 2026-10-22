@@ -598,7 +598,8 @@ def _run_tool_loop(request, intent_text, destination, cfg):
         data_name=data_name,
         data_reason=data_error,
         max_repairs=resources.limits_from(cfg)["tool_max_repairs"],
-        max_seconds=resources.limits_from(cfg)["tool_loop_max_seconds"],
+        max_seconds=max(1, min(resources.limits_from(cfg)["tool_loop_max_seconds"],
+                               cfg.get("_build_seconds") or resources.limits_from(cfg)["tool_loop_max_seconds"])),
         timeout_seconds=resources.limits_from(cfg)["tool_loop_timeout_seconds"],
     )
     result["resource_tier"] = (cfg.get("_resources") or {}).get("tier", "unknown")
@@ -1190,7 +1191,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
     return checks
 
 def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None, note="",
-                 resume=False):
+                 resume=False, budget_minutes=None):
     if not isinstance(task, str) or not task.strip() or len(task) > 20000:
         raise ValueError("Task must be 1–20,000 characters.")
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
@@ -1207,6 +1208,16 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
     )
     resource_plan = resources.plan(requested_profile, base_path=str(ROOT))
     cfg["_resources"] = resource_plan
+    # One clock for the whole run. Every stage asks it whether there is still
+    # time to be worth starting, and the answer is written down at the end.
+    limits = resources.limits_from(cfg)
+    budget_seconds = limits["run_budget_seconds"]
+    if budget_minutes is not None:
+        try:
+            budget_seconds = max(60, min(int(float(budget_minutes) * 60), 12 * 3600))
+        except (TypeError, ValueError):
+            raise ValueError("budget_minutes must be a number of minutes.")
+    run_budget = resources.RunBudget(budget_seconds)
     destination = canonical_path(output_dir) if output_dir else canonical_path(WORKSPACE / "orchestration" / slug(task[:80]))
     workspace_root = canonical_path(WORKSPACE)
     if destination == workspace_root or not is_within(destination, workspace_root, allow_equal=False):
@@ -1303,7 +1314,35 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
                           index, len(assignments), agent_id, role["name"])
             combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + reused)[-24000:]
             continue
+        reviewer_waiting = any(
+            item.get("agent_id") == "AGENT-08" for item in assignments[index:]
+        )
+        stage_seconds = limits["min_stage_seconds"]
+        tail_reserve = run_budget.reserve_for(reviewer_waiting=reviewer_waiting,
+                                              min_stage_seconds=stage_seconds)
+        is_reviewer = agent_id == "AGENT-08"
+        # The reviewer runs while any time at all is left: stopping with output
+        # that was never checked is worse than stopping before starting.
+        if not is_reviewer and not run_budget.can_start(stage_seconds, tail_reserve):
+            reason = ("the run budget of " + str(int(run_budget.total // 60)) + " minutes was "
+                      + "exhausted with " + str(int(run_budget.remaining() // 60)) + " minutes left")
+            run_budget.note_stage(agent_id, 0, skipped_reason=reason)
+            records.append({
+                "sequence": index, "agent_id": agent_id, "role": role["name"],
+                "assigned_task": specialist_task, "output_file": "",
+                "status": "skipped_out_of_time", "retry_count": 0,
+                "research_status": "not_attempted", "research_reports": [],
+                "research_pages_attempted": 0, "research_pages_fetched": 0,
+                "quality_gate": None,
+                "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
+                "reason": reason,
+            })
+            save_progress("running", "Stage skipped " + str(index) + "/" + str(len(assignments)),
+                          agent_id + " was not started: " + reason + ".",
+                          index, len(assignments), agent_id, role["name"])
+            continue
         resume_plan["stages_run"] += 1
+        stage_started = run_budget.timestamp()
         save_progress("running", "Specialist stage " + str(index) + "/" + str(len(assignments)), agent_id + " / " + role["name"] + " is researching and producing its assigned deliverable.", index - 1, len(assignments), agent_id, role["name"])
         instruction = (
             "OVERALL USER GOAL:\n" + task.strip()
@@ -1389,8 +1428,10 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
                 "research_pages_fetched": research_pages_fetched,
                 "error_type": type(exc).__name__, "error": str(exc)[:500],
                 "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
+                "seconds": round(run_budget.timestamp() - stage_started, 1),
             }
             records.append(failure)
+            run_budget.note_stage(agent_id, run_budget.timestamp() - stage_started)
             save_progress("running", "Recovering from specialist failure", agent_id + " failed; the failure and available research were saved, and later stages will continue.", index, len(assignments), agent_id, role["name"])
             combined_context = (
                 combined_context + "\n\n--- " + role["name"] + " stage failure and preserved research ---\n"
@@ -1430,7 +1471,9 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
             "research_pages_attempted": pages_attempted, "research_pages_fetched": pages_fetched,
             "quality_gate": quality_gate if agent_id == "AGENT-08" else None,
             "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
+            "seconds": round(run_budget.timestamp() - stage_started, 1),
         })
+        run_budget.note_stage(agent_id, run_budget.timestamp() - stage_started)
         combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + result)[-24000:]
     repair_attempt = {"attempted": False, "status": "not_needed", "reason": ""}
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
@@ -1551,6 +1594,13 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
     )[:40000]
     save_progress("running", "Artifact generation", "Specialist stages finished; building selected artifacts and preparing the final quality status.", len(assignments), len(assignments))
     route_sink = {}
+    # The builder gets the smaller of its own ceiling and what is left, so a long
+    # build cannot consume the reviewer's reserved time or push the run past the
+    # budget the user chose.
+    build_seconds = run_budget.slice_for(limits["tool_loop_max_seconds"])
+    # Kept beside the plan rather than written into it: the plan says what this
+    # machine may do, this says what was actually left when the builder started.
+    cfg["_build_seconds"] = build_seconds
     tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context,
                                   route_sink=route_sink)
     route = route_sink.get("route")
@@ -1568,18 +1618,26 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
     reviewer_gate = reviewer_record.get("quality_gate", "unconfirmed")
     specialist_failed = any(item.get("status") == "failed" for item in records)
+    stages_skipped = [item for item in records if item.get("status") == "skipped_out_of_time"]
     final_status = "failed" if required_tool_failed else (
         "blocked" if required_tool_blocked else (
             "review_failed" if reviewer_gate == "fail" else (
-                "partial" if specialist_failed or reviewer_gate in {"partial", "unconfirmed"} else "draft"
+                "partial" if specialist_failed or stages_skipped or reviewer_gate in {"partial", "unconfirmed"} else "draft"
             )
         )
     )
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks, routing=routing_record)
+    budget_record = run_budget.as_dict()
+    budget_record["stage_budget_seconds"] = limits["min_stage_seconds"]
+    budget_record["build_seconds_allowed"] = build_seconds
+    if isinstance(manifest.get("resources"), dict):
+        manifest["resources"]["budget"] = budget_record
     manifest["repair_attempt"] = repair_attempt
     manifest["resume"] = dict(resume_plan)
     manifest["change_review"] = change_review
     manifest["memory"] = _record_run_memory(store, memory_enabled, task, manifest, note, prior_runs, tool_runs)
+    (destination / "budget.json").write_text(
+        json.dumps(budget_record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
     save_progress(progress_status, "Pipeline complete", "Pipeline ended with status: " + final_status + "; final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")) + ".", len(assignments), len(assignments))
@@ -1703,6 +1761,21 @@ def _record_run_memory(store, enabled, task, manifest, note, prior_runs, tool_ru
     return record
 
 
+def format_duration(seconds):
+    """Seconds as a short human string: 42s, 3m 05s, 1h 12m."""
+    try:
+        total = max(0, int(round(float(seconds))))
+    except (TypeError, ValueError):
+        return "unknown"
+    if total < 60:
+        return str(total) + "s"
+    minutes, rest = divmod(total, 60)
+    if minutes < 60:
+        return str(minutes) + "m " + str(rest).zfill(2) + "s"
+    hours, minutes = divmod(minutes, 60)
+    return str(hours) + "h " + str(minutes).zfill(2) + "m"
+
+
 def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None, artifact_checks=None, routing=None):
     return {
         "resources": dict(cfg.get("_resources") or {}),
@@ -1738,6 +1811,8 @@ def main():
                         help="do not read or write the workspace run memory")
     parser.add_argument("--resume", action="store_true",
                         help="reuse stages already finished in this output directory")
+    parser.add_argument("--budget-minutes", type=float, default=None,
+                        help="total wall-clock budget for the run (default: from the device tier)")
     parser.add_argument("--profile", default="",
                         choices=["", "auto", "minimal", "low", "balanced", "high"],
                         help="override the detected device tier (small machines should stay on auto)")
@@ -1751,7 +1826,8 @@ def main():
         # Public CLI intake is CEO-only: AGENT-01 owns all specialist selection.
         destination, manifest = run_pipeline(args.task, context, agent_ids=None,
                                              output_dir=ROOT / args.out, note=args.note,
-                                             resume=args.resume)
+                                             resume=args.resume,
+                                             budget_minutes=args.budget_minutes)
     except (ValueError, OSError) as exc:
         raise SystemExit(str(exc))
     print("Pipeline output:", destination)
@@ -1765,6 +1841,12 @@ def main():
         print("Resources:", resources.describe(resource_record))
         for degradation in resource_record.get("degradations") or []:
             print("  reduced:", degradation)
+    budget_record = (manifest.get("resources") or {}).get("budget") or {}
+    if budget_record:
+        print("Budget:", format_duration(budget_record.get("spent_seconds", 0)),
+              "used of", format_duration(budget_record.get("total_seconds", 0)))
+        if budget_record.get("skipped"):
+            print("  out of time, not started:", ", ".join(budget_record["skipped"]))
     print("Mode:", "local model" if manifest["model_enabled"] else "template fallback; no AI generation")
     print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")
     memory_record = manifest.get("memory") or {}

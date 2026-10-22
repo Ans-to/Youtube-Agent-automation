@@ -71,6 +71,42 @@ A weaker machine produces the **same artifact, later**. If something really does
 have to be smaller, it is listed in the plan under `degradations`, in words, and
 printed when the run starts. Nothing is silently reduced.
 
+## One budget for the whole run
+
+Per-stage limits are not a budget. Seven stages, each inside its own ceiling, can
+still add up to a run nobody planned for. So the run also has **one wall clock**:
+
+| | minimal | low | balanced | high |
+| --- | --- | --- | --- | --- |
+| whole run | 20 min | 30 min | 60 min | 3 h |
+| shortest stage worth starting | 90 s | 2 min | 2.5 min | 4 min |
+
+The rules it enforces:
+
+- **A stage that cannot fit is not started.** Half a stage produces half a
+  deliverable, and a truncated stage that reports success is worse than one that
+  never ran. It is recorded as `skipped_out_of_time`, with the reason.
+- **The final reviewer always gets its slot.** Time is reserved for `AGENT-08`
+  while it is still ahead, and it runs even when the budget is gone. A run that
+  spent everything on drafting and had nothing left to check itself produced
+  output nobody may trust.
+- **The builder gets what is left**, not its full ceiling, so a long build cannot
+  consume the reviewer's reservation.
+- **A run that skipped work is `partial`, never complete.** The status line and
+  the manifest both say so.
+- **Time is charged as it happens**, so the record shows where the budget went.
+
+You choose it:
+
+```
+python agents/orchestrate.py --task "..." --budget-minutes 45
+```
+
+Without the flag, the device tier decides. At the end the CLI prints
+`Budget: 12m 31s used of 45m 00s`, and anything that never started is named.
+`budget.json` in the run directory holds the full record: total, spent, per-stage
+seconds, the build allowance, and every skip.
+
 ## Memory and disk
 
 Before the run starts, the plan compares free RAM to total RAM. Under 15% free,
@@ -93,6 +129,7 @@ fail at the file with the reason attached, not refuse to start.
   "pressure": null,
   "facts": {"cpu_count": 2, "total_memory_bytes": 4131278848, "available_memory_bytes": 3850391552},
   "limits": {"model_timeout_seconds": 180, "dataset_max_bytes": 500000},
+  "budget": {"total_seconds": 1200, "spent_seconds": 40.2, "stopped_early": false},
   "degradations": ["one local-model call may wait at most 180s instead of 300s"],
   "never_changes": ["requested video resolution and frame rate"],
   "warnings": [],
@@ -125,8 +162,8 @@ something it did not.
 
 Being honest about the edges:
 
-- **No shared wall-clock budget across stages yet.** Each stage has its own
-  ceiling; a run of seven slow stages can still take a long time in total.
+- **The budget bounds the stages and the builder, not a single runaway call.**
+  One model call can still block for its own timeout before the next check.
 - **The renderer's own memory use is not capped per frame.** `video_studio`
   reports a thread count and never downgrades a requested resolution, but it does
   not yet refuse a frame that would not fit in RAM.
