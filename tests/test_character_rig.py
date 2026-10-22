@@ -205,6 +205,7 @@ class CharacterMonochromeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr[-800:])
             film = json.loads((out / "film.json").read_text(encoding="utf-8"))
             self.assertEqual(film["character"]["style"], "stick")
+            self.assertEqual(film["character"]["pen"], "silhouette")
             self.assertTrue(film["character"]["monochrome"])
             # One declared accent, and it is the crimson the channel uses.
             self.assertEqual(film["character"]["ink"]["accent"].lower(), "#b3151f")

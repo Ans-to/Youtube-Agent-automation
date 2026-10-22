@@ -1,8 +1,17 @@
 # The character
 
 The channel's on-screen character is a **stickman, drawn in code**. There is no
-art file in this repository: the figure is a circle, a set of tapered strokes and
-a handful of joint discs, generated from the animation rig every frame.
+art file in this repository: the figure is filled volumes — a chest mass, capsule
+limbs, a hooked cloak and a solid head — generated from the animation rig every
+frame.
+
+It is drawn as a **silhouette**, not as a diagram. `video_studio/character/silhouette.mjs`
+fills every part in ink with no outline and no joint dots, so overlapping shapes
+merge into one body. That is the difference between a shadow and a drawing of a
+skeleton, and it is what makes the reference video read as a person at a glance.
+The older pen, `stick.mjs`, is still available with `--pen line`: tapered strokes,
+joint discs and an outlined head, useful when the figure has to be legible on a
+bright background without a cloak.
 
 That is a copyright decision as much as a design one. Nothing is traced, bought,
 licensed or attributable, so there is nothing to strike.
@@ -103,7 +112,8 @@ Four habits, all of them in `video_studio/character/stick.mjs`:
 
 ```bash
 cd video_studio
-node films/character_speaks.mjs --out frames --width 1920 --style stick --boil 1
+node films/character_speaks.mjs --out frames --width 1920 --style stick --pen silhouette
+node films/character_speaks.mjs --out frames --width 1920 --pen line   # the older outline pen
 node films/character_speaks.mjs --out stills --width 1280 --still 4.5,9.0
 node character/_preview.mjs --style stick --boil 1 --out poses.png
 node films/character_speaks.mjs --plan     # the caption plan as JSON, no rendering

@@ -20,6 +20,7 @@ import { GlobalFonts, createCanvas } from '@napi-rs/canvas';
 import { characterFrame, speechTimeline, blinkSchedule, noise1, HIP_HEIGHT } from '../character/animate.mjs';
 import { drawCharacter, LOOK } from '../character/body.mjs';
 import { drawStick, resolveInk, INK } from '../character/stick.mjs';
+import { drawSilhouette } from '../character/silhouette.mjs';
 import { expressionCues, expressionAt, actingAt, actingCues, EXPRESSIONS } from '../character/expression.mjs';
 
 const require = createRequire(import.meta.url);
@@ -35,7 +36,7 @@ function parseArgs(argv) {
   const opts = {
     out: 'frames', width: DESIGN_W, height: null, fps: 30, quality: 92,
     from: 0, to: null, still: null, quiet: false, plan: false,
-    voiceLines: null, voiceEnvelope: null, style: 'stick', boil: 1,
+    voiceLines: null, voiceEnvelope: null, style: 'stick', boil: 1, pen: 'silhouette',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -54,11 +55,15 @@ function parseArgs(argv) {
     else if (flag === '--voice-envelope') opts.voiceEnvelope = value();
     else if (flag === '--style') opts.style = value();
     else if (flag === '--boil') opts.boil = Number(value());
+    else if (flag === '--pen') opts.pen = value();
     else throw new Error(`Unknown option: ${flag}`);
   }
   opts.height = opts.height || Math.round((opts.width * DESIGN_H) / DESIGN_W / 2) * 2;
   if (!['stick', 'design'].includes(opts.style)) {
     throw new Error(`Unknown --style ${opts.style} (expected stick or design)`);
+  }
+  if (!['silhouette', 'line'].includes(opts.pen)) {
+    throw new Error(`Unknown --pen ${opts.pen} (expected silhouette or line)`);
   }
   if (!Number.isFinite(opts.boil) || opts.boil < 0) throw new Error('--boil must be a number >= 0');
   return opts;
@@ -95,11 +100,15 @@ const PALETTE = {
     muted: '#8B94A6', accent: '#C8FF3D', support: '#5B8FFF',
   },
   stick: {
-    bg: '#F2F2F2', bg2: '#E7E7E7', panel: '#EDEDED', fg: '#121212',
-    muted: '#6E6E6E', accent: '#121212', support: '#3A3A3A',
+    // Taken from the reference video: a flat pale stage, near-black figure, and
+    // one gold used only for the caption in the band.
+    bg: '#C9C9CE', bg2: '#C0C0C6', panel: '#D3D3D8', fg: '#0A0A0A',
+    muted: '#6E6E6E', accent: '#B3151F', support: '#3A3A3A',
   },
 };
 const C = PALETTE[STYLE] || PALETTE.stick;
+const PEN = OPTS.pen;
+const STAGE = C.bg;
 
 // Every accent in the film goes through one helper. In ink mode the accent is
 // the ink colour, so no stray lime can survive into a black-and-white channel
@@ -356,6 +365,31 @@ function walkWeight(t) {
 
 function drawBackground(ctx, t) {
   const shot = coverageAt(t);
+  if (PEN === 'silhouette') {
+    // The reference stage is a flat wall with a soft light behind the figure.
+    // Grid, rings and motes belong to the diagram look; on a silhouette they
+    // read as a wireframe showing through the character.
+    const wall = ctx.createLinearGradient(0, 0, 0, H);
+    wall.addColorStop(0, C.bg2);
+    wall.addColorStop(0.55, C.bg);
+    wall.addColorStop(1, C.bg2);
+    ctx.fillStyle = wall;
+    ctx.fillRect(0, 0, W, H);
+    const { x } = figureAt(t);
+    const glow = ctx.createRadialGradient(x, H * 0.46, 0, x, H * 0.46, H * 0.86);
+    glow.addColorStop(0, 'rgba(255,255,255,0.16)');
+    glow.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    // a slow breathing vignette keeps the flat wall from reading as a still
+    const breathe = 0.06 + Math.sin(t * 0.6) * 0.012;
+    const vig = ctx.createRadialGradient(W / 2, H * 0.48, H * 0.42, W / 2, H * 0.48, H * 1.05);
+    vig.addColorStop(0, 'rgba(0,0,0,0)');
+    vig.addColorStop(1, `rgba(30,30,34,${breathe.toFixed(3)})`);
+    ctx.fillStyle = vig;
+    ctx.fillRect(0, 0, W, H);
+    return;
+  }
   // slow environmental pan: everything in the world drifts, the camera stays put
   ctx.save();
   ctx.translate(-((t * 34) % 160) * shot.zoom, 0);
@@ -428,6 +462,19 @@ function drawBackground(ctx, t) {
 }
 
 function drawFloor(ctx, t, showShadow = true) {
+  if (PEN === 'silhouette') {
+    if (!showShadow) return;
+    const { x } = figureAt(t);
+    const shadow = ctx.createRadialGradient(x, GROUND_Y + 6, 0, x, GROUND_Y + 6, 560);
+    shadow.addColorStop(0, 'rgba(0,0,0,0.34)');
+    shadow.addColorStop(0.55, 'rgba(0,0,0,0.12)');
+    shadow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = shadow;
+    ctx.beginPath();
+    ctx.ellipse(x, GROUND_Y + 6, 540, 54, 0, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
   const shade = ctx.createLinearGradient(0, GROUND_Y - 60, 0, H);
   // A light floor on paper: the same gradient with the values swapped, so the
   // figure still gains contrast against it instead of sinking into it.
@@ -632,7 +679,21 @@ function render(t) {
   // The pen is a channel decision, not a per-film one: the default is the
   // monochrome stickman so every upload looks like the same channel. `--style
   // design` keeps the original illustrated figure available.
-  if (STYLE === 'stick') {
+  if (STYLE === 'stick' && PEN === 'silhouette') {
+    // Solid shape, no outline, no joint dots: the reference figure is a shadow,
+    // not a diagram of a skeleton.
+    drawSilhouette(ctx, frame.solved, {
+      viseme: frame.viseme,
+      blink: frame.blink,
+      browRaise: frame.browRaise,
+      legShorten: frame.legShorten,
+      expression,
+      cape: true,
+      capeSway: (x - figureAt(Math.max(0, t - 0.18)).x) * 0.012,
+      capeLift: Math.max(0, -acting.nod * 3),
+      frame: Math.round(t * FPS),
+    });
+  } else if (STYLE === 'stick') {
     drawStick(ctx, frame.solved, {
       viseme: frame.viseme,
       blink: frame.blink,
@@ -765,6 +826,9 @@ function writeFilm(outDir) {
     // channel without opening a single image.
     character: {
       style: STYLE,
+      // Which pen drew it: a filled silhouette or the tapered-line diagram. The
+      // two look nothing alike, so it is recorded rather than inferred.
+      pen: PEN,
       boil: BOIL,
       ink: STYLE === 'stick' ? resolveInk() : null,
       palette: STYLE === 'stick' ? 'monochrome' : 'dark-tech',
