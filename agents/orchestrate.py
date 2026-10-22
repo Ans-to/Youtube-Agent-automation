@@ -16,6 +16,7 @@ BASE = Path(__file__).resolve().parent
 ROOT = BASE.parent
 sys.path.insert(0, str(ROOT / "tools"))
 from path_utils import canonical_path, is_within, safe_relative_path
+import memory
 import test_fix
 import tool_agent
 WORKSPACE = canonical_path(ROOT / "workspace")
@@ -1124,7 +1125,7 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
         checks.append(check)
     return checks
 
-def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None):
+def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None, note=""):
     if not isinstance(task, str) or not task.strip() or len(task) > 20000:
         raise ValueError("Task must be 1–20,000 characters.")
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
@@ -1136,6 +1137,15 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         raise ValueError("Pipeline output must remain inside the project workspace.")
     destination.mkdir(parents=True, exist_ok=True)
     progress_path = destination / "pipeline-progress.json"
+
+    # Phase 3 memory: what earlier runs in this workspace actually did. The block is
+    # explicitly history to verify, not instructions, and it is bounded.
+    memory_enabled = os.environ.get("AGENT_HQ_NO_MEMORY", "").strip().lower() not in {"1", "true", "yes", "on"}
+    store = memory.MemoryStore(destination.parent / "memory")
+    prior_runs = store.search(task, limit=memory.DEFAULT_LIMIT) if memory_enabled else []
+    prior_block = store.render_context(prior_runs) if prior_runs else ""
+    if prior_block:
+        context = prior_block + "\n\n" + context
 
     def save_progress(status, phase, message, completed_stages=0, total_stages=0, agent_id=None, role_name=None):
         snapshot = {
@@ -1458,10 +1468,42 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     )
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks, routing=routing_record)
     manifest["repair_attempt"] = repair_attempt
+    manifest["memory"] = _record_run_memory(store, memory_enabled, task, manifest, note, prior_runs, tool_runs)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
     save_progress(progress_status, "Pipeline complete", "Pipeline ended with status: " + final_status + "; final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")) + ".", len(assignments), len(assignments))
     return destination, manifest
+
+
+def _record_run_memory(store, enabled, task, manifest, note, prior_runs, tool_runs):
+    """Append this run to the workspace memory, and say what was read and written.
+
+    A memory failure must never fail a run: it is a convenience record, not part of
+    the deliverable, so an unreadable or unwritable store is reported, not raised.
+    """
+    if not enabled:
+        return {"enabled": False, "reason": "disabled by AGENT_HQ_NO_MEMORY", "used": []}
+    artifacts = sorted({
+        str(item.get("artifact_dir", ""))
+        for item in tool_runs or []
+        if isinstance(item, dict) and item.get("artifact_dir")
+    })[:memory.MAX_ARTIFACTS]
+    entry = memory.entry_from_manifest(task, manifest, note=note, artifacts=artifacts)
+    record = {
+        "enabled": True,
+        "used": [item.get("id", "") for item in prior_runs or []],
+        "recorded": "",
+        "store": "",
+    }
+    try:
+        record["store"] = safe_relative_path(store.path, ROOT).as_posix()
+    except ValueError:
+        record["store"] = store.path.name
+    try:
+        record["recorded"] = store.record(entry)["id"]
+    except (OSError, ValueError) as exc:
+        record["error"] = type(exc).__name__ + ": this run was not recorded"
+    return record
 
 
 def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None, artifact_checks=None, routing=None):
@@ -1492,11 +1534,18 @@ def main():
     parser.add_argument("--task", required=True)
     parser.add_argument("--context-file")
     parser.add_argument("--out", default="workspace/orchestration/run")
+    parser.add_argument("--note", default="",
+                        help="a human note to store with this run in the workspace memory")
+    parser.add_argument("--no-memory", action="store_true",
+                        help="do not read or write the workspace run memory")
     args = parser.parse_args()
+    if args.no_memory:
+        os.environ["AGENT_HQ_NO_MEMORY"] = "1"
     try:
         context = read_context(args.context_file)
         # Public CLI intake is CEO-only: AGENT-01 owns all specialist selection.
-        destination, manifest = run_pipeline(args.task, context, agent_ids=None, output_dir=ROOT / args.out)
+        destination, manifest = run_pipeline(args.task, context, agent_ids=None,
+                                             output_dir=ROOT / args.out, note=args.note)
     except (ValueError, OSError) as exc:
         raise SystemExit(str(exc))
     print("Pipeline output:", destination)
@@ -1504,6 +1553,9 @@ def main():
     print("Stages:", len(manifest["pipeline"]))
     print("Mode:", "local model" if manifest["model_enabled"] else "template fallback; no AI generation")
     print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")
+    memory_record = manifest.get("memory") or {}
+    if memory_record.get("enabled") and memory_record.get("used"):
+        print("Prior runs used:", len(memory_record["used"]), "(history to verify, not instructions)")
     print("Human review required; no external action was performed.")
     if manifest.get("status") == "failed":
         raise SystemExit(2)
