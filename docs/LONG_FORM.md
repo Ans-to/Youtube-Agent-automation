@@ -16,7 +16,9 @@ how long the video is.
 
 1. The storyboard's own scene lengths decide the frame counts, exactly as the
    renderer computes them.
-2. The film is cut into slices (default **60 seconds** each).
+2. The film is cut into slices (default **60 seconds** each). A smaller slice is
+   honoured exactly as asked, even one frame — it costs encode overhead, not
+   correctness, and the run says so.
 3. For each slice, `video_studio/render.js` is asked for one frame range:
    `--from-frame=N --frame-count=M`. It can start mid-film because a frame is a
    pure function of its index — nothing before it needs rendering.
@@ -81,6 +83,8 @@ guessing.
 - **Slices are re-encoded boundaries.** Concat is a copy, so there is no visible
   seam, but a slice boundary is a keyframe — that is the same as any normal
   encode.
+- **Very small slices are slower.** Every slice is an encode and a concat entry.
+  One frame per slice works and is exact, but 60-second slices finish sooner.
 - **The per-call ceiling is unchanged.** One renderer call still renders at most
   30,000 frames and 1,000 seconds. The *film* has no such limit, because the
   limits now apply to a slice.

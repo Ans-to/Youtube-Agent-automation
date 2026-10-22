@@ -45,7 +45,11 @@ SCHEMA = 1
 #: worst, and keeps a failed slice cheap to repeat. Longer slices need less
 #: overhead but more transient disk; shorter ones add encode/concat passes.
 DEFAULT_SEGMENT_SECONDS = 60
-MIN_SEGMENT_FRAMES = 30
+#: A requested slice size is honoured, right down to one frame. Silently rounding
+#: it up would mean rendering something other than what was asked for, which is
+#: the exact failure this project refuses elsewhere. Very small slices do add
+#: encode and concat overhead, and `render` says so rather than "fixing" it.
+MIN_SEGMENT_FRAMES = 1
 
 #: The renderer's own per-call ceiling. A slice may not exceed it.
 MAX_FRAMES_PER_CALL = 30_000
@@ -148,6 +152,9 @@ def render(storyboard_path, output_path, *, fps=None, segment_seconds=None,
     }
     log("Long-form render: %.1f min, %d frames, %d slice(s) of %d frames"
         % (summary["duration_seconds"] / 60, total_frames, len(plan), plan[0]["count"]))
+    if len(plan) > 60:
+        log("  note: %d slices is a lot of encode and concat overhead; a larger"
+            " --segment-seconds is faster with the same output" % len(plan))
 
     started = time.monotonic()
     parts = []

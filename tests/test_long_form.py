@@ -143,9 +143,14 @@ class PlanTests(unittest.TestCase):
         plan = long_form.plan_segments(5000, segment_frames=1800)
         self.assertEqual(plan[-1]["count"], 5000 - 2 * 1800)
 
-    def test_a_tiny_segment_setting_is_lifted_to_a_workable_floor(self):
-        plan = long_form.plan_segments(300, segment_frames=1)
-        self.assertEqual(plan[0]["count"], long_form.MIN_SEGMENT_FRAMES)
+    def test_a_one_frame_slice_request_is_honoured_not_rounded_up(self):
+        # Silently enlarging the slice would render something other than asked.
+        plan = long_form.plan_segments(5, segment_frames=1)
+        self.assertEqual([item["count"] for item in plan], [1, 1, 1, 1, 1])
+
+    def test_a_slice_smaller_than_one_frame_is_still_one_frame(self):
+        plan = long_form.plan_segments(3, segment_frames=0)
+        self.assertEqual([item["count"] for item in plan], [1, 1, 1])
 
     def test_a_segment_can_never_exceed_the_renderers_own_ceiling(self):
         plan = long_form.plan_segments(90_000, segment_frames=500_000)
