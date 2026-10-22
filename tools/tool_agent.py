@@ -759,19 +759,29 @@ def _scaffold_plan(goal: str, files: dict[str, str], kind: str, *,
     ]
     verify = [VerificationItem(path=name, contains=needle)
               for name, needle in DELIVERABLE_CONTRACT[kind]]
-    if allow_exec and kind == "cli" and _program_available("python3"):
+    interpreter = _python_program() if allow_exec and kind == "cli" else ""
+    if interpreter:
         # The tool ships its own checks; run them rather than trusting the text.
         steps.append(PlanStep(tool="run_command",
-                              args={"program": "python3", "args": ["tool.py", "--self-test"]},
+                              args={"program": interpreter, "args": ["tool.py", "--self-test"]},
                               why="run the generated tool's self-test"))
     return ToolPlan(goal=goal, mode="deterministic", deliverable=kind,
                     steps=steps, verify=verify, notes=notes)
 
 
-def _program_available(name: str) -> bool:
+def _python_program() -> str:
+    """An allowlisted Python interpreter that exists on this machine.
+
+    Windows installs ``python`` and not ``python3``; planning a command that the
+    runtime would refuse is worse than planning none, because the failure looks
+    like a broken artifact instead of a missing launcher.
+    """
     import shutil
 
-    return bool(shutil.which(name))
+    for name in ("python3", "python"):
+        if shutil.which(name):
+            return name
+    return ""
 
 
 def _exec_available() -> bool:

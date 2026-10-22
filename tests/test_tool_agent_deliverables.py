@@ -17,6 +17,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -210,6 +211,14 @@ class RunTest(unittest.TestCase):
         commands = [step for step in plan.steps if step.tool == "run_command"]
         for step in commands:
             self.assertEqual(step.args["args"], ["tool.py", "--self-test"])
+            # Windows installs `python`, not `python3`; whatever is planned has
+            # to be a program the runtime will accept.
+            self.assertIn(step.args["program"], {"python", "python3"})
+
+    def test_no_self_test_step_is_planned_without_an_interpreter(self):
+        with patch.object(tool_agent, "_python_program", return_value=""):
+            plan = tool_agent.deterministic_plan("Build a CLI", allow_exec=True, deliverable="cli")
+        self.assertEqual([step for step in plan.steps if step.tool == "run_command"], [])
 
 
 if __name__ == "__main__":
