@@ -31,7 +31,7 @@ See the [roadmap](docs/ROADMAP.md) for the honest gap to professional motion des
 
 ## What is implemented
 
-- **Local dashboard:** mobile-friendly command deck at `http://127.0.0.1:8765`.
+- **Local dashboard:** mobile-friendly command deck at `http://127.0.0.1:8765` with seven working areas — overview, tasks, video studio, CEO pipeline, products, roster, outputs — switched with the left rail, keys `1`–`7`, or the command bar. The page lives in `web/deck.html` and renders only from `/api/state`; see [docs/UI.md](docs/UI.md).
 - **Task queue:** stores tasks in local `tasks.json`; writes Markdown results to `outputs/` and operational logs to `logs/`. The dashboard includes a detailed YouTube production-package task type.
 - **CEO-led task intake:** all queued tasks, video requests, and digital-product requests route through AGENT-01, which delegates distinct subtasks and assigns a quality-review stage.
 - **Research before work:** each executed specialist attempts five complementary web searches and fetches up to five bounded public pages, prioritizing official documentation, independent evidence, limitations/risks, and recent updates. Successful research and failures are saved as Markdown plus structured JSON under `workspace/research/agent-runs/`; common secrets and direct identifiers are redacted from search queries. Network failure is reported, never presented as successful research.
