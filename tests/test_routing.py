@@ -46,7 +46,8 @@ class CatalogTest(unittest.TestCase):
         for spec in routing.PIPELINES:
             self.assertTrue(spec.summary.strip(), spec.id)
             self.assertTrue(spec.executor.strip(), spec.id)
-            self.assertIn(spec.deliverable, {"web", "document", "cli", "video_package", "product_prototype"})
+            self.assertIn(spec.deliverable,
+                          {"web", "document", "cli", "data", "video_package", "product_prototype"})
 
     def test_tool_loop_pipelines_match_the_deliverable_kinds(self):
         # A pipeline that runs the tool loop must declare a kind the loop accepts.
@@ -144,6 +145,31 @@ class DeterministicRoutingTest(unittest.TestCase):
         self.assertEqual(self.route("Make me a command-line tool that reconciles two CSV files").pipelines,
                          ["cli_tool"])
 
+    def test_data_request_routes_to_the_measurement_pipeline(self):
+        for goal in ("Analyse sales.csv and chart the units column",
+                     "Summarise this dataset and give me a chart",
+                     "Make a chart of the numbers",
+                     "Break down workspace/data/q3.tsv by region"):
+            with self.subTest(goal=goal):
+                self.assertEqual(self.route(goal).pipelines, ["data_deliverable"])
+
+    def test_dataset_reference_is_extracted_when_it_is_safe(self):
+        self.assertEqual(self.route("Analyse sales.csv").requests[0].args["source"], "sales.csv")
+        self.assertEqual(self.route("Break down workspace/data/q3.tsv by region").requests[0].args["source"],
+                         "workspace/data/q3.tsv")
+
+    def test_unsafe_dataset_paths_are_never_carried_into_arguments(self):
+        # The reader refuses these too; the router must not even propose them.
+        for goal in ("Analyse ../../etc/secrets.csv",
+                     "Analyse /etc/passwd.csv",
+                     "Analyse C:/Users/me/data.csv"):
+            with self.subTest(goal=goal):
+                route = self.route(goal)
+                self.assertNotIn("source", route.requests[0].args)
+
+    def test_a_measured_report_outranks_a_document_scaffold(self):
+        self.assertEqual(self.route("Summarise this CSV into a report").pipelines, ["data_deliverable"])
+
     def test_named_cli_argument_is_extracted(self):
         route = self.route("Build a CLI called photo-dedupe that removes duplicate records")
         self.assertEqual(route.requests[0].args.get("name"), "photo-dedupe")
@@ -158,7 +184,8 @@ class DeterministicRoutingTest(unittest.TestCase):
     def test_questions_and_plans_route_to_nothing(self):
         for goal in ("What is a knowledge graph?",
                      "Explain how to build a website",
-                     "Summarise this CSV into a report",
+                     "Explain how to analyse survey data",
+                     "How do I analyse a CSV?",
                      "Review my landing page",
                      "How do I structure a changelog?"):
             with self.subTest(goal=goal):

@@ -37,6 +37,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 try:  # Support both ``tools.tool_agent`` and a script-style import.
+    from tools import data_analysis
     from tools.path_utils import canonical_path, safe_relative_path
     from tools.tool_runtime import (
         ToolError,
@@ -48,6 +49,7 @@ except ImportError:  # pragma: no cover - standalone execution
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import data_analysis  # type: ignore[no-redef]
     from path_utils import canonical_path, safe_relative_path  # type: ignore[no-redef]
     from tool_runtime import (  # type: ignore[no-redef]
         ToolError,
@@ -60,7 +62,7 @@ MAX_STEPS = 24
 #: What the loop is allowed to be asked for. Each kind has a fixed deterministic
 #: scaffold, a fixed set of acceptance checks, and an artifact contract the
 #: orchestrator verifies independently. Adding a kind is a product decision.
-DELIVERABLES = ("web", "document", "cli")
+DELIVERABLES = ("web", "document", "cli", "data")
 MAX_REPAIRS = 2
 MAX_GOAL_CHARS = 4_000
 MAX_VERIFY_ITEMS = 12
@@ -128,6 +130,7 @@ DELIVERABLE_CONTRACT = {
     "web": (("index.html", "<!doctype html"), ("README.md", "#")),
     "document": (("deliverable.md", "#"), ("deliverable.json", "\"ai_generated\"")),
     "cli": (("tool.py", "argparse"), ("README.md", "#")),
+    "data": (("summary.json", '"schema"'), ("analysis.md", "# "), ("chart.svg", "<svg")),
 }
 
 
@@ -162,6 +165,15 @@ DELIVERABLE_BRIEF = {
         "(\"document\"), generated_by, ai_generated (false), sections (array of strings), "
         "acceptance_criteria (array of strings), human_review_required (true). "
         "Write no fact you cannot support from the goal."
+    ),
+    "data": (
+        "DELIVERABLE: a measured profile of one dataset, not an interpretation of it.",
+        "summary.json must be the output of real column profiling: schema (1), rows, "
+        "columns, numeric_columns, text_columns, columns_detail, complete_percent. "
+        "analysis.md must start with a level-1 heading and contain '## Findings' and "
+        "'## Limits'. chart.svg must be a self-contained SVG (no scripts, no external "
+        "references) drawn from measured values. Never state a trend, correlation, or "
+        "causal claim: none is computed."
     ),
     "cli": (
         "DELIVERABLE: a working command-line tool in the Python standard library.",
@@ -718,8 +730,40 @@ cat records.txt | python tool.py --json
     return {"tool.py": CLI_TEMPLATE.replace("{name}", tool_name), "README.md": readme}
 
 
+def deterministic_data_files(goal: str, *, data_text: str = "", data_name: str = "",
+                             title: str = "", reason: str = "") -> dict[str, str]:
+    """A real profile of the supplied dataset, plus a runner that reproduces it.
+
+    When no dataset is available the same four files are produced with an explicit
+    "nothing was measured" record rather than invented numbers, so a consumer can
+    never mistake the scaffold for analysis.
+    """
+    report_title = (title or "").strip()
+    # `data_text == ""` means no file was read; whitespace means a file was read and
+    # is unusable, which must be reported as such rather than as "no dataset".
+    if data_text:
+        try:
+            summary = data_analysis.summarize(data_text, source_name=data_name, title=report_title)
+        except data_analysis.DataError as exc:
+            summary = data_analysis.empty_summary(
+                report_title or _site_title(goal),
+                reason=f"The supplied dataset could not be read: {exc}")
+    else:
+        summary = data_analysis.empty_summary(
+            report_title or _site_title(goal),
+            reason=reason or "No CSV was supplied with this request, so there is nothing to measure.")
+    return {
+        "summary.json": json.dumps(summary, indent=2, ensure_ascii=False) + "\n",
+        "analysis.md": data_analysis.render_markdown(summary),
+        "chart.svg": data_analysis.render_svg(summary),
+        "analyze.py": data_analysis.ANALYZE_SCRIPT,
+    }
+
+
 def deterministic_plan(goal: str, *, allow_exec: bool = False,
-                       deliverable: str = "web", deliverable_name: str = "") -> ToolPlan:
+                       deliverable: str = "web", deliverable_name: str = "",
+                       data_text: str = "", data_name: str = "",
+                       data_reason: str = "") -> ToolPlan:
     """A fixed, safe plan that still produces a genuine artifact offline."""
     kind = normalise_deliverable(deliverable)
     if kind == "document":
@@ -729,6 +773,15 @@ def deterministic_plan(goal: str, *, allow_exec: bool = False,
         return _scaffold_plan(goal, deterministic_cli_files(goal, name=deliverable_name), kind,
                               allow_exec=allow_exec,
                               notes="No local model was available; this is a labelled CLI scaffold.")
+    if kind == "data":
+        files = deterministic_data_files(goal, data_text=data_text, data_name=data_name,
+                                         title=deliverable_name, reason=data_reason)
+        notes = ("No local model was available; the numbers are measured from the supplied "
+                 "file, and no interpretation was applied.")
+        if not data_text.strip():
+            notes = ("No dataset was supplied, so nothing was measured; the artifact "
+                     "records that explicitly.")
+        return _scaffold_plan(goal, files, kind, allow_exec=allow_exec, notes=notes)
     files = deterministic_site_files(goal)
     steps = [
         PlanStep(tool="write_file", args={"path": name, "content": content},
@@ -879,6 +932,9 @@ def run_tool_agent(
     allow_exec: bool = False,
     deliverable: str = "web",
     deliverable_name: str = "",
+    data_text: str = "",
+    data_name: str = "",
+    data_reason: str = "",
     max_repairs: int = MAX_REPAIRS,
     max_seconds: int = 900,
     timeout_seconds: int = 120,
@@ -942,7 +998,9 @@ def run_tool_agent(
         if model_call is None or plan is None:
             if attempt_index == 0 or model_call is None:
                 plan = deterministic_plan(goal, allow_exec=allow_exec, deliverable=deliverable,
-                                          deliverable_name=deliverable_name)
+                                          deliverable_name=deliverable_name,
+                                          data_text=data_text, data_name=data_name,
+                                          data_reason=data_reason)
                 if plan_error:
                     plan.notes = (plan.notes + " | planner error: " + plan_error)[:500]
             else:

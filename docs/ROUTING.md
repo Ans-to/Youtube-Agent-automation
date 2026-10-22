@@ -12,7 +12,7 @@ had two problems that no amount of extra patterns would fix:
 
 ## The catalog
 
-Five pipelines exist. The catalog is the single source of truth: it is what the
+Six pipelines exist. The catalog is the single source of truth: it is what the
 model is shown, what validation checks against, and what the tests read.
 
 | Pipeline | Executor | Deliverable | What it produces |
@@ -21,6 +21,7 @@ model is shown, what validation checks against, and what the tests read.
 | `web_build` | `tools/tool_agent.py` | `web` | a complete offline page or small web app, CSP-locked, no external assets |
 | `document_deliverable` | `tools/tool_agent.py` | `document` | `deliverable.md` plus `deliverable.json` metadata |
 | `cli_tool` | `tools/tool_agent.py` | `cli` | `tool.py` (stdlib, `--self-test`) plus a README |
+| `data_deliverable` | `tools/tool_agent.py` + `tools/data_analysis.py` | `data` | `summary.json`, `analysis.md`, `chart.svg`, and a re-runnable `analyze.py` |
 | `product_prototype` | `product_studio/build_product.py` | `product_prototype` | a draft prototype package with an archive and status file |
 
 Each pipeline declares the argument keys it accepts, with types and bounds, and
@@ -54,8 +55,25 @@ task ──► deterministic router ──► compare ──► route record
   | Veto | Why it exists |
   | --- | --- |
   | Advisory request (`explain`, `how do I`, `what is`, `review`, `summarise` …) with no first-person produce marker | The offline path cannot answer a question or summarise a source; returning a scaffold as though it had would be a false completion |
-  | No build verb in the goal | Nothing was asked to be produced |
+  | No build verb or measurement verb in the goal | Nothing was asked to be produced |
+  | Measurement request with no dataset behind it | "Analyse my landing page" is advice; "analyse sales.csv" is work |
   | "YouTube automation studio / software / system / platform" for `video_production` | That is a software request; it was previously mis-rendered as a video |
+
+## Measurement requests are work, questions are not
+
+"Analyse sales.csv" and "explain how to analyse survey data" share a verb but not
+an intent. The router separates them on two independent signals:
+
+- **a dataset is named** (a `.csv`/`.tsv` reference), or a measurement verb sits
+  within one clause of `data`, `dataset`, `csv`, `table` or `numbers`;
+- **the request opens with a question** (`how do I`, `what is`, `explain`,
+  `review`, `compare`…). A question opening wins unless the request also asks in
+  the first person (`write me`, `I need`, `please build`).
+
+A named dataset is only carried into the arguments when it is a relative path. An
+absolute path, a drive letter, a `..` segment, or a dot-directory is dropped
+before execution, and the reader in `agents/orchestrate.py` refuses the same
+shapes independently — so neither layer alone is load-bearing.
 
 ## The record
 
@@ -104,8 +122,12 @@ hold regardless of who chose the pipeline:
   carries structure and acceptance criteria, not research. The CLI scaffold
   carries working plumbing and a self-test, not the task's algorithm. Both say so
   in the artifact.
-- **Two of the roadmap's ten held-out goals are reachable** ("write a changelog",
-  "build a CLI that dedupes photos"), and the second is routed but not met. Data
-  transforms, charts, and test-and-fix tasks have no pipeline yet.
+- **Three of the roadmap's ten held-out goals are reachable** ("write a
+  changelog", "build a CLI that dedupes photos", "analyse this CSV and chart
+  it"). The CLI goal is routed but its scaffold is plumbing, not a working
+  deduplicator. Test-and-fix tasks still have no pipeline.
+- **The data pipeline measures; it does not interpret.** It reports counts,
+  ranges, central tendency and a chart of order statistics. No trend, correlation
+  or causal claim is computed, and the report says so.
 - **One tool-loop pipeline per task.** Multi-artifact plans are not implemented;
   the router returns a list, but the loop runs once.
