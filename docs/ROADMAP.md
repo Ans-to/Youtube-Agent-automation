@@ -13,11 +13,12 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 888 tests, quality gate 74/74, invariant check |
+| Offline operation, no key | **Done** | 918 tests, quality gate 75/75, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
 | Plan → act → verify → repair | **Done for web, document, CLI, and data builds, and for test repair** | `tools/tool_agent.py`, `tools/data_analysis.py`, `tools/test_fix.py`, `agents/orchestrate.py` |
+| Reviewable changes | **Done** | `tools/review.py`, `docs/CHANGES.md`: every builder leaves a bounded diff, every run an index; the verifier refuses a change without one |
 | Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 22 rules, local vision evidence, honest unverified states |
 | Professional motion design (L4) | **Partial - direction + spec layer done** | `video_studio/motion/`, 6 designed transitions, 9 camera moves, bundled Inter/Space Grotesk, bezier/anticipation/follow-through, `docs/MOTION.md`; asset import and character rig still limited |
 | Task routing (which pipeline runs) | **Done for the 7 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 96 tests |
@@ -119,7 +120,7 @@ are reachable.
 
 ## Phase 3 — Long-horizon memory and repair
 
-**Status:** mostly implemented (`tools/memory.py`, `agents/orchestrate.py`, 49 tests, `docs/MEMORY.md`).
+**Status:** mostly implemented. Memory and resume are in `tools/memory.py` and `agents/orchestrate.py` (49 tests, `docs/MEMORY.md`); the diff-based review is `tools/review.py` (30 tests, `docs/CHANGES.md`). Only the shared budget across stages is left.
 Every finished run is appended to `workspace/orchestration/memory/memory.jsonl`
 with its task, pipelines, status, artifacts, outcome and any human note. The next
 run searches that log by keyword and receives the best four entries as context,
@@ -128,8 +129,10 @@ under a heading that says they are history to verify rather than instructions.
 off for one run. `--resume` continues an interrupted run: finished stages are read
 back instead of re-run, only missing or empty ones execute, and the file set after
 a resume is identical to the set before it. It refuses to continue a different
-task or a different stage list, and says so. Still open from this phase: one
-budget enforced across stages, and a diff-based review of writes.
+task or a different stage list, and says so. The tool loop and the repair
+loop both leave a bounded diff per file and a run-level index in
+`review/changes.md`, and the verifier refuses a change that carries no diff. Still
+open from this phase: one budget enforced across stages.
 
 Work:
 
@@ -137,7 +140,8 @@ Work:
 2. Feed human review notes back as lessons (`workspace/training/feedback` is
    already wired for specialists).
 3. Budget-aware repair: token, wall-clock, and disk ceilings per task.
-4. A diff-based review step: every write is shown as a change, not a dump.
+4. ~~A diff-based review step: every write is shown as a change, not a dump.~~
+   Done: see `docs/CHANGES.md`.
 
 **Acceptance test:** a task interrupted mid-run resumes and completes without
 duplicating artifacts. A deliberately broken plan recovers in ≤2 repairs.

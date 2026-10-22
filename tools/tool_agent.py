@@ -39,6 +39,7 @@ from typing import Any, Callable, Mapping
 try:  # Support both ``tools.tool_agent`` and a script-style import.
     from tools import data_analysis
     from tools.path_utils import canonical_path, safe_relative_path
+    from tools import review
     from tools.tool_runtime import (
         ToolError,
         ToolRegistry,
@@ -50,6 +51,7 @@ except ImportError:  # pragma: no cover - standalone execution
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
     import data_analysis  # type: ignore[no-redef]
+    import review  # type: ignore[no-redef]
     from path_utils import canonical_path, safe_relative_path  # type: ignore[no-redef]
     from tool_runtime import (  # type: ignore[no-redef]
         ToolError,
@@ -847,10 +849,24 @@ def _exec_available() -> bool:
 # Execution and verification
 # ---------------------------------------------------------------------------
 
-def execute_plan(registry: ToolRegistry, plan: ToolPlan) -> list[dict]:
-    """Run every step in order, stopping only when the step budget is exhausted."""
+def execute_plan(registry: ToolRegistry, plan: ToolPlan,
+                 baseline: dict[str, str | None] | None = None) -> list[dict]:
+    """Run every step in order, stopping only when the step budget is exhausted.
+
+    When ``baseline`` is given, the content of each file is captured before the
+    first step that writes it, so the run can later show a diff rather than a
+    dump. The first capture wins: a repair attempt rewriting the same file must
+    still be compared with what the run found, not with the failed attempt.
+    """
     results: list[dict] = []
     for index, step in enumerate(plan.steps[:MAX_STEPS], start=1):
+        if baseline is not None and step.tool == "write_file":
+            path = step.args.get("path")
+            if isinstance(path, str) and path not in baseline:
+                try:
+                    baseline[path] = review.read_text_file(registry.sandbox.resolve(path))
+                except ToolError:
+                    pass
         result = registry.execute(step.tool, dict(step.args))
         result["step"] = index
         result["why"] = step.why
@@ -970,6 +986,7 @@ def run_tool_agent(
     registry = ToolRegistry(sandbox)
     catalog = registry.catalog_json(max_chars=6_000)
     attempts: list[dict] = []
+    baseline: dict[str, str | None] = {}
     feedback = ""
     plan: ToolPlan | None = None
     executed_plan: ToolPlan | None = None
@@ -1011,7 +1028,7 @@ def run_tool_agent(
         # The requested kind is the caller's decision; a plan describes how to
         # meet it, not what was asked for.
         plan.deliverable = deliverable
-        step_results = execute_plan(registry, plan)
+        step_results = execute_plan(registry, plan, baseline=baseline)
         checks = verify_plan(registry, plan)
         attempts.append({
             "attempt": attempt_index + 1,
@@ -1038,6 +1055,8 @@ def run_tool_agent(
     else:
         status = "failed"
 
+    changes = review.build_changes(sandbox.root, baseline, title=goal)
+    review.write(sandbox.root, changes, title="Changes: " + goal[:120])
     artifacts = _artifacts(step_results)
     try:
         artifact_dir = safe_relative_path(sandbox.root, canonical_path(workspace_root)).as_posix()
@@ -1057,6 +1076,7 @@ def run_tool_agent(
         ],
         "verification": checks,
         "artifacts": artifacts,
+        "changes": review.manifest_entry(changes),
         "sandbox": artifact_dir,
         "artifact_dir": artifact_dir,
         "elapsed_seconds": round(time.monotonic() - started, 2),
@@ -1083,7 +1103,8 @@ def run_tool_agent(
         )
     })
     manifest["files"] = [
-        name for name in ("tool-plan.json", "tool-runs.json", "tool-summary.json")
+        name for name in ("tool-plan.json", "tool-runs.json", "tool-summary.json",
+                          "changes.json", "changes.md")
         if (sandbox.root / name).is_file()
     ]
     return manifest

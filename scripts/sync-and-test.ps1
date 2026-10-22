@@ -73,7 +73,7 @@ try {
             "bridge/bridge.py", "agents/dispatch.py", "agents/adhd_style.py",
             "agents/orchestrate.py", "agents/routing.py", "agents/practice.py",
             "tools/tool_runtime.py", "tools/tool_agent.py", "tools/data_analysis.py",
-            "tools/test_fix.py", "tools/memory.py",
+            "tools/test_fix.py", "tools/memory.py", "tools/review.py",
             "tools/check_invariants.py", "video_studio/studio.py",
             "video_studio/capabilities.py", "video_studio/render_lock.py",
             "video_studio/production.py", "video_studio/voice_backends.py",
