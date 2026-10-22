@@ -1125,7 +1125,8 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
         checks.append(check)
     return checks
 
-def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None, note=""):
+def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None, note="",
+                 resume=False):
     if not isinstance(task, str) or not task.strip() or len(task) > 20000:
         raise ValueError("Task must be 1–20,000 characters.")
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
@@ -1146,6 +1147,15 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
     prior_block = store.render_context(prior_runs) if prior_runs else ""
     if prior_block:
         context = prior_block + "\n\n" + context
+
+    # What a --resume run would be continuing. Read before this run rewrites the
+    # delegation file, so the comparison is against the previous run, not this one.
+    previous_delegation = None
+    try:
+        previous_delegation = json.loads(
+            (destination / "00-ceo-delegation.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        previous_delegation = None
 
     def save_progress(status, phase, message, completed_stages=0, total_stages=0, agent_id=None, role_name=None):
         snapshot = {
@@ -1184,6 +1194,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
     ceo_reports_after = set(ceo_research_dir.glob("agent-01-*.md")) if ceo_research_dir.is_dir() else set()
     ceo_research_reports = sorted(safe_relative_path(path, ROOT).as_posix() for path in ceo_reports_after - ceo_reports_before)
     selected = [item["agent_id"] for item in assignments]
+    resume_plan = _resume_decision(resume, previous_delegation, task, assignments)
     save_progress("running", "Specialist work", "CEO assigned " + str(len(assignments)) + " stages; starting specialist execution.", 0, len(assignments))
     combined_context = context[:20000]
     (destination / "00-ceo-delegation.json").write_text(
@@ -1195,6 +1206,29 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
         agent_id = assignment["agent_id"]
         role = roles_by_id[agent_id]
         specialist_task = assignment.get("task") or ("Complete your specialist contribution to: " + task.strip())
+        filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
+        reused = _reusable_stage_text(destination, filename) if resume_plan["enabled"] else None
+        if reused is not None:
+            # A finished stage is read back, not re-run: the model is not called,
+            # no research is repeated, and the file is not rewritten.
+            resume_plan["stages_reused"] += 1
+            quality_gate = extract_quality_gate(reused) if agent_id == "AGENT-08" else None
+            records.append({
+                "sequence": index, "agent_id": agent_id, "role": role["name"],
+                "assigned_task": specialist_task, "output_file": filename,
+                "status": "reused_from_previous_run", "retry_count": 0,
+                "research_status": "not_rerun", "research_reports": [],
+                "research_pages_attempted": 0, "research_pages_fetched": 0,
+                "quality_gate": quality_gate if agent_id == "AGENT-08" else None,
+                "mode": "local_model" if cfg.get("model", {}).get("enabled") else "template_fallback",
+                "resumed": True,
+            })
+            save_progress("running", "Resuming stage " + str(index) + "/" + str(len(assignments)),
+                          agent_id + " / " + role["name"] + " was already finished; its saved output is reused.",
+                          index, len(assignments), agent_id, role["name"])
+            combined_context = (combined_context + "\n\n--- " + role["name"] + " output (unverified) ---\n" + reused)[-24000:]
+            continue
+        resume_plan["stages_run"] += 1
         save_progress("running", "Specialist stage " + str(index) + "/" + str(len(assignments)), agent_id + " / " + role["name"] + " is researching and producing its assigned deliverable.", index - 1, len(assignments), agent_id, role["name"])
         instruction = (
             "OVERALL USER GOAL:\n" + task.strip()
@@ -1212,7 +1246,6 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
                 "PARTIAL when material evidence is missing; FAIL when material claims are unsupported, contradictory, or unsafe. "
                 "Do not mark PASS merely because the draft is well formatted."
             )
-        filename = str(index).zfill(2) + "-" + slug(agent_id + "-" + role["name"]) + ".md"
         research_dir = ROOT / "workspace" / "research" / "agent-runs"
         reports_before = set(research_dir.glob(agent_id.lower() + "-*.md")) if research_dir.is_dir() else set()
         retry_count = 0
@@ -1468,11 +1501,54 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
     )
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks, routing=routing_record)
     manifest["repair_attempt"] = repair_attempt
+    manifest["resume"] = dict(resume_plan)
     manifest["memory"] = _record_run_memory(store, memory_enabled, task, manifest, note, prior_runs, tool_runs)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
     save_progress(progress_status, "Pipeline complete", "Pipeline ended with status: " + final_status + "; final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")) + ".", len(assignments), len(assignments))
     return destination, manifest
+
+
+def _resume_decision(enabled, previous_delegation, task, assignments):
+    """Decide whether this run continues the previous one in the same directory.
+
+    Resuming is only safe when the previous run in this output directory was the
+    same task with the same stages. Anything else would mix two jobs' outputs into
+    one manifest that claims to describe a single run.
+    """
+    plan = {"enabled": False, "requested": bool(enabled), "reason": "",
+            "stages_reused": 0, "stages_run": 0}
+    if not enabled:
+        plan["reason"] = "resume was not requested"
+        return plan
+    if not isinstance(previous_delegation, dict):
+        plan["reason"] = "no previous run was found in this output directory"
+        return plan
+    previous_task = str(previous_delegation.get("task", "")).strip()
+    if previous_task != str(task).strip():
+        plan["reason"] = "the previous run in this directory was a different task"
+        return plan
+    previous_stages = [str(item.get("agent_id", "")) for item in previous_delegation.get("assignments") or []
+                       if isinstance(item, dict)]
+    current_stages = [str(item.get("agent_id", "")) for item in assignments]
+    if previous_stages != current_stages:
+        plan["reason"] = "the previous run assigned different stages"
+        return plan
+    plan["enabled"] = True
+    plan["reason"] = "continuing the unfinished run in this output directory"
+    return plan
+
+
+def _reusable_stage_text(destination, filename):
+    """A finished stage's saved output, or None when it is missing or empty."""
+    path = destination / filename
+    try:
+        if not path.is_file() or path.stat().st_size == 0:
+            return None
+        text = path.read_text(encoding="utf-8", errors="replace").strip()
+    except OSError:
+        return None
+    return text or None
 
 
 def _record_run_memory(store, enabled, task, manifest, note, prior_runs, tool_runs):
@@ -1538,6 +1614,8 @@ def main():
                         help="a human note to store with this run in the workspace memory")
     parser.add_argument("--no-memory", action="store_true",
                         help="do not read or write the workspace run memory")
+    parser.add_argument("--resume", action="store_true",
+                        help="reuse stages already finished in this output directory")
     args = parser.parse_args()
     if args.no_memory:
         os.environ["AGENT_HQ_NO_MEMORY"] = "1"
@@ -1545,12 +1623,16 @@ def main():
         context = read_context(args.context_file)
         # Public CLI intake is CEO-only: AGENT-01 owns all specialist selection.
         destination, manifest = run_pipeline(args.task, context, agent_ids=None,
-                                             output_dir=ROOT / args.out, note=args.note)
+                                             output_dir=ROOT / args.out, note=args.note,
+                                             resume=args.resume)
     except (ValueError, OSError) as exc:
         raise SystemExit(str(exc))
     print("Pipeline output:", destination)
     print("Delegation:", manifest.get("delegation_mode", "unknown"))
     print("Stages:", len(manifest["pipeline"]))
+    resume_record = manifest.get("resume") or {}
+    if resume_record.get("stages_reused"):
+        print("Resumed stages reused:", resume_record["stages_reused"])
     print("Mode:", "local model" if manifest["model_enabled"] else "template fallback; no AI generation")
     print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")
     memory_record = manifest.get("memory") or {}

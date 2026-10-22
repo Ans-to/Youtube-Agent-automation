@@ -13,7 +13,7 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 873 tests, quality gate 73/73, invariant check |
+| Offline operation, no key | **Done** | 888 tests, quality gate 74/74, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
@@ -21,8 +21,8 @@ committed.
 | Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 22 rules, local vision evidence, honest unverified states |
 | Professional motion design (L4) | **Partial - direction + spec layer done** | `video_studio/motion/`, 6 designed transitions, 9 camera moves, bundled Inter/Space Grotesk, bezier/anticipation/follow-through, `docs/MOTION.md`; asset import and character rig still limited |
 | Task routing (which pipeline runs) | **Done for the 7 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 96 tests |
-| General task automation (L3) | **Partial** | Routing plus web/document/CLI/data builds and bounded test repair; no multi-artifact plans; memory records and recalls runs but cannot resume one |
-| Cross-run memory | **Partial** | `tools/memory.py`, `docs/MEMORY.md`, 34 tests: runs are recorded, recalled by keyword, and injected as history; resuming an interrupted run is still open |
+| General task automation (L3) | **Partial** | Routing plus web/document/CLI/data builds and bounded test repair; no multi-artifact plans; memory records, recalls and resumes a run, but no shared budget across stages |
+| Cross-run memory and resume | **Partial** | `tools/memory.py`, `tests/test_memory.py` + `tests/test_resume.py` (49 tests): runs are recorded, recalled by keyword, injected as history, and `--resume` continues the unfinished stages of a run; shared budgets and diff review still open |
 | Code quality of local models | **Gap** | Small models route well but write weak code |
 
 ---
@@ -119,15 +119,17 @@ are reachable.
 
 ## Phase 3 — Long-horizon memory and repair
 
-**Status:** partly implemented (`tools/memory.py`, 34 tests, `docs/MEMORY.md`).
+**Status:** mostly implemented (`tools/memory.py`, `agents/orchestrate.py`, 49 tests, `docs/MEMORY.md`).
 Every finished run is appended to `workspace/orchestration/memory/memory.jsonl`
 with its task, pipelines, status, artifacts, outcome and any human note. The next
 run searches that log by keyword and receives the best four entries as context,
 under a heading that says they are history to verify rather than instructions.
 `--note` attaches a review comment to a run; `--no-memory` turns the whole feature
-off for one run. Still open from this phase: resuming an interrupted run from its
-last finished stage (progress is written, never read back), one budget enforced
-across stages, and a diff-based review of writes.
+off for one run. `--resume` continues an interrupted run: finished stages are read
+back instead of re-run, only missing or empty ones execute, and the file set after
+a resume is identical to the set before it. It refuses to continue a different
+task or a different stage list, and says so. Still open from this phase: one
+budget enforced across stages, and a diff-based review of writes.
 
 Work:
 
@@ -139,6 +141,12 @@ Work:
 
 **Acceptance test:** a task interrupted mid-run resumes and completes without
 duplicating artifacts. A deliberately broken plan recovers in ≤2 repairs.
+
+*Where it stands:* the first half holds at stage granularity — 14 tests in
+`tests/test_resume.py` run a task, delete one stage's file, resume, and assert the
+other stages were not re-run, the files were not rewritten, and the artifact set
+is unchanged. The second half is covered by the tool loop's repair budget
+(`MAX_REPAIRS = 2`) and `test_fix`'s three-attempt cap.
 
 ## Phase 4 — Motion as an agent capability
 

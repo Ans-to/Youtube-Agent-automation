@@ -16,6 +16,8 @@ See the [roadmap](docs/ROADMAP.md) for the honest gap to professional motion des
 
 **Data reports measure, they do not interpret.** Ask for a CSV to be analysed and `tools/data_analysis.py` profiles every column with the standard library — counts, ranges, central tendency, missing values — and charts real order statistics. It states in the artifact that it performed no interpretation, treats `1,234` and `12%` as text rather than guessing, and never fetches data from the network.
 
+**An interrupted run can be resumed.** `--resume` reads the stages already finished in the output directory and reuses them instead of re-running: the model is not called again, files are not rewritten, and nothing is duplicated. It refuses to continue a different task or a different set of stages.
+
 **It remembers what earlier runs did.** `tools/memory.py` appends every finished run to a local log, and the next run finds the relevant ones by keyword and receives them as history — explicitly to verify, not a plan to repeat. Add `--note "one page, no bullets"` and that review comment travels with the run. `--no-memory` turns it off; nothing leaves the machine.
 
 **A repair counts only when the tests pass.** Ask for a failing suite to be fixed and `tools/test_fix.py` runs it, reads the failure, and will not report a fix unless the following run goes green. An edit that does not help is reverted, test files are hashed before and after so a suite cannot be talked into passing, and with no model available it repairs only what the output proves — otherwise it hands you the failing test, file, line, and message.

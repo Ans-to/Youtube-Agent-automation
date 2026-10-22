@@ -259,6 +259,9 @@ def entry_from_manifest(task: str, manifest: dict, *, note: str = "",
         pieces.append("quality gate: " + outcome)
     if artifacts:
         pieces.append(f"{len(artifacts)} artifact(s) written")
+    resumed = manifest.get("resume") or {}
+    if isinstance(resumed, dict) and int(resumed.get("stages_reused") or 0) > 0:
+        pieces.append(f"{int(resumed['stages_reused'])} stage(s) resumed")
     return {
         "task": task,
         "status": status,

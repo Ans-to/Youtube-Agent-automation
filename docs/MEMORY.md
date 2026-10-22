@@ -87,15 +87,40 @@ it must never be the reason a task fails.
 - **Bounded.** 200 records, 400 characters per text field, six artifacts, four
   entries and 2,000 characters per injected block. The oldest entries are dropped
   when the log grows past the cap.
-- **It cannot resume work.** This is the honest gap in Phase 3: a run that stops
-  mid-way leaves `pipeline-progress.json` behind, but nothing reads it to continue
-  from that stage, so a re-run repeats the stages that already finished. Resuming
-  is the next piece of this phase, not something memory quietly does.
+- **It does not resume by itself.** Resuming is explicit: `--resume` reuses the
+  stages already finished in that output directory. Without the flag a re-run
+  repeats every stage, and memory only reports what happened before.
+
+## Resuming an interrupted run
+
+```
+python agents/orchestrate.py --task "Write a changelog for v2"            # dies mid-way
+python agents/orchestrate.py --task "Write a changelog for v2" --resume   # continues
+```
+
+`--resume` reads the stage files already in the output directory and reuses them:
+
+- a finished stage is **read back, not re-run** — the model is not called, no
+  research is repeated, and the file is not rewritten;
+- only a stage whose file is missing or empty runs again, so the file set after a
+  resume is identical to the set before it: nothing is duplicated;
+- the reused reviewer stage still supplies the quality gate, so the final status
+  is derived from the same evidence as an uninterrupted run;
+- the record says where the text came from: `status: reused_from_previous_run`,
+  `research_status: not_rerun`, `resumed: true`.
+
+It refuses to continue when the previous run in that directory was a **different
+task** or assigned a **different set of stages**, because mixing two jobs' outputs
+would produce a manifest describing a run that never happened. The refusal is
+recorded in `manifest["resume"]["reason"]` and the run proceeds from scratch.
+
+Honest limits: the resume unit is a stage, so a process killed *during* a stage
+re-runs that stage; repeated research for a reused stage is not reproduced (the
+saved output is used as-is); and the artifact builders still run again, because
+they are deterministic and overwrite in place rather than appending.
 
 ## What Phase 3 still owes
 
-- Resume an interrupted run from its last finished stage without duplicating
-  artifacts (the acceptance test in `ROADMAP.md`).
 - One budget (tokens, wall clock, disk) enforced across stages rather than per
   builder.
 - A diff-based review step: show every write as a change instead of a file dump.
