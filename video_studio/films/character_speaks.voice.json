@@ -1,40 +1,83 @@
 {
-  "title": "Every Frame Is Code — narration",
+  "title": "Every Frame Is Code \u2014 narration",
   "voice": "en_US-amy-medium",
   "notes": [
-    "Four captions, four spoken phrases: the first two are one sentence split",
+    "Ten captions, ten spoken phrases: the first two are one sentence split",
     "across two cards, so line 1 ends on a comma and keeps rising into line 2.",
-    "Rate is nudged per line: 'bones' lands slower than 'code'.",
-    "Timings here are only intent — the film is retimed to the synthesised audio."
+    "Rate is nudged per line: 'bones' lands slower than 'code', and the last two",
+    "lines run a little quicker so the film closes on energy, not on a fade.",
+    "Timings here are only intent \u2014 the film is retimed to the synthesised audio."
   ],
   "lines": [
     {
       "id": "L1",
-      "text": "Every frame,",
-      "gap_before": 2.8,
-      "pause_after": 0.16,
+      "text": "Every frame of this film,",
+      "gap_before": 2.9,
+      "pause_after": 0.34,
       "rate": 1.02
     },
     {
       "id": "L2",
       "text": "is drawn twice.",
       "gap_before": 0.0,
-      "pause_after": 0.62,
+      "pause_after": 0.5,
       "rate": 0.99
     },
     {
       "id": "L3",
       "text": "Once in bones.",
       "gap_before": 0.0,
-      "pause_after": 0.58,
+      "pause_after": 0.46,
       "rate": 0.94
     },
     {
       "id": "L4",
       "text": "Once in code.",
       "gap_before": 0.0,
-      "pause_after": 0.3,
+      "pause_after": 0.9,
       "rate": 0.97
+    },
+    {
+      "id": "L5",
+      "text": "There is no camera here,",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 1.0
+    },
+    {
+      "id": "L6",
+      "text": "and no one is acting.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.98
+    },
+    {
+      "id": "L7",
+      "text": "Just numbers that already know where to stand,",
+      "gap_before": 0.0,
+      "pause_after": 0.44,
+      "rate": 1.04
+    },
+    {
+      "id": "L8",
+      "text": "and a pen that knows how to move.",
+      "gap_before": 0.0,
+      "pause_after": 0.7,
+      "rate": 1.03
+    },
+    {
+      "id": "L9",
+      "text": "No studio, no schedule, no budget to burn,",
+      "gap_before": 0.55,
+      "pause_after": 0.5,
+      "rate": 1.05
+    },
+    {
+      "id": "L10",
+      "text": "just a loop that runs while I sleep.",
+      "gap_before": 0.0,
+      "pause_after": 0.3,
+      "rate": 1.02
     }
   ]
 }

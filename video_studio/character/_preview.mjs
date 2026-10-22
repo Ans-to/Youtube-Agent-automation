@@ -11,6 +11,7 @@ const { createCanvas } = require('@napi-rs/canvas');
 import { solve, neutralPose, twoBoneIK, VISEMES } from './rig.mjs';
 import { drawCharacter } from './body.mjs';
 import { drawStick, resolveInk } from './stick.mjs';
+import { EXPRESSIONS } from './expression.mjs';
 import { characterFrame, walkPose, speechTimeline } from './animate.mjs';
 
 const argv = process.argv.slice(2);
@@ -28,7 +29,9 @@ const draw = style === 'stick' ? drawStick : drawCharacter;
 // The stick figure needs its own paper, and the pose sheet is a drawing, not a
 // frame, so the boil sample is fixed per figure rather than animated.
 const paper = style === 'stick' ? resolveInk({}).paper : '#0A0E14';
-const sheetOpts = (extra = {}) => (style === 'stick' ? { boil, frame: 0, ...extra } : extra);
+const sheetOpts = (extra = {}) => (style === 'stick'
+  ? { boil, frame: 0, cape: true, expression: EXPRESSIONS.talk, ...extra }
+  : extra);
 
 const W = 1050;
 const H = 1500;

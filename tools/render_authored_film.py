@@ -321,6 +321,16 @@ def main(argv: list[str] | None = None) -> int:
     if not script.is_file():
         print("film script not found: %s" % script, file=sys.stderr)
         return 2
+    # A narration script that sits next to the film is picked up automatically.
+    # Before this, a film shipped silent unless the caller remembered
+    # --voice-script, and the default render of a talking-character film had no
+    # voice at all — the exact bug a viewer notices first.
+    if args.voice_script is None:
+        companion = script.with_suffix(".voice.json")
+        if companion.is_file():
+            args.voice_script = str(companion.relative_to(ROOT)) if companion.is_relative_to(ROOT) else str(companion)
+            print("[render] narration script found beside the film: %s" % companion.name)
+
     if not base.canvas_module_available():
         print("the canvas module is not installed (cd video_studio && npm ci)", file=sys.stderr)
         return 3
