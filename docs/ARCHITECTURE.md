@@ -5,7 +5,7 @@
 This repository has three connected but distinct execution surfaces. Keep their contracts separate:
 
 - **Local task application:** `dashboard.py` is the HTTP/UI entry point; `agent.py` runs queued work; `queue_store.py` owns cross-process queue locking and atomic task persistence.
-- **Agent domain and orchestration:** `agents/orchestrate.py` coordinates specialist stages; `agents/dispatch.py` resolves role assignments; `agents/practice.py` contains training/practice workflows; `quality_outputs.py` creates explicitly labelled offline fallback artifacts.
+- **Agent domain and orchestration:** `agents/orchestrate.py` coordinates specialist stages; `agents/routing.py` decides which pipeline a goal needs (see [ROUTING.md](ROUTING.md)); `agents/dispatch.py` resolves role assignments; `agents/practice.py` contains training/practice workflows; `quality_outputs.py` creates explicitly labelled offline fallback artifacts.
 - **Video production:** `video_studio/production.py` coordinates research, script/storyboard creation, rendering, QA and readiness; `video_studio/studio.py` renders the storyboard; `render.js` and `render.html` implement the Canvas2D visual layer. Technical media QA is not editorial or artistic approval.
 - **Digital products:** `product_studio/build_product.py` owns the product artifact build workflow.
 - **External boundary:** `bridge/bridge.py` accepts only its allowlisted request types. YouTube publishing remains separate and approval-gated in `video_studio/publish_youtube.py`.
@@ -84,10 +84,40 @@ never copied into those reports. Status semantics:
 | `partial` | A verified deterministic scaffold — real files, but not model-authored work |
 | `failed` | At least one step or acceptance check failed; the workspace is preserved |
 
-`agents/orchestrate.py` routes website and web-app goals to this loop and then
-independently re-verifies the artifacts (`verify_artifact_tool_runs`): HTML
-structure, offline Content-Security-Policy, no external URLs, a passing tool
-summary, and every declared acceptance check.
+`agents/orchestrate.py` runs the pipelines `agents/routing.py` selected and then
+independently re-verifies the artifacts (`verify_artifact_tool_runs`): a passing
+tool summary, every declared acceptance check, and the contract for the requested
+deliverable kind.
+
+| Kind | Contract checked after the run |
+| --- | --- |
+| `web` | complete HTML document, `connect-src 'none'`, no external URLs |
+| `document` | `deliverable.md` opens with a level-1 heading and has an acceptance-criteria section; `deliverable.json` declares `ai_generated: false`, `human_review_required: true`, and non-empty criteria |
+| `cli` | `tool.py` parses as Python, exposes `--self-test`, and a README exists |
+
+The kind is fixed by the caller (the router), never by the plan: a plan describes
+how to meet a request, not what was asked for.
+
+## Task routing (which pipeline runs)
+
+`agents/orchestrate.py` no longer decides what to build; `agents/routing.py` does,
+and the decision is recorded. Three rules keep that safe:
+
+1. **The catalog is the contract.** `PIPELINES` declares every pipeline, its
+   deliverable kind, its argument schema, and the phrasings it must never claim.
+   The routing prompt, response validation, and execution all read it.
+2. **The model chooses among code paths, it does not write them.** A response is
+   validated entry by entry; unknown ids, unknown argument keys, duplicates, and
+   out-of-range values are dropped with a reason. Nothing the router returns is
+   executed as text.
+3. **Policy applies to whoever chose.** Vetoes (advisory request, no build verb,
+   automation studio ≠ video) are deterministic and are applied to model routes
+   too, so enabling the model can add coverage but cannot remove a guard.
+
+`routing.json` and `manifest["routing"]` record the mode, the chosen pipelines,
+the deterministic comparison, and every veto or rejection. Execution-time guards
+(no render without a model, opt-in command execution, approval-gated external
+actions) stay in the executor — routing is a decision, not a permission.
 
 ## Configuration and error handling
 

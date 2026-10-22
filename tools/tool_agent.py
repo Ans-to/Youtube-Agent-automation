@@ -57,6 +57,10 @@ except ImportError:  # pragma: no cover - standalone execution
     )
 
 MAX_STEPS = 24
+#: What the loop is allowed to be asked for. Each kind has a fixed deterministic
+#: scaffold, a fixed set of acceptance checks, and an artifact contract the
+#: orchestrator verifies independently. Adding a kind is a product decision.
+DELIVERABLES = ("web", "document", "cli")
 MAX_REPAIRS = 2
 MAX_GOAL_CHARS = 4_000
 MAX_VERIFY_ITEMS = 12
@@ -93,6 +97,7 @@ class VerificationItem:
 class ToolPlan:
     goal: str
     mode: str
+    deliverable: str = "web"
     steps: list[PlanStep] = field(default_factory=list)
     verify: list[VerificationItem] = field(default_factory=list)
     notes: str = ""
@@ -101,10 +106,29 @@ class ToolPlan:
         return {
             "goal": self.goal,
             "mode": self.mode,
+            "deliverable": self.deliverable,
             "steps": [{"tool": step.tool, "args": dict(step.args), "why": step.why} for step in self.steps],
             "verify": [item.as_dict() for item in self.verify],
             "notes": self.notes,
         }
+
+
+def normalise_deliverable(value: str | None) -> str:
+    """Validate a requested deliverable kind, or raise."""
+    kind = str(value or "web").strip().lower()
+    if kind not in DELIVERABLES:
+        raise ValueError(f"unknown deliverable '{kind}'; expected one of: {', '.join(DELIVERABLES)}")
+    return kind
+
+
+#: The files (and the text they must contain) each kind owes its consumer. The
+#: orchestrator checks the real files on disk against this contract after the
+#: run; keeping the contract here means a plan cannot quietly redefine it.
+DELIVERABLE_CONTRACT = {
+    "web": (("index.html", "<!doctype html"), ("README.md", "#")),
+    "document": (("deliverable.md", "#"), ("deliverable.json", "\"ai_generated\"")),
+    "cli": (("tool.py", "argparse"), ("README.md", "#")),
+}
 
 
 # ---------------------------------------------------------------------------
@@ -123,12 +147,40 @@ PLANNER_SYSTEM = (
 )
 
 
-def build_plan_prompt(goal: str, catalog_json: str, *, allow_exec: bool, feedback: str = "") -> str:
+DELIVERABLE_BRIEF = {
+    "web": (
+        "DELIVERABLE: a working offline web page or small web app.",
+        "index.html must be a complete document with a no-network Content-Security-Policy "
+        "(connect-src 'none'), no external URLs, no external assets, and no build step. "
+        "Include a README.md that says how to open it and what it does not do."
+    ),
+    "document": (
+        "DELIVERABLE: one structured Markdown document plus machine-readable metadata.",
+        "deliverable.md must start with a level-1 heading and carry real, specific content: "
+        "purpose, scope, the decisions or steps, and acceptance criteria. "
+        "deliverable.json must be a JSON object with keys schema (1), title, deliverable "
+        "(\"document\"), generated_by, ai_generated (false), sections (array of strings), "
+        "acceptance_criteria (array of strings), human_review_required (true). "
+        "Write no fact you cannot support from the goal."
+    ),
+    "cli": (
+        "DELIVERABLE: a working command-line tool in the Python standard library.",
+        "tool.py must run with `python tool.py`, parse arguments with argparse, expose "
+        "--self-test, and exit non-zero on failure. README.md must show the exact commands. "
+        "No third-party imports, no network, no file writes outside the workspace."
+    ),
+}
+
+
+def build_plan_prompt(goal: str, catalog_json: str, *, allow_exec: bool,
+                      deliverable: str = "web", feedback: str = "") -> str:
     """Compose the single planning prompt. Kept deterministic for testability."""
+    kind = normalise_deliverable(deliverable)
+    primary = DELIVERABLE_CONTRACT[kind][0][0]
     rules = [
         "Return JSON only, with this shape:",
-        '{"steps":[{"tool":"write_file","args":{"path":"index.html","content":"<!doctype html>..."},"why":"one clause"}],'
-        '"verify":[{"path":"index.html","contains":"<!doctype html>"}]}',
+        '{"steps":[{"tool":"write_file","args":{"path":"' + primary + '","content":"..."},"why":"one clause"}],'
+        '"verify":[{"path":"' + primary + '","contains":"..."}]}',
         "Each step must name one catalog tool and pass exactly its declared arguments.",
         "Paths are relative to the workspace; absolute paths and '..' are rejected.",
         f"At most {MAX_STEPS} steps. At most {MAX_VERIFY_ITEMS} verify checks.",
@@ -136,6 +188,7 @@ def build_plan_prompt(goal: str, catalog_json: str, *, allow_exec: bool, feedbac
         "Use write_file for every file you create. Do not describe files you did not write.",
         "Keep each file under the write limit; split large work across steps.",
     ]
+    rules.extend(DELIVERABLE_BRIEF[kind])
     if allow_exec:
         rules.append(
             "run_command is available: program must be python, python3, or node; args is a list of strings; "
@@ -146,6 +199,7 @@ def build_plan_prompt(goal: str, catalog_json: str, *, allow_exec: bool, feedbac
     sections = [
         PLANNER_SYSTEM,
         "AUTOMATION RULES\n- " + "\n- ".join(rules),
+        "DELIVERABLE KIND: " + kind,
         "TOOL CATALOG (JSON)\n" + catalog_json,
         "GOAL\n" + goal.strip(),
     ]
@@ -261,7 +315,8 @@ def _site_title(goal: str) -> str:
     """Derive a human title without letting the goal's verb become the headline."""
     text = re.sub(r"\s+", " ", goal).strip()
     text = re.sub(
-        r"(?i)^(?:please\s+)?(?:build|create|make|generate|develop|implement|launch|design)\s+"
+        r"(?i)^(?:please\s+)?(?:build|create|make|generate|develop|implement|launch|design"
+        r"|write|draft|compose|produce|prepare|assemble|render|export)\s+"
         r"(?:(?:me|a|an|the|my)\s+)?(?:(?:simple|small|local|offline|responsive|basic|functional|custom|tiny|working|modern|personal|professional)\s+){0,3}",
         "",
         text,
@@ -454,8 +509,226 @@ was used.
     }
 
 
-def deterministic_plan(goal: str, *, allow_exec: bool = False) -> ToolPlan:
+DOCUMENT_SECTIONS = (
+    "Purpose",
+    "Scope",
+    "What is decided",
+    "Acceptance criteria",
+    "Open questions",
+    "Next actions",
+)
+
+
+def _one_line(value: str, limit: int = 300) -> str:
+    return re.sub(r"\s+", " ", value).strip().rstrip(".")[:limit] or "the stated goal"
+
+
+def deterministic_document_files(goal: str) -> dict[str, str]:
+    """A structured document with real acceptance criteria and no invented facts.
+
+    The honest limit is written into the file itself: this is structure, not
+    research. A document that pretends to summarise sources it never read would be
+    worse than no document, so the scaffold states what it does not contain.
+    """
+    title = _site_title(goal)
+    summary = _one_line(goal)
+    criteria = [
+        "Every section in this document contains at least one specific sentence, not a placeholder.",
+        "The document names a single owner and a review date before it is circulated.",
+        "Each factual claim is either sourced or removed; nothing is asserted from memory.",
+        "Anything still open is listed under Open questions, not implied to be settled.",
+    ]
+    body = [
+        f"# {title}",
+        "",
+        "> Deterministic scaffold generated offline by Agent HQ. It provides structure,",
+        "> headings, and acceptance criteria only. No language model wrote it, no",
+        "> research was performed for it, and no claim in it has been verified.",
+        "> Replace the bracketed text before anyone relies on this document.",
+        "",
+        f"**Goal as given:** {summary}",
+        "",
+        "## Purpose",
+        "",
+        "State in one paragraph why this document exists and what decision or action",
+        "it should enable. If it enables neither, delete the document.",
+        "",
+        "## Scope",
+        "",
+        "- In scope: [the work, decision, or system this covers]",
+        "- Out of scope: [what a reader might reasonably expect but will not find here]",
+        "- Owner: [one named person]",
+        "- Review date: [YYYY-MM-DD]",
+        "",
+        "## What is decided",
+        "",
+        "| Decision | Rationale | Reversible? |",
+        "| --- | --- | --- |",
+        "| [decision] | [why] | [yes/no] |",
+        "",
+        "## Acceptance criteria",
+        "",
+    ]
+    body.extend(f"{index}. {item}" for index, item in enumerate(criteria, start=1))
+    body.extend([
+        "",
+        "## Open questions",
+        "",
+        "- [question that must be answered before the next step]",
+        "",
+        "## Next actions",
+        "",
+        "- [ ] [action] — [owner] — [date]",
+        "",
+    ])
+    metadata = {
+        "schema": 1,
+        "title": title,
+        "goal": summary,
+        "deliverable": "document",
+        "generated_by": "deterministic_scaffold",
+        "ai_generated": False,
+        "research_performed": False,
+        "sections": list(DOCUMENT_SECTIONS),
+        "acceptance_criteria": criteria,
+        "human_review_required": True,
+    }
+    return {
+        "deliverable.md": "\n".join(body),
+        "deliverable.json": json.dumps(metadata, indent=2, ensure_ascii=False) + "\n",
+    }
+
+
+CLI_TEMPLATE = '''#!/usr/bin/env python3
+"""{name} — a small standard-library records tool.
+
+Deterministic scaffold generated offline by Agent HQ. The argument parsing,
+reading, de-duplication, and self-test below are real and runnable; `clean()`
+is the one function to replace with the rule this task actually needs.
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+
+def clean(record: str) -> str:
+    """Normalise one record. Replace this with the task's real rule."""
+    return " ".join(record.split())
+
+
+def dedupe(records: list[str]) -> list[str]:
+    """Drop repeats while keeping the original order."""
+    seen: set[str] = set()
+    kept: list[str] = []
+    for item in records:
+        if item not in seen:
+            seen.add(item)
+            kept.append(item)
+    return kept
+
+
+def load(paths: list[str]) -> list[str]:
+    records: list[str] = []
+    for path in paths:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+        records.extend(clean(line) for line in text.splitlines() if line.strip())
+    return records
+
+
+def run(args: argparse.Namespace) -> int:
+    records = load(args.files) if args.files else [
+        clean(line) for line in sys.stdin if line.strip()
+    ]
+    if args.unique:
+        records = dedupe(records)
+    if args.json:
+        print(json.dumps({"count": len(records), "records": records}, indent=2))
+    else:
+        for item in records:
+            print(item)
+    return 0
+
+
+def self_test() -> int:
+    """Prove the plumbing works, without a test framework."""
+    assert clean("  a   b  ") == "a b"
+    assert clean("") == ""
+    assert dedupe(["a", "b", "a", "c", "b"]) == ["a", "b", "c"]
+    assert dedupe([]) == []
+    print("self-test: ok")
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="{name}: clean and de-duplicate text records.")
+    parser.add_argument("files", nargs="*", help="UTF-8 text files; reads stdin when empty")
+    parser.add_argument("--unique", action="store_true", help="drop repeated records")
+    parser.add_argument("--json", action="store_true", help="print a JSON object instead of lines")
+    parser.add_argument("--self-test", action="store_true", help="run the built-in checks and exit")
+    args = parser.parse_args(argv)
+    if args.self_test:
+        return self_test()
+    return run(args)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+'''
+
+
+def deterministic_cli_files(goal: str, name: str = "") -> dict[str, str]:
+    """A runnable command-line tool whose plumbing is finished and tested."""
+    if not name:
+        # "Build a CLI called photo-dedupe" names the tool; otherwise derive one.
+        named = re.search(r"(?i)\b(?:called|named|titled)\s+[`'\"]?([a-z][a-z0-9_-]{1,40})", goal)
+        name = named.group(1) if named else ""
+    candidate = re.sub(r"[^a-z0-9_-]+", "-", (name or _slug(_site_title(goal), 32)).lower()).strip("-")
+    tool_name = candidate if re.fullmatch(r"[a-z][a-z0-9_-]{0,39}", candidate or "") else "records-tool"
+    readme = f"""# {tool_name}
+
+A small command-line tool in the Python standard library, generated offline by
+Agent HQ as a deterministic scaffold.
+
+## What is real
+
+- `tool.py` parses arguments, reads files or stdin, cleans records, optionally
+  de-duplicates them, and prints text or JSON.
+- `python tool.py --self-test` runs the built-in checks; they exit non-zero on
+  failure, so the tool can be verified without a test framework.
+- No third-party imports, no network access, no writes outside the workspace.
+
+## What is not
+
+`clean()` in `tool.py` only normalises whitespace. It is a placeholder for the
+rule this task needs. Until that rule is written and tested, this tool cleans and
+de-duplicates text — it does not do the job the goal describes, and nothing here
+should be read as claiming that it does.
+
+## Usage
+
+```sh
+python tool.py --self-test
+python tool.py records.txt --unique
+cat records.txt | python tool.py --json
+```
+"""
+    return {"tool.py": CLI_TEMPLATE.replace("{name}", tool_name), "README.md": readme}
+
+
+def deterministic_plan(goal: str, *, allow_exec: bool = False,
+                       deliverable: str = "web", deliverable_name: str = "") -> ToolPlan:
     """A fixed, safe plan that still produces a genuine artifact offline."""
+    kind = normalise_deliverable(deliverable)
+    if kind == "document":
+        return _scaffold_plan(goal, deterministic_document_files(goal), kind, allow_exec=allow_exec,
+                              notes="No local model was available; this is a labelled document scaffold.")
+    if kind == "cli":
+        return _scaffold_plan(goal, deterministic_cli_files(goal, name=deliverable_name), kind,
+                              allow_exec=allow_exec,
+                              notes="No local model was available; this is a labelled CLI scaffold.")
     files = deterministic_site_files(goal)
     steps = [
         PlanStep(tool="write_file", args={"path": name, "content": content},
@@ -472,8 +745,43 @@ def deterministic_plan(goal: str, *, allow_exec: bool = False) -> ToolPlan:
         # A no-network syntax check of the generated JavaScript, when Node exists.
         steps.append(PlanStep(tool="run_command", args={"program": "node", "args": ["--check", "app.js"]},
                               why="verify generated JavaScript parses"))
-    return ToolPlan(goal=goal, mode="deterministic", steps=steps, verify=verify,
+    return ToolPlan(goal=goal, mode="deterministic", deliverable=kind, steps=steps, verify=verify,
                     notes="No local model was available; this is a labelled scaffold.")
+
+
+def _scaffold_plan(goal: str, files: dict[str, str], kind: str, *,
+                   allow_exec: bool = False, notes: str = "") -> ToolPlan:
+    """Turn a deterministic file set into a verified plan for one deliverable kind."""
+    steps = [
+        PlanStep(tool="write_file", args={"path": name, "content": content},
+                 why="deterministic scaffold file")
+        for name, content in files.items()
+    ]
+    verify = [VerificationItem(path=name, contains=needle)
+              for name, needle in DELIVERABLE_CONTRACT[kind]]
+    interpreter = _python_program() if allow_exec and kind == "cli" else ""
+    if interpreter:
+        # The tool ships its own checks; run them rather than trusting the text.
+        steps.append(PlanStep(tool="run_command",
+                              args={"program": interpreter, "args": ["tool.py", "--self-test"]},
+                              why="run the generated tool's self-test"))
+    return ToolPlan(goal=goal, mode="deterministic", deliverable=kind,
+                    steps=steps, verify=verify, notes=notes)
+
+
+def _python_program() -> str:
+    """An allowlisted Python interpreter that exists on this machine.
+
+    Windows installs ``python`` and not ``python3``; planning a command that the
+    runtime would refuse is worse than planning none, because the failure looks
+    like a broken artifact instead of a missing launcher.
+    """
+    import shutil
+
+    for name in ("python3", "python"):
+        if shutil.which(name):
+            return name
+    return ""
 
 
 def _exec_available() -> bool:
@@ -569,11 +877,19 @@ def run_tool_agent(
     *,
     model_call: ModelCall | None = None,
     allow_exec: bool = False,
+    deliverable: str = "web",
+    deliverable_name: str = "",
     max_repairs: int = MAX_REPAIRS,
     max_seconds: int = 900,
     timeout_seconds: int = 120,
 ) -> dict:
     """Plan → execute → verify → repair, inside one confined task sandbox.
+
+    ``deliverable`` selects the artifact contract: a web page or app, a
+    structured document, or a command-line tool. It changes the deterministic
+    scaffold, the instructions the model receives, and the acceptance checks the
+    orchestrator applies afterwards — never the sandbox, the tool set, or the
+    repair budget.
 
     Returns a manifest-safe dict. The status is ``completed`` only when every
     acceptance check passes; otherwise it is ``failed`` with the observations
@@ -582,6 +898,7 @@ def run_tool_agent(
     if not isinstance(goal, str) or not goal.strip():
         raise ValueError("goal must be a non-empty string")
     goal = goal.strip()[:MAX_GOAL_CHARS]
+    deliverable = normalise_deliverable(deliverable)
     max_repairs = max(0, min(int(max_repairs), MAX_REPAIRS))
     started = time.monotonic()
 
@@ -611,7 +928,8 @@ def run_tool_agent(
 
         plan_error = ""
         if model_call is not None:
-            prompt = build_plan_prompt(goal, catalog, allow_exec=allow_exec, feedback=feedback)
+            prompt = build_plan_prompt(goal, catalog, allow_exec=allow_exec,
+                                       deliverable=deliverable, feedback=feedback)
             try:
                 response = model_call(prompt, DEFAULT_PLAN_TOKENS)
                 plan = parse_plan(response, registry, goal=goal, mode="model")
@@ -623,7 +941,8 @@ def run_tool_agent(
                 plan = None
         if model_call is None or plan is None:
             if attempt_index == 0 or model_call is None:
-                plan = deterministic_plan(goal, allow_exec=allow_exec)
+                plan = deterministic_plan(goal, allow_exec=allow_exec, deliverable=deliverable,
+                                          deliverable_name=deliverable_name)
                 if plan_error:
                     plan.notes = (plan.notes + " | planner error: " + plan_error)[:500]
             else:
@@ -631,6 +950,9 @@ def run_tool_agent(
                 break
 
         executed_plan = plan
+        # The requested kind is the caller's decision; a plan describes how to
+        # meet it, not what was asked for.
+        plan.deliverable = deliverable
         step_results = execute_plan(registry, plan)
         checks = verify_plan(registry, plan)
         attempts.append({
@@ -667,6 +989,7 @@ def run_tool_agent(
         "tool": "tool_agent",
         "status": status,
         "mode": mode,
+        "deliverable": deliverable,
         "goal": goal,
         "attempts": attempts,
         "step_count": len(step_results),
@@ -697,7 +1020,7 @@ def run_tool_agent(
     })
     _write_json(sandbox.root / "tool-summary.json", {
         key: manifest[key] for key in (
-            "status", "mode", "attempts", "artifact_dir", "artifacts",
+            "status", "mode", "deliverable", "attempts", "artifact_dir", "artifacts",
             "elapsed_seconds", "human_review_required", "note",
         )
     })

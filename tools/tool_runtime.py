@@ -200,6 +200,92 @@ class WorkspaceSandbox:
             return "<outside-workspace>"
 
 
+def default_specs(*, allow_exec: bool = False, max_write_bytes: int = MAX_WRITE_BYTES) -> list[ToolSpec]:
+    """The tools every registry starts with, described but not yet bound.
+
+    Kept separate from ``ToolRegistry`` so a caller that only needs to *describe*
+    the catalog — the task router, a prompt builder, documentation — can do so
+    without creating a sandbox directory first. Registering and executing still
+    happens only inside a registry bound to a confined root.
+    """
+    specs = [
+        ToolSpec(
+            name="list_files",
+            summary="List files and directories inside the workspace.",
+            side_effect="read",
+            schema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "maxLength": 400, "default": "."},
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+        ),
+        ToolSpec(
+            name="read_file",
+            summary="Read a UTF-8 text file from the workspace.",
+            side_effect="read",
+            schema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "maxLength": 400},
+                },
+                "required": ["path"],
+                "additionalProperties": False,
+            },
+        ),
+        ToolSpec(
+            name="write_file",
+            summary="Create or replace a UTF-8 text file inside the workspace.",
+            side_effect="write",
+            schema={
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "maxLength": 400},
+                    "content": {"type": "string", "maxLength": max_write_bytes},
+                },
+                "required": ["path", "content"],
+                "additionalProperties": False,
+            },
+        ),
+    ]
+    if allow_exec:
+        specs.append(ToolSpec(
+            name="run_command",
+            summary=(
+                "Run an allowlisted interpreter inside the workspace and capture output. "
+                "Programs: " + ", ".join(ALLOWED_PROGRAMS) + ". No shell."
+            ),
+            side_effect="execute",
+            requires_exec=True,
+            schema={
+                "type": "object",
+                "properties": {
+                    "program": {"type": "string", "enum": list(ALLOWED_PROGRAMS)},
+                    "args": {
+                        "type": "array",
+                        "maxItems": MAX_ARGS,
+                        "items": {"type": "string", "maxLength": MAX_ARG_LENGTH},
+                    },
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": MAX_TIMEOUT_SECONDS,
+                    },
+                },
+                "required": ["program"],
+                "additionalProperties": False,
+            },
+        ))
+    return specs
+
+
+def default_tool_catalog(*, allow_exec: bool = False) -> list[dict]:
+    """Prompt-ready catalog of the default tool set, without a sandbox."""
+    return [spec.prompt_entry() for spec in default_specs(allow_exec=allow_exec)]
+
+
 class ToolRegistry:
     """Register tool specs, describe them to a planner, and execute them safely."""
 
@@ -258,74 +344,21 @@ class ToolRegistry:
 
     # -- built-in tools ---------------------------------------------------
     def _register_defaults(self) -> None:
-        self.register(ToolSpec(
-            name="list_files",
-            summary="List files and directories inside the workspace.",
-            side_effect="read",
-            schema={
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "maxLength": 400, "default": "."},
-                },
-                "required": [],
-                "additionalProperties": False,
-            },
-        ), self._list_files)
-        self.register(ToolSpec(
-            name="read_file",
-            summary="Read a UTF-8 text file from the workspace.",
-            side_effect="read",
-            schema={
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "maxLength": 400},
-                },
-                "required": ["path"],
-                "additionalProperties": False,
-            },
-        ), self._read_file)
-        self.register(ToolSpec(
-            name="write_file",
-            summary="Create or replace a UTF-8 text file inside the workspace.",
-            side_effect="write",
-            schema={
-                "type": "object",
-                "properties": {
-                    "path": {"type": "string", "maxLength": 400},
-                    "content": {"type": "string", "maxLength": self.sandbox.max_write_bytes},
-                },
-                "required": ["path", "content"],
-                "additionalProperties": False,
-            },
-        ), self._write_file)
-        if self.sandbox.allow_exec:
-            self.register(ToolSpec(
-                name="run_command",
-                summary=(
-                    "Run an allowlisted interpreter inside the workspace and capture output. "
-                    "Programs: " + ", ".join(ALLOWED_PROGRAMS) + ". No shell."
-                ),
-                side_effect="execute",
-                requires_exec=True,
-                schema={
-                    "type": "object",
-                    "properties": {
-                        "program": {"type": "string", "enum": list(ALLOWED_PROGRAMS)},
-                        "args": {
-                            "type": "array",
-                            "maxItems": MAX_ARGS,
-                            "items": {"type": "string", "maxLength": MAX_ARG_LENGTH},
-                        },
-                        "timeout_seconds": {
-                            "type": "integer",
-                            "minimum": 1,
-                            "maximum": MAX_TIMEOUT_SECONDS,
-                        },
-                    },
-                    "required": ["program"],
-                    "additionalProperties": False,
-                },
-            ), self._run_command)
+        """Bind the declarative specs to their handlers.
+
+        The specs live in :func:`default_specs` so that describing the catalog
+        and enforcing it cannot drift apart: the registry registers exactly the
+        specs a prompt was built from.
+        """
+        handlers: dict[str, Callable[[dict], dict]] = {
+            "list_files": self._list_files,
+            "read_file": self._read_file,
+            "write_file": self._write_file,
+            "run_command": self._run_command,
+        }
+        for spec in default_specs(allow_exec=self.sandbox.allow_exec,
+                                  max_write_bytes=self.sandbox.max_write_bytes):
+            self.register(spec, handlers[spec.name])
 
     def _list_files(self, arguments: dict) -> dict:
         target = self.sandbox.resolve(arguments.get("path") or ".")

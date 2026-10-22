@@ -13,14 +13,15 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 328 tests, quality gate 41/41, invariant check |
+| Offline operation, no key | **Done** | 787 tests, quality gate 69/69, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
-| Plan → act → verify → repair | **Done for web builds** | `tools/tool_agent.py`, `agents/orchestrate.py` |
+| Plan → act → verify → repair | **Done for web, document, and CLI builds** | `tools/tool_agent.py`, `agents/orchestrate.py` |
 | Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 22 rules, local vision evidence, honest unverified states |
 | Professional motion design (L4) | **Partial - direction + spec layer done** | `video_studio/motion/`, 6 designed transitions, 9 camera moves, bundled Inter/Space Grotesk, bezier/anticipation/follow-through, `docs/MOTION.md`; asset import and character rig still limited |
-| General task automation (L3) | **Partial** | Web builds only; no long-horizon memory |
+| Task routing (which pipeline runs) | **Done for the 5 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 84 tests |
+| General task automation (L3) | **Partial** | Routing plus web/document/CLI builds; no data/chart pipelines, no test-and-fix, no long-horizon memory |
 | Code quality of local models | **Gap** | Small models route well but write weak code |
 
 ---
@@ -57,22 +58,47 @@ commercial references, with a defect log and regression fixtures added to
 
 ## Phase 2 — General task routing
 
+**Status:** steps 1 and half of 2 are implemented.
+
+Step 1 is done: `agents/routing.py` replaces the inline regex classifier with a
+pipeline catalog, a model router that must choose from it, a deterministic router
+that reproduces the previous behaviour exactly, and vetoes that apply to both.
+Every decision is written to `workspace/.../routing.json` and to
+`manifest["routing"]`, including the deterministic answer and any veto, so "why
+did nothing build?" is answerable without guessing. See `docs/ROUTING.md`.
+
+Step 2 is partly done: the confined tool loop now builds documents
+(`deliverable.md` plus `deliverable.json`) and standard-library CLI tools
+(`tool.py` with a real `--self-test`, plus a README) as well as web pages. Each
+kind has a fixed artifact contract and independent post-build verification.
+Still missing: CSV/JSON data transforms and charts, test-and-fix tasks, and the
+honest limits of the two new scaffolds — a document scaffold carries structure,
+not research, and a CLI scaffold carries working plumbing, not the task's
+algorithm. Both say so in the artifact.
+
 Work:
 
-1. Replace the regex intent classifier in `run_builtin_tools` with a **task
-   routing layer**: the model sees the tool catalog *and* the available
-   pipelines, and returns a pipeline or tool plan.
-2. Extend the tool loop beyond web builds: document/data deliverables
-   (Markdown, CSV, JSON, charts), script/CLI projects, and test-and-fix tasks.
+1. ~~Replace the regex intent classifier in `run_builtin_tools` with a **task
+   routing layer**.~~ Done.
+2. Extend the tool loop beyond web builds: ~~document deliverables, script/CLI
+   projects~~, **CSV/JSON transforms, charts, and test-and-fix tasks** still open.
 3. Add tools with new side effects behind explicit policy:
    `delete_file` (trash-only), `http_fetch` (allowlisted, SSRF-hardened reuse),
-   `package_install` (never), `serve_preview` (loopback, read-only).
-4. Multi-artifact plans: one goal, several deliverables, one manifest.
+   `package_install` (never), `serve_preview` (loopback, read-only). **Open.**
+   These are not needed by the current pipelines and are not added speculatively.
+4. Multi-artifact plans: one goal, several deliverables, one manifest. **Open** —
+   the router already returns a list, but the tool loop runs once per task.
 
 **Acceptance test:** ten held-out goals across four domains ("write a
 changelog", "analyze this CSV and chart it", "build a CLI that dedupes photos",
 "debug this failing test") each produce verified artifacts with no manual step,
 and each failure is reported as a failure rather than a draft.
+
+**Where that test stands:** "write a changelog" and "build a CLI that dedupes
+photos" route and verify today, but the CLI scaffold is plumbing, not a working
+deduplicator — so that goal is *routed* and not yet *met*. "Analyze this CSV and
+chart it" and "debug this failing test" have no pipeline. The test is not passed;
+two of ten goals are reachable.
 
 ## Phase 3 — Long-horizon memory and repair
 
