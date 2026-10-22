@@ -19,6 +19,7 @@ import fs from 'fs';
 import { GlobalFonts, createCanvas } from '@napi-rs/canvas';
 import { characterFrame, speechTimeline, blinkSchedule, noise1, HIP_HEIGHT } from '../character/animate.mjs';
 import { drawCharacter, LOOK } from '../character/body.mjs';
+import { drawStick, resolveInk, INK } from '../character/stick.mjs';
 
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -33,7 +34,7 @@ function parseArgs(argv) {
   const opts = {
     out: 'frames', width: DESIGN_W, height: null, fps: 30, quality: 92,
     from: 0, to: null, still: null, quiet: false,
-    voiceLines: null, voiceEnvelope: null,
+    voiceLines: null, voiceEnvelope: null, style: 'stick', boil: 1,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -49,13 +50,21 @@ function parseArgs(argv) {
     else if (flag === '--quiet') opts.quiet = true;
     else if (flag === '--voice-lines') opts.voiceLines = value();
     else if (flag === '--voice-envelope') opts.voiceEnvelope = value();
+    else if (flag === '--style') opts.style = value();
+    else if (flag === '--boil') opts.boil = Number(value());
     else throw new Error(`Unknown option: ${flag}`);
   }
   opts.height = opts.height || Math.round((opts.width * DESIGN_H) / DESIGN_W / 2) * 2;
+  if (!['stick', 'design'].includes(opts.style)) {
+    throw new Error(`Unknown --style ${opts.style} (expected stick or design)`);
+  }
+  if (!Number.isFinite(opts.boil) || opts.boil < 0) throw new Error('--boil must be a number >= 0');
   return opts;
 }
 
 const OPTS = parseArgs(process.argv.slice(2));
+const STYLE = OPTS.style;
+const BOIL = OPTS.boil;
 const SCALE = OPTS.width / DESIGN_W;
 const FPS = OPTS.fps;
 const W = DESIGN_W;
@@ -74,10 +83,75 @@ for (const [family, file] of FACES) {
 }
 
 // -------------------------------------------------------------------- scene
-const C = {
-  bg: '#05070C', bg2: '#0A0F18', panel: '#0C121D', fg: '#F4F6FA',
-  muted: '#8B94A6', accent: '#C8FF3D', support: '#5B8FFF',
+// The palette follows the pen. A stickman is drawn in ink on paper, so the film
+// behind it has to be paper too — otherwise the figure is black on black. Both
+// palettes are monochrome-plus-one-accent, so the channel look does not change,
+// only its value.
+const PALETTE = {
+  design: {
+    bg: '#05070C', bg2: '#0A0F18', panel: '#0C121D', fg: '#F4F6FA',
+    muted: '#8B94A6', accent: '#C8FF3D', support: '#5B8FFF',
+  },
+  stick: {
+    bg: '#F2F2F2', bg2: '#E7E7E7', panel: '#EDEDED', fg: '#121212',
+    muted: '#6E6E6E', accent: '#121212', support: '#3A3A3A',
+  },
 };
+const C = PALETTE[STYLE] || PALETTE.stick;
+
+// Every accent in the film goes through one helper. In ink mode the accent is
+// the ink colour, so no stray lime can survive into a black-and-white channel
+// upload — the tint was visible as an olive wash over the paper background.
+const accentRGBA = (alpha) => (STYLE === 'stick'
+  ? `rgba(18,18,18,${alpha})`
+  : `rgba(200,255,61,${alpha})`);
+const supportRGBA = (alpha) => (STYLE === 'stick'
+  ? `rgba(58,58,58,${alpha})`
+  : `rgba(91,143,255,${alpha})`);
+
+// --------------------------------------------------------------- measurement
+/**
+ * Vertical extent of the drawn figure, measured from the solved bones.
+ *
+ * The camera used to assume a fixed height (1810 units), which was true for the
+ * illustrated character and false for the stickman: its head is drawn 1.05x the
+ * head bone, so it sat above the assumed top and the frame cropped it. Measuring
+ * means the two pens frame correctly without either being special-cased.
+ */
+function figureBounds(solved) {
+  let top = Infinity;
+  let bottom = -Infinity;
+  for (const bone of Object.values(solved)) {
+    for (const p of [bone.origin, bone.end]) {
+      if (p[1] < top) top = p[1];
+      if (p[1] > bottom) bottom = p[1];
+    }
+  }
+  if (solved.head) {
+    // The head is a circle centred on the head bone's end, not a bone segment.
+    const r = solved.head.length * (STYLE === 'stick' ? 1.05 : 0.62);
+    top = Math.min(top, solved.head.end[1] - r);
+  }
+  return { top, bottom, height: bottom - top };
+}
+
+/** How much of the frame above the head a shot keeps, per shot id. */
+const HEADROOM = { W: 0.20, M: 0.16, C: 0.14, W2: 0.20 };
+
+/**
+ * Vertical pivot for a shot, solved so the top of the head lands on the
+ * headroom line after the zoom is applied.
+ *
+ *   screen(y) = pivot + (y - pivot) * zoom
+ *
+ * Setting `screen(headTop) = H * headroom` and solving for pivot gives the
+ * expression below. At zoom 1 the pivot does not matter, so we centre the
+ * figure instead of dividing by zero.
+ */
+function cameraPivotY(headTop, groundY, zoom, headroom) {
+  if (Math.abs(zoom - 1) < 1e-6) return (headTop + groundY) / 2;
+  return (H * headroom - headTop * zoom) / (1 - zoom);
+}
 
 const clamp = (x) => (x < 0 ? 0 : x > 1 ? 1 : x);
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -164,7 +238,17 @@ const TOTAL_FRAMES = Math.round(DURATION * FPS);
 const BLINKS = blinkSchedule(DURATION, 7);
 
 const GROUND_Y = 2010;
-const FIG_SCALE = 0.95;
+// The figure is sized to the frame, not to a magic constant. The shot list and
+// the ground line were composed for a figure 1600 design units tall, so the pen
+// is scaled to hit that height exactly — otherwise the stickman (whose solved
+// skeleton is 1850 units at scale 0.95) sits under the top HUD in the wide shot
+// and blows past the bottom of frame in the medium.
+const FIG_TARGET_HEIGHT = 1600;
+const FIG_SCALE = (() => {
+  const probe = characterFrame(1, { mode: 'idle', scale: 1, groundY: 0, x: 0 });
+  const b = figureBounds(probe.solved);
+  return FIG_TARGET_HEIGHT / (b.bottom - b.top);
+})();
 
 /**
  * Coverage. A dialogue scene is cut, not held: wide to establish, medium to
@@ -176,10 +260,13 @@ const WALK_OUT_START = Math.min(LAST_END + 0.30, DURATION - 0.9);
 const WAVE_AT = Math.min(LINES[LINES.length - 1].start + 0.45, DURATION - 1.75);
 
 const COVERAGE = [
+  // Zoom values are chosen so the frame edge lands somewhere a camera would put
+  // it: the full figure, just above the knee, then the waist. Intermediate
+  // values slice through a shin, which reads as a mistake rather than a choice.
   { id: 'W', start: 0.0, end: LINES[0].start + 0.55, zoom: 1.00, anchor: 0.40, note: 'wide, walk-in' },
   { id: 'M', start: LINES[0].start + 0.55, end: (LINES[1].end + LINES[2].start) / 2, zoom: 1.45, anchor: 0.40, note: 'medium, first two lines' },
-  { id: 'C', start: (LINES[1].end + LINES[2].start) / 2, end: LINES[2].end + 0.5, zoom: 1.80, anchor: 0.40, note: 'close, the turn' },
-  { id: 'W2', start: LINES[2].end + 0.5, end: DURATION, zoom: 1.10, anchor: 0.45, note: 'wide, wave and exit' },
+  { id: 'C', start: (LINES[1].end + LINES[2].start) / 2, end: LINES[2].end + 0.5, zoom: 1.95, anchor: 0.40, note: 'close, the turn' },
+  { id: 'W2', start: LINES[2].end + 0.5, end: DURATION, zoom: 1.00, anchor: 0.45, note: 'wide, wave and exit' },
 ];
 
 function coverageAt(seconds) {
@@ -209,7 +296,7 @@ function drawBackground(ctx, t) {
 
   // drifting grid, denser toward the floor so it reads as perspective
   ctx.save();
-  ctx.strokeStyle = 'rgba(91,143,255,0.16)';
+  ctx.strokeStyle = supportRGBA(0.16);
   ctx.lineWidth = 2;
   const drift = (t * 60) % 160;
   for (let x = -200 + drift; x < W + 200; x += 160) {
@@ -221,7 +308,7 @@ function drawBackground(ctx, t) {
   for (let i = 0; i < 26; i += 1) {
     const p = (i + (t * 0.12) % 1) / 26;
     const y = H * 0.42 + Math.pow(p, 2.2) * H * 0.62;
-    ctx.strokeStyle = `rgba(91,143,255,${(0.05 + 0.14 * p).toFixed(3)})`;
+    ctx.strokeStyle = supportRGBA((0.05 + 0.14 * p).toFixed(3));
     ctx.beginPath();
     ctx.moveTo(-100, y);
     ctx.lineTo(W + 100, y);
@@ -261,29 +348,34 @@ function drawBackground(ctx, t) {
 
   // a warm pool of light behind the character, moving with them
   const pool = ctx.createRadialGradient(x, H * 0.52, 0, x, H * 0.52, 1500);
-  pool.addColorStop(0, 'rgba(200,255,61,0.10)');
-  pool.addColorStop(0.5, 'rgba(200,255,61,0.03)');
+  pool.addColorStop(0, accentRGBA(0.10));
+  pool.addColorStop(0.5, accentRGBA(0.03));
   pool.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = pool;
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 }
 
-function drawFloor(ctx, t) {
+function drawFloor(ctx, t, showShadow = true) {
   const shade = ctx.createLinearGradient(0, GROUND_Y - 60, 0, H);
-  shade.addColorStop(0, 'rgba(10,15,24,0.0)');
-  shade.addColorStop(1, 'rgba(4,6,10,0.95)');
+  // A light floor on paper: the same gradient with the values swapped, so the
+  // figure still gains contrast against it instead of sinking into it.
+  shade.addColorStop(0, STYLE === 'stick' ? 'rgba(210,210,210,0.0)' : 'rgba(10,15,24,0.0)');
+  shade.addColorStop(1, STYLE === 'stick' ? 'rgba(198,198,198,0.95)' : 'rgba(4,6,10,0.95)');
   ctx.fillStyle = shade;
   ctx.fillRect(0, GROUND_Y - 60, W, H - GROUND_Y + 60);
 
-  ctx.strokeStyle = 'rgba(200,255,61,0.35)';
+  ctx.strokeStyle = STYLE === 'stick' ? 'rgba(18,18,18,0.35)' : 'rgba(200,255,61,0.35)';
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.moveTo(0, GROUND_Y);
   ctx.lineTo(W, GROUND_Y);
   ctx.stroke();
 
-  // contact shadow under the feet, breathing with the walk
+  // Contact shadow under the feet. Only when the ground line is on screen: a
+  // push-in crops the floor away, and the shadow's own top edge then floated in
+  // the bottom of a waist-up shot with no feet to cast it.
+  if (!showShadow) return;
   const { x } = figureAt(t);
   const shadow = ctx.createRadialGradient(x, GROUND_Y + 8, 0, x, GROUND_Y + 8, 520);
   shadow.addColorStop(0, 'rgba(0,0,0,0.62)');
@@ -314,7 +406,7 @@ function drawCaption(ctx, t, line, index) {
   const y = shot.id === 'C' ? 900 : 620;
 
   // accent rule that draws on with the line
-  ctx.fillStyle = 'rgba(200,255,61,0.85)';
+  ctx.fillStyle = accentRGBA(0.85);
   ctx.fillRect(W * 0.62 - 8, y + 96, (total + 16) * ease.outCubic(span(t, inAt, inAt + 0.7)), 5);
 
   words.forEach((word, i) => {
@@ -350,7 +442,7 @@ function drawHud(ctx, t) {
   // opening beat: a rule sweeps across the top of frame, so frame 1 has motion
   const intro = ease.outCubic(span(t, 0, 0.9));
   if (intro > 0 && intro < 1) {
-    ctx.fillStyle = 'rgba(200,255,61,0.75)';
+    ctx.fillStyle = accentRGBA(0.75);
     ctx.fillRect(180, 200, (W - 360) * intro, 4);
   }
 
@@ -377,7 +469,7 @@ function render(t) {
   ctx.clearRect(0, 0, W, H);
 
   drawBackground(ctx, t);
-  drawFloor(ctx, t);
+  drawFloor(ctx, t, coverageAt(t).zoom <= 1.05);
 
   const { x, walking } = figureAt(t);
   // gesture on the free arm for each line: down between lines, lifting on the beat
@@ -412,44 +504,71 @@ function render(t) {
   const shakeX = noise1(t * 0.9) * 12 + noise1(t * 3.1 + 11) * 4;
   const shakeY = noise1(t * 1.1 + 5) * 9 + noise1(t * 2.7 + 23) * 3;
 
-  // zoom about the figure's own centre so a push never crops the head
-  const figureHeight = 1810 * FIG_SCALE * shot.zoom;
+  // The camera is aimed at the figure, not at a hard-coded height. The old code
+  // assumed a 1810-unit figure, which was true of the illustrated character and
+  // false of the stickman: its head is drawn 1.05x the head bone, so the top of
+  // the head sat above the assumed top and every push-in cropped it.
+  //
+  // Each shot declares how much headroom the head gets. The camera then solves
+  // for the pivot that puts the top of the head on that line at that zoom, which
+  // means a close shot crops at the thigh (as a real camera does) and never
+  // slices the head.
+  const bounds = figureBounds(frame.solved);
   const focusX = W * shot.anchor + dolly;
-  const focusY = GROUND_Y - figureHeight * (shot.id === 'C' ? 0.66 : 0.52);
+  const focusY = cameraPivotY(bounds.top, GROUND_Y, shot.zoom, HEADROOM[shot.id] ?? 0.16);
   ctx.save();
   ctx.translate(focusX + shakeX, focusY + shakeY);
   ctx.scale(shot.zoom * push, shot.zoom * push);
   ctx.translate(-focusX, -focusY);
-  drawCharacter(ctx, frame.solved, {
-    viseme: frame.viseme,
-    blink: frame.blink,
-    browRaise: frame.browRaise,
-    breathe: frame.breath,
-    look: LOOK,
-  });
+  // The pen is a channel decision, not a per-film one: the default is the
+  // monochrome stickman so every upload looks like the same channel. `--style
+  // design` keeps the original illustrated figure available.
+  if (STYLE === 'stick') {
+    drawStick(ctx, frame.solved, {
+      viseme: frame.viseme,
+      blink: frame.blink,
+      browRaise: frame.browRaise,
+      boil: BOIL,
+      frame: Math.round(t * FPS),
+    });
+  } else {
+    drawCharacter(ctx, frame.solved, {
+      viseme: frame.viseme,
+      blink: frame.blink,
+      browRaise: frame.browRaise,
+      breathe: frame.breath,
+      look: LOOK,
+    });
+  }
   ctx.restore();
 
   // a short dissolve-out at the very top of each shot sells the cut without
   // cross-fading the whole film: 2 frames of accent flash
   if (shotAge < 0.07) {
     const flash = 1 - shotAge / 0.07;
-    ctx.fillStyle = `rgba(200,255,61,${0.10 * flash})`;
+    ctx.fillStyle = accentRGBA(`${0.10 * flash}`);
     ctx.fillRect(0, 0, W, H);
   }
 
-  LINES.forEach((line, index) => drawCaption(ctx, t, line, index));
+  // One caption at a time. Two adjacent lines overlapped during a cross-fade and
+  // printed on top of each other, which is unreadable even though neither line
+  // was wrong on its own.
+  const captionIndex = LINES.reduce((found, line, index) => (
+    t >= line.start - 0.25 && t <= line.end + 0.75 ? index : found
+  ), -1);
+  if (captionIndex >= 0) drawCaption(ctx, t, LINES[captionIndex], captionIndex);
   drawHud(ctx, t);
 
   // foreground bokeh: big, soft, and moving faster than the world behind it
-  for (let i = 0; i < 7; i += 1) {
+  for (let i = 0; i < (STYLE === 'stick' ? 0 : 7); i += 1) {
     const seed = i * 2.718;
     const speed = 90 + i * 26;
     const bx = ((Math.sin(seed) * 0.5 + 0.5) * W * 1.4 + t * speed) % (W * 1.4) - W * 0.2;
     const by = H * (0.12 + 0.14 * ((i * 0.37) % 1)) + Math.sin(t * 0.8 + seed) * 40;
     const r = 90 + (i % 4) * 70;
     const halo = ctx.createRadialGradient(bx, by, 0, bx, by, r);
-    halo.addColorStop(0, `rgba(200,255,61,${0.05 + (i % 3) * 0.02})`);
-    halo.addColorStop(1, 'rgba(200,255,61,0)');
+    halo.addColorStop(0, accentRGBA(`${0.05 + (i % 3) * 0.02}`));
+    halo.addColorStop(1, accentRGBA(0));
     ctx.fillStyle = halo;
     ctx.beginPath();
     ctx.arc(bx, by, r, 0, Math.PI * 2);
@@ -459,16 +578,16 @@ function render(t) {
   // a soft light band sweeping the frame, so the whole image breathes
   const sweepX = (((t * 0.22) % 1) * (W + 2200)) - 1100;
   const sweep = ctx.createLinearGradient(sweepX - 700, 0, sweepX + 700, H * 0.5);
-  sweep.addColorStop(0, 'rgba(140,180,255,0)');
-  sweep.addColorStop(0.5, 'rgba(140,180,255,0.055)');
-  sweep.addColorStop(1, 'rgba(140,180,255,0)');
+  sweep.addColorStop(0, supportRGBA(0));
+  sweep.addColorStop(0.5, supportRGBA(0.055));
+  sweep.addColorStop(1, supportRGBA(0));
   ctx.fillStyle = sweep;
   ctx.fillRect(0, 0, W, H);
 
   // vignette + grain, deterministic per frame
   const vig = ctx.createRadialGradient(W / 2, H / 2, H * 0.32, W / 2, H / 2, H * 0.95);
   vig.addColorStop(0, 'rgba(0,0,0,0)');
-  vig.addColorStop(1, 'rgba(0,0,0,0.55)');
+  vig.addColorStop(1, STYLE === 'stick' ? 'rgba(120,120,120,0.10)' : 'rgba(0,0,0,0.55)');
   ctx.fillStyle = vig;
   ctx.fillRect(0, 0, W, H);
 
@@ -489,41 +608,7 @@ const timecode = (seconds) => {
   return `${String(Math.floor(total / (FPS * 60))).padStart(2, '0')}:${String(Math.floor(total / FPS) % 60).padStart(2, '0')}:${String(total % FPS).padStart(2, '0')}`;
 };
 
-function main() {
-  const outDir = path.resolve(OPTS.out);
-  fs.mkdirSync(outDir, { recursive: true });
-
-  if (OPTS.still) {
-    for (const seconds of OPTS.still) {
-      render(seconds);
-      const file = path.join(outDir, `still-${seconds.toFixed(2)}.jpg`);
-      fs.writeFileSync(file, canvas.toBuffer('image/jpeg', OPTS.quality));
-      if (!OPTS.quiet) console.log(`still ${seconds.toFixed(2)}s -> ${file}`);
-    }
-    return;
-  }
-
-  const from = Math.max(0, Math.round(OPTS.from));
-  const to = Math.min(TOTAL_FRAMES, OPTS.to === null ? TOTAL_FRAMES : Math.round(OPTS.to));
-  const started = Date.now();
-  for (let frame = from; frame < to; frame += 1) {
-    render(frame / FPS);
-    const file = path.join(outDir, `frame-${String(frame).padStart(6, '0')}.jpg`);
-    fs.writeFileSync(file, canvas.toBuffer('image/jpeg', OPTS.quality));
-    if (!OPTS.quiet && (frame - from) % 60 === 0) {
-      const done = frame - from + 1;
-      const rate = done / ((Date.now() - started) / 1000);
-      console.log(`frame ${frame}/${to}  ${rate.toFixed(1)} fps  ${((to - frame) / rate).toFixed(0)}s left`);
-    }
-  }
-
-  const manifest = {
-    width: OPTS.width, height: OPTS.height, fps: FPS, frame_count: TOTAL_FRAMES,
-    rendered_from: from, rendered_to: to,
-    source: 'video_studio/films/character_speaks.mjs',
-  };
-  fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
-
+function writeFilm(outDir) {
   const film = {
     title: 'Every Frame Is Code (character cut)',
     duration_seconds: Math.round(DURATION * 1000) / 1000,
@@ -559,6 +644,16 @@ function main() {
     // frame while the mouth and the camera work. The gate is declared here so it
     // is visible in the artifact, not quietly relaxed inside the driver.
     motion_gate: { min_mean: 0.8, max_static: 0.5 },
+    // The look is declared in the artifact, not inferred from the frames: a
+    // downstream tool can refuse to publish a colour frame to a monochrome
+    // channel without opening a single image.
+    character: {
+      style: STYLE,
+      boil: BOIL,
+      ink: STYLE === 'stick' ? resolveInk() : null,
+      palette: STYLE === 'stick' ? 'monochrome' : 'dark-tech',
+      monochrome: STYLE === 'stick',
+    },
   };
   fs.writeFileSync(path.join(outDir, 'film.json'), JSON.stringify(film, null, 2));
 
@@ -569,6 +664,49 @@ function main() {
   lines.push('', 'Lines:');
   for (const line of LINES) lines.push(`  ${line.start.toFixed(1)}-${line.end.toFixed(1)}s  ${line.text}`);
   fs.writeFileSync(path.join(outDir, 'timeline.txt'), lines.join('\n') + '\n');
+  return film;
+}
+
+function main() {
+  const outDir = path.resolve(OPTS.out);
+  fs.mkdirSync(outDir, { recursive: true });
+
+  const from = Math.max(0, Math.round(OPTS.from));
+  const to = Math.min(TOTAL_FRAMES, OPTS.to === null ? TOTAL_FRAMES : Math.round(OPTS.to));
+  const started = Date.now();
+
+  // Stills are how a look is judged, so they carry the same metadata as a render:
+  // a rejected still and a shipped frame are described by the same artifact.
+  if (OPTS.still) {
+    for (const seconds of OPTS.still) {
+      render(seconds);
+      const file = path.join(outDir, `still-${seconds.toFixed(2)}.jpg`);
+      fs.writeFileSync(file, canvas.toBuffer('image/jpeg', OPTS.quality));
+      if (!OPTS.quiet) console.log(`still ${seconds.toFixed(2)}s -> ${file}`);
+    }
+    writeFilm(outDir);
+    return;
+  }
+
+  for (let frame = from; frame < to; frame += 1) {
+    render(frame / FPS);
+    const file = path.join(outDir, `frame-${String(frame).padStart(6, '0')}.jpg`);
+    fs.writeFileSync(file, canvas.toBuffer('image/jpeg', OPTS.quality));
+    if (!OPTS.quiet && (frame - from) % 60 === 0) {
+      const done = frame - from + 1;
+      const rate = done / ((Date.now() - started) / 1000);
+      console.log(`frame ${frame}/${to}  ${rate.toFixed(1)} fps  ${((to - frame) / rate).toFixed(0)}s left`);
+    }
+  }
+
+  const manifest = {
+    width: OPTS.width, height: OPTS.height, fps: FPS, frame_count: TOTAL_FRAMES,
+    rendered_from: from, rendered_to: to,
+    source: 'video_studio/films/character_speaks.mjs',
+  };
+  fs.writeFileSync(path.join(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2));
+
+  writeFilm(outDir);
 
   if (!OPTS.quiet) {
     console.log(`rendered ${to - from} frames at ${OPTS.width}x${OPTS.height} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
