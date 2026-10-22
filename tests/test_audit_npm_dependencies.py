@@ -85,66 +85,73 @@ class BlockingAdvisoryTests(unittest.TestCase):
 
 
 class RunAuditTests(unittest.TestCase):
-    def test_transport_failure_is_retried_and_reported_as_unavailable(self):
+    """These patch both the npm lookup and subprocess.
+
+    CI runs this suite inside a `python:3.12-slim` container that has no npm at
+    all, so a test that only patches subprocess exercises the early "npm is not
+    installed" return path instead of the retry logic it is meant to test. The
+    lookup is therefore always stubbed.
+    """
+
+    def run_with(self, outcome, attempts=3, timeout=1):
+        """Run run_audit with npm present and subprocess replaced by `outcome`."""
         calls = []
 
+        def fake_run(command, **kwargs):
+            calls.append(command)
+            if isinstance(outcome, Exception):
+                raise outcome
+            return outcome
+
+        original_run = audit.subprocess.run
+        original_which = audit.shutil.which
+        audit.subprocess.run = fake_run
+        audit.shutil.which = lambda name: "/usr/bin/npm" if name == "npm" else None
+        try:
+            report_data, error = audit.run_audit(".", timeout=timeout, attempts=attempts, retry_delay=0)
+        finally:
+            audit.subprocess.run = original_run
+            audit.shutil.which = original_which
+        return report_data, error, calls
+
+    def test_transport_failure_is_retried_and_reported_as_unavailable(self):
         class Result:
             returncode = 1
             stdout = "npm ERR! code ENOTFOUND"
             stderr = "network"
 
-        def fake_run(command, **kwargs):
-            calls.append(command)
-            return Result()
-
-        original = audit.subprocess.run
-        audit.subprocess.run = fake_run
-        try:
-            report_data, error = audit.run_audit(".", timeout=1, attempts=3, retry_delay=0)
-        finally:
-            audit.subprocess.run = original
+        report_data, error, calls = self.run_with(Result(), attempts=3)
         self.assertIsNone(report_data)
         self.assertEqual(len(calls), 3, "transport failures should be retried")
         self.assertIn("not JSON", error)
 
     def test_findings_are_not_retried(self):
-        calls = []
-
         class Result:
             returncode = 1
             stdout = json.dumps(report({"pkg": {"severity": "high", "range": "<1", "via": []}}))
             stderr = ""
 
-        def fake_run(command, **kwargs):
-            calls.append(command)
-            return Result()
-
-        original = audit.subprocess.run
-        audit.subprocess.run = fake_run
-        try:
-            report_data, error = audit.run_audit(".", timeout=1, attempts=3, retry_delay=0)
-        finally:
-            audit.subprocess.run = original
+        report_data, error, calls = self.run_with(Result(), attempts=3)
         self.assertEqual(len(calls), 1, "a real finding must fail immediately")
         self.assertEqual(error, "")
         self.assertIn("pkg", report_data["vulnerabilities"])
 
     def test_timeout_is_retried(self):
-        calls = []
-
-        def fake_run(command, **kwargs):
-            calls.append(command)
-            raise subprocess.TimeoutExpired(command, 1)
-
-        original = audit.subprocess.run
-        audit.subprocess.run = fake_run
-        try:
-            report_data, error = audit.run_audit(".", timeout=1, attempts=2, retry_delay=0)
-        finally:
-            audit.subprocess.run = original
+        report_data, error, calls = self.run_with(
+            subprocess.TimeoutExpired(["npm"], 1), attempts=2)
         self.assertIsNone(report_data)
         self.assertEqual(len(calls), 2)
         self.assertIn("timed out", error)
+
+    def test_missing_npm_is_reported_as_unavailable_not_a_pass(self):
+        original_which = audit.shutil.which
+        audit.shutil.which = lambda name: None
+        try:
+            report_data, error = audit.run_audit(".", timeout=1, attempts=1, retry_delay=0)
+        finally:
+            audit.shutil.which = original_which
+        self.assertIsNone(report_data)
+        self.assertIn("npm is not installed", error)
 
 
 class MainExitCodeTests(unittest.TestCase):
