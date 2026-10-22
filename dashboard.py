@@ -4,7 +4,7 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse
 from pathlib import Path
 from datetime import datetime
-import json, html, subprocess, sys, threading, mimetypes, re
+import argparse, json, html, subprocess, sys, threading, mimetypes, re, webbrowser
 from app_config import load_config
 from web.markdown_renderer import render_markdown_safe
 from queue_store import task_queue_lock, load_tasks, save_tasks
@@ -213,7 +213,16 @@ def attach_task_progress(tasks):
 
 HTML_PAGE = r'''<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#09070b"><meta name="description" content="Local-first AI agent command centre for task management, video production, and digital product prototyping."><link rel="manifest" href="/manifest.webmanifest"><link rel="icon" href="/icon.svg" type="image/svg+xml"><title>Offline Agent HQ // Command Deck</title>
+<meta name="theme-color" content="#09070b"><meta name="description" content="Local-first AI agent command centre for task management, video production, and digital product prototyping.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<!-- Home-screen install metadata for iOS Safari, which ignores the manifest icons. -->
+<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Agent HQ"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="application-name" content="Agent HQ"><meta name="color-scheme" content="dark">
+<title>Offline Agent HQ // Command Deck</title>
 <style>
 :root{--bg:#08070b;--panel:#111016;--panel2:#17121b;--line:#51211e;--red:#ff3b2f;--orange:#ff8a32;--gold:#ffc56c;--muted:#a99ca5;--text:#f8edf0;--green:#72f6b2;--blue:#73dfff;--radius:16px}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% 38%,#281016 0,#0b080e 42%,#050509 100%);color:var(--text);font:14px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;min-height:100vh}
@@ -309,15 +318,23 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path); path = parsed.path; query = parse_qs(parsed.query)
         # Serve only fixed, repository-owned PWA assets; never accept arbitrary file paths.
         static_assets = {
-            "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json; charset=utf-8"),
-            "/service-worker.js": ("service-worker.js", "text/javascript; charset=utf-8"),
-            "/icon.svg": ("icon.svg", "image/svg+xml; charset=utf-8"),
-            "/offline.html": ("offline.html", "text/html; charset=utf-8"),
+            "/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json; charset=utf-8", False),
+            "/service-worker.js": ("service-worker.js", "text/javascript; charset=utf-8", False),
+            "/icon.svg": ("icon.svg", "image/svg+xml; charset=utf-8", False),
+            "/offline.html": ("offline.html", "text/html; charset=utf-8", False),
+            # PNG icons are served as bytes, not decoded text: a browser that is
+            # offered a text-mangled icon refuses the install prompt.
+            "/icon-192.png": ("icons/icon-192.png", "image/png", True),
+            "/icon-512.png": ("icons/icon-512.png", "image/png", True),
+            "/icon-maskable-512.png": ("icons/icon-maskable-512.png", "image/png", True),
         }
         if path in static_assets:
-            file_name, content_type = static_assets[path]
+            file_name, content_type, binary = static_assets[path]
             try:
-                asset = (BASE / "web" / file_name).read_text(encoding="utf-8")
+                if binary:
+                    asset = (BASE / "web" / file_name).read_bytes()
+                else:
+                    asset = (BASE / "web" / file_name).read_text(encoding="utf-8")
             except OSError:
                 return self.send("PWA asset unavailable", status=503)
             return self.send(asset, content_type)
@@ -507,20 +524,63 @@ class Handler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args): pass
 
-def main():
+def open_when_ready(url, delay=1.2):
+    """Open the app in the default browser once the server is listening.
+
+    A launcher that prints a URL and waits for the user to copy it is not an
+    installed app. This runs on a daemon timer so it can never hold the process
+    open, and a machine with no browser (Termux, a headless PC) simply reports
+    the URL instead of failing.
+    """
+    def attempt():
+        try:
+            opened = webbrowser.open(url)
+        except Exception:  # noqa: BLE001 - no browser is not an error here
+            opened = False
+        if not opened:
+            print("Open this address in a browser: " + url)
+    timer = threading.Timer(delay, attempt)
+    timer.daemon = True
+    timer.start()
+    return timer
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Run the local Agent HQ dashboard.")
+    parser.add_argument("--port", type=int, default=None,
+                        help="override the configured port (default 8765)")
+    parser.add_argument("--no-open", action="store_true",
+                        help="do not open the app in a browser window")
+    args = parser.parse_args(argv)
+
     cfg = load_config(CONFIG)
     host = cfg.get("dashboard", {}).get("host", "127.0.0.1")
-    port = int(cfg.get("dashboard", {}).get("port", 8765))
+    port = args.port if args.port is not None else int(cfg.get("dashboard", {}).get("port", 8765))
     if host not in {"127.0.0.1", "localhost", "::1"}:
         raise SystemExit("Safety check: dashboard must bind to loopback only.")
-    server = HTTPServer((host, port), Handler)
+    # 0 is allowed on purpose: it asks the OS for a free port, which is how tests
+    # and second windows avoid a collision. Anything else must be a real port.
+    if not 0 <= port <= 65535:
+        raise SystemExit("Port must be between 0 and 65535 (0 lets the OS choose).")
+    try:
+        server = HTTPServer((host, port), Handler)
+    except OSError as exc:
+        raise SystemExit(
+            f"Port {port} is already in use ({exc.strerror or exc}). "
+            f"Another Agent HQ window may already be open at http://127.0.0.1:{port} , "
+            "or start this one with --port 8766.")
     if has_pending_tasks() or has_running_tasks():
         print("Queued or interrupted task records detected; inspecting and resuming the local queue worker safely.")
         started, active = start_task_runner()
         if not started:
             print("Queue remains pending because another workflow is active: " + active)
-    print(f"Holographic Offline Agent HQ: http://127.0.0.1:{port}")
+    url = f"http://127.0.0.1:{server.server_port}"
+    print(f"Holographic Offline Agent HQ: {url}")
     print("Keep the terminal open. Press Ctrl+C to stop.")
+    print("To install it as an app: open that address in Chrome or Edge, then use "
+          "the Install button in the address bar (Windows) or Menu > Add to Home screen (Android).")
+    if not args.no_open:
+        open_when_ready(url)
     try: server.serve_forever()
     except KeyboardInterrupt: print("\nDashboard stopped.")
     finally: server.server_close()

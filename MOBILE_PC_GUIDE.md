@@ -7,8 +7,8 @@ Offline Agent HQ uses a browser-based, responsive dashboard with a Python local 
 1. Install Python 3.10 or newer.
 2. Optional for MP4 rendering: install Node.js LTS and FFmpeg, and ensure both node and ffmpeg work in PowerShell.
 3. Run setup_windows.ps1 in PowerShell to create local configuration, check Python syntax, and install renderer dependencies when Node/npm are available.
-4. Run start_windows.bat, or from the project root run python dashboard.py.
-5. Open the local address printed by the dashboard in your browser.
+4. Run start_windows.bat, or from the project root run python dashboard.py. The app opens in your default browser by itself.
+5. To install it as an app, use the install icon in Edge or Chrome, or menu > Apps > Install this site as an app. See [docs/INSTALL.md](docs/INSTALL.md).
 
 The local model is disabled by default. The dashboard and template workflows can run without API keys, but meaningful AI generation requires a compatible local inference server configured in your private config.json. Local video rendering requires Node.js, Chromium/Puppeteer, and FFmpeg. Optional Urdu narration requires a compatible local Piper model. Optional YouTube uploads require Google OAuth and explicit release approval.
 
@@ -26,6 +26,7 @@ The local model is disabled by default. The dashboard and template workflows can
    Skip the cp command if you already have a private config.json; do not overwrite your settings.
 
 4. Open http://127.0.0.1:8765 in the phone's browser. If the server prints a different port, use the printed address.
+5. Install it to the home screen: Chrome menu > Add to Home screen > Install. See [docs/INSTALL.md](docs/INSTALL.md).
 
 Android can run the dashboard, manage the local task queue, and create drafts. Rendering long videos on a phone is resource-intensive and may be unreliable due to memory, heat, storage, and Android background-process limits. Use a PC for longer renders when possible.
 

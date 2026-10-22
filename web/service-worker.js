@@ -1,7 +1,16 @@
 "use strict";
 
-const CACHE_NAME = "agent-hq-static-v1";
-const STATIC_ASSETS = ["/manifest.webmanifest", "/icon.svg", "/offline.html"];
+const CACHE_NAME = "agent-hq-static-v2";
+const STATIC_ASSETS = [
+  "/manifest.webmanifest",
+  "/icon.svg",
+  "/offline.html",
+  // The icons are part of the install: without them the browser cannot show the
+  // app properly after it is added to a home screen.
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-maskable-512.png",
+];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
