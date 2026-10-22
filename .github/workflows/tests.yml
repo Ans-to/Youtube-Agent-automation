@@ -386,4 +386,3 @@ jobs:
       - name: Run local sync-and-test checks without changing Git history
         shell: pwsh
         run: ./scripts/sync-and-test.ps1 -SkipSync -RunTestsOnNoUpdate
-
