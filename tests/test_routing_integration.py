@@ -232,7 +232,9 @@ class PipelineEvidenceTest(unittest.TestCase):
         self.assertTrue((destination / "routing.json").is_file())
         on_disk = json.loads((destination / "routing.json").read_text(encoding="utf-8"))
         self.assertEqual(on_disk["pipelines"], ["document_deliverable"])
-        self.assertEqual(destination, self.workspace / "run-route")
+        # Resolve both sides: on Windows the temp root is a short (8.3) name, and
+        # run_pipeline canonicalizes the destination it is given.
+        self.assertEqual(destination.resolve(), (self.workspace / "run-route").resolve())
 
     def test_no_pipeline_run_still_records_why(self):
         destination, manifest = self.run_pipeline("What is a knowledge graph?")

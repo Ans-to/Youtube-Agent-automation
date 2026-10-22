@@ -387,15 +387,3 @@ jobs:
         shell: pwsh
         run: ./scripts/sync-and-test.ps1 -SkipSync -RunTestsOnNoUpdate
 
-      # TEMPORARY diagnostic: the runner log is not reachable from the automation
-      # session, so failing tests are re-run and surfaced as annotations.
-      - name: Diagnose unit-test failures on Windows
-        if: failure()
-        shell: pwsh
-        run: |
-          python -m unittest discover -s tests 2>&1 | Tee-Object -FilePath "$env:RUNNER_TEMP/win-tests.log"
-          Get-Content "$env:RUNNER_TEMP/win-tests.log" |
-            Select-String -Pattern "^(FAIL|ERROR):|^AssertionError|^FAILED" |
-            Select-Object -Last 60 |
-            ForEach-Object { Write-Host "::error::$($_.Line)" }
-          exit 0
