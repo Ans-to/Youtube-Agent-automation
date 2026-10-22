@@ -72,28 +72,57 @@ def log(message: str) -> None:
 
 def step_frames(
     script: Path, frames_dir: Path, width: int, height: int, fps: int, quality: int,
-    voice_lines: Path | None = None,
+    voice_lines: Path | None = None, slice_frames: int = 0,
 ) -> dict:
-    command = [
-        base.resolve_node(),
-        str(script),
-        "--out",
-        str(frames_dir),
-        "--width",
-        str(width),
-        "--height",
-        str(height),
-        "--fps",
-        str(fps),
-        "--quality",
-        str(quality),
-    ]
-    if voice_lines is not None:
-        command += ["--voice-lines", str(voice_lines)]
-    result = base.run(command, timeout=7200)
-    if result.returncode != 0:
-        tail = (result.stderr or result.stdout or "")[-2000:]
-        raise RuntimeError("the film script failed:\n" + tail)
+    """Draw the film, in slices of `slice_frames` when asked.
+
+    A canvas renderer allocates native pixel buffers that the V8 heap never sees,
+    so a long film climbs to several gigabytes of RSS and then stops: the
+    collector has nothing to feel. Restarting the process every few thousand
+    frames puts a ceiling on that, at the cost of re-running the script setup,
+    and the frames land in one directory named by absolute index, so the encode
+    does not care how they were made.
+    """
+    def command_for(start, stop):
+        command = [
+            base.resolve_node(),
+            str(script),
+            "--out",
+            str(frames_dir),
+            "--width",
+            str(width),
+            "--height",
+            str(height),
+            "--fps",
+            str(fps),
+            "--quality",
+            str(quality),
+        ]
+        if voice_lines is not None:
+            command += ["--voice-lines", str(voice_lines)]
+        if slice_frames:
+            command += ["--from", str(start), "--to", str(stop)]
+        return command
+
+    if not slice_frames:
+        result = base.run(command_for(0, 0), timeout=7200)
+        if result.returncode != 0:
+            tail = (result.stderr or result.stdout or "")[-2000:]
+            raise RuntimeError("the film script failed:\n" + tail)
+    else:
+        plan = base.run(command_for(0, 0) + ["--plan"], timeout=600)
+        if plan.returncode != 0:
+            tail = (plan.stderr or plan.stdout or "")[-2000:]
+            raise RuntimeError("the film script could not report its plan:\n" + tail)
+        total = int(json.loads(plan.stdout)["frames"])
+        for start in range(0, total, slice_frames):
+            stop = min(total, start + slice_frames)
+            log("   frames %d-%d of %d" % (start, stop - 1, total))
+            result = base.run(command_for(start, stop), timeout=7200)
+            if result.returncode != 0:
+                tail = (result.stderr or result.stdout or "")[-2000:]
+                raise RuntimeError("the film script failed at frame %d:\n%s" % (start, tail))
+
     manifest_path = frames_dir / "manifest.json"
     if not manifest_path.is_file():
         raise RuntimeError("the film script did not write manifest.json")
@@ -288,6 +317,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--quality", type=int, default=92)
     parser.add_argument("--delivery-height", type=int, default=1080)
     parser.add_argument("--skip-4k", action="store_true")
+    parser.add_argument("--slice-frames", type=int, default=0,
+                        help="draw in chunks of this many frames, one process each "
+                             "(0 draws the film in a single process)")
     parser.add_argument("--frames", default=None,
                         help="reuse an existing frame directory (skips rendering)")
     parser.add_argument("--voice-script", default=None,
@@ -395,7 +427,8 @@ def main(argv: list[str] | None = None) -> int:
         else:
             log(step("render frames"))
             manifest = step_frames(script, frames_dir, args.width, args.height, args.fps, args.quality,
-                                   voice_lines if voice_info else None)
+                                   voice_lines if voice_info else None,
+                                   slice_frames=args.slice_frames)
             log("   %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"]))
             film_json = frames_dir / "film.json"
 

@@ -1,0 +1,88 @@
+{
+  "title": "Vibe Coding on Arena, through GitHub \u2014 Build an App by Describing It",
+  "duration_seconds": 689.929,
+  "duration_human": "11:29",
+  "description": "A complete, step-by-step walkthrough of vibe coding on Arena through GitHub. You will create the repository, connect it, write a prompt that works, watch the agent work in a branch, read the diff, wait for the checks, merge, and put the site online. Then a second feature, a revert, and the habits that keep the loop fast.\n\nCHAPTERS\n00:00  Intro\n00:25  01 / THE IDEA\n01:03  02 / THE LOOP\n01:33  STEP 01 / GITHUB\n02:31  STEP 02 / CONNECT\n03:15  STEP 03 / THE PROMPT\n04:17  STEP 04 / THE BRANCH\n04:59  STEP 05 / THE DIFF\n05:44  STEP 06 / CHECKS\n06:28  STEP 07 / SHIP\n07:07  STEP 08 / AGAIN\n07:54  STEP 09 / RECOVERY\n08:35  STEP 10 / PATTERNS\n09:22  STEP 11 / SECRETS\n09:54  STEP 12 / HABITS\n10:35  THE WHOLE LOOP\n11:10  START\n\nCode and films: github.com/Ans-to/Youtube-Agent-automation\n\nEverything in this video was drawn in code. No screenshots, no stock footage, no music library. The narration is synthesised on the machine.",
+  "chapters": [
+    {
+      "at": 0.0,
+      "label": "Intro"
+    },
+    {
+      "at": 25.8,
+      "label": "01 / THE IDEA"
+    },
+    {
+      "at": 63.6,
+      "label": "02 / THE LOOP"
+    },
+    {
+      "at": 93.2,
+      "label": "STEP 01 / GITHUB"
+    },
+    {
+      "at": 151.2,
+      "label": "STEP 02 / CONNECT"
+    },
+    {
+      "at": 195.9,
+      "label": "STEP 03 / THE PROMPT"
+    },
+    {
+      "at": 257.3,
+      "label": "STEP 04 / THE BRANCH"
+    },
+    {
+      "at": 299.4,
+      "label": "STEP 05 / THE DIFF"
+    },
+    {
+      "at": 344.9,
+      "label": "STEP 06 / CHECKS"
+    },
+    {
+      "at": 388.1,
+      "label": "STEP 07 / SHIP"
+    },
+    {
+      "at": 427.1,
+      "label": "STEP 08 / AGAIN"
+    },
+    {
+      "at": 474.0,
+      "label": "STEP 09 / RECOVERY"
+    },
+    {
+      "at": 515.1,
+      "label": "STEP 10 / PATTERNS"
+    },
+    {
+      "at": 562.4,
+      "label": "STEP 11 / SECRETS"
+    },
+    {
+      "at": 594.5,
+      "label": "STEP 12 / HABITS"
+    },
+    {
+      "at": 635.9,
+      "label": "THE WHOLE LOOP"
+    },
+    {
+      "at": 670.8,
+      "label": "START"
+    }
+  ],
+  "tags": [
+    "vibe coding",
+    "arena ai",
+    "github",
+    "no code beginner",
+    "build an app",
+    "pull request",
+    "ai coding agent"
+  ],
+  "category": "Education",
+  "made_for_kids": false,
+  "chapters_ok": true
+}

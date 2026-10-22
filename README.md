@@ -236,6 +236,26 @@ The `video_studio/` folder includes a JSON storyboard, deterministic Canvas2D re
 
 The CEO can invoke `video_studio/production.py` for a clear video request. The builder uses supplied CEO/specialist research notes when available; standalone use supports `--research` to collect public search results and extract bounded page text without an API key. With a configured loopback model, it creates a multi-scene script and storyboard; without a model, it creates a clearly labelled deterministic template package. Add `--render` after installing Node.js, Puppeteer, and FFmpeg to produce an MP4. The script never uploads or publishes automatically.
 
+## A long instructional film, drawn in code
+
+`video_studio/films/vibe_coding.mjs` is an 11-minute 30-second film that teaches
+vibe coding on Arena through GitHub — repository, connection, prompt, branch,
+diff, checks, merge, and what to do when it breaks. There is no character, no
+footage and no screenshots: the GitHub and Arena interfaces in it are vector
+mockups built from rectangles and type in `video_studio/motion/ui.mjs`, so a
+pointer can land on *Create repository*, a diff line can arrive as it is spoken,
+and a check can turn from red to green.
+
+The narration is 151 lines, synthesised on the machine, and every line belongs to
+exactly one scene: the film refuses to render if a line is left unclaimed.
+Timings come from the rendered audio, so the picture, the highlights and the
+burned-in captions follow the voice. `tools/youtube_package.py` builds the title,
+description and chapter list from the film's own scene table, and refuses to
+write a chapter list YouTube would silently ignore.
+
+`docs/media/vibe-coding.mp4` is the finished cut. See
+[docs/VIBE_CODING_FILM.md](docs/VIBE_CODING_FILM.md).
+
 ## Specialist roster and orchestration
 
 `agents/roster.json` defines 52 profiles: 51 specialist roles plus `AGENT-50`, the human approval gate. `agents/skillbooks.json` gives every role a field-specific workflow, quality gates, failure modes, deliverable contract, and practice drill. `agents/dispatch.py` injects that playbook into each specialist prompt, and reports a concise quality-gate check. This is prompt-level guidance and evaluation scaffolding, not fine-tuning of model weights or a guarantee of expert performance. `agents/orchestrate.py` lets the CEO choose a task-specific team when a local model is enabled; without a model, it uses an explicitly labelled deterministic keyword router. Specialists receive distinct subtasks, research before work, save source reports, and pass outputs forward as unverified context. The CEO may invoke fixed local video and digital-product/app prototype builders. The manifest under `workspace/orchestration/` records assignments, stage results, research-report paths, tool status, and the final reviewer gate. An explicit reviewer FAIL or a blocked required artifact is surfaced as needing human follow-up. Retrieved pages are not automatically fact-checked; review citations and claims manually.
