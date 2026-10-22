@@ -20,7 +20,7 @@ committed.
 | Plan → act → verify → repair | **Done for web, document, and CLI builds** | `tools/tool_agent.py`, `agents/orchestrate.py` |
 | Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 22 rules, local vision evidence, honest unverified states |
 | Professional motion design (L4) | **Partial - direction + spec layer done** | `video_studio/motion/`, 6 designed transitions, 9 camera moves, bundled Inter/Space Grotesk, bezier/anticipation/follow-through, `docs/MOTION.md`; asset import and character rig still limited |
-| Task routing (which pipeline runs) | **Done for the 5 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 83 tests |
+| Task routing (which pipeline runs) | **Done for the 5 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 84 tests |
 | General task automation (L3) | **Partial** | Routing plus web/document/CLI builds; no data/chart pipelines, no test-and-fix, no long-horizon memory |
 | Code quality of local models | **Gap** | Small models route well but write weak code |
 
