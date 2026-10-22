@@ -13,7 +13,7 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 786 tests, quality gate 69/69, invariant check |
+| Offline operation, no key | **Done** | 787 tests, quality gate 69/69, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
