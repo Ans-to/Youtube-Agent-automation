@@ -283,6 +283,39 @@ function figureAt(t) {
   return { x, walking };
 }
 
+/**
+ * Distance the figure has walked, in design pixels.
+ *
+ * The gait is driven by this rather than by time, so the stride matches the
+ * ground it covers even though the walk-in eases in and out.
+ */
+function walkDistance(t) {
+  const startX = figureAt(0).x;
+  if (t <= WALK_IN_END) return Math.max(0, figureAt(t).x - startX);
+  const inDistance = figureAt(WALK_IN_END).x - startX;
+  const outStart = figureAt(WALK_OUT_START).x;
+  return inDistance + Math.max(0, figureAt(t).x - outStart);
+}
+
+/**
+ * How much of the walk cycle is blended in, 0..1.
+ *
+ * Switching between the walk and the stand on a single frame moves every joint
+ * at once, which reads as a pop. A third of a second of cross-fade reads as the
+ * figure settling into its stance.
+ */
+const WALK_FADE = 0.34;
+function walkWeight(t) {
+  const ramp = (from, to) => ease.inOutCubic(span(t, from, to));
+  if (t < WALK_IN_END) {
+    return Math.min(ramp(0.02, 0.02 + WALK_FADE), 1 - ramp(WALK_IN_END - WALK_FADE, WALK_IN_END));
+  }
+  if (t > WALK_OUT_START) {
+    return Math.min(ramp(WALK_OUT_START, WALK_OUT_START + WALK_FADE), 1 - ramp(DURATION - WALK_FADE, DURATION));
+  }
+  return 0;
+}
+
 function drawBackground(ctx, t) {
   const shot = coverageAt(t);
   // slow environmental pan: everything in the world drifts, the camera stays put
@@ -482,6 +515,10 @@ function render(t) {
 
   const frame = characterFrame(t, {
     mode: walking ? 'walk' : 'idle',
+    // Distance travelled, not elapsed time, drives the gait: a foot that is on
+    // the ground stays on the ground, so the figure does not skate.
+    distance: walkDistance(t),
+    walkWeight: walkWeight(t),
     scale: FIG_SCALE,
     groundY: GROUND_Y,
     hipX: x,
@@ -530,6 +567,7 @@ function render(t) {
       browRaise: frame.browRaise,
       boil: BOIL,
       frame: Math.round(t * FPS),
+      legShorten: frame.legShorten,
     });
   } else {
     drawCharacter(ctx, frame.solved, {

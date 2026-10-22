@@ -7,6 +7,16 @@ a handful of joint discs, generated from the animation rig every frame.
 That is a copyright decision as much as a design one. Nothing is traced, bought,
 licensed or attributable, so there is nothing to strike.
 
+## Watch it
+
+`docs/media/stickman-film.mp4` — the 12-second cut, 1080p, rendered by
+`tools/render_authored_film.py` from `video_studio/films/character_speaks.mjs`.
+
+[![Contact sheet of the film](preview/stickman-film-contact-sheet.jpg)](media/stickman-film.mp4)
+
+The figure walks in, speaks four lines with a mouth driven by the voice, raises an
+arm to wave, and walks out. Every frame of it is code.
+
 ![Pose sheet](preview/stickman-poses.png)
 
 *(Three standing poses and a four-frame walk cycle. Regenerate with
@@ -91,11 +101,46 @@ failure. Forty checks, thirteen of which are about the pen:
 - the head is centred on the head bone, overlaps the neck, and no stroke reaches
   above the top of the head
 - the figure is taller than it is wide
+- every frame has a foot on the ground line, no ankle goes below it, the feet take
+  turns and at least one is always down
+- the stride follows the ground travelled, not the clock
+- a swinging leg is drawn shorter than a standing one; a standing figure has both
+  legs at full length
+- no bone jumps between frames, and acceleration stays continuous — including
+  across the walk-to-stand fade
 
-`tests/test_character_rig.py` runs that file through Node, requires all forty
+`tests/test_character_rig.py` runs that file through Node, requires all fifty-four
 checks, and adds film-level tests: a default render is grey to the last pixel,
 `--style design` still works, and an unknown pen or a negative boil is rejected
 with a readable message.
+
+## The walk
+
+The rig is drawn front-on, so the walk is a front-view step cycle, not the side-on
+cycle most rigs use. A side-on cycle — feet trading places fore and aft — scissors
+the two legs through each other when the figure faces the camera, and a stick
+figure has no silhouette to hide that.
+
+Three things make it read as walking rather than as posed:
+
+1. **Distance drives the cycle, not the clock.** A full cycle is four steps of
+   ground, so the cadence follows the speed the body is actually moving at. Driven
+   by time, the legs kept cycling at a fixed rate while the body eased in and out,
+   and a "planted" foot slid along the floor at up to 45 design px per frame — 23
+   px per frame at 1080p. That was the skate, and it is gone.
+2. **A swinging foot is drawn, not solved.** In a flat front view a bent leg has
+   nowhere to go but sideways: aiming the IK at a raised foot bowed the knee out to
+   44% of the thigh, which reads as knock-knees. Both feet are therefore solved to
+   the floor and the swinging leg is *shortened about its hip* by the drawing, which
+   is the same shortcut a 2D animator takes to push a leg toward the camera.
+3. **The transition is blended.** Walking and standing are cross-faded over a third
+   of a second. A hard switch pops every joint in one frame, and blending only the
+   pelvis height dropped twenty pixels of side-to-side travel into a single frame.
+   Both axes are blended, and so is the leg shortening.
+
+Hip height comes from the supporting leg rather than a sine wave: the body is
+lowest when both feet are down, and the solver is settled against the property that
+a standing leg is straight, so a knee never has to bend to make the numbers fit.
 
 ## Camera
 
@@ -113,8 +158,10 @@ slices through a shin, which reads as a mistake.
 
 ## Still to do
 
-- The figure is not yet wired into the other films, only into
-  `films/character_speaks.mjs`.
+- The figure is in `films/character_speaks.mjs`. The other films still use the
+  illustrated character and have not been re-cut with the stickman.
+- The wave lifts the arm beside the head; the forearm still grazes the head circle
+  at the widest point of the arc.
 - Elbows and knees are only visible when the limb is bent; the idle pose keeps
   them almost straight. A resting bend in the neutral pose would read better.
 - No side or three-quarter view: the rig is built for a front-on presenter.

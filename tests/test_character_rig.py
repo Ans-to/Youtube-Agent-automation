@@ -56,7 +56,7 @@ class CharacterRigTests(unittest.TestCase):
     def test_selfcheck_reports_every_check(self):
         names = [check["name"] for check in self.report.get("checks", [])]
         self.assertTrue(names, "the rig self-check produced no checks")
-        self.assertGreaterEqual(len(names), 40, "the self-check lost coverage")
+        self.assertGreaterEqual(len(names), 54, "the self-check lost coverage")
 
     def test_the_stickman_checks_are_present(self):
         names = " | ".join(check["name"] for check in self.report.get("checks", []))

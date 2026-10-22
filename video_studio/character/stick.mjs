@@ -331,23 +331,51 @@ export function drawStick(ctx, solved, opts = {}) {
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
 
+  // A leg that is swinging is drawn foreshortened: both segments are pulled toward
+  // the hip by the same factor, so the foot leaves the floor while the knee stays
+  // on its own line. Bending the knee instead would push it sideways — see the
+  // note in animate.mjs — and a front-view figure has no other way to lift a foot.
+  const shorten = opts.legShorten || {};
+  const squash = (side) => {
+    const k = shorten[side];
+    return typeof k === 'number' && k > 0 && k < 1 ? k : 1;
+  };
+  const legView = (side) => {
+    const k = squash(side);
+    if (k === 1) return solved;
+    const hip = solved[side === 'L' ? 'thighL' : 'thighR'];
+    if (!hip) return solved;
+    const anchor = hip.origin;
+    const pull = (b) => (b ? { ...b,
+      origin: [anchor[0] + (b.origin[0] - anchor[0]) * k, anchor[1] + (b.origin[1] - anchor[1]) * k],
+      end: [anchor[0] + (b.end[0] - anchor[0]) * k, anchor[1] + (b.end[1] - anchor[1]) * k],
+    } : b);
+    return { ...solved,
+      [side === 'L' ? 'thighL' : 'thighR']: pull(solved[side === 'L' ? 'thighL' : 'thighR']),
+      [side === 'L' ? 'shinL' : 'shinR']: pull(solved[side === 'L' ? 'shinL' : 'shinR']),
+      [side === 'L' ? 'footL' : 'footR']: pull(solved[side === 'L' ? 'footL' : 'footR']),
+    };
+  };
+  const near = legView('L');
+  const away = legView('R');
+
   // Back layer first: far arm, far leg, then the body over them, then the near
   // limbs. Drawing order is what makes the figure read as 3D without shading.
   limb(ctx, solved, 'armR', w.upperArm, w.forearm, ink.ink, opts, far);
   limb(ctx, solved, 'forearmR', w.forearm, w.hand, ink.ink, opts, far);
   hand(ctx, solved, 'handR', w.hand * far, ink.ink, opts);
-  foot(ctx, solved, 'footR', w.foot * far, ink.ink, opts);
-  limb(ctx, solved, 'thighR', w.thigh, w.shin, ink.ink, opts, far);
-  limb(ctx, solved, 'shinR', w.shin, w.foot, ink.ink, opts, far);
+  foot(ctx, away, 'footR', w.foot * far, ink.ink, opts);
+  limb(ctx, away, 'thighR', w.thigh, w.shin, ink.ink, opts, far);
+  limb(ctx, away, 'shinR', w.shin, w.foot, ink.ink, opts, far);
 
   // Body: hips → chest → neck as one continuous tapered spine.
   limb(ctx, solved, 'spine', w.spine * 1.06, w.chest, ink.ink, opts);
   limb(ctx, solved, 'chest', w.chest, w.neck, ink.ink, opts);
   limb(ctx, solved, 'neck', w.neck, w.neck * 0.9, ink.ink, opts);
 
-  limb(ctx, solved, 'thighL', w.thigh, w.shin, ink.ink, opts);
-  limb(ctx, solved, 'shinL', w.shin, w.foot, ink.ink, opts);
-  foot(ctx, solved, 'footL', w.foot, ink.ink, opts);
+  limb(ctx, near, 'thighL', w.thigh, w.shin, ink.ink, opts);
+  limb(ctx, near, 'shinL', w.shin, w.foot, ink.ink, opts);
+  foot(ctx, near, 'footL', w.foot, ink.ink, opts);
 
   // Head: an outlined circle, slightly oval, sitting on the neck.
   if (solved.head) {
@@ -402,8 +430,9 @@ export function drawStick(ctx, solved, opts = {}) {
     ['thighL', joint * 0.88], ['shinL', joint * 0.74],
     ['thighR', joint * 0.88], ['shinR', joint * 0.74],
   ];
+  const jointView = { ...solved, ...{ thighL: near.thighL, shinL: near.shinL, thighR: away.thighR, shinR: away.shinR } };
   for (const [bone, radius] of joints) {
-    const b = solved[bone];
+    const b = jointView[bone];
     if (!b) continue;
     const [ox, oy] = boilOffset(bone, opts.frame || 0, opts.boil || 0, b.scale || 1);
     disc(ctx, [b.origin[0] + ox, b.origin[1] + oy], radius, ink.ink);

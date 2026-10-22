@@ -56,6 +56,16 @@ STATIC_BELOW = 0.5
 CONTACT_TILES = 10
 
 
+def contact_sheet_fps(duration_seconds: float) -> float:
+    """Sampling rate that fills the contact sheet exactly once, whatever the length.
+
+    A fixed cap truncates short films: 0.5 fps over a 12 s cut gives six frames
+    for a ten-tile sheet, so four tiles were black. Too low a floor truncates long
+    ones, which is why the rate is derived from the duration rather than chosen.
+    """
+    return max(0.02, CONTACT_TILES / max(0.1, float(duration_seconds)))
+
+
 def log(message: str) -> None:
     base.log(message)
 
@@ -467,8 +477,10 @@ def main(argv: list[str] | None = None) -> int:
         contact = out_dir / "contact-sheet.jpg"
         # The sheet has to show the *whole* film, not the first ten beats of it: a
         # fixed 1 frame every 2 s silently truncated anything longer than 20 s, so
-        # the sampling rate is derived from the delivered duration instead.
-        sheet_fps = max(0.02, min(0.5, CONTACT_TILES / max(0.1, film_duration)))
+        # the sampling rate is derived from the delivered duration instead. The
+        # old upper cap of 0.5 fps also truncated short films: a 12 s cut sampled
+        # at 0.5 fps yields six frames for a 5x2 tile, so four tiles came out black.
+        sheet_fps = contact_sheet_fps(film_duration)
         base.run(
             [ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(delivery),
              "-vf", "fps=%.4f,scale=480:-2:flags=lanczos,tile=5x2:padding=6:color=0x101010"

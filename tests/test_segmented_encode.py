@@ -36,6 +36,17 @@ class SegmentPlanTests(unittest.TestCase):
         self.assertEqual(len(driver.segment_plan(3, 99)), 3)
         self.assertEqual(driver.segment_plan(3, 1), [(0, 3)])
 
+    def test_the_contact_sheet_is_filled_whatever_the_length(self):
+        # 10 tiles over the duration: short films get a higher rate, long ones a
+        # lower one, and the frame count always matches the tile count.
+        for duration, tiles in ((12.0, 10), (60.0, 10), (500.0, 10)):
+            fps = driver.contact_sheet_fps(duration)
+            self.assertAlmostEqual(fps * duration, tiles, delta=0.001)
+        self.assertGreater(driver.contact_sheet_fps(3.0), driver.contact_sheet_fps(60.0))
+        # Very long films hit the floor; the tile filter then takes the first ten
+        # frames of the sampled stream, so over-sampling is harmless.
+        self.assertEqual(driver.contact_sheet_fps(1e6), 0.02)
+
     def test_an_empty_film_is_an_error(self):
         with self.assertRaises(ValueError):
             driver.segment_plan(0, 4)

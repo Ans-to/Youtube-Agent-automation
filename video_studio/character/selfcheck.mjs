@@ -14,9 +14,11 @@
  *   - the audio envelope actually shuts the mouth between words
  *   - the stickman pen stays monochrome, stays deterministic, and sizes itself
  *     from the solved bones instead of from hard-coded numbers
+ *   - the walk does not skate: a foot on the ground stays on the ground, the
+ *     stride follows distance rather than the clock, and no joint jumps
  */
 import { solve, neutralPose, twoBoneIK, plantFoot, sampleVisemes, blinkAt, BONES } from './rig.mjs';
-import { characterFrame, walkPose, speechTimeline, blinkSchedule, HIP_HEIGHT } from './animate.mjs';
+import { characterFrame, walkPose, speechTimeline, blinkSchedule, HIP_HEIGHT, blendPoses, GROUND } from './animate.mjs';
 import { drawStick, stickGeometry, resolveInk, INK, STICK } from './stick.mjs';
 
 const failures = [];
@@ -311,6 +313,191 @@ function recordingContext() {
   check('the figure is not wider than it is tall',
     Math.max(...xs) - Math.min(...xs) < Math.max(...ys) - Math.min(...ys),
     `width ${(Math.max(...xs) - Math.min(...xs)).toFixed(0)} vs height ${(Math.max(...ys) - Math.min(...ys)).toFixed(0)} (spine top ${spineTop.toFixed(0)})`);
+}
+
+// 14. the walk is a walk, not a skate
+//
+// The figure is drawn front-on, so a step is a foot leaving the floor and coming
+// back down under the body, not a foot travelling fore and aft. What has to hold:
+// a foot that is down stays exactly on the floor, at least one foot is always
+// down, the two feet take turns, and the cycle advances with distance travelled
+// rather than with the clock — that last one is what stops the legs cycling at a
+// fixed rate while the body moves at another, which was a 45 px-per-frame slide.
+{
+  const scale = 0.6;
+  const groundY = 1200;
+  const fps = 30;
+  const step = 770 * 0.38 * scale;
+  const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  const xAt = (t) => 200 + 700 * easeInOut(Math.min(1, Math.max(0, t / 2.5)));
+  const frames = [];
+  const frameShorten = [];
+  for (let f = 0; f <= 75; f += 1) {
+    const t = f / fps;
+    const x = xAt(t);
+    const fr = characterFrame(t, { mode: 'walk', scale, groundY, hipX: x, distance: x - xAt(0), step });
+    frames.push({ t, feet: [fr.solved.footL.origin, fr.solved.footR.origin] });
+    frameShorten.push(fr.legShorten);
+  }
+  const floor = groundY - GROUND.sole * scale;
+  const ankleYs = frames.flatMap((f) => f.feet.map((p) => p[1]));
+  const onFloor = ankleYs.filter((y) => Math.abs(y - floor) < 1).length;
+  check('every frame has a foot on the ground line',
+    onFloor >= frames.length,
+    `${onFloor} foot placements were on the floor, floor at ${floor.toFixed(1)}`);
+  check('no ankle ever goes below the floor',
+    Math.max(...ankleYs) <= floor + 1,
+    `deepest ankle ${Math.max(...ankleYs).toFixed(1)} vs floor ${floor.toFixed(1)}`);
+
+  // Take turns: while one foot is planted the other must leave the floor at some
+  // point, and each foot lifts once per cycle.
+  // The lift is drawn, not solved, so the turn-taking is read off `legShorten`.
+  const lifts = [0, 1].map((k) => {
+    const key = k === 0 ? 'L' : 'R';
+    let count = 0;
+    let up = false;
+    for (const frame of frameShorten) {
+      const isUp = frame[key] < 0.995;
+      if (isUp && !up) count += 1;
+      up = isUp;
+    }
+    return count;
+  });
+  const busy = frameShorten.filter((f) => f.L < 0.995 && f.R < 0.995).length;
+  check('the feet take turns', lifts[0] > 0 && lifts[1] > 0, `left lifted ${lifts[0]}x, right ${lifts[1]}x`);
+  check('at least one foot is always down', busy === 0, `${busy} frames had both feet in the air`);
+
+  // Phase follows distance: the same distance gives the same stride, whatever the
+  // clock says. Breathing still follows the clock, so compare the legs.
+  const a = walkPose(0.4, { hipX: 600, groundY, scale, distance: 250, step });
+  const b = walkPose(2.9, { hipX: 600, groundY, scale, distance: 250, step });
+  check('the stride follows the ground travelled, not the clock',
+    JSON.stringify(a.legShorten) === JSON.stringify(b.legShorten)
+      && JSON.stringify(a.pose.armL) === JSON.stringify(b.pose.armL),
+    'two different times at the same distance gave different legs');
+}
+
+// 14b. the swinging foot is drawn shortened, which is what lifts it
+{
+  const scale = 0.6;
+  const groundY = 1000;
+  const step = 770 * 0.38 * scale;
+  const walking = characterFrame(0.6, { mode: 'walk', scale, groundY, hipX: 300, distance: 120, step });
+  const lengths = [walking.legShorten.L, walking.legShorten.R];
+  check('a swinging leg is drawn shorter than a standing one',
+    lengths.some((k) => k < 0.99) && lengths.every((k) => k > 0.8 && k <= 1),
+    `leg factors ${lengths.map((k) => k.toFixed(3)).join(', ')}`);
+  const idle = characterFrame(0.6, { mode: 'idle', scale, groundY, hipX: 300 });
+  check('a standing figure has both legs at full length',
+    idle.legShorten.L === 1 && idle.legShorten.R === 1,
+    JSON.stringify(idle.legShorten));
+}
+
+// 14c. motion is continuous, including across the walk-to-stand fade
+//
+// A single-frame jump is what "not smooth" actually looks like: no amount of
+// correct poses fixes a hand that teleports across twenty pixels between two
+// frames. Measured as acceleration — the second difference of a joint's position
+// — because a constant-speed slide has none, and a pop has a spike.
+{
+  const scale = 0.6;
+  const groundY = 1200;
+  const step = 770 * 0.38 * scale;
+  const fps = 30;
+  const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+  const span = (t, a, b) => Math.min(1, Math.max(0, (t - a) / (b - a)));
+  const walkEnd = 2.5;
+  const fade = 0.34;
+  const xAt = (t) => 150 + 500 * easeInOut(span(t, 0, walkEnd));
+  const weightAt = (t) => Math.min(
+    easeInOut(span(t, 0.02, 0.02 + fade)),
+    1 - easeInOut(span(t, walkEnd - fade, walkEnd)),
+  );
+  const tracked = ['head', 'handL', 'handR', 'footL', 'footR', 'chest', 'hips'];
+  const path = Object.fromEntries(tracked.map((b) => [b, []]));
+  for (let f = 0; f <= Math.round(walkEnd * fps) + 6; f += 1) {
+    const t = f / fps;
+    const x = xAt(t);
+    const fr = characterFrame(t, {
+      mode: 'walk', scale, groundY, hipX: x, distance: x - xAt(0), step,
+      walkWeight: weightAt(t),
+    });
+    for (const b of tracked) path[b].push(fr.solved[b].end ? fr.solved[b].end.slice() : fr.solved[b].origin.slice());
+  }
+  let worstAccel = 0;
+  let worstBone = null;
+  let worstSpeed = 0;
+  for (const b of tracked) {
+    const p = path[b];
+    for (let i = 1; i < p.length; i += 1) {
+      worstSpeed = Math.max(worstSpeed, Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]));
+    }
+    for (let i = 2; i < p.length; i += 1) {
+      const accel = Math.hypot(p[i][0] - 2 * p[i - 1][0] + p[i - 2][0],
+        p[i][1] - 2 * p[i - 1][1] + p[i - 2][1]);
+      if (accel > worstAccel) { worstAccel = accel; worstBone = b; }
+    }
+  }
+  // A hand at the end of two long bones legitimately swings fastest; the limits
+  // are set well above a brisk walk and well below a pop.
+  check('no bone jumps between frames', worstSpeed < 40,
+    `fastest joint ${worstSpeed.toFixed(1)} px per frame`);
+  check('acceleration stays continuous',
+    worstAccel < 14, `worst ${worstAccel.toFixed(2)} px per frame squared on ${worstBone}`);
+}
+
+// 15. the legs never cross, and a knee never bows out of its own leg
+{
+  const scale = 0.7;
+  const groundY = 1400;
+  const step = 770 * 0.38 * scale;
+  let crossed = 0;
+  let worstBow = 0;
+  for (let f = 0; f <= 90; f += 1) {
+    const t = f / 30;
+    const x = 400 + f * 3;
+    const fr = characterFrame(t, { mode: 'walk', scale, groundY, hipX: x, distance: f * 3, step });
+    const s = fr.solved;
+    // "left" here is the +x bone; the drawn figure must keep them on their sides.
+    if (s.footL.origin[0] < s.footR.origin[0]) crossed += 1;
+    for (const side of [['thighL', 'shinL'], ['thighR', 'shinR']]) {
+      const hip = s[side[0]].origin;
+      const knee = s[side[1]].origin;
+      // lateral offset of the knee, as a fraction of thigh length: a duck knee
+      // would be a large fraction, a natural slight bend a small one.
+      worstBow = Math.max(worstBow, Math.abs(knee[0] - hip[0]) / s[side[0]].length);
+    }
+  }
+  check('the legs never cross in a front view', crossed === 0, `${crossed} frames had the feet swapped`);
+  check('a knee does not bow out of its own leg',
+    worstBow < 0.20, `worst knee offset ${(worstBow * 100).toFixed(1)}% of the thigh`);
+}
+
+// 16. walking into a stand is blended, not switched
+{
+  const blended = blendPoses({ armL: 1, spine: 0.2 }, { armL: 0, forearmL: 0.4 }, 0.5);
+  check('blending two poses keeps every key',
+    near(blended.armL, 0.5) && near(blended.spine, 0.1) && near(blended.forearmL, 0.2),
+    JSON.stringify(blended));
+
+  const groundY = 1000;
+  const half = characterFrame(1, { mode: 'idle', walkWeight: 0.5, scale: 0.5, groundY, hipX: 100, distance: 0 });
+  const full = characterFrame(1, { mode: 'idle', walkWeight: 0, scale: 0.5, groundY, hipX: 100, distance: 0 });
+  let jump = 0;
+  for (const bone of Object.keys(full.solved)) {
+    const a = full.solved[bone].origin;
+    const b = half.solved[bone].origin;
+    jump = Math.max(jump, Math.hypot(a[0] - b[0], a[1] - b[1]));
+  }
+  check('a half-blended step sits between the two poses',
+    jump > 1 && jump < 400, `largest bone moved ${jump.toFixed(1)} px by the blend`);
+
+  // The same t, walked and standing, must not produce the same skeleton — that
+  // would mean walkWeight was ignored.
+  const walking = characterFrame(1, { mode: 'walk', walkWeight: 1, scale: 0.5, groundY, hipX: 100, distance: 0, step: 200 });
+  check('the walk weight is honoured',
+    !near(walking.solved.footL.origin[0], full.solved.footL.origin[0], 0.01),
+    'the walk pose equals the idle pose');
 }
 
 const failed = failures.length > 0;
