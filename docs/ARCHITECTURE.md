@@ -87,6 +87,13 @@ injected into the next run's context. See `docs/MEMORY.md`. It is deliberately
 not a database and not a model, and a failure to read or write it is reported in
 the manifest rather than failing the run.
 
+`dashboard.py` serves the installable front end: one HTML page, four fixed text
+assets and three generated PNG icons, with no path arithmetic on the request (a
+fixed allowlist, because this is the one part of the app a browser can reach
+directly). The icon bytes come from `tools/make_icons.py`, which draws them with
+the standard library and can prove the committed files are its own output. See
+`docs/INSTALL.md`.
+
 `tools/resources.py` is the one place that decides how much work this machine
 should be asked to do. It turns hardware facts — cores, total and *available*
 memory, free disk — into a tier and a small set of integer limits, and every
