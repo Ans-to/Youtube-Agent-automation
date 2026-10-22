@@ -87,6 +87,15 @@ injected into the next run's context. See `docs/MEMORY.md`. It is deliberately
 not a database and not a model, and a failure to read or write it is reported in
 the manifest rather than failing the run.
 
+`tools/resources.py` is the one place that decides how much work this machine
+should be asked to do. It turns hardware facts — cores, total and *available*
+memory, free disk — into a tier and a small set of integer limits, and every
+consumer reads them through `limits_from(cfg)` instead of hard-coding a timeout.
+The orchestrator computes the plan once per run, stores it in the manifest under
+`resources`, and passes the individual numbers down to the tool loop and the
+repair loop. Quality settings are not in the plan at all: a smaller machine is
+slower, not different. See `docs/ADAPTIVE.md`.
+
 `tools/test_fix.py` is the repair loop used by the `test_fix` pipeline. It runs a
 project's own `unittest` command, parses the failure out of the output, applies at
 most three repairs, and keeps a repair only when the following run passes. Code

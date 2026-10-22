@@ -13,7 +13,7 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 918 tests, quality gate 75/75, invariant check |
+| Offline operation, no key | **Done** | 959 tests, quality gate 75/75, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
@@ -24,6 +24,7 @@ committed.
 | Task routing (which pipeline runs) | **Done for the 7 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 96 tests |
 | General task automation (L3) | **Partial** | Routing plus web/document/CLI/data builds and bounded test repair; no multi-artifact plans; memory records, recalls and resumes a run, but no shared budget across stages |
 | Cross-run memory and resume | **Partial** | `tools/memory.py`, `tests/test_memory.py` + `tests/test_resume.py` (49 tests): runs are recorded, recalled by keyword, injected as history, and `--resume` continues the unfinished stages of a run; shared budgets and diff review still open |
+| Running on a weak machine | **Done for batch limits** | `tools/resources.py`, `docs/ADAPTIVE.md`, 41 tests: four tiers, one heavy job at a time, tier-bounded model wait, dataset ceiling, repair count and suite timeout, memory-pressure downgrade, low-disk warning; recorded in every manifest |
 | Code quality of local models | **Gap** | Small models route well but write weak code |
 
 ---
@@ -187,7 +188,8 @@ ownership.
 Work:
 
 1. A single `start` command that verifies prerequisites, runs the capability
-   probe, and prints what is possible on this machine.
+   probe, and prints what is possible on this machine. The resource half exists
+   (`python tools/resources.py`); the prerequisite checks do not.
 2. Model presets: 3B (routing only), 8B (drafting), 14–32B (code) with honest
    capability labels.
 3. Per-task cost report: wall-clock, tokens, disk — the "free" claim measured.

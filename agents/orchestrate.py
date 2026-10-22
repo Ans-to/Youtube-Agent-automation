@@ -17,6 +17,7 @@ ROOT = BASE.parent
 sys.path.insert(0, str(ROOT / "tools"))
 from path_utils import canonical_path, is_within, safe_relative_path
 import memory
+import resources
 import review
 import test_fix
 import tool_agent
@@ -296,16 +297,24 @@ def tool_model_call(cfg):
     if not model.get("enabled"):
         return None
     url = model.get("base_url", "")
-    timeout = int(model.get("timeout_seconds", 240))
+    # The device tier decides how long one generation may block and how long an
+    # answer may be. Without this a 2-core box waits four minutes per call and
+    # asks for a 4,000-token answer it cannot produce, which reads to the user as
+    # a freeze rather than a slow machine. Both numbers are recorded in the
+    # manifest under "resources", so a shorter answer is never a silent surprise.
+    limits = resources.limits_from(cfg)
+    timeout = max(60, min(int(model.get("timeout_seconds", 240)),
+                          limits["model_timeout_seconds"]))
+    token_cap = limits["model_max_tokens"]
 
     def call(prompt, max_tokens):
         body = {
             "model": model.get("model", "local-model"),
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
-            "max_tokens": max(256, min(int(max_tokens), 4000)),
+            "max_tokens": max(256, min(int(max_tokens), token_cap)),
         }
-        data = dispatch.post_local_model(url, body, max(timeout, 240))
+        data = dispatch.post_local_model(url, body, timeout)
         try:
             return data["choices"][0]["message"]["content"]
         except (KeyError, IndexError, TypeError) as exc:
@@ -434,7 +443,7 @@ MAX_DATASET_BYTES = 2_000_000
 DATASET_SUFFIXES = (".csv", ".tsv")
 
 
-def _read_dataset(reference, project_root=None):
+def _read_dataset(reference, project_root=None, max_bytes=None):
     """Read one dataset named by a task. Returns (text, name, error).
 
     Confinement matters here: this is the first pipeline that reads a file the
@@ -464,9 +473,12 @@ def _read_dataset(reference, project_root=None):
         return "", "", "only .csv and .tsv files are read"
     if not target.is_file():
         return "", "", "dataset file was not found"
+    # The default cap is the balanced-tier one; a smaller machine passes its own,
+    # smaller limit so it refuses early instead of being killed mid-analysis.
+    limit_bytes = int(max_bytes or MAX_DATASET_BYTES)
     try:
-        if target.stat().st_size > MAX_DATASET_BYTES:
-            return "", "", f"dataset is larger than the {MAX_DATASET_BYTES:,}-byte limit"
+        if target.stat().st_size > limit_bytes:
+            return "", "", f"dataset is larger than the {limit_bytes:,}-byte limit"
         text = target.read_text(encoding="utf-8", errors="replace")
     except OSError:
         return "", "", "dataset file could not be read"
@@ -524,6 +536,8 @@ def _run_test_fix(request, destination, cfg):
             f"Test report: {project_dir.name}" if project_dir is not None
             else f"Test report: {destination.name}"),
         propose=propose,
+        timeout=resources.limits_from(cfg)["test_timeout_seconds"],
+        max_attempts=resources.limits_from(cfg)["test_max_attempts"],
     )
     if problem:
         report["no_run_reason"] = problem
@@ -568,7 +582,8 @@ def _run_tool_loop(request, intent_text, destination, cfg):
     allow_exec = os.environ.get("AGENT_HQ_ALLOW_EXEC", "").strip().lower() in {"1", "true", "yes", "on"}
     data_text, data_name, data_error = "", "", ""
     if deliverable == "data":
-        data_text, data_name, data_error = _read_dataset(request.args.get("source"))
+        data_text, data_name, data_error = _read_dataset(
+            request.args.get("source"), max_bytes=resources.limits_from(cfg)["dataset_max_bytes"])
     result = tool_agent.run_tool_agent(
         goal=intent_text,
         workspace_root=destination,
@@ -582,7 +597,11 @@ def _run_tool_loop(request, intent_text, destination, cfg):
         data_text=data_text,
         data_name=data_name,
         data_reason=data_error,
+        max_repairs=resources.limits_from(cfg)["tool_max_repairs"],
+        max_seconds=resources.limits_from(cfg)["tool_loop_max_seconds"],
+        timeout_seconds=resources.limits_from(cfg)["tool_loop_timeout_seconds"],
     )
+    result["resource_tier"] = (cfg.get("_resources") or {}).get("tier", "unknown")
     result["tool"] = "tool_agent"
     result["selected_by"] = request.pipeline
     artifact_dir = result.get("artifact_dir")
@@ -1176,7 +1195,18 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
         raise ValueError("Task must be 1–20,000 characters.")
     roles = dispatch.load_json(dispatch.ROSTER, {}).get("agents", [])
     roles_by_id = {role.get("id"): role for role in roles}
-    cfg = config if config is not None else dispatch.load_json(ROOT / "config.json", {})
+    cfg = dict(config) if isinstance(config, dict) else dispatch.load_json(ROOT / "config.json", {})
+    # One resource plan per run, decided once and read by every stage. The tier
+    # comes from measured hardware unless AGENT_HQ_PROFILE (or config
+    # "resources": {"profile": ...}) names one, which is how a user on a shared or
+    # borrowed machine says "treat this as small" without editing hardware.
+    requested_profile = (
+        os.environ.get("AGENT_HQ_PROFILE", "").strip()
+        or str((cfg.get("resources") or {}).get("profile", "") if isinstance(cfg.get("resources"), dict) else "")
+        or "auto"
+    )
+    resource_plan = resources.plan(requested_profile, base_path=str(ROOT))
+    cfg["_resources"] = resource_plan
     destination = canonical_path(output_dir) if output_dir else canonical_path(WORKSPACE / "orchestration" / slug(task[:80]))
     workspace_root = canonical_path(WORKSPACE)
     if destination == workspace_root or not is_within(destination, workspace_root, allow_equal=False):
@@ -1675,6 +1705,7 @@ def _record_run_memory(store, enabled, task, manifest, note, prior_runs, tool_ru
 
 def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None, artifact_checks=None, routing=None):
     return {
+        "resources": dict(cfg.get("_resources") or {}),
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task.strip(),
         "pipeline": records,
@@ -1707,7 +1738,12 @@ def main():
                         help="do not read or write the workspace run memory")
     parser.add_argument("--resume", action="store_true",
                         help="reuse stages already finished in this output directory")
+    parser.add_argument("--profile", default="",
+                        choices=["", "auto", "minimal", "low", "balanced", "high"],
+                        help="override the detected device tier (small machines should stay on auto)")
     args = parser.parse_args()
+    if args.profile:
+        os.environ["AGENT_HQ_PROFILE"] = args.profile
     if args.no_memory:
         os.environ["AGENT_HQ_NO_MEMORY"] = "1"
     try:
@@ -1724,6 +1760,11 @@ def main():
     resume_record = manifest.get("resume") or {}
     if resume_record.get("stages_reused"):
         print("Resumed stages reused:", resume_record["stages_reused"])
+    resource_record = manifest.get("resources") or {}
+    if resource_record:
+        print("Resources:", resources.describe(resource_record))
+        for degradation in resource_record.get("degradations") or []:
+            print("  reduced:", degradation)
     print("Mode:", "local model" if manifest["model_enabled"] else "template fallback; no AI generation")
     print("Each specialist stage attempts web research; see stage outputs for source leads and limitations.")
     memory_record = manifest.get("memory") or {}
