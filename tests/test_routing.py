@@ -47,7 +47,8 @@ class CatalogTest(unittest.TestCase):
             self.assertTrue(spec.summary.strip(), spec.id)
             self.assertTrue(spec.executor.strip(), spec.id)
             self.assertIn(spec.deliverable,
-                          {"web", "document", "cli", "data", "video_package", "product_prototype"})
+                          {"web", "document", "cli", "data", "fix",
+                           "video_package", "product_prototype"})
 
     def test_tool_loop_pipelines_match_the_deliverable_kinds(self):
         # A pipeline that runs the tool loop must declare a kind the loop accepts.

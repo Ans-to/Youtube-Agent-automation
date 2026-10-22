@@ -13,15 +13,15 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 798 tests, quality gate 71/71, invariant check |
+| Offline operation, no key | **Done** | 839 tests, quality gate 72/72, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
 | Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
-| Plan → act → verify → repair | **Done for web, document, CLI, and data builds** | `tools/tool_agent.py`, `tools/data_analysis.py`, `agents/orchestrate.py` |
+| Plan → act → verify → repair | **Done for web, document, CLI, and data builds, and for test repair** | `tools/tool_agent.py`, `tools/data_analysis.py`, `tools/test_fix.py`, `agents/orchestrate.py` |
 | Offline content auditor | **Done (tier 0/1/2/3-contract)** | `video_studio/audit/`, 22 rules, local vision evidence, honest unverified states |
 | Professional motion design (L4) | **Partial - direction + spec layer done** | `video_studio/motion/`, 6 designed transitions, 9 camera moves, bundled Inter/Space Grotesk, bezier/anticipation/follow-through, `docs/MOTION.md`; asset import and character rig still limited |
-| Task routing (which pipeline runs) | **Done for the 6 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 91 tests |
-| General task automation (L3) | **Partial** | Routing plus web/document/CLI/data builds; no test-and-fix, no multi-artifact plans, no long-horizon memory |
+| Task routing (which pipeline runs) | **Done for the 7 declared pipelines** | `agents/routing.py`, `docs/ROUTING.md`, 96 tests |
+| General task automation (L3) | **Partial** | Routing plus web/document/CLI/data builds and bounded test repair; no multi-artifact plans, no long-horizon memory |
 | Code quality of local models | **Gap** | Small models route well but write weak code |
 
 ---
@@ -71,14 +71,23 @@ Step 2 is now done for the four artifact kinds that exist: the confined tool loo
 builds web pages, documents (`deliverable.md` plus `deliverable.json`),
 standard-library CLI tools (`tool.py` with a real `--self-test`), and **measured
 data reports** (`summary.json`, `analysis.md`, `chart.svg`, and a re-runnable
-`analyze.py`) — the last of these is new in this change. Each kind has a fixed
-artifact contract and independent post-build verification.
+`analyze.py`). Each kind has a fixed artifact contract and independent post-build
+verification.
 
 The data kind closes the "analyze this CSV and chart it" goal: it profiles every
 column with the standard library, charts real order statistics, and states that it
 performed no interpretation. Its honest limit is the same as the others — it
 measures, it does not explain, and it treats `1,234` or `12%` as text rather than
-guessing. Test-and-fix tasks and multi-artifact plans remain open.
+guessing.
+
+Test repair is a different shape: it does not build a new artifact, it fixes one
+the user already has. `tools/test_fix.py` runs the project's own suite, parses the
+failure, and keeps a repair only when the following run passes. Code edits are
+reverted when they do not help, test files are never edited, and a green suite
+reached by editing a test is reported as tampering. Without a model it repairs
+only what the output proves (a discovery pattern, an unimportable test package)
+and otherwise delivers a diagnosis. Multi-artifact plans and long-horizon memory
+remain open.
 
 Work:
 
@@ -100,11 +109,12 @@ changelog", "analyze this CSV and chart it", "build a CLI that dedupes photos",
 and each failure is reported as a failure rather than a draft.
 
 **Where that test stands:** "write a changelog", "build a CLI that dedupes
-photos", and "analyze this CSV and chart it" route and verify today. The CLI
-scaffold is plumbing rather than a working deduplicator, and the data report
-measures without interpreting, so those two are *routed and verified* but only
-partly *met*. "Debug this failing test" still has no pipeline. The test is not
-passed; three of ten goals are reachable.
+photos", "analyze this CSV and chart it", and "fix this failing test" route and
+verify today. The CLI scaffold is plumbing rather than a working deduplicator, the
+data report measures without interpreting, and test repair is a verified diagnosis
+without a model, so three of those are *routed and verified* but only partly
+*met*. Six goals still have no pipeline. The test is not passed; four of ten goals
+are reachable.
 
 ## Phase 3 — Long-horizon memory and repair
 

@@ -12,7 +12,7 @@ had two problems that no amount of extra patterns would fix:
 
 ## The catalog
 
-Six pipelines exist. The catalog is the single source of truth: it is what the
+Seven pipelines exist. The catalog is the single source of truth: it is what the
 model is shown, what validation checks against, and what the tests read.
 
 | Pipeline | Executor | Deliverable | What it produces |
@@ -22,6 +22,7 @@ model is shown, what validation checks against, and what the tests read.
 | `document_deliverable` | `tools/tool_agent.py` | `document` | `deliverable.md` plus `deliverable.json` metadata |
 | `cli_tool` | `tools/tool_agent.py` | `cli` | `tool.py` (stdlib, `--self-test`) plus a README |
 | `data_deliverable` | `tools/tool_agent.py` + `tools/data_analysis.py` | `data` | `summary.json`, `analysis.md`, `chart.svg`, and a re-runnable `analyze.py` |
+| `test_fix` | `tools/test_fix.py` | `fix` | `test-report.json` and `fix-plan.md`: the real run, the failing tests, and any repair that a passing re-run confirmed |
 | `product_prototype` | `product_studio/build_product.py` | `product_prototype` | a draft prototype package with an archive and status file |
 
 Each pipeline declares the argument keys it accepts, with types and bounds, and
@@ -55,7 +56,8 @@ task ──► deterministic router ──► compare ──► route record
   | Veto | Why it exists |
   | --- | --- |
   | Advisory request (`explain`, `how do I`, `what is`, `review`, `summarise` …) with no first-person produce marker | The offline path cannot answer a question or summarise a source; returning a scaffold as though it had would be a false completion |
-  | No build verb or measurement verb in the goal | Nothing was asked to be produced |
+  | No build verb, measurement verb, or test-repair request in the goal | Nothing was asked to be produced |
+  | "Write tests" phrased as authoring | Writing tests is not repairing a failing suite; the repair pipeline would have nothing to verify |
   | Measurement request with no dataset behind it | "Analyse my landing page" is advice; "analyse sales.csv" is work |
   | "YouTube automation studio / software / system / platform" for `video_production` | That is a software request; it was previously mis-rendered as a video |
 
@@ -74,6 +76,23 @@ A named dataset is only carried into the arguments when it is a relative path. A
 absolute path, a drive letter, a `..` segment, or a dot-directory is dropped
 before execution, and the reader in `agents/orchestrate.py` refuses the same
 shapes independently — so neither layer alone is load-bearing.
+
+## Repair requests are not questions either
+
+"Fix the failing tests" asks for work; "explain how to fix a failing test" asks
+for an answer, and "write unit tests for my calculator" asks for new tests that
+do not exist yet. The repair pipeline needs a *trouble phrase* (a failing, broken,
+or red test suite, `make the tests pass`, a test failure) **and** a repair verb
+(`fix`, `repair`, `debug`, `resolve`, `make`). A named project is carried into the
+arguments only when it is a relative path; an absolute path, a drive letter, a
+`..` segment or a dot-directory is dropped, and the resolver in
+`agents/orchestrate.py` refuses the same shapes again.
+
+Repairs are the only pipeline that changes code the user already has, so the rule
+that decides whether it counts lives in the executor, not the router: **a repair
+is reported as fixed only when the suite passes afterwards.** An edit that does
+not turn the suite green is reverted; test files are hashed before and after, and
+a green suite reached by editing a test is reported as tampering.
 
 ## The record
 
@@ -122,12 +141,20 @@ hold regardless of who chose the pipeline:
   carries structure and acceptance criteria, not research. The CLI scaffold
   carries working plumbing and a self-test, not the task's algorithm. Both say so
   in the artifact.
-- **Three of the roadmap's ten held-out goals are reachable** ("write a
-  changelog", "build a CLI that dedupes photos", "analyse this CSV and chart
-  it"). The CLI goal is routed but its scaffold is plumbing, not a working
-  deduplicator. Test-and-fix tasks still have no pipeline.
+- **Four of the roadmap's ten held-out goals are reachable** ("write a
+  changelog", "build a CLI that dedupes photos", "analyse this CSV and chart it",
+  "fix this failing test"). The CLI goal is routed but its scaffold is plumbing,
+  not a working deduplicator.
+- **Repair without a model is a diagnosis.** With no model available, `test_fix`
+  fixes only what the test output itself proves: a discovery pattern that misses
+  `*_test.py` files, or an unimportable `tests` package. Any other failure becomes
+  a report naming the failing test, its file and line, and the message — and the
+  run is `partial`, never `completed`. Proposing a code change needs a model, and
+  even then the change is kept only if the suite goes green.
 - **The data pipeline measures; it does not interpret.** It reports counts,
   ranges, central tendency and a chart of order statistics. No trend, correlation
   or causal claim is computed, and the report says so.
 - **One tool-loop pipeline per task.** Multi-artifact plans are not implemented;
   the router returns a list, but the loop runs once.
+- **Only Python unittest suites run.** npm is not on the execution allowlist, so a
+  Node project is diagnosed and told why it was not run.
