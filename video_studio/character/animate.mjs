@@ -36,6 +36,33 @@ const SOLE = (() => {
 
 export const GROUND = { hipHeight: HIP_HEIGHT, sole: SOLE };
 
+/** Straight-leg reach from hip to ankle, measured from the rest skeleton. */
+const LEG_LENGTH = (() => {
+  const rest = solve({}, { x: 0, y: 0, scale: 1 });
+  return rest.thighL.length + rest.shinL.length;
+})();
+
+/**
+ * How far a foot travels forward from the hips, as a fraction of leg length.
+ *
+ * This is not a taste knob: the hips drop by `sqrt(leg^2 - step^2)` on every
+ * stride, so a long step over-bends the knee and a short one makes the figure
+ * totter. 0.38 leaves a visible bend at the widest point of the stride.
+ */
+const STEP_FRACTION = 0.38;
+
+/**
+ * Half the distance between the two hip sockets, at scale 1.
+ *
+ * Feet are placed under their own socket rather than at some chosen width. Any
+ * other width makes the IK solve a sideways knee: with the leg almost straight, a
+ * few pixels of lateral error bows the knee tens of pixels — the duck stance.
+ */
+const SOCKET_HALF = (() => {
+  const rest = solve({}, { x: 0, y: 0, scale: 1 });
+  return Math.abs(rest.thighL.origin[0] - rest.thighR.origin[0]) / 2;
+})();
+
 
 /** Smallest deterministic noise in [-1,1] for handheld camera and idle drift. */
 function hash(n) {
@@ -99,55 +126,155 @@ export function idlePose(t, opts = {}) {
  * @param {number} groundY screen-space floor line
  * @param {number} scale
  */
-export function walkPose(t, { stride = 1.1, hipX = 0, groundY = 0, scale = 1, speed = 1 } = {}) {
-  const pose = {};
-  const phase = (t / stride) % 1;
-  const bob = Math.abs(Math.sin(phase * Math.PI * 2)) * 6 * scale;
-  const hipY = groundY - (HIP_HEIGHT + SOLE) * scale - bob;
+/**
+ * Linear blend of two poses. Used to cross-fade a walk into a stand.
+ *
+ * Every key either pose defines is present in the result, so the skeleton never
+ * sees a missing bone and fall back to its rest angle mid-transition.
+ */
+export function blendPoses(a, b, k) {
+  const out = {};
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  for (const key of keys) {
+    const av = a[key] === undefined ? 0 : a[key];
+    const bv = b[key] === undefined ? 0 : b[key];
+    out[key] = av * k + bv * (1 - k);
+  }
+  return out;
+}
 
-  // foot placement: each foot is planted for the stance half of the cycle, then
-  // swings forward; the ankle x is derived from the phase, not hand-keyed
-  const step = 150 * scale * speed;
-  const footX = (offset) => {
-    const p = (phase + offset) % 1;
-    if (p < 0.5) return hipX - step + p * 4 * step;          // planted, body passes over
-    const swing = (p - 0.5) * 2;
-    return hipX + step - swing * 2 * step;                    // in the air
-  };
+export function walkPose(t, {
+  stride = 1.1, hipX = 0, groundY = 0, scale = 1, speed = 1,
+  distance = null, step: stepArg = null,
+} = {}) {
+  const pose = {};
+  // The rig is drawn front-on, so the walk is a front-view step cycle: the feet
+  // keep their own side of the body and take turns leaving the floor, the hips
+  // drop when both feet are down and sway over whichever leg is carrying the
+  // weight, and the arms swing. A side-on cycle — feet trading places fore and
+  // aft — scissors the legs through each other when the figure faces camera.
+  //
+  // The cycle is advanced by distance travelled when the caller knows it, so the
+  // cadence follows the ground speed instead of the clock. Elapsed time is used
+  // for a walk in place.
+  const step = stepArg === null ? LEG_LENGTH * STEP_FRACTION * scale * speed : stepArg;
+  const cycleLength = step * 4;
+  const phase = distance === null
+    ? (t / stride) % 1
+    : ((distance % cycleLength) / cycleLength + 1) % 1;
+
+  const leg = LEG_LENGTH * scale;
+  const halfStance = SOCKET_HALF * scale;   // a foot sits under its own hip socket
+  const liftHeight = leg * 0.085;
+  // The pelvis never rises above the height at which the legs are straight: any
+  // higher and the IK cannot reach, so the sole floats. The bob therefore goes
+  // downward only, which is also how a walk works — you are lowest when both feet
+  // are down. Kept small on purpose: in a front view a knee can only bend
+  // sideways, so a deep bob would bow both knees out like a duck.
+  const bobAmount = leg * 0.008;
+
+  // 60% of the cycle on the floor, 40% in the air, so there is a moment when both
+  // feet are down — that is where the body is lowest.
+  const DUTY = 0.62;
+  // Eased, not sine: a sine lift leaves the ground at full speed, which reads as
+  // a jerk at toe-off. Squared sine starts and ends at rest.
   const lift = (offset) => {
     const p = (phase + offset) % 1;
-    if (p < 0.5) return 0;
-    return Math.sin((p - 0.5) * 2 * Math.PI) * 46 * scale;
+    if (p < DUTY) return 0;
+    const swing = (p - DUTY) / (1 - DUTY);
+    const ease = Math.sin(swing * Math.PI) ** 2;
+    return ease * liftHeight;
+  };
+  // How much of its length each leg loses while swinging: the drawn leg is pulled
+  // toward the hip, so the foot leaves the floor without the knee bowing outward.
+  const shorten = (offset) => 1 - lift(offset) / leg;
+  // Squared, so the swing starts and ends at rest. A plain sine begins the swing
+  // at full speed, and the hand — at the end of two long bones — turned that into
+  // a visible snap: measured at 19 px per frame squared, seven times the head.
+  const swingCurve = (offset) => {
+    const p = (phase + offset) % 1;
+    return p < DUTY ? 0 : Math.sin(((p - DUTY) / (1 - DUTY)) * Math.PI) ** 2;
   };
 
-  // Solve the hips at the origin, then give IK targets relative to the hips in
-  // world space: solved bone lengths already carry the root scale.
-  const footY = (offset) => groundY - lift(offset);
-  const base = solve(pose, { x: 0, y: 0, scale });
-  // the ankle sits one sole above the floor, so the shoe lands on the line
-  const ankle = SOLE * scale;
-  const leftX = footX(0) - hipX;
-  const rightX = footX(0.5) - hipX;
-  const leftY = footY(0) - hipY;
-  const rightY = footY(0.5) - hipY;
+  // Weight shift: the pelvis travels over the supporting foot and back.
+  const sway = Math.sin(phase * Math.PI * 2) * halfStance * 0.22;
+  const hipRootX = hipX + sway;
+  const bob = bobAmount * (0.5 + 0.5 * Math.cos(phase * Math.PI * 4));
+  const hipY = groundY - SOLE * scale - leg + bob;
 
-  Object.assign(pose, twoBoneIK(base, 'thighL', 'shinL', [leftX, leftY - ankle], 1));
-  Object.assign(pose, twoBoneIK(base, 'thighR', 'shinR', [rightX, rightY - ankle], -1));
-  pose.footL = -solveFoot(base, 'shinL', pose, lift(0) > 1 ? 0.35 : 0);
-  pose.footR = -solveFoot(base, 'shinR', pose, lift(0.5) > 1 ? 0.35 : 0);
-
-  // arms counter-swing the legs, with the elbow trailing (overlap)
   const swing = Math.sin(phase * Math.PI * 2);
-  pose.armL = -swing * 0.32;
-  pose.armR = swing * 0.32;
-  pose.forearmL = 0.30 + Math.sin(phase * Math.PI * 2 - 0.5) * 0.16;
-  pose.forearmR = -0.30 - Math.sin(phase * Math.PI * 2 - 0.5) * 0.16;
-  pose.spine = 0.03 + swing * 0.02;
-  pose.chest = -swing * 0.05;
-  pose.hips = swing * 0.06;
+  pose.hips = swing * 0.02 + sway / Math.max(1, halfStance) * 0.05;
+  pose.spine = -swing * 0.03;
+  pose.chest = swing * 0.015;
   breathe(pose, t, 0.6);
-  pose.head = -swing * 0.03;
-  return { pose, hips: { x: hipX, y: hipY, scale } };
+  pose.head = -swing * 0.02;
+  // Arms counter-swing. From the front the visible part is the elbow opening, so
+  // the forearm leads and the upper arm follows it.
+  pose.armL = 0.05 + swing * 0.07;
+  pose.armR = -0.05 - swing * 0.07;
+  // A calm arm. The first pass swung the forearm twice as far and the hand — at
+  // the end of two long bones — whipped through the frame at 64 design px per
+  // frame, five times walking speed.
+  pose.forearmL = 0.10 + swingCurve(0.5) * 0.15;
+  pose.forearmR = -0.10 - swingCurve(0) * 0.15;
+
+  const ankle = SOLE * scale;
+  const wantAnkleY = groundY - ankle;
+  const upper = { armL: pose.armL, armR: pose.armR, forearmL: pose.forearmL, forearmR: pose.forearmR,
+                  spine: pose.spine, chest: pose.chest, hips: pose.hips, head: pose.head,
+                  shoulderL: pose.shoulderL, shoulderR: pose.shoulderR, neck: pose.neck };
+
+  const build = (rootY) => {
+    const draft = { ...upper };
+    const base = solve(draft, { x: 0, y: 0, scale });
+    // Feet are anchored to the ground the figure is walking over, not to the
+    // swaying pelvis. Attaching them to the hip sockets — which move with the
+    // weight shift — dragged a "planted" foot 22 px per frame, the exact skate the
+    // distance-driven cycle exists to remove. The pelvis sways over a foot that
+    // stays put; that is what a weight shift is.
+    // `thighL` sits on the +x side of this rig, so it takes the +x foot.
+    // Both feet are solved to the floor. A foot that is in the air is not lifted
+    // by the solver: aiming the IK at a raised target bends the knee sideways,
+    // because in a flat front view a bent leg has nowhere to go but out — measured
+    // at 44% of the thigh, which reads as knock-knees. The lift is drawn instead,
+    // by shortening that leg about its hip (see `legShorten`), which is exactly
+    // the shortcut a 2D animator takes to push a leg toward the camera.
+    // Both targets are on the floor, so neither knee has anywhere to bend.
+    Object.assign(draft, twoBoneIK(base, 'thighL', 'shinL',
+      [halfStance, groundY - rootY - ankle], 1));
+    Object.assign(draft, twoBoneIK(base, 'thighR', 'shinR',
+      [-halfStance, groundY - rootY - ankle], -1));
+    // The foot stays flat to the floor; the drawing rolls it during the swing.
+    draft.footL = -solveFoot(base, 'shinL', draft, 0);
+    draft.footR = -solveFoot(base, 'shinR', draft, 0);
+    return draft;
+  };
+
+  let rootY = hipY;
+  let built = build(rootY);
+  // The hip sockets do not sit on the pelvis root, so the first height is a few
+  // pixels off. Settle it against the property that actually matters: a standing
+  // leg is straight, so the socket-to-ankle distance equals the leg. Measuring
+  // the ankle's height instead let the leg be a fraction too long, and the IK
+  // answered that by bowing the knee sideways — visible as knock-knees.
+  const straight = leg * 0.997;
+  for (let pass = 0; pass < 4; pass += 1) {
+    const trial = solve(built, { x: hipRootX, y: rootY, scale });
+    const reach = Math.max(
+      Math.hypot(trial.footL.origin[0] - trial.thighL.origin[0], trial.footL.origin[1] - trial.thighL.origin[1]),
+      Math.hypot(trial.footR.origin[0] - trial.thighR.origin[0], trial.footR.origin[1] - trial.thighR.origin[1]),
+    );
+    const error = reach - straight;
+    if (Math.abs(error) < 0.2) break;
+    rootY += error;
+    built = build(rootY);
+  }
+  Object.assign(pose, built);
+  return {
+    pose,
+    hips: { x: hipRootX, y: rootY, scale },
+    legShorten: { L: shorten(0), R: shorten(0.5) },
+  };
 }
 
 function solveFoot(base, shin, pose, toe) {
@@ -163,8 +290,10 @@ export function wavePose(t, { at = 0, dur = 1.6, scale = 1 } = {}) {
   const up = enter * (1 - leave);
   if (up <= 0) return pose;
   const base = solve(pose, { x: 0, y: 0, scale });
-  // beside and above the head: forward of the shoulder, high enough to read
-  const target = [300 * scale, -1040 * scale];
+  // Beside the head, not across it. At 300 the hand sat only 160 units outside
+  // the shoulder, which put the forearm over the face — from the front that reads
+  // as scratching, not waving. 540 clears the head circle (radius ~240) entirely.
+  const target = [540 * scale, -1000 * scale];
   const ik = twoBoneIK(base, 'armL', 'forearmL', target, 1);
   const shake = Math.sin((t - at) * 9.5) * 0.22 * up;
   pose.armL = ik.armL * up + shake;
@@ -306,22 +435,62 @@ export function characterFrame(t, spec = {}) {
   const groundY = spec.groundY === undefined ? 0 : spec.groundY;
   const mode = spec.mode || 'idle';
 
+  // Walk and idle are blended rather than switched on. A hard switch at the ends
+  // of a walk cycle pops: every joint jumps by the difference between the two
+  // poses in a single frame.
+  const walkWeight = spec.walkWeight === undefined ? (mode === 'walk' ? 1 : 0) : clamp01(spec.walkWeight);
+  const idleHips = () => {
+    const bob = Math.sin(t * 0.55 * Math.PI * 2) * 5 * scale;
+    return { x: spec.hipX || 0, y: groundY - (HIP_HEIGHT + SOLE) * scale - bob, scale };
+  };
+
   let pose;
   let hips;
-  if (mode === 'walk') {
+  let legShorten = { L: 1, R: 1 };
+  if (walkWeight >= 0.999) {
     const walked = walkPose(t, {
       stride: spec.stride || 1.15,
       hipX: spec.hipX || 0,
       groundY,
       scale,
       speed: spec.speed || 1,
+      distance: spec.distance === undefined ? null : spec.distance,
+      step: spec.step === undefined ? null : spec.step,
     });
     pose = walked.pose;
     hips = { x: walked.hips.x, y: walked.hips.y, scale };
-  } else {
+    legShorten = walked.legShorten;
+  } else if (walkWeight <= 0.001) {
     pose = idlePose(t, { breathe: spec.breathe });
-    const bob = Math.sin(t * 0.55 * Math.PI * 2) * 5 * scale;
-    hips = { x: spec.hipX || 0, y: groundY - (HIP_HEIGHT + SOLE) * scale - bob, scale };
+    hips = idleHips();
+  } else {
+    const walked = walkPose(t, {
+      stride: spec.stride || 1.15,
+      hipX: spec.hipX || 0,
+      groundY,
+      scale,
+      speed: spec.speed || 1,
+      distance: spec.distance === undefined ? null : spec.distance,
+      step: spec.step === undefined ? null : spec.step,
+    });
+    const idle = idlePose(t, { breathe: spec.breathe });
+    pose = blendPoses(walked.pose, idle, walkWeight);
+    // A leg that is half in the walk is half as shortened: the same cross-fade the
+    // pose gets, applied to the drawing.
+    legShorten = {
+      L: walked.legShorten.L * walkWeight + (1 - walkWeight),
+      R: walked.legShorten.R * walkWeight + (1 - walkWeight),
+    };
+    const rest = idleHips();
+    // Both axes have to come from the same blend. Blending only the height left
+    // the pelvis's side-to-side weight shift to be switched on and off, which
+    // dropped twenty pixels of travel into a single frame — every bone in the
+    // figure spiked at once when the fade began.
+    hips = {
+      x: walked.hips.x * walkWeight + rest.x * (1 - walkWeight),
+      y: walked.hips.y * walkWeight + rest.y * (1 - walkWeight),
+      scale,
+    };
   }
 
   if (spec.gesture > 0.01) {
@@ -361,6 +530,7 @@ export function characterFrame(t, spec = {}) {
     browRaise: clamp01(pose.browRaise || 0),
     scale,
     breath,
+    legShorten,
   };
 }
 
