@@ -1,8 +1,18 @@
 #!/usr/bin/env node
 "use strict";
 const fs=require("fs"),path=require("path"),http=require("http"),puppeteer=require("puppeteer");
+// Flags are parsed before anything else runs, so a range request fails fast and
+// never launches a browser it does not need.
+function argValue(argv,name,fallback){
+ const hit=argv.find(a=>a==="--"+name||a.startsWith("--"+name+"="));
+ if(hit===undefined)return fallback;
+ const eq=hit.indexOf("=");
+ return eq===-1?true:hit.slice(eq+1);
+}
 async function main(){
- const storyboardPath=path.resolve(process.argv[2]||"storyboard.example.json");
+ const argv=process.argv.slice(2);
+ const storyboardArg=argv.find(a=>!a.startsWith("--"));
+ const storyboardPath=path.resolve(storyboardArg||"storyboard.example.json");
  if(!fs.existsSync(storyboardPath))throw new Error("Storyboard not found: "+storyboardPath);
  const s=JSON.parse(fs.readFileSync(storyboardPath,"utf8"));
  if(!s||typeof s!=="object"||Array.isArray(s))throw new Error("Storyboard root must be a JSON object.");
@@ -68,12 +78,25 @@ async function main(){
    for(const role of Object.keys(easingBlock))if(!easingTypes.has(String(easingBlock[role])))throw new Error("style.easing."+role+" uses an unknown curve: "+easingBlock[role]);
   }
  }
+ // One call renders one slice. A 20-minute film is rendered as a sequence of
+ // slices by tools/long_form.py, so these caps bound the work of THIS process —
+ // not the length of the storyboard — and a single call can never fill a disk.
  const MAX_FRAMES=30000,MAX_SECONDS=1000;
  const totalSeconds=s.scenes.reduce((sum,scene)=>{const sec=Number(scene&&scene.duration_seconds);if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("Each scene duration must be >0 and <=600 seconds");return sum+sec;},0);
- if(totalSeconds>MAX_SECONDS)throw new Error("Storyboard exceeds the 1000-second render limit.");
  const estimatedFrames=s.scenes.reduce((sum,scene)=>sum+Math.max(1,Math.round(Number(scene.duration_seconds)*fps)),0);
- if(estimatedFrames>MAX_FRAMES)throw new Error("Storyboard exceeds the 30000-frame render limit.");
- const dir=path.resolve(__dirname,"frames");fs.mkdirSync(dir,{recursive:true});
+ const fromFrameRaw=argValue(argv,"from-frame",undefined);
+ const frameCountRaw=argValue(argv,"frame-count",undefined);
+ const fromFrame=fromFrameRaw===undefined?0:Number(fromFrameRaw);
+ if(!Number.isInteger(fromFrame)||fromFrame<0)throw new Error("--from-frame must be a non-negative integer");
+ const frameCount=frameCountRaw===undefined?null:Number(frameCountRaw);
+ if(frameCount!==null&&(!Number.isInteger(frameCount)||frameCount<1))throw new Error("--frame-count must be a positive integer");
+ if(fromFrame>=estimatedFrames&&fromFrame!==0)throw new Error("--from-frame "+fromFrame+" is at or past the end of this storyboard ("+estimatedFrames+" frames)");
+ const sliceFrames=Math.min(frameCount===null?estimatedFrames-fromFrame:frameCount,estimatedFrames-fromFrame);
+ if(sliceFrames/fps>MAX_SECONDS)throw new Error("Requested slice exceeds the 1000-second render limit.");
+ if(sliceFrames>MAX_FRAMES)throw new Error("Requested slice exceeds the 30000-frame render limit.");
+ const endFrame=fromFrame+sliceFrames;
+ const dirArg=argValue(argv,"out-dir",undefined);
+ const dir=dirArg?path.resolve(String(dirArg)):path.resolve(__dirname,"frames");fs.mkdirSync(dir,{recursive:true});
  for(const f of fs.readdirSync(dir))if(/^frame-\d{6}\.png$/.test(f))fs.unlinkSync(path.join(dir,f));
  const browser=await puppeteer.launch({headless:true,args:["--no-sandbox","--disable-setuid-sandbox"]});
  let server=null;
@@ -203,9 +226,13 @@ async function main(){
    return {totalLines:info.allLines.length,totalPages:info.totalPages,firstIndex:first.pageIndex,lastIndex:last.pageIndex};
   });
   if(captionCheck.totalPages<2||captionCheck.firstIndex!==0||captionCheck.lastIndex!==captionCheck.totalPages-1)throw new Error("Caption pagination regression: long narration is not split across readable pages.");
-  let total=0;
+  // Per-frame drawing is a pure function of (scene, local frame, scene length,
+  // global frame index), so a slice can start mid-film without rendering what
+  // came before it. That is what makes long-form rendering possible at all.
+  let written=0,cursor=0,done=false;
   const transitionRecords=[];
-  for(let si=0;si<s.scenes.length;si++){
+  const startedAt=Date.now();
+  for(let si=0;si<s.scenes.length&&!done;si++){
    const scene=s.scenes[si],sec=Number(scene.duration_seconds);
    if(!Number.isFinite(sec)||sec<=0||sec>600)throw new Error("scene duration must be >0 and <=600 seconds");
    const count=Math.max(1,Math.round(sec*fps));
@@ -214,17 +241,34 @@ async function main(){
    const transitionFrames=previous&&scene.transition_in!=="none"?Math.min(count,Math.max(1,Math.min(60,Math.round(requested)))):0;
    transitionRecords.push({scene:si+1,type:scene.transition_in,frames:transitionFrames});
    const previousCount=previous?Math.max(1,Math.round(Number(previous.duration_seconds)*fps)):0;
-   for(let lf=0;lf<count;lf++){
+   let firstLocal=0;
+   if(cursor+count<=fromFrame){cursor+=count;continue;}
+   if(cursor<fromFrame)firstLocal=fromFrame-cursor;
+   let rendered=0;
+   for(let lf=firstLocal;lf<count;lf++){
+    const globalFrame=cursor+lf;
+    if(globalFrame>=endFrame){done=true;break;}
     if(transitionFrames&&lf<transitionFrames){
      const t=transitionFrames<=1?1:lf/(transitionFrames-1);
-     await page.evaluate((prev,pf,pc,pg,cur,cf,cc,cg,kind,progress)=>window.drawTransitionFrame(prev,pf,pc,pg,cur,cf,cc,cg,kind,progress),previous,previousCount-1,previousCount,Math.max(0,total-1),scene,lf,count,total,String(scene.transition_in),t);
-    }else{ await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,total); }
-    await page.screenshot({path:path.join(dir,"frame-"+String(total).padStart(6,"0")+".png"),type:"png"});total++;
+     await page.evaluate((prev,pf,pc,pg,cur,cf,cc,cg,kind,progress)=>window.drawTransitionFrame(prev,pf,pc,pg,cur,cf,cc,cg,kind,progress),previous,previousCount-1,previousCount,Math.max(0,globalFrame-1),scene,lf,count,globalFrame,String(scene.transition_in),t);
+    }else{ await page.evaluate((sc,l,n,g)=>window.drawFrame(sc,l,n,g),scene,lf,count,globalFrame); }
+    await page.screenshot({path:path.join(dir,"frame-"+String(globalFrame).padStart(6,"0")+".png"),type:"png"});
+    written++;rendered++;
+    if(written%300===0){
+     const elapsed=(Date.now()-startedAt)/1000,rate=written/elapsed;
+     console.log("  "+written+" frames written, "+rate.toFixed(2)+" fps, ~"+Math.round((sliceFrames-written)/Math.max(rate,0.01))+"s left");
+    }
    }
-   console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+count+" frames)");
+   if(rendered>0)console.log("Rendered scene "+(si+1)+"/"+s.scenes.length+" ("+rendered+" frames)");
+   cursor+=count;
   }
-  fs.writeFileSync(path.resolve(__dirname,"render-manifest.json"),JSON.stringify({title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,frame_count:total,duration_seconds:total/fps,scene_count:s.scenes.length,transitions:transitionRecords,style:s.style||null,tone:(s.style&&s.style.tone)||null,generated_at:new Date().toISOString()},null,2)+"\n");
-  console.log("Rendered "+total+" frames to "+dir);
+  const manifestRecord={title:String(s.title||"Offline Agent HQ video"),width:w,height:h,fps,
+   frame_count:written,duration_seconds:written/fps,
+   first_frame:fromFrame,end_frame_exclusive:fromFrame+written,total_frames:estimatedFrames,complete:fromFrame===0&&written===estimatedFrames,
+   scene_count:s.scenes.length,transitions:transitionRecords,style:s.style||null,tone:(s.style&&s.style.tone)||null,generated_at:new Date().toISOString()};
+  const manifestArg=argValue(argv,"manifest",undefined);
+  fs.writeFileSync(manifestArg?path.resolve(String(manifestArg)):path.resolve(__dirname,"render-manifest.json"),JSON.stringify(manifestRecord,null,2)+"\n");
+  console.log("Rendered "+written+" frames ("+fromFrame+".."+(fromFrame+written-1)+" of "+estimatedFrames+") to "+dir);
  }finally{await browser.close();if(server)await new Promise(resolve=>server.close(resolve))}
 }
 main().catch(e=>{console.error("RENDER ERROR: "+(e&&e.message?e.message:String(e)));process.exitCode=1});

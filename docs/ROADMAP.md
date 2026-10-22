@@ -13,9 +13,9 @@ committed.
 
 | Capability | State | Evidence |
 | --- | --- | --- |
-| Offline operation, no key | **Done** | 998 tests, quality gate 77/77, invariant check |
+| Offline operation, no key | **Done** | 1045 tests, quality gate 78/78, invariant check |
 | Rules enforced in CI | **Done** | `tools/check_invariants.py`, 7 rules |
-| Video pipeline (script → MP4) | **Done** | `video_studio/production.py`, technical QA |
+| Video pipeline (script → MP4) | **Done, including 20-minute films** | `video_studio/production.py`, technical QA; sliced long-form rendering with per-slice QA and resume (`docs/LONG_FORM.md`) |
 | Confined tool execution | **Done** | `tools/tool_runtime.py`, 4 tools |
 | Plan → act → verify → repair | **Done for web, document, CLI, and data builds, and for test repair** | `tools/tool_agent.py`, `tools/data_analysis.py`, `tools/test_fix.py`, `agents/orchestrate.py` |
 | Reviewable changes | **Done** | `tools/review.py`, `docs/CHANGES.md`: every builder leaves a bounded diff, every run an index; the verifier refuses a change without one |

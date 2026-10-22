@@ -62,7 +62,7 @@ jobs:
           node-version: "22"
 
       - name: Compile Python modules (Python 3.11)
-        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/routing.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/production_readiness.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py video_studio/audit_video.py product_studio/build_product.py tools/run_quality_gate.py tools/check_invariants.py tools/tool_runtime.py tools/tool_agent.py tools/data_analysis.py tools/test_fix.py tools/memory.py tools/review.py tools/resources.py tools/make_icons.py
+        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/routing.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/production_readiness.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py video_studio/audit_video.py product_studio/build_product.py tools/run_quality_gate.py tools/check_invariants.py tools/tool_runtime.py tools/tool_agent.py tools/data_analysis.py tools/test_fix.py tools/memory.py tools/review.py tools/resources.py tools/make_icons.py tools/long_form.py
 
       - name: Check JavaScript syntax
         run: node --check video_studio/render.js
@@ -87,7 +87,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile Python modules (Python 3.12)
-        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/routing.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py video_studio/audit_video.py product_studio/build_product.py tools/run_quality_gate.py tools/check_invariants.py tools/tool_runtime.py tools/tool_agent.py tools/data_analysis.py tools/test_fix.py tools/memory.py tools/review.py tools/resources.py tools/make_icons.py
+        run: python -m py_compile app_config.py agent.py dashboard.py queue_store.py bridge/bridge.py agents/dispatch.py agents/adhd_style.py agents/orchestrate.py agents/routing.py agents/practice.py video_studio/studio.py video_studio/capabilities.py video_studio/render_lock.py video_studio/production.py video_studio/voice_backends.py video_studio/piper_urdu_tts_adapter.py video_studio/urdu_tts_adapter.py video_studio/voice_preview.py video_studio/captions.py video_studio/research.py video_studio/validate_render.py video_studio/validate_frames.py video_studio/quality_audit.py video_studio/release_gate.py video_studio/publish_youtube.py video_studio/audit_video.py product_studio/build_product.py tools/run_quality_gate.py tools/check_invariants.py tools/tool_runtime.py tools/tool_agent.py tools/data_analysis.py tools/test_fix.py tools/memory.py tools/review.py tools/resources.py tools/make_icons.py tools/long_form.py
 
       - name: Run unit tests (Python 3.12)
         run: python -m unittest discover -s tests -v
@@ -136,6 +136,52 @@ jobs:
           set -e
           if [ "$code" -eq 0 ]; then echo "Oversized storyboard was unexpectedly accepted"; exit 1; fi
           grep -q "30000-frame render limit" limit-check.log
+
+      - name: Plan a 20-minute film without rendering it
+        # The plan is the promise: 36,000 frames must become a bounded number of
+        # slices, each inside the renderer's own per-call ceiling.
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          storyboard = {"title": "plan only", "width": 1920, "height": 1080, "fps": 30,
+                        "scenes": [{"duration_seconds": 12} for _ in range(100)]}
+          pathlib.Path("/tmp/ci-plan.json").write_text(json.dumps(storyboard))
+          PY
+          python tools/long_form.py --storyboard /tmp/ci-plan.json --output /tmp/unused.mp4 --plan-only > /tmp/plan.json
+          python - <<'PY'
+          import json
+          plan = json.loads(open("/tmp/plan.json").read())
+          assert plan["duration_seconds"] == 1200.0, plan
+          assert plan["total_frames"] == 36000, plan
+          assert plan["segments"] == 20, plan
+          assert plan["largest_slice_frames"] <= 30000, plan
+          print("20-minute plan ok:", plan)
+          PY
+
+      - name: Render a film in slices with a real browser and real FFmpeg
+        # Proves the range render, the per-slice frame check, the encode and the
+        # concat actually work together, not just that the arguments parse.
+        working-directory: video_studio
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          storyboard = {"title": "CI slice render", "width": 320, "height": 180, "fps": 10,
+                        "scenes": [{"duration_seconds": 1, "headline": "slice %d" % (i + 1)}
+                                   for i in range(6)]}
+          pathlib.Path("/tmp/ci-slice.json").write_text(json.dumps(storyboard))
+          PY
+          python ../tools/long_form.py --storyboard /tmp/ci-slice.json --output /tmp/ci-slice.mp4 --segment-seconds 1
+          python - <<'PY'
+          import json, subprocess
+          probe = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration",
+                                  "-of", "json", "/tmp/ci-slice.mp4"], capture_output=True, text=True, check=True)
+          duration = float(json.loads(probe.stdout)["format"]["duration"])
+          assert 5.4 <= duration <= 6.6, "concatenated film is " + str(duration) + "s, expected ~6s"
+          record = json.loads(open("/tmp/ci-slice.long-form/long-form.json").read())
+          assert record["plan"]["segments"] == 6, record["plan"]
+          assert record["complete"] is True, record
+          print("slice render ok:", duration, "s from", record["plan"]["segments"], "slices")
+          PY
 
       - name: Install pinned local English text-to-speech engine
         run: |

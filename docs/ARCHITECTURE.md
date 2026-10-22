@@ -87,6 +87,13 @@ injected into the next run's context. See `docs/MEMORY.md`. It is deliberately
 not a database and not a model, and a failure to read or write it is reported in
 the manifest rather than failing the run.
 
+`tools/long_form.py` is how a film longer than the renderer's per-call ceiling
+gets made. It plans slices from the storyboard, asks `render.js` for one frame
+range per slice (`--from-frame` / `--frame-count`), validates that slice before
+encoding it, deletes its frames, and concatenates the parts with a stream copy.
+The renderer's 30,000-frame limit therefore bounds a slice, not a film. See
+`docs/LONG_FORM.md`.
+
 `dashboard.py` serves the installable front end: one HTML page, four fixed text
 assets and three generated PNG icons, with no path arithmetic on the request (a
 fixed allowlist, because this is the one part of the app a browser can reach

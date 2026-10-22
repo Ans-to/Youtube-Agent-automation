@@ -43,10 +43,20 @@ def jpeg_size(path):
             stream.seek(max(0, length - 2), 1)
 
 
-def validate(frames_dir, manifest_path):
+def validate(frames_dir, manifest_path, start_number=None):
+    """Check a rendered sequence.
+
+    ``start_number`` exists for long-form rendering: a slice of a 20-minute film
+    is numbered by its global frame index, so its first file is not
+    ``frame-000000.png``. It defaults to the manifest's own ``first_frame``,
+    which is 0 for a whole-film render, so existing callers are unaffected.
+    """
     frames_dir = Path(frames_dir)
     manifest = json.loads(Path(manifest_path).read_text(encoding="utf-8"))
     width, height, expected = int(manifest["width"]), int(manifest["height"]), int(manifest["frame_count"])
+    if start_number is None:
+        start_number = int(manifest.get("first_frame", 0) or 0)
+    start_number = max(0, int(start_number))
     if expected < 1 or expected > 30000:
         raise ValueError("Manifest frame count is outside the supported 1..30000 range.")
     found = []
@@ -58,8 +68,9 @@ def validate(frames_dir, manifest_path):
     if len(found) != expected:
         raise ValueError("Expected " + str(expected) + " frames, found " + str(len(found)) + ".")
     for index, (number, path) in enumerate(found):
-        if number != index:
-            raise ValueError("Frame sequence has a gap at index " + str(index) + ".")
+        if number != start_number + index:
+            raise ValueError("Frame sequence has a gap at index " + str(start_number + index)
+                             + " (found " + str(number) + ").")
         if path.suffix.lower() == ".png":
             with path.open("rb") as stream:
                 header = stream.read(24)
