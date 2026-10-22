@@ -19,6 +19,27 @@ from capabilities import profile_device
 from voice_backends import get_urdu_tts_command, load_project_config, resolve_urdu_tts_command, require_urdu_voice_human_approval
 from render_lock import render_lock
 from audio_design import render_sound_design
+sys.path.insert(0, str(ROOT / "tools"))
+import long_form
+
+
+#: render.js writes every frame of one call to disk before encoding. Above this
+#: many frames the disk cost becomes the problem (36,000 frames is a 20-minute
+#: film), so the render switches to sliced long-form mode on its own.
+SINGLE_PASS_FRAME_LIMIT = 30000
+
+
+def estimated_frames(storyboard, fps):
+    total = 0
+    for scene in storyboard.get("scenes") or []:
+        try:
+            seconds = float(scene.get("duration_seconds"))
+        except (TypeError, ValueError):
+            return None
+        if seconds <= 0:
+            return None
+        total += max(1, round(seconds * fps))
+    return total
 
 
 def run(command, cwd=BASE, timeout=1800, **kwargs):
@@ -407,6 +428,10 @@ def main():
     parser.add_argument("--with-voice", action="store_true", help="Synthesize the storyboard's declared language using the configured local backend")
     parser.add_argument("--language", choices=["en", "ur-en"], help="Override narration language; defaults to storyboard then config.json video_studio.narration_language (ur-en when unset)")
     parser.add_argument("--keep-frames", action="store_true", help="Keep PNG frames after a successful MP4 render")
+    parser.add_argument("--long-form", action="store_true",
+                        help="Render in slices even when the film is short (always on above 30,000 frames)")
+    parser.add_argument("--segment-seconds", type=int, default=long_form.DEFAULT_SEGMENT_SECONDS,
+                        help="Length of one long-form slice in seconds (default 60)")
     parser.add_argument("--print-capabilities", action="store_true", help="Print detected device profile and exit")
     args = parser.parse_args()
     profile = profile_device(BASE)
@@ -470,15 +495,6 @@ def main():
             generated_storyboard, voice_dir, segments = prepare_voice(data, piper, model, ffmpeg, ffprobe, fps, language, config)
             render_storyboard = generated_storyboard
 
-        run([node, "render.js", str(render_storyboard)], timeout=3600)
-        manifest_path = BASE / "render-manifest.json"
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        frame_check = subprocess.run(
-            [sys.executable, str(BASE / "validate_frames.py"), "--frames", str(BASE / "frames"),
-             "--manifest", str(manifest_path)],
-            cwd=str(BASE), check=True, capture_output=True, text=True, timeout=300)
-        print(frame_check.stdout.strip())
-
         output_arg = Path(args.output).expanduser()
         output = output_arg.resolve() if output_arg.is_absolute() else (BASE / output_arg).resolve()
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -491,12 +507,47 @@ def main():
         srt_path.write_text(srt_text, encoding="utf-8")
         vtt_path.write_text(vtt_text, encoding="utf-8")
         print("Subtitle validation:", json.dumps(subtitle_report))
-        frames = BASE / "frames" / "frame-%06d.png"
-        run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-framerate", str(fps),
-             "-i", str(frames), "-frames:v", str(manifest["frame_count"]),
-             "-c:v", "libx264", "-threads", str(profile["render_threads"]), "-pix_fmt", "yuv420p", "-crf", "20",
-             *grade_filters(data),
-             "-movflags", "+faststart", str(silent)])
+        planned = estimated_frames(data, fps)
+        long_form_mode = bool(args.long_form) or (planned is not None and planned > SINGLE_PASS_FRAME_LIMIT)
+        if long_form_mode:
+            # Sliced rendering: bounded disk, resumable, and no 30,000-frame wall.
+            print("Long-form render:", planned, "frames (~%.1f min) in %ds slices"
+                  % ((planned or 0) / fps / 60, args.segment_seconds))
+            record = long_form.render(
+                render_storyboard, silent, fps=fps, segment_seconds=args.segment_seconds,
+                crf=20, threads=profile["render_threads"], extra_filters=grade_filters(data),
+                keep_frames=args.keep_frames, node=node, ffmpeg=ffmpeg,
+                log=lambda line: print(line, flush=True),
+                validate_slice=long_form.frame_validator(),
+            )
+            manifest = {
+                "frame_count": record["plan"]["total_frames"],
+                "duration_seconds": record["duration_seconds"],
+                "width": int(data.get("width", 1920)),
+                "height": int(data.get("height", 1080)),
+                "long_form": {key: record[key] for key in ("plan", "elapsed_seconds", "slices",
+                                                           "resumed_slices", "complete")},
+            }
+            (output.parent / (output.stem + ".long-form.json")).write_text(
+                json.dumps(record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+            print("Long-form render complete:", record["plan"]["segments"], "slices,",
+                  record["elapsed_seconds"], "s,",
+                  "complete" if record["complete"] else "INCOMPLETE")
+        else:
+            run([node, "render.js", str(render_storyboard)], timeout=3600)
+            manifest_path = BASE / "render-manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            frame_check = subprocess.run(
+                [sys.executable, str(BASE / "validate_frames.py"), "--frames", str(BASE / "frames"),
+                 "--manifest", str(manifest_path)],
+                cwd=str(BASE), check=True, capture_output=True, text=True, timeout=300)
+            print(frame_check.stdout.strip())
+            frames = BASE / "frames" / "frame-%06d.png"
+            run([ffmpeg, "-y", "-hide_banner", "-loglevel", "warning", "-framerate", str(fps),
+                 "-i", str(frames), "-frames:v", str(manifest["frame_count"]),
+                 "-c:v", "libx264", "-threads", str(profile["render_threads"]), "-pix_fmt", "yuv420p", "-crf", "20",
+                 *grade_filters(data),
+                 "-movflags", "+faststart", str(silent)])
         if args.with_voice:
             combined = voice_dir / "combined.wav"
             combine_voice(segments, ffmpeg, combined)
