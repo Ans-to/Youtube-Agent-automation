@@ -100,20 +100,23 @@ class DashboardLaunchTests(unittest.TestCase):
     """The launcher has to behave like an app, not like a script that prints a URL."""
 
     def test_a_busy_port_is_explained_instead_of_crashing(self):
-        with tempfile.TemporaryDirectory() as directory:
-            blocker = HTTPServer(("127.0.0.1", 0), dashboard.Handler)
-            port = blocker.server_port
-            threading.Thread(target=blocker.serve_forever, daemon=True).start()
-            try:
-                with self.assertRaises(SystemExit) as caught:
-                    with patch.object(dashboard, "load_config", return_value={}):
-                        dashboard.main(["--port", str(port), "--no-open"])
-                message = str(caught.exception)
-                self.assertIn("already in use", message)
-                self.assertIn(str(port), message)
-            finally:
-                blocker.shutdown()
-                blocker.server_close()
+        # The failure is simulated rather than produced by a real second bind:
+        # Windows sets SO_REUSEADDR, which lets a second bind "succeed" on a port
+        # that is already in use, so a real double-bind test would pass on Linux
+        # and hang here.
+        def refuse(address, handler):
+            raise OSError(98, "Address already in use")
+
+        with patch.object(dashboard, "load_config", return_value={}), \
+             patch.object(dashboard, "HTTPServer", side_effect=refuse), \
+             patch.object(dashboard, "open_when_ready") as opener:
+            with self.assertRaises(SystemExit) as caught:
+                dashboard.main(["--port", "8765", "--no-open"])
+        message = str(caught.exception)
+        self.assertIn("already in use", message)
+        self.assertIn("8765", message)
+        self.assertIn("--port 8766", message)
+        opener.assert_not_called()
 
     def test_a_non_loopback_host_is_still_refused(self):
         with patch.object(dashboard, "load_config",
