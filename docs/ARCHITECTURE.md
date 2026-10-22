@@ -76,6 +76,11 @@ the decision is refused when the previous run there was a different task or a
 different stage list. Reused output is marked as such in the manifest, so a
 resumed run never claims to have re-researched what it merely re-read.
 
+`tools/review.py` turns writes into reviewable changes: it snapshots a file before
+the first step that writes it, then diffs that snapshot against what the run left
+behind. The tool loop and the repair loop both use it; the orchestrator writes one
+index per run and refuses a change record with no diff. See `docs/CHANGES.md`.
+
 `tools/memory.py` is the cross-run record: an append-only JSONL log of finished
 runs, a keyword search over it, and a bounded "history, not instructions" block
 injected into the next run's context. See `docs/MEMORY.md`. It is deliberately

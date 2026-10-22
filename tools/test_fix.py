@@ -34,9 +34,11 @@ import time
 from pathlib import Path
 
 try:  # Package import and standalone import both work.
+    from tools import review
     from tools.path_utils import canonical_path, is_within, safe_relative_path
 except ImportError:  # pragma: no cover - exercised when run as a standalone script
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import review  # type: ignore[no-redef]
     from path_utils import canonical_path, is_within, safe_relative_path
 
 MAX_OUTPUT_CHARS = 40_000
@@ -528,6 +530,8 @@ def diagnose(project: str | Path, *, allow_exec: bool = True,
             "does not turn the suite green is reverted; a structural repair (such as "
             "an empty package marker) is kept and named, because the suite cannot "
             "run without it.",
+            "Each attempted edit is shown as a diff of that file, capped at "
+            f"{review.MAX_DIFF_LINES} lines.",
             "Tests themselves are never edited: their contents are hashed before "
             "and after the run, and any change is reported as tampering.",
             "Only Python unittest suites are run. npm is not on the execution "
@@ -599,6 +603,12 @@ def diagnose(project: str | Path, *, allow_exec: bool = True,
             record["why"] = (record["why"] + " | rejected: " + problem)[:400]
             report["repairs"].append(record)
             break
+        change = review.change_record(str(repair.get("path", "")), original,
+                                      str(repair.get("content", "")))
+        record["kind_of_change"] = change["kind"]
+        record["added"] = change["added"]
+        record["removed"] = change["removed"]
+        record["diff"] = change["diff"]
         report["repairs"].append(record)
         outcome = run(root, argv, timeout)
         outcome["phase"] = f"attempt-{attempt}"
@@ -706,7 +716,12 @@ def render_markdown(report: dict) -> str:
             target = f"`{repair['path']}`" if repair.get("path") else "the test command"
             lines.append(f"{repair.get('attempt', '?')}. {target} — {repair.get('kind')}: "
                          f"{_short(repair.get('why'), 200)} ({state}).")
-        lines.append("")
+            if repair.get("diff"):
+                lines.append("")
+                lines.append("```diff")
+                lines.extend(repair["diff"])
+                lines.append("```")
+            lines.append("")
         if report.get("test_files_modified"):
             lines.append("A test file changed during this run, so the result is not a fix: "
                          + ", ".join(f"`{name}`" for name in report["changed_test_files"][:5]))

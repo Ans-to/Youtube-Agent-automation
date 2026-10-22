@@ -17,6 +17,7 @@ ROOT = BASE.parent
 sys.path.insert(0, str(ROOT / "tools"))
 from path_utils import canonical_path, is_within, safe_relative_path
 import memory
+import review
 import test_fix
 import tool_agent
 WORKSPACE = canonical_path(ROOT / "workspace")
@@ -909,6 +910,40 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
             if verification_errors:
                 errors.extend(verification_errors)
 
+            changes_path = require_file(target, "changes.json", errors)
+            require_file(target, "changes.md", errors)
+            if nonempty_file(changes_path):
+                try:
+                    changes = json.loads(changes_path.read_text(encoding="utf-8"))
+                    if not isinstance(changes, dict):
+                        raise ValueError("Change report must be a JSON object.")
+                    if changes.get("schema") != 1:
+                        errors.append("Change report does not declare schema 1.")
+                    files = changes.get("files")
+                    if not isinstance(files, list):
+                        errors.append("Change report has no file list.")
+                        files = []
+                    summary = changes.get("summary") or {}
+                    if isinstance(summary, dict) and summary.get("files_changed") != len(files):
+                        errors.append("Change report summary does not match its file list.")
+                    for item in files:
+                        if not isinstance(item, dict):
+                            errors.append("Change report contains a malformed entry.")
+                            break
+                        name = str(item.get("path", ""))
+                        if not name or name.startswith(("/", "\\")) or ":" in name \
+                                or ".." in name.replace("\\", "/").split("/"):
+                            errors.append("Change report names a path outside the artifact: "
+                                          + (name[:80] or "<empty>"))
+                            break
+                        # A claimed change must carry its lines, unless it is binary.
+                        if item.get("kind") in {"created", "modified"} and not item.get("diff") \
+                                and not item.get("binary"):
+                            errors.append("Change report records a change with no diff: " + name[:80])
+                            break
+                except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                    errors.append("Change report could not be validated: " + str(exc)[:250])
+            check["checks"].append("change_report_matches_the_writes")
             if deliverable == "web":
                 index_path = require_file(target, "index.html", errors)
                 if nonempty_file(index_path):
@@ -1054,6 +1089,16 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                                             if isinstance(item, dict) and item.get("verified")]
                         if not verified_repairs:
                             errors.append("Test report claims a verified fix with no verified repair.")
+                    for repair in report.get("repairs") or []:
+                        if not isinstance(repair, dict):
+                            errors.append("Test report contains a malformed repair record.")
+                            break
+                        if repair.get("kind") == "model_patch" and not repair.get("diff"):
+                            errors.append("A repair record has no diff; a change must be shown, not described.")
+                            break
+                        if repair.get("verified") and repair.get("reverted"):
+                            errors.append("A repair is recorded as both verified and reverted.")
+                            break
                     for failure in report.get("failures") or []:
                         if isinstance(failure, dict) and not str(failure.get("test", "")).strip():
                             errors.append("Test report contains a failure with no test name.")
@@ -1487,6 +1532,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
             json.dumps(routing_record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     save_progress("running", "Post-build artifact validation", "Verifying generated files, media, strict QA reports, and release-safety metadata.")
     artifact_checks = verify_artifact_tool_runs(tool_runs, project_root=ROOT)
+    change_review = _write_change_review(task, destination, tool_runs)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
     required_tool_blocked = any(item.get("status") == "blocked" for item in tool_runs)
     reviewer_record = next((item for item in records if item.get("agent_id") == "AGENT-08"), {})
@@ -1502,11 +1548,56 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
     manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks, routing=routing_record)
     manifest["repair_attempt"] = repair_attempt
     manifest["resume"] = dict(resume_plan)
+    manifest["change_review"] = change_review
     manifest["memory"] = _record_run_memory(store, memory_enabled, task, manifest, note, prior_runs, tool_runs)
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
     save_progress(progress_status, "Pipeline complete", "Pipeline ended with status: " + final_status + "; final quality gate: " + str(manifest.get("quality_gate", "unconfirmed")) + ".", len(assignments), len(assignments))
     return destination, manifest
+
+
+def _write_change_review(task, destination, tool_runs):
+    """Index every builder's writes into one review page for the run.
+
+    The diffs themselves stay beside each builder's output; this page says which
+    builder wrote what, and where to read the lines. Nothing here restates file
+    content, so a manifest stays small.
+    """
+    entries = []
+    for item in tool_runs or []:
+        if not isinstance(item, dict):
+            continue
+        changes = item.get("changes")
+        if not isinstance(changes, dict):
+            continue
+        entries.append({
+            "tool": str(item.get("tool", "builder"))[:40],
+            "artifact_dir": str(item.get("artifact_dir", ""))[:200],
+            "files": [str(name)[:200] for name in (changes.get("files") or [])][:review.MAX_FILES],
+            "summary": changes.get("summary") or {},
+            "review": str(changes.get("review", "changes.md"))[:40],
+        })
+    # Kept in its own folder: the run directory's top level belongs to the stage
+    # notes, and a review page must not be mistaken for one of them.
+    review_dir = destination / "review"
+    try:
+        review_dir.mkdir(parents=True, exist_ok=True)
+        (review_dir / "changes.md").write_text(
+            review.render_aggregate(entries, title="Changes: " + str(task).strip()[:120]),
+            encoding="utf-8")
+    except OSError:
+        return {"path": "", "builders": len(entries), "files_changed": 0,
+                "error": "the change review could not be written"}
+    files_changed = sum(int((item.get("summary") or {}).get("files_changed", 0)) for item in entries)
+    try:
+        path = safe_relative_path(canonical_path(review_dir / "changes.md"), ROOT).as_posix()
+    except ValueError:
+        path = "review/changes.md"
+    return {
+        "path": path,
+        "builders": len(entries),
+        "files_changed": files_changed,
+    }
 
 
 def _resume_decision(enabled, previous_delegation, task, assignments):
