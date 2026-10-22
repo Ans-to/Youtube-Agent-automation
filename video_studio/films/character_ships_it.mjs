@@ -144,6 +144,7 @@ function loadVoice(linesPath, envelopePath) {
         fps: Number(item.fps) || FPS,
         openness: item.openness || [],
         brightness: item.brightness || [],
+        visemes: Array.isArray(item.visemes) ? item.visemes : [],
       });
     }
     envelope = { fps: Number(env.fps) || FPS, frames };
@@ -173,7 +174,10 @@ function envelopeAt(seconds) {
   const bright = entry.brightness && entry.brightness.length
     ? entry.brightness[Math.min(at, entry.brightness.length - 1)]
     : 0.5;
-  return { open: entry.openness[at] || 0, bright };
+  const vis = entry.visemes && entry.visemes.length
+    ? entry.visemes[Math.min(at, entry.visemes.length - 1)]
+    : null;
+  return { open: entry.openness[at] || 0, bright, vis };
 }
 
 /** The envelope, resampled to an arbitrary 0..1 position inside a line. */
