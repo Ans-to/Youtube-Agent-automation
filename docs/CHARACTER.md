@@ -106,7 +106,11 @@ cd video_studio
 node films/character_speaks.mjs --out frames --width 1920 --style stick --boil 1
 node films/character_speaks.mjs --out stills --width 1280 --still 4.5,9.0
 node character/_preview.mjs --style stick --boil 1 --out poses.png
+node films/character_speaks.mjs --plan     # the caption plan as JSON, no rendering
 ```
+
+`--plan` exists so no test or tool has to keep its own copy of the film's caption
+count; the tests read the plan from the film itself.
 
 `--style design` still renders the original illustrated figure, and
 `--style stick` is the default: the channel look should not depend on remembering
