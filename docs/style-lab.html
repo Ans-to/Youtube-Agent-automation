@@ -1,0 +1,715 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Agent HQ — style lab</title>
+<style>
+  /* ─────────── lab chrome (not part of any theme) ─────────── */
+  :root{color-scheme:dark}
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:#15161a;color:#e8e6ea;
+    font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  .labbar{position:sticky;top:0;z-index:50;display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+    padding:10px 12px;background:#0e0f12f2;backdrop-filter:blur(8px);border-bottom:1px solid #2a2c33}
+  .labbar b{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:#8c8f99;margin-right:6px}
+  .labbar button{font:inherit;font-size:12px;padding:7px 11px;border-radius:7px;cursor:pointer;
+    border:1px solid #34363f;background:#191b20;color:#c9ccd4;letter-spacing:.02em}
+  .labbar button:hover{border-color:#4a4d59;color:#fff}
+  .labbar button[aria-pressed="true"]{background:#f2f0ea;color:#111;border-color:#f2f0ea;font-weight:700}
+  .labbar .hint{margin-left:auto;font-size:11px;color:#6f727c}
+  .stage{display:block}
+  .variant{display:none;min-height:calc(100vh - 49px)}
+  .variant.on{display:block}
+
+  /* ─────────── A · OPERATOR CONSOLE ─────────── */
+  .a{--bg:#060907;--fg:#c9f7d8;--dim:#5f9273;--dim2:#41654f;--line:#1c3826;
+     --accent:#3dff9d;--amber:#ffd166;--rose:#ff6f6f;--blue:#7cd4ff;
+     background:var(--bg);color:var(--fg);
+     font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+     padding:0 0 40px}
+  .a ::selection{background:#3dff9d33}
+  .a .bar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:9px 14px;
+    border-bottom:1px solid var(--line);background:#070c09;font-size:12px;color:var(--dim)}
+  .a .bar .path{color:var(--fg)}
+  .a .bar .path i{color:var(--accent);font-style:normal}
+  .a .chips{display:flex;gap:14px;flex-wrap:wrap}
+  .a .chip{color:var(--dim)}
+  .a .chip b{color:var(--fg);font-weight:400}
+  .a .chip.live b{color:var(--accent)}
+  .a .chip.warn b{color:var(--amber)}
+  .a .wrap{padding:14px;max-width:1240px;margin:0 auto}
+  .a .readout{display:flex;flex-wrap:wrap;gap:0;border:1px solid var(--line);margin-bottom:14px}
+  .a .readout div{flex:1 1 120px;padding:10px 12px;border-right:1px solid var(--line)}
+  .a .readout div:last-child{border-right:0}
+  .a .readout span{display:block;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim2)}
+  .a .readout strong{font-size:21px;font-weight:500;letter-spacing:-.01em;color:var(--fg);font-variant-numeric:tabular-nums}
+  .a .readout .ok strong{color:var(--accent)}
+  .a .readout .bad strong{color:var(--rose)}
+  .a .readout .hold strong{color:var(--amber)}
+  .a .cols{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:14px;align-items:start}
+  .a .box{border:1px solid var(--line)}
+  .a .box>h2{margin:0;padding:7px 10px;border-bottom:1px solid var(--line);font-size:11px;
+    font-weight:400;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);display:flex;
+    justify-content:space-between;gap:8px}
+  .a .box>h2 em{font-style:normal;color:var(--dim2);letter-spacing:0}
+  .a .rows{padding:4px 0}
+  .a .row{display:grid;grid-template-columns:22px 1fr auto;gap:8px;padding:7px 10px;align-items:baseline;
+    border-left:2px solid transparent}
+  .a .row.sel{background:#0d1a12;border-left-color:var(--accent)}
+  .a .row .n{color:var(--dim2);font-size:11px}
+  .a .row .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .a .row .s{font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+  .a .s.running{color:var(--blue)}.a .s.done{color:var(--accent)}
+  .a .s.pending{color:var(--dim)}.a .s.failed{color:var(--rose)}.a .s.hold{color:var(--amber)}
+  .a .log{padding:8px 10px;height:246px;overflow:auto;font-size:12px;line-height:1.65}
+  .a .log p{margin:0;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .a .log p b{color:var(--fg);font-weight:400}
+  .a .log p .ts{color:var(--dim2);margin-right:8px}
+  .a .log p.good{color:#8fd6ab}.a .log p.warn{color:#e0bb76}.a .log p.err{color:#ff9494}
+  .a .stage-strip{display:flex;flex-wrap:wrap;gap:6px;padding:10px;border-top:1px solid var(--line);font-size:11px}
+  .a .stage-strip i{font-style:normal;color:var(--dim2);padding:2px 7px;border:1px solid var(--line)}
+  .a .stage-strip i.done{color:var(--accent);border-color:#23543a}
+  .a .stage-strip i.now{color:#06120b;background:var(--accent);border-color:var(--accent)}
+  .a .prompt{margin-top:14px;border:1px solid var(--line);display:flex;align-items:center;gap:8px;
+    padding:9px 11px;color:var(--dim)}
+  .a .prompt b{color:var(--accent);font-weight:400}
+  .a .cursor{display:inline-block;width:8px;height:14px;background:var(--accent);vertical-align:-2px;
+    animation:a-blink 1.1s steps(1) infinite}
+  @keyframes a-blink{50%{opacity:0}}
+  .a .keys{margin-top:8px;font-size:11px;color:var(--dim2);letter-spacing:.04em}
+  .a .keys kbd{font:inherit;border:1px solid var(--line);padding:1px 5px;color:var(--dim)}
+  @media(max-width:820px){.a .cols{grid-template-columns:1fr}}
+
+  /* ─────────── B · INSTRUMENT ─────────── */
+  .b{--paper:#f3efe6;--ink:#17130f;--muted:#6d6559;--faint:#9a9083;--rule:#d7cec0;
+     --accent:#ab3a22;--ok:#33614a;--bad:#a32a22;
+     background:var(--paper);color:var(--ink);
+     font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     padding:0 0 56px}
+  .b .sheet{max-width:1180px;margin:0 auto;padding:0 26px}
+  .b .mast{display:flex;justify-content:space-between;align-items:flex-end;gap:18px;flex-wrap:wrap;
+    padding:26px 0 14px;border-bottom:2px solid var(--ink)}
+  .b .mast h1{font-family:georgia,"Times New Roman",serif;font-size:30px;line-height:1.05;
+    letter-spacing:-.015em;margin:0;font-weight:600}
+  .b .mast .sub{color:var(--muted);font-size:12px;margin-top:5px;letter-spacing:.02em}
+  .b .mast .meta{text-align:right;font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+  .b .mast .meta b{display:block;color:var(--ink);font-size:12px;letter-spacing:.06em;margin-top:3px}
+  .b .figures{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border-bottom:1px solid var(--rule)}
+  .b .fig{padding:20px 18px 18px 0;border-right:1px solid var(--rule)}
+  .b .fig:last-child{border-right:0;padding-right:0}
+  .b .fig .k{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted)}
+  .b .fig .v{font-size:52px;line-height:.95;letter-spacing:-.045em;margin:8px 0 6px;
+    font-variant-numeric:tabular-nums;font-weight:500}
+  .b .fig .v small{font-size:15px;letter-spacing:0;color:var(--faint);margin-left:3px;font-weight:400}
+  .b .fig .d{font-size:11px;color:var(--muted)}
+  .b .fig.acc .v{color:var(--accent)}
+  .b .cols{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:40px;padding-top:26px}
+  .b h2{font-family:georgia,"Times New Roman",serif;font-size:15px;font-weight:600;margin:0 0 2px;
+    letter-spacing:.01em}
+  .b h2+.kicker{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--faint);margin-bottom:12px}
+  .b .list{border-top:1px solid var(--ink)}
+  .b .item{display:grid;grid-template-columns:74px 1fr auto;gap:14px;padding:13px 0;border-bottom:1px solid var(--rule);
+    align-items:baseline}
+  .b .item time{font-size:11px;color:var(--faint);font-variant-numeric:tabular-nums;letter-spacing:.02em}
+  .b .item .ti{font-size:14px}
+  .b .item .ti small{display:block;color:var(--muted);font-size:11.5px;margin-top:2px}
+  .b .item .st{font-size:10px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+  .b .item .st.done{color:var(--ok)}.b .item .st.run{color:var(--accent)}
+  .b .item .st.bad{color:var(--bad)}
+  .b .side{border-top:1px solid var(--ink);padding-top:0}
+  .b .split{display:flex;height:9px;margin:14px 0 8px;background:#e4ddd0}
+  .b .split i{display:block}
+  .b .legend{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+  .b .steps{list-style:none;margin:16px 0 0;padding:0;counter-reset:s}
+  .b .steps li{counter-increment:s;display:grid;grid-template-columns:24px 1fr;gap:10px;padding:9px 0;
+    border-bottom:1px solid var(--rule);font-size:13px}
+  .b .steps li:before{content:counter(s,decimal-leading-zero);font-size:10px;color:var(--faint);
+    letter-spacing:.08em;padding-top:3px}
+  .b .steps li b{display:block;font-weight:500}
+  .b .steps li small{color:var(--muted);font-size:11.5px}
+  .b .note{border:1px solid var(--rule);padding:14px;margin-top:22px;font-size:12.5px;color:var(--muted);
+    background:#efe9dd}
+  .b .note b{color:var(--ink);display:block;margin-bottom:4px;font-family:georgia,serif;font-size:13px}
+  .b .thumb{display:flex;gap:10px;margin-top:10px}
+  .b .thumb span{flex:1;border:1px solid var(--rule);padding:8px;font-size:11px;color:var(--muted);
+    background:#efe9dd}
+  .b .thumb b{display:block;color:var(--ink);font-size:11px;margin-top:3px;font-weight:500}
+  @media(max-width:900px){.b .cols{grid-template-columns:1fr;gap:30px}.b .figures{grid-template-columns:repeat(2,1fr)}
+    .b .fig{border-right:0;border-bottom:1px solid var(--rule);padding:16px 0}
+    .b .fig:nth-child(even){padding-left:0}.b .fig:nth-child(odd){border-right:1px solid var(--rule);padding-right:16px}
+    .b .fig .v{font-size:38px}.b .mast h1{font-size:24px}}
+
+  /* ─────────── C · MISSION CONTROL ─────────── */
+  .c{--bg:#080d13;--panel:#0e1621;--panel2:#111c28;--line:#1d2b3a;--txt:#dbe8f4;--muted:#7d93a8;
+     --muted2:#54697d;--cyan:#55d3ff;--mint:#69e6a6;--amber:#ffc861;--rose:#ff7b7b;
+     background:
+       radial-gradient(1000px 420px at 50% -160px,#123049 0,transparent 70%),
+       var(--bg);
+     color:var(--txt);font:14px/1.45 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     padding:0 0 46px}
+  .c .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:13px 20px;border-bottom:1px solid var(--line);background:#080d13cc}
+  .c .brand{display:flex;align-items:center;gap:11px}
+  .c .mark{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;
+    background:linear-gradient(150deg,#1b3b52,#0d1a26);border:1px solid #27506a;color:var(--cyan);font-size:14px}
+  .c .brand h1{margin:0;font-size:13px;letter-spacing:.2em;text-transform:uppercase;font-weight:600}
+  .c .brand p{margin:2px 0 0;font-size:10.5px;color:var(--muted2);letter-spacing:.1em}
+  .c .tags{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .c .tag{border:1px solid var(--line);border-radius:99px;padding:5px 10px;font-size:10.5px;
+    letter-spacing:.09em;text-transform:uppercase;color:var(--muted);background:#0c141d}
+  .c .tag.on{color:var(--cyan);border-color:#245069;background:#0b1c27}
+  .c .tag .d{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mint);
+    margin-right:6px;vertical-align:1px;box-shadow:0 0 7px var(--mint)}
+  .c .wrap{max-width:1280px;margin:0 auto;padding:18px 20px}
+  .c .gauges{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin-bottom:14px}
+  .c .g{padding:14px 12px 12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);
+    display:flex;flex-direction:column;align-items:center;gap:9px}
+  .c .ring{--p:0;--col:var(--cyan);position:relative;width:78px;height:78px;border-radius:50%;
+    background:conic-gradient(var(--col) calc(var(--p)*1%),#182533 0);display:grid;place-items:center}
+  .c .ring:before{content:"";position:absolute;inset:6px;border-radius:50%;background:var(--panel);
+    box-shadow:inset 0 0 0 1px #16222f}
+  .c .ring span{position:relative;font-size:20px;font-weight:600;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums}
+  .c .g .lab{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted2);text-align:center}
+  .c .g.mint .ring{--col:var(--mint)} .c .g.amber .ring{--col:var(--amber)} .c .g.rose .ring{--col:var(--rose)}
+  .c .g.slate .ring{--col:#4a6b86}
+  .c .cols{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;align-items:start}
+  .c .card{border:1px solid var(--line);border-radius:12px;background:var(--panel);overflow:hidden;margin-bottom:14px}
+  .c .card>header{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding:11px 14px;border-bottom:1px solid var(--line);background:#0c141d}
+  .c .card>header h2{margin:0;font-size:10.5px;letter-spacing:.17em;text-transform:uppercase;color:var(--muted)}
+  .c .card>header .r{font-size:10.5px;color:var(--muted2);letter-spacing:.05em}
+  .c .tl{padding:20px 16px 6px}
+  .c .track{position:relative;display:flex;justify-content:space-between;gap:6px}
+  .c .track:before{content:"";position:absolute;left:6%;right:6%;top:9px;height:1px;
+    background:linear-gradient(90deg,#2c4f68,#1c2a38)}
+  .c .step{position:relative;flex:1;text-align:center;padding-top:26px;font-size:11px;color:var(--muted2)}
+  .c .step:before{content:"";position:absolute;top:2px;left:50%;transform:translateX(-50%);
+    width:15px;height:15px;border-radius:50%;background:#0d1620;border:1px solid #2a4256}
+  .c .step.done{color:var(--mint)}
+  .c .step.done:before{background:#12331f;border-color:#2f7d52;box-shadow:0 0 0 3px #123a2322}
+  .c .step.now{color:var(--cyan)}
+  .c .step.now:before{background:var(--cyan);border-color:var(--cyan);box-shadow:0 0 0 4px #55d3ff1f,0 0 14px #55d3ff66}
+  .c .step b{display:block;font-weight:600;font-size:11px;letter-spacing:.03em}
+  .c .step small{display:block;color:inherit;opacity:.66;font-size:10px;margin-top:2px}
+  .c .meta-line{display:flex;justify-content:space-between;gap:10px;padding:12px 16px 16px;
+    border-top:1px solid #16222f;font-size:11px;color:var(--muted2);flex-wrap:wrap}
+  .c .meta-line b{color:var(--txt);font-weight:500}
+  .c .tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .c .tbl th{text-align:left;font-size:9.5px;letter-spacing:.15em;text-transform:uppercase;
+    color:var(--muted2);font-weight:500;padding:8px 14px;border-bottom:1px solid var(--line);background:#0c141d}
+  .c .tbl td{padding:10px 14px;border-bottom:1px solid #16222f;vertical-align:middle}
+  .c .tbl tr:last-child td{border-bottom:0}
+  .c .tbl .name{color:var(--txt)}
+  .c .tbl .name small{display:block;color:var(--muted2);font-size:10.5px;margin-top:1px}
+  .c .pill{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:3px 8px;border-radius:99px;
+    border:1px solid;white-space:nowrap}
+  .c .pill.run{color:var(--cyan);border-color:#2a5d75;background:#0b1f2a}
+  .c .pill.ok{color:var(--mint);border-color:#2c6647;background:#0b1f16}
+  .c .pill.wait{color:var(--muted);border-color:#2b3a49;background:#0e1721}
+  .c .pill.bad{color:var(--rose);border-color:#6b3034;background:#1c1014}
+  .c .feed{padding:6px 0;max-height:242px;overflow:auto}
+  .c .feed p{margin:0;padding:7px 14px;font-size:12px;color:var(--muted);display:grid;
+    grid-template-columns:52px 1fr;gap:10px;border-bottom:1px solid #131e29}
+  .c .feed p:last-child{border-bottom:0}
+  .c .feed time{color:var(--muted2);font-variant-numeric:tabular-nums;font-size:10.5px;padding-top:2px}
+  .c .feed b{color:var(--txt);font-weight:500}
+  .c .spark{display:flex;align-items:flex-end;gap:3px;height:34px;padding:0 14px 12px}
+  .c .spark i{flex:1;background:linear-gradient(180deg,#2b6f8c,#174052);border-radius:2px 2px 0 0}
+  @media(max-width:900px){.c .cols{grid-template-columns:1fr}.c .gauges{grid-template-columns:repeat(2,1fr)}
+    .c .g:last-child{grid-column:span 2}}
+
+  /* ─────────── D · EMBER (refined holographic) ─────────── */
+  .d{--bg:#08070b;--panel:#100e15;--panel2:#151219;--line:#33212a;--line2:#4a2c31;
+     --txt:#f7edf0;--muted:#bda9b2;--muted2:#8d7d86;--ember:#ff8a3d;--gold:#ffc56c;
+     --mint:#6ff0b0;--sky:#7ad9ff;--rose:#ff8d92;
+     background:
+       radial-gradient(760px 340px at 50% -120px,#3a1418 0,transparent 72%),
+       radial-gradient(1200px 600px at 50% 120%,#1a0d14 0,transparent 70%),
+       var(--bg);
+     color:var(--txt);font:14px/1.5 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+     padding:0 0 46px}
+  .d .top{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    padding:16px 20px;border-bottom:1px solid #3a2027;background:#08070bcc}
+  .d .brand{display:flex;align-items:center;gap:13px}
+  .d .logo{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;font-size:17px;
+    color:#1a0a06;background:linear-gradient(155deg,#ffb066,#ff6a35);
+    box-shadow:0 6px 22px #ff5a2e3d,inset 0 1px 0 #ffd0a0}
+  .d .brand h1{margin:0;font-size:17px;letter-spacing:.1em;font-weight:800}
+  .d .brand p{margin:2px 0 0;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)}
+  .d .tags{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .d .pill{font-size:10px;letter-spacing:.1em;text-transform:uppercase;padding:6px 11px;border-radius:99px;
+    border:1px solid var(--line2);color:var(--muted);background:#120f16}
+  .d .pill.live{color:var(--mint);border-color:#2f6349;background:#0d1c16}
+  .d .pill.live .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--mint);
+    margin-right:6px;box-shadow:0 0 8px var(--mint)}
+  .d .pill.mode{color:var(--gold);border-color:#5c4327;background:#1a130c}
+  .d .wrap{max-width:1280px;margin:0 auto;padding:18px 20px}
+  .d .metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:11px;margin-bottom:16px}
+  .d .m{position:relative;padding:13px 14px 12px;border:1px solid var(--line);border-radius:14px;
+    background:linear-gradient(160deg,#171219,#0c0a10);overflow:hidden}
+  .d .m:after{content:"";position:absolute;inset:0;border-radius:14px;pointer-events:none;
+    background:linear-gradient(160deg,#ff8a3d10,transparent 44%)}
+  .d .m .k{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted2)}
+  .d .m .v{font-size:27px;font-weight:750;letter-spacing:-.02em;margin:5px 0 9px;
+    font-variant-numeric:tabular-nums}
+  .d .m.act .v{color:var(--gold);text-shadow:0 0 20px #ffc56c3d}
+  .d .m.run .v{color:var(--sky)}
+  .d .m.ok .v{color:var(--mint)}
+  .d .m.bad .v{color:var(--rose)}
+  .d .bar{height:3px;border-radius:99px;background:#241a20;overflow:hidden}
+  .d .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#ff6a35,#ffbe72)}
+  .d .bar.mint i{background:linear-gradient(90deg,#2f9e6b,#6ff0b0)}
+  .d .bar.sky i{background:linear-gradient(90deg,#2b7f9e,#7ad9ff)}
+  .d .bar.rose i{background:linear-gradient(90deg,#a23c45,#ff8d92)}
+  .d .cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:14px;align-items:start}
+  .d .panel{border:1px solid var(--line);border-radius:16px;background:linear-gradient(165deg,#13101a,#0c0a10);
+    padding:15px;margin-bottom:14px;box-shadow:0 10px 30px #00000059}
+  .d .panel>h2{margin:0 0 3px;font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    display:flex;justify-content:space-between;align-items:center;gap:8px;font-weight:600}
+  .d .panel>h2 span{font-size:9.5px;letter-spacing:.08em;color:var(--ember);border:1px solid #5d2f26;
+    border-radius:6px;padding:3px 7px;background:#1b0f0c}
+  .d .panel>.sub{font-size:11.5px;color:var(--muted2);margin:0 0 13px}
+  .d .core-wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+  .d .ring{--p:62;position:relative;width:104px;height:104px;flex:0 0 auto;border-radius:50%;
+    background:conic-gradient(from -90deg,#ff6a35 0 calc(var(--p)*1%),#2a1a1f 0);
+    display:grid;place-items:center;box-shadow:0 0 34px #ff5a2e2e}
+  .d .ring:before{content:"";position:absolute;inset:7px;border-radius:50%;
+    background:radial-gradient(circle at 50% 35%,#241318,#0d0a11 70%);
+    box-shadow:inset 0 0 0 1px #3c242b}
+  .d .ring b{position:relative;font-size:11px;letter-spacing:.1em;color:#ffd9bb;text-align:center;line-height:1.3}
+  .d .ring b em{display:block;font-style:normal;font-size:18px;color:#fff;letter-spacing:0}
+  .d .core-txt{flex:1 1 210px;min-width:180px}
+  .d .core-txt .who{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted2)}
+  .d .core-txt h3{margin:5px 0 4px;font-size:15px;font-weight:650;letter-spacing:.005em}
+  .d .core-txt p{margin:0;font-size:12px;color:var(--muted);line-height:1.5}
+  .d .steps{display:flex;gap:5px;margin-top:13px;flex-wrap:wrap}
+  .d .steps i{font-style:normal;font-size:10px;letter-spacing:.05em;padding:4px 8px;border-radius:6px;
+    border:1px solid #301f26;color:var(--muted2);background:#0f0c12}
+  .d .steps i.done{color:var(--mint);border-color:#2b5a44;background:#0d1a15}
+  .d .steps i.now{color:#1b0c07;border-color:transparent;background:linear-gradient(100deg,#ff8a3d,#ffb972);font-weight:700}
+  .d .task{display:grid;grid-template-columns:1fr auto;gap:10px;padding:12px 0;border-bottom:1px solid #241821;
+    align-items:start}
+  .d .task:last-child{border-bottom:0;padding-bottom:2px}
+  .d .task .ti{font-size:13px;font-weight:550;line-height:1.35}
+  .d .task .ti small{display:block;color:var(--muted2);font-size:10.5px;margin-top:3px;letter-spacing:.03em;font-weight:400}
+  .d .tag2{font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;padding:4px 8px;border-radius:99px;border:1px solid}
+  .d .tag2.run{color:var(--sky);border-color:#28576b;background:#0b1a22}
+  .d .tag2.ok{color:var(--mint);border-color:#2b5a44;background:#0b1a14}
+  .d .tag2.wait{color:var(--muted2);border-color:#33262d;background:#100d13}
+  .d .tag2.bad{color:var(--rose);border-color:#5f2b31;background:#1a0f12}
+  .d .out{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:10px 0;
+    border-bottom:1px solid #241821;font-size:12px}
+  .d .out:last-child{border-bottom:0}
+  .d .out .p{color:var(--muted2);font-size:10.5px;letter-spacing:.03em;margin-top:2px}
+  .d .out a{color:var(--ember);text-decoration:none;font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;
+    border:1px solid #5d2f26;padding:5px 9px;border-radius:7px;background:#1a0f0c;white-space:nowrap}
+  .d .cta{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:4px}
+  .d .cta button{font:inherit;font-size:12.5px;font-weight:700;padding:11px;border-radius:11px;cursor:pointer;
+    border:1px solid transparent;color:#1b0c07;background:linear-gradient(100deg,#ff7a38,#ffb972);
+    box-shadow:0 8px 22px #ff5a2e2b}
+  .d .cta button.ghost{background:#151018;color:#ffc3a0;border-color:#4a2c31;box-shadow:none;font-weight:600}
+  @media(max-width:900px){.d .cols{grid-template-columns:1fr}.d .metrics{grid-template-columns:repeat(2,1fr)}
+    .d .metrics .m:last-child{grid-column:span 2}}
+</style>
+</head>
+<body>
+
+<div class="labbar" role="tablist" aria-label="Style variants">
+  <b>Style lab</b>
+  <button data-t="a" aria-pressed="true">A · Operator console</button>
+  <button data-t="b" aria-pressed="false">B · Instrument</button>
+  <button data-t="c" aria-pressed="false">C · Mission control</button>
+  <button data-t="d" aria-pressed="false">D · Ember</button>
+  <span class="hint">same data, four directions</span>
+</div>
+
+<div class="stage">
+
+<!-- ══════════════ A · OPERATOR CONSOLE ══════════════ -->
+<section class="variant on" id="v-a" data-v="a">
+<div class="a">
+  <div class="bar">
+    <div class="path"><i>agenthq</i>@local:~$ dashboard --loopback 8765</div>
+    <div class="chips">
+      <span class="chip live">model <b>templates</b></span>
+      <span class="chip">roster <b>52</b></span>
+      <span class="chip warn">hold <b>1</b></span>
+      <span class="chip" data-clock>--:--:--</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="readout">
+      <div><span>total</span><strong>12</strong></div>
+      <div><span>queue</span><strong>2</strong></div>
+      <div class="ok"><span>done</span><strong>8</strong></div>
+      <div class="bad"><span>failed</span><strong>1</strong></div>
+      <div class="hold"><span>hold</span><strong>1</strong></div>
+    </div>
+
+    <div class="cols">
+      <div class="box">
+        <h2>queue <em>2 pending · 1 running</em></h2>
+        <div class="rows">
+          <div class="row sel"><span class="n">01</span><span class="t">youtube-package · AI agents in Pakistan</span><span class="s running">running</span></div>
+          <div class="row"><span class="n">02</span><span class="t">data-report · q3-sales.csv</span><span class="s pending">pending</span></div>
+          <div class="row"><span class="n">03</span><span class="t">product-prototype · invoice helper</span><span class="s pending">pending</span></div>
+          <div class="row"><span class="n">04</span><span class="t">repair-suite · tests/test_routing.py</span><span class="s hold">hold</span></div>
+          <div class="row"><span class="n">05</span><span class="t">doc · loopback threat model</span><span class="s done">done</span></div>
+          <div class="row"><span class="n">06</span><span class="t">cli-tool · csv dedupe</span><span class="s done">done</span></div>
+          <div class="row"><span class="n">07</span><span class="t">web-build · landing page draft</span><span class="s failed">failed</span></div>
+        </div>
+        <div class="stage-strip">
+          <i class="done">plan</i><i class="done">research</i><i class="now">draft</i><i>review</i><i>package</i>
+        </div>
+      </div>
+
+      <div class="box">
+        <h2>event log <em>/ logs/run-20261022.log</em></h2>
+        <div class="log">
+          <p><span class="ts">12:04:02</span><b>ceo</b> routed goal → pipeline:video_package</p>
+          <p><span class="ts">12:04:02</span>plan 5 stages · 4 specialists · profile=balanced</p>
+          <p><span class="ts">12:04:06</span class="good">research 5/5 queries · 5 pages fetched</p>
+          <p><span class="ts">12:04:11</span>redaction applied: 2 emails · 1 token-shaped string</p>
+          <p><span class="ts">12:04:19</span><b>draft</b> script 1 840 words · ur-en</p>
+          <p><span class="ts">12:04:23</span class="warn">warn model timeout 240s · falling back to template draft</p>
+          <p><span class="ts">12:04:24</span>stage 3/5 checkpoint written</p>
+          <p><span class="ts">12:04:25</span class="good">changes.md + changes.json emitted (2 files)</p>
+          <p><span class="ts">12:04:25</span>acceptance 4/6 · awaiting review stage</p>
+          <p><span class="ts">12:04:26</span class="err">err stage review: no local model configured</p>
+          <p><span class="ts">12:04:26</span>holding for human action · see outputs/</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="prompt"><b>&gt;</b> <span>run | stop | refresh | logs | resume --last</span><i class="cursor"></i></div>
+    <div class="keys"><kbd>enter</kbd> execute &nbsp; <kbd>tab</kbd> complete &nbsp; <kbd>↑</kbd> history &nbsp; <kbd>q</kbd> quit</div>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════ B · INSTRUMENT ══════════════ -->
+<section class="variant" id="v-b" data-v="b">
+<div class="b">
+  <div class="sheet">
+    <header class="mast">
+      <div>
+        <h1>Offline Agent HQ</h1>
+        <div class="sub">Local task record · command deck · no cloud API</div>
+      </div>
+      <div class="meta">
+        Session<b>22 Oct 2026</b>
+        Model<b>Template mode</b>
+        Loopback<b>127.0.0.1:8765</b>
+      </div>
+    </header>
+
+    <div class="figures">
+      <div class="fig"><div class="k">Total tasks</div><div class="v">12</div><div class="d">all time, local queue</div></div>
+      <div class="fig"><div class="k">In queue</div><div class="v">2</div><div class="d">1 running now</div></div>
+      <div class="fig acc"><div class="k">Completed</div><div class="v">8</div><div class="d">67% of total</div></div>
+      <div class="fig"><div class="k">Failed</div><div class="v">1</div><div class="d">logged, inspectable</div></div>
+      <div class="fig"><div class="k">Needs action</div><div class="v">1</div><div class="d">approval gate</div></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <h2>Activity</h2>
+        <div class="kicker">Most recent first · local time</div>
+        <div class="list">
+          <div class="item">
+            <time>12:04</time>
+            <div class="ti">YouTube package — AI agents in Pakistan
+              <small>5 stages · 4 specialists · research 5/5</small></div>
+            <span class="st run">Running</span>
+          </div>
+          <div class="item">
+            <time>11:52</time>
+            <div class="ti">Data report — q3-sales.csv
+              <small>profilied 14 columns · chart.svg · analyze.py</small></div>
+            <span class="st">Queued</span>
+          </div>
+          <div class="item">
+            <time>11:40</time>
+            <div class="ti">Repair suite — tests/test_routing.py
+              <small>verified fix · suite green after 2 attempts</small></div>
+            <span class="st done">Completed</span>
+          </div>
+          <div class="item">
+            <time>11:18</time>
+            <div class="ti">Product prototype — Invoice Helper
+              <small>3 files · deliverable.md + deliverable.json</small></div>
+            <span class="st done">Completed</span>
+          </div>
+          <div class="item">
+            <time>10:57</time>
+            <div class="ti">Web build — landing page draft
+              <small>acceptance 3/6 · contrast check failed</small></div>
+            <span class="st bad">Failed</span>
+          </div>
+          <div class="item">
+            <time>10:31</time>
+            <div class="ti">Document — loopback threat model
+              <small>no model available · deterministic scaffold</small></div>
+            <span class="st done">Completed</span>
+          </div>
+        </div>
+      </div>
+
+      <aside>
+        <h2>Outcome mix</h2>
+        <div class="kicker">Across 12 recorded tasks</div>
+        <div class="split">
+          <i style="width:67%;background:#33614a"></i>
+          <i style="width:17%;background:#8d8579"></i>
+          <i style="width:8%;background:#a32a22"></i>
+          <i style="width:8%;background:#c9a26a"></i>
+        </div>
+        <div class="legend"><span>Completed 8</span><span>Queued 2</span><span>Failed 1 · Hold 1</span></div>
+
+        <h2 style="margin-top:28px">Pipeline</h2>
+        <ol class="steps">
+          <li><div><b>Plan</b><small>CEO decomposes the goal, assigns roles</small></div></li>
+          <li><div><b>Research</b><small>five searches, bounded page fetches</small></div></li>
+          <li><div><b>Draft</b><small>stage checkpoint, resumable</small></div></li>
+          <li><div><b>Review</b><small>quality gate, acceptance checks</small></div></li>
+          <li><div><b>Package</b><small>changes.md, changes.json, outputs</small></div></li>
+        </ol>
+
+        <div class="note">
+          <b>Template mode</b>
+          No local model is configured, so deliverables are labelled deterministic scaffolds. Nothing is sent off the machine.
+        </div>
+
+        <div class="thumb">
+          <span>Roster<b>52 profiles</b></span>
+          <span>Outputs<b>6 files</b></span>
+        </div>
+      </aside>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════ C · MISSION CONTROL ══════════════ -->
+<section class="variant" id="v-c" data-v="c">
+<div class="c">
+  <div class="top">
+    <div class="brand">
+      <div class="mark">◈</div>
+      <div><h1>Agent HQ</h1><p>Local operations</p></div>
+    </div>
+    <div class="tags">
+      <span class="tag on"><span class="d"></span>Loopback 8765</span>
+      <span class="tag">52 roles</span>
+      <span class="tag">Templates</span>
+      <span class="tag" data-clock>--:--</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="gauges">
+      <div class="g"><div class="ring" style="--p:100"><span>12</span></div><div class="lab">Total</div></div>
+      <div class="g"><div class="ring" style="--p:17"><span>2</span></div><div class="lab">In queue</div></div>
+      <div class="g mint"><div class="ring" style="--p:67"><span>8</span></div><div class="lab">Completed</div></div>
+      <div class="g rose"><div class="ring" style="--p:8"><span>1</span></div><div class="lab">Failed</div></div>
+      <div class="g amber"><div class="ring" style="--p:8"><span>1</span></div><div class="lab">Needs action</div></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <div class="card">
+          <header><h2>Active run · youtube package</h2><span class="r">run-20261022-120402</span></header>
+          <div class="tl">
+            <div class="track">
+              <div class="step done"><b>Plan</b><small>5 stages</small></div>
+              <div class="step done"><b>Research</b><small>5/5 sources</small></div>
+              <div class="step now"><b>Draft</b><small>writing script</small></div>
+              <div class="step"><b>Review</b><small>queued</small></div>
+              <div class="step"><b>Package</b><small>queued</small></div>
+            </div>
+          </div>
+          <div class="meta-line">
+            <span>profile <b>balanced</b></span>
+            <span>specialists <b>4</b></span>
+            <span>elapsed <b>2m 14s</b></span>
+            <span>acceptance <b>4 / 6</b></span>
+          </div>
+        </div>
+
+        <div class="card">
+          <header><h2>Queue</h2><span class="r">7 of 12 shown</span></header>
+          <table class="tbl">
+            <thead><tr><th>Task</th><th>Kind</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td class="name">AI agents in Pakistan<small>youtube-package · 15 min long-form</small></td><td>video</td><td><span class="pill run">Running</span></td></tr>
+              <tr><td class="name">q3-sales.csv<small>data report · 14 columns</small></td><td>data</td><td><span class="pill wait">Queued</span></td></tr>
+              <tr><td class="name">Invoice Helper<small>product prototype</small></td><td>product</td><td><span class="pill wait">Queued</span></td></tr>
+              <tr><td class="name">tests/test_routing.py<small>test repair · verified</small></td><td>repair</td><td><span class="pill ok">Completed</span></td></tr>
+              <tr><td class="name">Loopback threat model<small>document · scaffold</small></td><td>doc</td><td><span class="pill ok">Completed</span></td></tr>
+              <tr><td class="name">Landing page draft<small>contrast check failed</small></td><td>web</td><td><span class="pill bad">Failed</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <div class="card">
+          <header><h2>Throughput · 12 runs</h2><span class="r">local</span></header>
+          <div class="spark" aria-hidden="true">
+            <i style="height:22%"></i><i style="height:38%"></i><i style="height:31%"></i>
+            <i style="height:52%"></i><i style="height:44%"></i><i style="height:66%"></i>
+            <i style="height:58%"></i><i style="height:74%"></i><i style="height:69%"></i>
+            <i style="height:88%"></i><i style="height:81%"></i><i style="height:100%"></i>
+          </div>
+        </div>
+        <div class="card">
+          <header><h2>Event feed</h2><span class="r">live</span></header>
+          <div class="feed">
+            <p><time>12:04</time><span><b>ceo</b> routed → video_package</span></p>
+            <p><time>12:04</time><span><b>plan</b> 5 stages, 4 specialists</span></p>
+            <p><time>12:04</time><span><b>research</b> 5 queries, 5 pages</span></p>
+            <p><time>12:04</time><span>redacted 2 emails, 1 token-shaped string</span></p>
+            <p><time>12:04</time><span><b>draft</b> 1 840 words · ur-en</span></p>
+            <p><time>12:04</time><span>checkpoint 3/5 written</span></p>
+          </div>
+        </div>
+        <div class="card">
+          <header><h2>Outputs</h2><span class="r">6 files</span></header>
+          <div class="feed">
+            <p><time>11:40</time><span><b>repair</b> changes.md · changes.json</span></p>
+            <p><time>11:18</time><span><b>product</b> deliverable.md</span></p>
+            <p><time>10:31</time><span><b>doc</b> deliverable.json</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+<!-- ══════════════ D · EMBER ══════════════ -->
+<section class="variant" id="v-d" data-v="d">
+<div class="d">
+  <div class="top">
+    <div class="brand">
+      <div class="logo">◈</div>
+      <div><h1>AGENT HQ</h1><p>Local-first · human-controlled</p></div>
+    </div>
+    <div class="tags">
+      <span class="pill live"><span class="dot"></span>Local system</span>
+      <span class="pill mode">Template mode</span>
+      <span class="pill">Loopback :8765</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="metrics">
+      <div class="m act"><div class="k">Total tasks</div><div class="v">12</div><div class="bar"><i style="width:100%"></i></div></div>
+      <div class="m run"><div class="k">In queue</div><div class="v">2</div><div class="bar sky"><i style="width:17%"></i></div></div>
+      <div class="m ok"><div class="k">Completed</div><div class="v">8</div><div class="bar mint"><i style="width:67%"></i></div></div>
+      <div class="m bad"><div class="k">Failed</div><div class="v">1</div><div class="bar rose"><i style="width:8%"></i></div></div>
+      <div class="m"><div class="k">Needs action</div><div class="v">1</div><div class="bar"><i style="width:8%"></i></div></div>
+    </div>
+
+    <div class="cols">
+      <div>
+        <section class="panel">
+          <h2>Command core <span>CEO-led</span></h2>
+          <p class="sub">AGENT-01 is decomposing the goal and assigning specialists.</p>
+          <div class="core-wrap">
+            <div class="ring" style="--p:62"><b><em>3/5</em>stages</b></div>
+            <div class="core-txt">
+              <div class="who">Now working</div>
+              <h3>YouTube package — AI agents in Pakistan</h3>
+              <p>Draft stage · 4 specialists · research complete, script in progress.</p>
+            </div>
+          </div>
+          <div class="steps">
+            <i class="done">Plan</i><i class="done">Research</i><i class="now">Draft</i><i>Review</i><i>Package</i>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>System activity <span>live</span></h2>
+          <div class="task">
+            <div class="ti">AI agents in Pakistan<small>youtube-package · run-20261022-120402</small></div>
+            <span class="tag2 run">Running</span>
+          </div>
+          <div class="task">
+            <div class="ti">q3-sales.csv<small>data report · 14 columns profiled</small></div>
+            <span class="tag2 wait">Queued</span>
+          </div>
+          <div class="task">
+            <div class="ti">tests/test_routing.py<small>repair verified · suite green</small></div>
+            <span class="tag2 ok">Completed</span>
+          </div>
+          <div class="task">
+            <div class="ti">Landing page draft<small>acceptance 3/6 · contrast</small></div>
+            <span class="tag2 bad">Failed</span>
+          </div>
+        </section>
+      </div>
+
+      <div>
+        <section class="panel">
+          <h2>Task intake <span>CEO queue</span></h2>
+          <p class="sub">Every goal routes through AGENT-01 before any specialist runs.</p>
+          <div class="cta">
+            <button>Queue task</button>
+            <button class="ghost">Run pending</button>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Generated outputs <span>6 files</span></h2>
+          <div class="out"><div><div>Repair record</div><div class="p">workspace/orchestration/…</div></div><a href="#">Open</a></div>
+          <div class="out"><div><div>Product deliverable</div><div class="p">outputs/product-invoice.md</div></div><a href="#">Open</a></div>
+          <div class="out"><div><div>Threat model</div><div class="p">outputs/loopback-threat.md</div></div><a href="#">Open</a></div>
+        </section>
+
+        <section class="panel">
+          <h2>Roster <span>52 profiles</span></h2>
+          <p class="sub" style="margin:0">52 role profiles share one local model. They are profiles, not 52 processes.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+</div>
+
+<script>
+  (function () {
+    var buttons = document.querySelectorAll('.labbar button');
+    var sections = document.querySelectorAll('.variant');
+    function show(key) {
+      buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.t === key)); });
+      sections.forEach(function (s) { s.classList.toggle('on', s.dataset.v === key); });
+      try { localStorage.setItem('agentHqStyleLab', key); } catch (e) {}
+    }
+    buttons.forEach(function (b) { b.addEventListener('click', function () { show(b.dataset.t); }); });
+
+    var saved = null;
+    try { saved = localStorage.getItem('agentHqStyleLab'); } catch (e) {}
+    show(saved && document.getElementById('v-' + saved) ? saved : 'a');
+
+    // clock in each variant
+    function tick() {
+      var d = new Date();
+      var hh = String(d.getHours()).padStart(2, '0');
+      var mm = String(d.getMinutes()).padStart(2, '0');
+      var ss = String(d.getSeconds()).padStart(2, '0');
+      document.querySelectorAll('[data-clock]').forEach(function (el) {
+        el.textContent = el.closest('.a') ? hh + ':' + mm + ':' + ss : hh + ':' + mm;
+      });
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+</script>
+</body>
+</html>
