@@ -8,8 +8,14 @@
  */
 
 import { VISEMES, clamp01, lerp } from './rig.mjs';
+import { drawSketchCharacter, SKETCH } from './sketch.mjs';
 
 export const LOOK = {
+  // The ink-and-paper style is the default: `drawCharacter` sees this flag and
+  // hands the frame to sketch.mjs. The flat-colour keys below stay so a caller
+  // can still ask for the older painted look without touching this file.
+  style: 'sketch',
+  sketch: SKETCH,
   skin: '#F0BC92',
   skinShade: '#D2976B',
   skinLine: '#B87F57',
@@ -549,6 +555,10 @@ export function drawMouth(ctx, cx, cy, viseme, look) {
  */
 export function drawCharacter(ctx, s, opts = {}) {
   const look = opts.look || LOOK;
+  if (look.style === 'sketch') {
+    drawSketchCharacter(ctx, s, { ...opts, look });
+    return;
+  }
   const viseme = opts.viseme || VISEMES.REST;
   const breathe = opts.breathe === undefined ? 1 : opts.breathe;
 

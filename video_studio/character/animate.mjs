@@ -103,11 +103,17 @@ export function walkPose(t, { stride = 1.1, hipX = 0, groundY = 0, scale = 1, sp
   const pose = {};
   const phase = (t / stride) % 1;
   const bob = Math.abs(Math.sin(phase * Math.PI * 2)) * 6 * scale;
-  const hipY = groundY - (HIP_HEIGHT + SOLE) * scale - bob;
+  // The rest pose stands with the leg dead straight, so a foot placed to the
+  // side would be out of reach and the IK would leave it hovering. Walking with
+  // any stride drops the hips; without this crouch the planted foot floats.
+  const crouch = HIP_HEIGHT * 0.07;
+  const hipY = groundY - (HIP_HEIGHT + SOLE - crouch) * scale - bob;
 
   // foot placement: each foot is planted for the stance half of the cycle, then
   // swings forward; the ankle x is derived from the phase, not hand-keyed
-  const step = 150 * scale * speed;
+  // Stride in leg-lengths, not fixed units: a hard-coded 150 was authored for
+  // the old long legs and became unreachable when the character was re-proportioned.
+  const step = HIP_HEIGHT * 0.22 * scale * speed;
   const footX = (offset) => {
     const p = (phase + offset) % 1;
     if (p < 0.5) return hipX - step + p * 4 * step;          // planted, body passes over

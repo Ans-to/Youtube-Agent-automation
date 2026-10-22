@@ -47,30 +47,30 @@ export const ease = {
 export const BONES = [
   // hips sit at the origin of the figure; everything above is negative y
   { name: 'hips', parent: null, length: 0, rest: 0, offset: [0, 0] },
-  { name: 'spine', parent: 'hips', length: 292, rest: -Math.PI / 2, offset: [0, 0] },
-  { name: 'chest', parent: 'spine', length: 318, rest: 0, offset: [0, 0] },
-  { name: 'neck', parent: 'chest', length: 40, rest: 0, offset: [0, 0] },
-  { name: 'head', parent: 'neck', length: 240, rest: 0, offset: [0, 0] },
+  { name: 'spine', parent: 'hips', length: 172, rest: -Math.PI / 2, offset: [0, 0] },
+  { name: 'chest', parent: 'spine', length: 208, rest: 0, offset: [0, 0] },
+  { name: 'neck', parent: 'chest', length: 34, rest: 0, offset: [0, 0] },
+  { name: 'head', parent: 'neck', length: 290, rest: 0, offset: [0, 0] },
 
   // Shoulders attach 46px below the neck base and 132px out, so the deltoid
   // lands on the shoulder line instead of the jaw. Left is +x on screen.
-  { name: 'shoulderL', parent: 'chest', length: 40, rest: Math.PI * 0.5, offset: [100, 44] },
-  { name: 'armL', parent: 'shoulderL', length: 300, rest: Math.PI * 0.5 - 0.12, offset: [0, 0] },
-  { name: 'forearmL', parent: 'armL', length: 272, rest: 0.12, offset: [0, 0] },
-  { name: 'handL', parent: 'forearmL', length: 104, rest: 0.05, offset: [0, 0] },
+  { name: 'shoulderL', parent: 'chest', length: 54, rest: Math.PI * 0.5, offset: [84, 32] },
+  { name: 'armL', parent: 'shoulderL', length: 225, rest: Math.PI * 0.5 - 0.12, offset: [0, 0] },
+  { name: 'forearmL', parent: 'armL', length: 205, rest: 0.12, offset: [0, 0] },
+  { name: 'handL', parent: 'forearmL', length: 86, rest: 0.05, offset: [0, 0] },
 
-  { name: 'shoulderR', parent: 'chest', length: 40, rest: -Math.PI * 0.5, offset: [-100, 44] },
-  { name: 'armR', parent: 'shoulderR', length: 300, rest: -Math.PI * 0.5 + 0.12, offset: [0, 0] },
-  { name: 'forearmR', parent: 'armR', length: 272, rest: -0.12, offset: [0, 0] },
-  { name: 'handR', parent: 'forearmR', length: 104, rest: -0.05, offset: [0, 0] },
+  { name: 'shoulderR', parent: 'chest', length: 54, rest: -Math.PI * 0.5, offset: [-84, 32] },
+  { name: 'armR', parent: 'shoulderR', length: 225, rest: -Math.PI * 0.5 + 0.12, offset: [0, 0] },
+  { name: 'forearmR', parent: 'armR', length: 205, rest: -0.12, offset: [0, 0] },
+  { name: 'handR', parent: 'forearmR', length: 86, rest: -0.05, offset: [0, 0] },
 
-  { name: 'thighL', parent: 'hips', length: 378, rest: Math.PI / 2, offset: [96, 10] },
-  { name: 'shinL', parent: 'thighL', length: 392, rest: 0, offset: [0, 0] },
-  { name: 'footL', parent: 'shinL', length: 150, rest: -Math.PI / 2, offset: [0, 0] },
+  { name: 'thighL', parent: 'hips', length: 220, rest: Math.PI / 2, offset: [72, 10] },
+  { name: 'shinL', parent: 'thighL', length: 226, rest: 0, offset: [0, 0] },
+  { name: 'footL', parent: 'shinL', length: 128, rest: -Math.PI / 2, offset: [0, 0] },
 
-  { name: 'thighR', parent: 'hips', length: 378, rest: Math.PI / 2, offset: [-96, 10] },
-  { name: 'shinR', parent: 'thighR', length: 392, rest: 0, offset: [0, 0] },
-  { name: 'footR', parent: 'shinR', length: 150, rest: -Math.PI / 2, offset: [0, 0] },
+  { name: 'thighR', parent: 'hips', length: 220, rest: Math.PI / 2, offset: [-72, 10] },
+  { name: 'shinR', parent: 'thighR', length: 226, rest: 0, offset: [0, 0] },
+  { name: 'footR', parent: 'shinR', length: 128, rest: -Math.PI / 2, offset: [0, 0] },
 ];
 
 export const BONE_INDEX = new Map(BONES.map((b, i) => [b.name, i]));
@@ -300,7 +300,15 @@ export function plantFoot(solved, side, ankleX, groundY, toe = 0) {
   }
 
   const ik = twoBoneIK(solved, upper, lower, [tx, ty], side === 'L' ? 1 : -1);
-  const parentWorld = solved[lower].world + ik[lower];
+  // Compose the shin's angle from the *new* knee, not the one the leg had
+  // before the IK ran. Using the pre-IK world left the planted foot slightly
+  // rolled whenever the solve and the pose disagreed, which is exactly what
+  // happens as soon as the leg proportions change.
+  const upperBone = BONES[BONE_INDEX.get(upper)];
+  const lowerBone = BONES[BONE_INDEX.get(lower)];
+  const hipParent = upperBone.parent;
+  const upperWorld = (hipParent ? solved[hipParent].world : 0) + ik[upper] + upperBone.rest;
+  const parentWorld = upperWorld + ik[lower] + lowerBone.rest;
   const footRest = BONES[BONE_INDEX.get(foot)].rest;
   // world 0 is flat on the floor and pointing forward; +toe lifts the toes
   return { ...ik, [foot]: toe - parentWorld - footRest };
