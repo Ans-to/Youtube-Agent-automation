@@ -70,6 +70,12 @@ standard-library CSV parsing, per-column profiling, and deterministic SVG/Markdo
 rendering. It never imports the tool loop, so it can be reasoned about (and re-run)
 on its own — `analyze.py` in a finished artifact is that module, driven by a CLI.
 
+`agents/orchestrate.py` also owns resume: with `--resume`, a stage whose output
+file already exists in the run directory is read back rather than re-executed, and
+the decision is refused when the previous run there was a different task or a
+different stage list. Reused output is marked as such in the manifest, so a
+resumed run never claims to have re-researched what it merely re-read.
+
 `tools/memory.py` is the cross-run record: an append-only JSONL log of finished
 runs, a keyword search over it, and a bounded "history, not instructions" block
 injected into the next run's context. See `docs/MEMORY.md`. It is deliberately

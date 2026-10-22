@@ -197,6 +197,11 @@ class EntryFromManifestTest(unittest.TestCase):
         entry = memory.entry_from_manifest("Do a thing", {"tool_runs": [{"tool": "tool_agent"}]})
         self.assertEqual(entry["pipelines"], ["tool_agent"])
 
+    def test_a_resumed_run_says_so(self):
+        entry = memory.entry_from_manifest("Continue the outline", {"status": "draft",
+                                          "resume": {"enabled": True, "stages_reused": 3}})
+        self.assertIn("3 stage(s) resumed", entry["outcome"])
+
     def test_missing_fields_are_not_invented(self):
         entry = memory.entry_from_manifest("Do a thing", {})
         self.assertEqual(entry["status"], "")
