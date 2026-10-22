@@ -30,6 +30,68 @@ Puppeteer downloads a compatible Chromium build during npm install. If your netw
 
 The default production profile is ur-en: conversational Pakistani Urdu in Urdu/Arabic script, retaining familiar English technical terms such as API names, product names, and code identifiers. Use --language en only when English narration is explicitly requested (the CI smoke-test fixture does this). The language profile is stored in the storyboard and package status, and subtitle validation checks that the track contains Urdu-script text rather than merely labelling English as Urdu.
 
+### Narrated films (`voiceover.py` + `voice_mix.py`)
+
+Authored films can carry a natural voice as well as a score. `video_studio/voiceover.py`
+speaks a small JSON script with a local Piper voice, applies a voice chain
+(high-pass, de-ess, presence lift, gentle compression, loudness normalisation)
+and writes the two things the picture needs: `lines.json` (when each spoken line
+actually starts and ends) and `envelope.json` (measured mouth openness per video
+frame). `video_studio/voice_mix.py` then ducks the score under the voice with a
+fast-attack / slow-release follower and sums the two without clipping.
+
+Voices are never committed. `ensure_piper_voices()` fetches the public weights
+once, verifies a pinned size and MD5, and falls back to a checksum-verified git
+mirror when the model host is unreachable. Rendering itself is offline:
+
+    python tools/render_authored_film.py --script video_studio/films/character_speaks.mjs \
+        --voice-script video_studio/films/character_speaks.voice.json \
+        --voice en_US-amy-medium --out workspace/generated/character-film
+
+The film is retimed to the synthesised audio rather than the other way round: the
+cut ends when the voice does, and the mouth is gated by the measured envelope, so
+it closes in every pause.
+
+#### The full character piece: `character_ships_it.mjs`
+
+`video_studio/films/character_ships_it.mjs` is the long-form cut: eight chapters,
+each one a different shot with its own instrument panel drawn in Canvas — the
+rejected NLE timeline, a compiling terminal, the pipeline with a packet travelling
+it, the raster grid, the score with the voice drawn over it, the release audit,
+the local stack and the ship card. Every caption, cut, gesture and panel is
+retimed from `lines.json`, so the picture follows the voice.
+
+Two details worth knowing when reading the code:
+
+- **The camera frames the subject it actually has.** Each chapter declares a
+  zoom, but the shot is clamped to the solved skeleton's bounding box and scales
+  about the soles, so a raised hand is never cropped and a figure that shrinks
+  stays standing on the floor line.
+- **The gate is declared by the film, not relaxed by the driver.** This cut
+  promises motion in every chapter, so it ships `motion_gate: {min_mean: 0.95,
+  max_static: 0.34}` in its `film.json`; the driver measures frame-to-frame luma
+  on the encoded delivery copy and fails the render if the film drifts back into
+  slides.
+
+A voice that was rendered outside the repo (a hosted model, a human read) is
+assembled into the exact artifacts the film consumes with `tools/assemble_voiceover.py`:
+
+    python tools/assemble_voiceover.py \
+        --script video_studio/films/character_ships_it.voice.json \
+        --clips workspace/voice-source \
+        --out workspace/generated/ships-it/voice
+
+    python tools/render_authored_film.py \
+        --script video_studio/films/character_ships_it.mjs \
+        --voice-dir workspace/generated/ships-it/voice \
+        --out workspace/generated/ships-it \
+        --width 3840 --height 2160 --fps 30 --delivery-height 1080
+
+The assembler runs the same loudness chain as `voiceover.py`, derives every
+timestamp from the audio it just decoded (never from typed-in numbers), and
+measures the mouth envelope from the assembled signal, so the pipeline cannot
+tell an imported voice from a synthesised one.
+
 English voice setup:
 
 1. Install Piper in the selected Python environment: python -m pip install piper-tts.
@@ -178,3 +240,19 @@ Landscape and vertical regression storyboards are provided at `storyboard.motion
     python studio.py --storyboard storyboard.motion-character-demo.json --output outputs/motion-character-demo.mp4 --language en
 
 This command can produce English narration plus SRT/WebVTT subtitles when run with `--with-voice` and a valid English Piper model. It is not a natural-voice acceptance test. Phoneme-aligned lip-sync, production-quality character acting, and a true multimodal artistic reviewer remain release blockers; do not describe the procedural presenter as fully lip-synced or the demo as production-ready.
+
+## Rendering without a browser
+
+`render.js` uses Puppeteer and needs a Chromium binary. `render_skia.js` runs the
+same `render.html` drawing code through `@napi-rs/canvas`, so frames can be
+produced on machines and CI images with no browser installed:
+
+```bash
+npm install --no-save @napi-rs/canvas
+node render_skia.js storyboard.pro.json --out frames --format jpeg --quality 92 --scale 1
+python validate_frames.py --frames frames --manifest frames/manifest.json
+```
+
+Both paths validate the same storyboard limits, load the bundled fonts before the
+first frame, and write `render-manifest.json`. `--scale 0.5` renders a fast
+review copy at half resolution.

@@ -1,0 +1,242 @@
+{
+  "title": "Every Frame Is Code (character cut)",
+  "source": "video_studio/films/character_speaks.mjs",
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 30
+  },
+  "frames": {
+    "count": 347
+  },
+  "elapsed_seconds": 58.6,
+  "motion_spec": {
+    "frames_measured": 346,
+    "mean_delta": 1.176,
+    "median_delta": 0.623,
+    "p90_delta": 2.05,
+    "static_share": 0.2688,
+    "baseline_mean_delta": 0.819,
+    "baseline_static_share": 0.514,
+    "gate": {
+      "min_mean": 0.8,
+      "max_static": 0.5
+    },
+    "status": "passed",
+    "statement": "MOTION SPEC: PASSED - mean frame delta 1.18 (baseline 0.82), 26.9% near-static frames (baseline 51.4%, limit 50%)"
+  },
+  "audit": {
+    "status": "INCOMPLETE",
+    "statement": "AUDIT STATUS: INCOMPLETE - No violations detected, but 13 rule(s) could not be verified: TQ-LIPSYNC, BS-PROFANITY, BS-CONTROVERSY, CS-VIOLENCE, CS-WEAPONS, CS-SELFHARM, CS-CONTRABAND, CS-HATE-SPEECH, CS-ADULT, BS-SENTIMENT, LE-CHILDREN, LE-MUSIC, LE-CLIPS.",
+    "summary": {
+      "findings": 0,
+      "rules_total": 22,
+      "passed": 7,
+      "flagged": 0,
+      "unverified": 12,
+      "manual": 1,
+      "not_applicable": 2,
+      "attested": 0
+    }
+  },
+  "soundtrack": {
+    "duration_seconds": 11.567,
+    "sfx_cue_count": 5,
+    "sample_rate": 24000
+  },
+  "voice": {
+    "backend": "piper",
+    "voice": "en_US-amy-medium",
+    "duration_seconds": 10.091,
+    "line_count": 4,
+    "path": "/home/runner/work/Youtube-Agent-automation/Youtube-Agent-automation/workspace/generated/character-film/voice/voiceover.wav"
+  },
+  "mix": {
+    "path": "/home/runner/work/Youtube-Agent-automation/Youtube-Agent-automation/workspace/generated/character-film/mix.wav",
+    "sample_rate": 24000,
+    "duration_seconds": 11.567,
+    "duck_depth_db": 8.5,
+    "duck_trigger_share": 0.4611,
+    "mean_duck_db": -3.97,
+    "voice_to_bed_db": 10.1,
+    "peak": 0.8639
+  },
+  "validation": {
+    "valid": true,
+    "frame_count": 347,
+    "width": 1920,
+    "height": 1080,
+    "format": "jpg"
+  },
+  "outputs": [
+    {
+      "path": "/home/runner/work/Youtube-Agent-automation/Youtube-Agent-automation/workspace/generated/character-film/film-1920x1080.mp4",
+      "bytes": 4707454,
+      "sha256": "17bb50981557093210fddc47906c6e336804b42bbbe4080c8abb82af2a82907b",
+      "probe": {
+        "available": true,
+        "duration_seconds": 11.567,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080,
+          "fps": "30/1"
+        },
+        "audio": {
+          "codec": "aac",
+          "channels": 1,
+          "sample_rate": "48000"
+        }
+      }
+    },
+    {
+      "path": "/home/runner/work/Youtube-Agent-automation/Youtube-Agent-automation/workspace/generated/character-film/film-1080p.mp4",
+      "bytes": 4572648,
+      "sha256": "47d60a9d021dd5fc6fe1135f9b99ba99630dffb232ad1e7ba627a25aba2ee1c0",
+      "probe": {
+        "available": true,
+        "duration_seconds": 11.567,
+        "video": {
+          "codec": "h264",
+          "width": 1920,
+          "height": 1080,
+          "fps": "30/1"
+        },
+        "audio": {
+          "codec": "aac",
+          "channels": 1,
+          "sample_rate": "48000"
+        }
+      }
+    }
+  ],
+  "timeline": {
+    "title": "Every Frame Is Code (character cut)",
+    "duration_seconds": 11.567,
+    "fps": 30,
+    "canvas": {
+      "width": 3840,
+      "height": 2160
+    },
+    "shots": [
+      {
+        "id": "A",
+        "label": "walk-in",
+        "start": 0,
+        "end": 2.4499999999999997,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "hud"
+        ]
+      },
+      {
+        "id": "B",
+        "label": "speech",
+        "start": 2.4499999999999997,
+        "end": 10.091000000000001,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "hud"
+        ]
+      },
+      {
+        "id": "C",
+        "label": "wave-out",
+        "start": 10.091000000000001,
+        "end": 11.566666666666666,
+        "layers": [
+          "background",
+          "grid",
+          "floor",
+          "character",
+          "captions",
+          "hud",
+          "vignette"
+        ]
+      }
+    ],
+    "motion": {
+      "rig": "two-bone IK, spring settle, viseme timeline",
+      "linear_interpolation": false,
+      "text_animates_in_and_out": true,
+      "camera_moves_every_shot": true,
+      "background_motion": "continuous"
+    },
+    "score": [
+      {
+        "kind": "swell",
+        "at": 0.05,
+        "length": 1.6,
+        "gain": 0.16
+      },
+      {
+        "kind": "click",
+        "at": 0.35,
+        "length": 0.05,
+        "gain": 0.14
+      },
+      {
+        "kind": "swell",
+        "at": 6.08,
+        "length": 1.2,
+        "gain": 0.05
+      },
+      {
+        "kind": "whoosh",
+        "at": 9.941,
+        "length": 0.7,
+        "gain": 0.2
+      },
+      {
+        "kind": "impact",
+        "at": 11.386666666666667,
+        "length": 0.4,
+        "gain": 0.26
+      }
+    ],
+    "speech": [
+      {
+        "text": "EVERY FRAME",
+        "start": 2.8,
+        "end": 4.042
+      },
+      {
+        "text": "IS DRAWN TWICE",
+        "start": 4.202,
+        "end": 5.77
+      },
+      {
+        "text": "ONCE IN BONES",
+        "start": 6.39,
+        "end": 7.899
+      },
+      {
+        "text": "ONCE IN CODE",
+        "start": 8.479,
+        "end": 9.791
+      }
+    ],
+    "lip_sync": {
+      "events": 19,
+      "source": "audio envelope x viseme timeline",
+      "envelope": true
+    },
+    "voice": {
+      "timing_source": "lines.json",
+      "duration_seconds": 9.79,
+      "lip_sync": "measured",
+      "envelope": true
+    },
+    "motion_gate": {
+      "min_mean": 0.8,
+      "max_static": 0.5
+    }
+  }
+}

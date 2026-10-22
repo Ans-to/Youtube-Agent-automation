@@ -1,0 +1,67 @@
+{
+  "title": "Every Frame Is Code",
+  "goal": "Convince a technical audience that a local, deterministic motion studio can replace a cloud render farm for short-form brand films.",
+  "tone": "cinematic",
+  "platform": "youtube-4k",
+  "scenes": [
+    {
+      "purpose": "hook",
+      "eyebrow": "OFFLINE AGENT HQ",
+      "headline": "Every frame is code.",
+      "subhead": "A deterministic motion studio that runs on your machine.",
+      "narration": "Every frame you are about to see is code.",
+      "visual_type": "hero",
+      "graphic_label": "DETERMINISTIC",
+      "duration_seconds": 4,
+      "camera_motion": "push-in",
+      "impact": true
+    },
+    {
+      "purpose": "process",
+      "eyebrow": "THE PIPELINE",
+      "headline": "Nothing is filmed.",
+      "subhead": "Geometry, light and type are generated per frame.",
+      "narration": "Nothing is filmed. Geometry, light and type are generated for every frame.",
+      "visual_type": "diagram",
+      "visual_nodes": ["BRIEF", "DIRECTION", "FRAMES"],
+      "duration_seconds": 4,
+      "camera_motion": "crane-up"
+    },
+    {
+      "purpose": "proof",
+      "eyebrow": "THE PROOF",
+      "headline": "Same input. Same pixels.",
+      "subhead": "Four thousand frames, one repeatable result.",
+      "narration": "The same brief produces the same pixels, every single run.",
+      "visual_type": "comparison",
+      "comparison_left_title": "FIRST RUN",
+      "comparison_right_title": "SAME BRIEF",
+      "comparison_left": ["Same source", "Same frames", "Same layout"],
+      "comparison_right": ["Same source", "Same frames", "Same layout"],
+      "duration_seconds": 4,
+      "camera_motion": "drift"
+    },
+    {
+      "purpose": "statement",
+      "eyebrow": "THE CONSTRAINT",
+      "headline": "No cloud.",
+      "subhead": "No keys. No uploads. No render farm.",
+      "narration": "No cloud, no keys, no uploads, no render farm.",
+      "visual_type": "kinetic-type",
+      "duration_seconds": 4,
+      "camera_motion": "pull-out"
+    },
+    {
+      "purpose": "cta",
+      "eyebrow": "THE INVITATION",
+      "headline": "Bring the brief.",
+      "subhead": "Leave with a film that can be audited frame by frame.",
+      "narration": "Bring the brief, and leave with a film you can audit frame by frame.",
+      "visual_type": "quote",
+      "quote": "Every frame is accounted for.",
+      "quote_source": "Offline Agent HQ",
+      "duration_seconds": 4,
+      "camera_motion": "handheld"
+    }
+  ]
+}

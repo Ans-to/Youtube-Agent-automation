@@ -1,0 +1,129 @@
+{
+  "title": "Every Frame Is Code (character cut)",
+  "duration_seconds": 11.567,
+  "fps": 30,
+  "canvas": {
+    "width": 3840,
+    "height": 2160
+  },
+  "shots": [
+    {
+      "id": "A",
+      "label": "walk-in",
+      "start": 0,
+      "end": 2.4499999999999997,
+      "layers": [
+        "background",
+        "grid",
+        "floor",
+        "character",
+        "hud"
+      ]
+    },
+    {
+      "id": "B",
+      "label": "speech",
+      "start": 2.4499999999999997,
+      "end": 10.091000000000001,
+      "layers": [
+        "background",
+        "grid",
+        "floor",
+        "character",
+        "captions",
+        "hud"
+      ]
+    },
+    {
+      "id": "C",
+      "label": "wave-out",
+      "start": 10.091000000000001,
+      "end": 11.566666666666666,
+      "layers": [
+        "background",
+        "grid",
+        "floor",
+        "character",
+        "captions",
+        "hud",
+        "vignette"
+      ]
+    }
+  ],
+  "motion": {
+    "rig": "two-bone IK, spring settle, viseme timeline",
+    "linear_interpolation": false,
+    "text_animates_in_and_out": true,
+    "camera_moves_every_shot": true,
+    "background_motion": "continuous"
+  },
+  "score": [
+    {
+      "kind": "swell",
+      "at": 0.05,
+      "length": 1.6,
+      "gain": 0.16
+    },
+    {
+      "kind": "click",
+      "at": 0.35,
+      "length": 0.05,
+      "gain": 0.14
+    },
+    {
+      "kind": "swell",
+      "at": 6.08,
+      "length": 1.2,
+      "gain": 0.05
+    },
+    {
+      "kind": "whoosh",
+      "at": 9.941,
+      "length": 0.7,
+      "gain": 0.2
+    },
+    {
+      "kind": "impact",
+      "at": 11.386666666666667,
+      "length": 0.4,
+      "gain": 0.26
+    }
+  ],
+  "speech": [
+    {
+      "text": "EVERY FRAME",
+      "start": 2.8,
+      "end": 4.042
+    },
+    {
+      "text": "IS DRAWN TWICE",
+      "start": 4.202,
+      "end": 5.77
+    },
+    {
+      "text": "ONCE IN BONES",
+      "start": 6.39,
+      "end": 7.899
+    },
+    {
+      "text": "ONCE IN CODE",
+      "start": 8.479,
+      "end": 9.791
+    }
+  ],
+  "lip_sync": {
+    "events": 19,
+    "source": "audio envelope x viseme timeline",
+    "envelope": true
+  },
+  "voice": {
+    "timing_source": "lines.json",
+    "duration_seconds": 9.79,
+    "lip_sync": "measured",
+    "envelope": true
+  },
+  "motion_gate": {
+    "min_mean": 0.8,
+    "max_static": 0.5
+  }
+}

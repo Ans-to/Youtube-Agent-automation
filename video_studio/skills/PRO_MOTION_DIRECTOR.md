@@ -15,6 +15,10 @@ This file is an operational specification for the video director/editor agent. I
 9. **Human quality control.** Compare against licensed/reference examples selected for the same format and genre, not random videos. Record timestamped defects and fix them; never score a video highly merely because it rendered.
 10. **No fake credentials.** The agent cannot be “trained to mastery” by a prompt alone. This file supplies a rubric and workflow. Quality improves through tested templates, real examples, measured defects, and regression tests.
 
+## How this contract is enforced
+
+`video_studio/motion_director.py` compiles a brief into a direction sheet and a render-ready storyboard: tone, palette, type scale, easing, shot grammar, transitions, camera, layer order and sound cues. `video_studio/motion/compliance.py` then checks the artifact against the clauses above and prints `MOTION SPEC: PASSED` or each failing check id. Use the compiler's output as the starting point for your director notes; do not specify a transition or easing curve the renderer cannot draw. Aesthetic judgement remains yours.
+
 ## Director output contract
 
 For every scene, produce:

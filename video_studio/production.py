@@ -23,8 +23,12 @@ from production_readiness import evaluate_production_readiness
 
 
 VISUAL_TYPES = {"hero", "stat", "timeline", "diagram", "comparison", "code", "quote", "waveform", "kinetic-type", "bar-chart"}
-TRANSITION_TYPES = {"none", "fade", "wipe-left", "wipe-right", "slide-left", "slide-right", "zoom"}
-CAMERA_MOTIONS = {"static", "push-in", "pull-out", "pan-left", "pan-right", "drift"}
+TRANSITION_TYPES = {"none", "cut", "whip-pan", "masked-reveal", "morph", "glitch", "match-cut"}
+TRANSITION_ALIASES = {"fade": "morph", "wipe-left": "masked-reveal", "wipe-right": "masked-reveal",
+                      "slide-left": "whip-pan", "slide-right": "whip-pan", "zoom": "match-cut",
+                      "push": "masked-reveal", "dissolve": "morph"}
+CAMERA_MOTIONS = {"static", "push-in", "pull-out", "pan-left", "pan-right", "drift",
+                  "crane-up", "tilt-down", "handheld"}
 
 
 def normalize_camera_motion(value, scene_index=1):
@@ -88,6 +92,32 @@ def run_strict_quality_audit(output_dir):
         raise RuntimeError("strict quality audit returned exit code " + str(result.returncode))
     report = json.loads(report_path.read_text(encoding="utf-8"))
     validate_qc_report(report, video_path)
+    return report
+
+
+def run_content_audit(output_dir, *, required_disclosures=None, competitor_terms=None):
+    """Run the offline content auditor over the rendered MP4 and record the result.
+
+    This is deliberately non-fatal for the package: an incomplete audit (missing OCR
+    or ASR) is information for the human reviewer, not a pipeline failure. The
+    package status records the verdict so publishing stays gated on a human.
+    """
+    from audit import audit_video, render_markdown
+    from audit.media import capabilities
+
+    video = output_dir / "video.mp4"
+    subtitles = output_dir / "video.srt"
+    report = audit_video(
+        video,
+        subtitle_path=subtitles if subtitles.is_file() else None,
+        competitor_terms=competitor_terms or None,
+        required_disclosures=required_disclosures or None,
+    )
+    report["capabilities"] = capabilities()
+    (output_dir / "audit.json").write_text(
+        json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
+    (output_dir / "audit.md").write_text(render_markdown(report), encoding="utf-8")
     return report
 
 
@@ -206,7 +236,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
         "Write exactly one production-ready scene for a faceless technology explainer. Return a JSON object with keys "
         "eyebrow, headline, subhead, narration, visual_type, and any appropriate visual data fields. "
         "visual_type must be one of: " + visual_list + ".\n"
-        "Choose transition_in intentionally: none for a clean hard cut; fade for a temporal bridge; wipe-left/right for a directional reveal; slide-left/right for spatial movement; zoom for a motivated scale transition. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
+        "Choose transition_in intentionally: none for a deliberate hard cut; whip-pan for speed; masked-reveal for a shaped matte; morph for a change of mass and focus; glitch for a signal fault; match-cut when a shape carries across shots. Never use push, wipe or dissolve. Avoid repeating one transition mechanically. At 30 fps, use roughly 6–20 frames unless the scene is shorter.\\n"
         "Choose camera_motion per scene: static, push-in, pull-out, pan-left, pan-right, or drift. Use subtle motivated camera movement for emphasis, vary it across scenes, and keep captions/readable text inside safe margins.\\n"
         "When a presenter helps, include character object enabled:true, speaking:true, normalized x/y (0..1), scale (0.15..0.32), walking 0 or 1, walk_from_x and walk_to_x when walking, and optional expression (confident, focused, curious, or concerned) and pose (explain, point, think). Keep the same character palette and proportions across scenes. Do not invent viseme timestamps; the voice stage adds only explicitly labelled approximate cues from the final WAV when no forced aligner is available.\\n"
         "Topic: " + topic + "\nVideo thesis: " + outline["thesis"] + "\n"
@@ -279,15 +309,18 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
     if visual_type not in VISUAL_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported visual_type: " + visual_type)
     scene["visual_type"] = visual_type
-    default_transitions = ("none", "wipe-left", "slide-left", "fade", "zoom")
+    default_transitions = ("none", "masked-reveal", "morph", "whip-pan", "match-cut")
     transition = str(scene.get("transition_in", default_transitions[(index - 1) % len(default_transitions)])).lower()
+    transition = TRANSITION_ALIASES.get(transition, transition)
     if transition not in TRANSITION_TYPES:
         raise ValueError("Scene " + str(index) + " uses unsupported transition_in: " + transition)
     scene["transition_in"] = transition
     scene["camera_motion"] = normalize_camera_motion(scene.get("camera_motion", ("push-in", "static", "pan-left", "pull-out", "pan-right")[index % 5]), index);
     if "transition_frames" in scene:
-        if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 1 <= scene["transition_frames"] <= 60:
-            raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 1 to 60.")
+        # 0 is a real value: the direction layer emits it for a hard cut, and the
+        # renderer clamps it to a single frame so no cross-fade is drawn.
+        if isinstance(scene["transition_frames"], bool) or not isinstance(scene["transition_frames"], int) or not 0 <= scene["transition_frames"] <= 60:
+            raise ValueError("Scene " + str(index) + " transition_frames must be an integer from 0 to 60.")
     else:
         scene["transition_frames"] = 12
     array_limits = {
@@ -325,27 +358,27 @@ def fallback(topic):
         {"duration_seconds": 3.5, "eyebrow": "THE STRUCTURE", "headline": "Make the steps visible",
          "subhead": "Connect the input, the process, and the result.",
          "narration": "Connect the input, the process, and the result in a clear sequence.",
-         "visual_type": "diagram", "visual_nodes": ["INPUT", "PROCESS", "RESULT"], "transition_in": "wipe-left", "transition_frames": 12},
+         "visual_type": "diagram", "visual_nodes": ["INPUT", "PROCESS", "RESULT"], "transition_in": "masked-reveal", "transition_frames": 12},
         {"duration_seconds": 3.5, "eyebrow": "THE COMPARISON", "headline": "Reduce avoidable friction",
          "subhead": "Replace scattered steps with a repeatable workflow.",
          "narration": "Compare the current workflow with a simpler repeatable approach.",
          "visual_type": "comparison", "comparison_left_title": "SCATTERED", "comparison_right_title": "REPEATABLE",
          "comparison_left": ["Manual handoffs", "Hidden context", "Rework"],
-         "comparison_right": ["Clear steps", "Shared context", "Review"], "transition_in": "slide-left", "transition_frames": 12},
+         "comparison_right": ["Clear steps", "Shared context", "Review"], "transition_in": "morph", "transition_frames": 12},
         {"duration_seconds": 3.5, "eyebrow": "THE MECHANISM", "headline": "Show the logic",
          "subhead": "Make each step inspectable before trusting the output.",
          "narration": "Show the logic step by step, then inspect the result before trusting it.",
          "visual_type": "code", "code_lines": ["input = evidence;", "result = process(input);", "review(result);"],
-         "transition_in": "zoom", "transition_frames": 12},
+         "transition_in": "match-cut", "transition_frames": 12},
         {"duration_seconds": 3.0, "eyebrow": "THE SIGNAL", "headline": "Keep the rhythm intentional",
          "subhead": "Let movement and sound reinforce the message.",
          "narration": "Use motion and sound to support meaning, not compete with it.",
-         "visual_type": "waveform", "transition_in": "fade", "transition_frames": 10},
+         "visual_type": "waveform", "transition_in": "morph", "transition_frames": 10},
         {"duration_seconds": 3.0, "eyebrow": "THE TAKEAWAY", "headline": "Review before release",
          "subhead": "Check evidence, narration, timing, and visual clarity.",
          "narration": "Review the evidence, narration, timing, and visual clarity before release.",
          "visual_type": "timeline", "timeline_events": ["QUESTION", "BUILD", "CHECK", "REVIEW"],
-         "transition_in": "wipe-right", "transition_frames": 10},
+         "transition_in": "whip-pan", "transition_frames": 10},
     ]
     # Fallback previews must exercise the integrated character/graphics composition.
     camera_motions = ("push-in", "pan-left", "pull-out", "drift", "pan-right", "static")
@@ -425,7 +458,13 @@ def main():
     parser.add_argument("--render", action="store_true", help="Render final storyboard to MP4.")
     parser.add_argument("--render-template", action="store_true", help="Explicitly permit a short, clearly labelled template demo without AI generation.")
     parser.add_argument("--with-voice", action="store_true", help="Add narration using the selected local voice backend.")
+    parser.add_argument("--audit", action="store_true", help="After rendering, run the offline content/brand/legal/technical auditor and write audit.json + audit.md.")
+    parser.add_argument("--require-disclosure", action="append", default=[], help="Legal text that must appear on screen for --audit (repeatable).")
+    parser.add_argument("--competitor", action="append", default=[], help="Competitor brand name for --audit (repeatable).")
     parser.add_argument("--language", choices=["en", "ur-en"], help="Narration language profile; defaults to config.json video_studio.narration_language (ur-en when unset).")
+    parser.add_argument("--motion-tone", choices=["corporate", "edgy", "minimalist", "cinematic", "playful"],
+                        help="Art direction for the motion system; defaults to config.json video_studio.motion_tone (corporate).")
+    parser.add_argument("--strict-motion", action="store_true", help="Fail the run when the storyboard violates the professional motion spec.")
     args = parser.parse_args()
     cfg = load_config()
     video_config = cfg.get("video_studio", {}) if isinstance(cfg.get("video_studio", {}), dict) else {}
@@ -606,7 +645,26 @@ def main():
         "height": 1920 if args.format == "shorts" else 1080, "fps": 30,
         "scenes": scenes,
     }
+    motion_report = {}
+    motion_error = None
+    try:
+        from motion import compliance, direction
+        tone = args.motion_tone or str(video_config.get("motion_tone", "corporate"))
+        storyboard = direction.upgrade_storyboard(storyboard, tone=tone)
+        sheet = direction.summarize_storyboard(storyboard, tone)
+        motion_report = compliance.audit_storyboard(storyboard, sheet)
+        (output_dir / "motion-report.json").write_text(
+            json.dumps(motion_report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        (output_dir / "motion-report.txt").write_text(
+            compliance.format_report(motion_report) + "\n", encoding="utf-8")
+    except (ImportError, ValueError) as exc:
+        motion_error = str(exc)
     (output_dir / "storyboard.json").write_text(json.dumps(storyboard, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    if args.strict_motion and motion_report.get("violations"):
+        raise SystemExit(
+            "Motion spec failed: "
+            + "; ".join(item["id"] + " " + item["detail"] for item in motion_report["violations"][:4])
+        )
     actual_words = len(" ".join(str(scene.get("narration", "")) for scene in scenes).split())
     status = {
         "status": "draft" if model_enabled else "template_demo",
@@ -616,6 +674,14 @@ def main():
         "duration_target_met": bool(model_enabled),
         "narration_language": language_label, "subtitles_required": True,
         "publishable": False,
+        "motion_spec_status": (
+            "failed" if motion_report.get("violations")
+            else ("not_checked" if (not motion_report or motion_error) else "passed")
+        ),
+        "motion_spec_violations": [item["id"] for item in motion_report.get("violations", [])],
+        "motion_spec_not_checked": [item["id"] for item in motion_report.get("not_checked", [])],
+        "motion_tone": (storyboard.get("style") or {}).get("tone") if isinstance(storyboard, dict) else None,
+        "motion_error": motion_error,
         "source_notes_provided": bool(manual_source_notes), "web_research_performed": bool(research_metadata),
         "research_result_count": len(research_results),
         "standalone_web_research_performed": bool(research_metadata),
@@ -715,6 +781,27 @@ def main():
                 json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
             )
             raise SystemExit("Strict technical QA failed; release is blocked: " + str(exc))
+        if args.audit:
+            try:
+                audit_report = run_content_audit(
+                    output_dir,
+                    required_disclosures=args.require_disclosure,
+                    competitor_terms=args.competitor,
+                )
+                status.update({
+                    "content_audit_status": audit_report["status"],
+                    "content_audit_findings": audit_report["summary"]["findings"],
+                    "content_audit_unverified_rules": audit_report["unverified_rule_ids"],
+                    "content_audit_report": "audit.md",
+                    "content_audit_scope": "automated_checks_only_not_a_legal_or_editorial_verdict",
+                })
+                print("Content audit:", audit_report["statement"])
+            except (OSError, ValueError, KeyError) as exc:
+                status.update({
+                    "content_audit_status": "error",
+                    "content_audit_error": type(exc).__name__ + ": " + str(exc)[:300],
+                })
+                print("Content audit could not run:", type(exc).__name__, file=sys.stderr)
         (output_dir / "package-status.json").write_text(
             json.dumps(status, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
         )

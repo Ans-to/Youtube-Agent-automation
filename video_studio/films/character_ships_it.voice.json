@@ -1,0 +1,71 @@
+{
+  "title": "I Don't Edit Video. I Compile It. — narration",
+  "voice": "external clip",
+  "notes": [
+    "Eight lines, one per chapter: line i retimes chapter i of the picture.",
+    "Captions are headlines and may differ from the spoken text; only the count",
+    "has to match, because the film maps voice line i onto caption i.",
+    "gap_before on line 1 is the walk-in: the figure must be on its mark before",
+    "the first word, not talking while it walks.",
+    "pause_after is the air between chapters; the cut lands CUT_LEAD before the",
+    "next line, so the frame has already changed when the syllable arrives."
+  ],
+  "lines": [
+    {
+      "id": "L1",
+      "text": "I don't edit video.",
+      "gap_before": 2.05,
+      "pause_after": 0.55,
+      "rate": 1.0
+    },
+    {
+      "id": "L2",
+      "text": "I compile it.",
+      "gap_before": 0.0,
+      "pause_after": 0.62,
+      "rate": 1.0
+    },
+    {
+      "id": "L3",
+      "text": "A brief becomes direction. Direction becomes frames.",
+      "gap_before": 0.0,
+      "pause_after": 0.72,
+      "rate": 1.0
+    },
+    {
+      "id": "L4",
+      "text": "Every frame is code, drawn rather than found.",
+      "gap_before": 0.0,
+      "pause_after": 0.74,
+      "rate": 1.0
+    },
+    {
+      "id": "L5",
+      "text": "Sound is mixed by number, not by ear.",
+      "gap_before": 0.0,
+      "pause_after": 0.7,
+      "rate": 1.0
+    },
+    {
+      "id": "L6",
+      "text": "Then the film audits itself, before anyone watches it.",
+      "gap_before": 0.0,
+      "pause_after": 0.78,
+      "rate": 1.0
+    },
+    {
+      "id": "L7",
+      "text": "No cloud, no render farm, no timeline.",
+      "gap_before": 0.0,
+      "pause_after": 0.72,
+      "rate": 1.0
+    },
+    {
+      "id": "L8",
+      "text": "The repository ships the video.",
+      "gap_before": 0.0,
+      "pause_after": 0.0,
+      "rate": 1.0
+    }
+  ]
+}

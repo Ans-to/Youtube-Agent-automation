@@ -1,0 +1,11 @@
+EVERY FRAME IS CODE (character cut) — timeline
+
+  00:00:00-00:02:13  walk-in    background, grid, floor, character, hud
+  00:02:13-00:10:03  speech     background, grid, floor, character, captions, hud
+  00:10:03-00:11:17  wave-out   background, grid, floor, character, captions, hud, vignette
+
+Lines:
+  2.8-4.0s  EVERY FRAME
+  4.2-5.8s  IS DRAWN TWICE
+  6.4-7.9s  ONCE IN BONES
+  8.5-9.8s  ONCE IN CODE

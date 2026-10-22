@@ -10,6 +10,7 @@ This repository has three connected but distinct execution surfaces. Keep their 
 - **Digital products:** `product_studio/build_product.py` owns the product artifact build workflow.
 - **External boundary:** `bridge/bridge.py` accepts only its allowlisted request types. YouTube publishing remains separate and approval-gated in `video_studio/publish_youtube.py`.
 - **Shared infrastructure:** `app_config.py` is the shared configuration boundary; `tools/path_utils.py` owns canonical path and workspace-containment helpers; `queue_store.py` is the source of truth for task persistence.
+- **Tool layer:** `tools/tool_runtime.py` is the only sanctioned way for an agent to read, write, or execute inside a task workspace. `tools/check_invariants.py` enforces the rules in `docs/NORTH_STAR.md`.
 
 ## Dependency direction
 
@@ -32,6 +33,61 @@ Infrastructure adapters (filesystem, local model, web research, TTS, FFmpeg)
 - Do not duplicate task persistence or locking; use `queue_store.py`.
 - Keep the renderer deterministic and data-driven. Put new visual primitives in reusable renderer functions rather than copying whole scene blocks.
 - Keep external actions (publish, send, pay, delete) behind explicit approval gates.
+
+## Tool layer (agent actions)
+
+An agent must not receive free-form filesystem or shell access. It receives a
+**registry of named tools**, each with a declarative input schema, and every
+call is validated, confined, and bounded before it runs.
+
+| Tool | Side effect | Confinement | Default |
+| --- | --- | --- | --- |
+| `list_files` | read | sandbox root only, 200 entries | enabled |
+| `read_file` | read | sandbox root only, 500 KB | enabled |
+| `write_file` | write | sandbox root only, 500 KB, no absolute paths | enabled |
+| `run_command` | execute | allowlisted interpreter, sandbox working directory, scrubbed environment, 600 s cap | **disabled** |
+
+Rules for extending it:
+
+1. A tool is a `ToolSpec` plus a handler that returns a dict; it must never raise
+   into the orchestrator. Failures are structured observations so a planner can
+   repair them.
+2. Paths go through `WorkspaceSandbox.resolve()`, which canonicalizes and
+   rejects anything outside the sandbox — including symlink escapes.
+3. A new side effect (delete, network, publish, spend) is a **policy decision**.
+   It needs an approval gate and a matching entry in the North Star before it
+   ships.
+4. `run_command` stays opt-in (`AGENT_HQ_ALLOW_EXEC=1`) and shell-free. Its
+   allowlist is a security boundary, not a convenience list: each allowed
+   interpreter can execute arbitrary code from files inside the sandbox.
+
+The planner-facing projection is `ToolRegistry.prompt_catalog()`, a compact JSON
+list of tool names, summaries, side effects, and input schemas. That catalog is
+what the planning prompt receives — the planner never sees the filesystem.
+
+`tools/tool_agent.py` is the loop built on top of the registry:
+
+```text
+goal -> plan (model or deterministic fallback) -> validate each step against
+the tool schema -> execute in a per-task sandbox -> verify acceptance checks
+-> repair with the failure observations (bounded attempts) -> report
+```
+
+`run_tool_agent()` returns a manifest-safe dict (`status`, `mode`, `attempts`,
+`verification`, `artifacts`, `artifact_dir`) and writes `tool-plan.json`,
+`tool-runs.json`, and `tool-summary.json` into the sandbox. File bodies are
+never copied into those reports. Status semantics:
+
+| Status | Meaning |
+| --- | --- |
+| `completed` | A model-planned run whose acceptance checks all passed |
+| `partial` | A verified deterministic scaffold — real files, but not model-authored work |
+| `failed` | At least one step or acceptance check failed; the workspace is preserved |
+
+`agents/orchestrate.py` routes website and web-app goals to this loop and then
+independently re-verifies the artifacts (`verify_artifact_tool_runs`): HTML
+structure, offline Content-Security-Policy, no external URLs, a passing tool
+summary, and every declared acceptance check.
 
 ## Configuration and error handling
 

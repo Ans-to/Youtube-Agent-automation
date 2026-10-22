@@ -1,0 +1,92 @@
+{
+  "lines": [
+    {
+      "id": "L1",
+      "rms_db": -21.6,
+      "text": "I don't edit video.",
+      "spoken": "I don't edit video.",
+      "start": 2.05,
+      "end": 3.344,
+      "duration": 1.294,
+      "prosody": "settling",
+      "emphasis": []
+    },
+    {
+      "id": "L2",
+      "rms_db": -22.7,
+      "text": "I compile it.",
+      "spoken": "I compile it.",
+      "start": 3.894,
+      "end": 4.988,
+      "duration": 1.093,
+      "prosody": "settling",
+      "emphasis": []
+    },
+    {
+      "id": "L3",
+      "rms_db": -21.8,
+      "text": "A brief becomes direction. Direction becomes frames.",
+      "spoken": "A brief becomes direction. Direction becomes frames.",
+      "start": 5.608,
+      "end": 9.986,
+      "duration": 4.379,
+      "prosody": "settling",
+      "emphasis": []
+    },
+    {
+      "id": "L4",
+      "rms_db": -21.7,
+      "text": "Every frame is code, drawn rather than found.",
+      "spoken": "Every frame is code, drawn rather than found.",
+      "start": 10.706,
+      "end": 14.317,
+      "duration": 3.611,
+      "prosody": "settling",
+      "emphasis": []
+    },
+    {
+      "id": "L5",
+      "rms_db": -20.9,
+      "text": "Sound is mixed by number, not by ear.",
+      "spoken": "Sound is mixed by number, not by ear.",
+      "start": 15.057,
+      "end": 17.862,
+      "duration": 2.805,
+      "prosody": "settling",
+      "emphasis": []
+    },
+    {
+      "id": "L6",
+      "rms_db": -21.4,
+      "text": "Then the film audits itself, before anyone watches it.",
+      "spoken": "Then the film audits itself, before anyone watches it.",
+      "start": 18.562,
+      "end": 22.175,
+      "duration": 3.613,
+      "prosody": "settling",
+      "emphasis": []
+    },
+    {
+      "id": "L7",
+      "rms_db": -21.6,
+      "text": "No cloud, no render farm, no timeline.",
+      "spoken": "No cloud, no render farm, no timeline.",
+      "start": 22.955,
+      "end": 26.112,
+      "duration": 3.157,
+      "prosody": "settling",
+      "emphasis": []
+    },
+    {
+      "id": "L8",
+      "rms_db": -22.2,
+      "text": "The repository ships the video.",
+      "spoken": "The repository ships the video.",
+      "start": 26.832,
+      "end": 28.688,
+      "duration": 1.857,
+      "prosody": "settling",
+      "emphasis": []
+    }
+  ]
+}

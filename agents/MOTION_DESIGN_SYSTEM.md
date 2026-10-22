@@ -21,7 +21,7 @@ Every scene chooses one visual type based on its information purpose:
 
 Chart labels/values must match one-to-one. A chart is an explanatory visual, not permission to invent a metric; include a source note in the script or scene metadata when values are factual.
 
-The storyboard field `transition_in` accepts the values described below. Allowed transition values are \`none\`, \`fade\`, \`wipe-left\`, and \`wipe-right\`. \`transition_frames\` must be from 1 to 60. A transition is deterministic frame-by-frame and reveals the current scene over the dark base. Prefer restrained transitions and vary only when there is a narrative reason.
+The storyboard field `transition_in` accepts \`none\` (deliberate hard cut), \`whip-pan\`, \`masked-reveal\`, \`morph\`, \`glitch\`, and \`match-cut\`. Legacy names (\`fade\`, \`wipe-left\`, \`wipe-right\`, \`slide-left\`, \`slide-right\`, \`zoom\`) still render but fail the professional audit; `motion_director.py` upgrades them. Never use Push, Wipe, or Dissolve. \`transition_frames\` must be from 1 to 60. Transitions are deterministic frame-by-frame.
 
 ## 2. Shot design rules
 
@@ -37,7 +37,8 @@ The storyboard field `transition_in` accepts the values described below. Allowed
 ## 3. Implementation and resource limits
 
 - The output Canvas drawing buffer must be set to the actual storyboard \`width\` and \`height\`, not only the browser viewport.
-- Supported canvas dimensions: 320–3840 px wide, 180–2160 px high; frame rate: 1–60 fps.
+- Supported canvas dimensions: 320–3840 px wide, 180–3840 px high (4K portrait is 2160×3840); frame rate: 1–60 fps.
+- A storyboard may carry a `style` block (`tone`, `palette`, `grade`, `easing`, `typography`). It is validated before rendering and applied to every frame; `motion_director.py` generates it.
 - Global cap: 1,000 seconds and 30,000 frames. Do not bypass the cap by splitting a job into unexpectedly huge scenes.
 - Renderer frame functions receive the scene, local frame, scene frame count, and global frame index. Use those values for deterministic timing; do not call randomness or read wall-clock time inside \`drawFrame\`.
 - Validate storyboard types before rendering, validate contiguous PNG numbering and exact PNG dimensions before encoding, and verify final MP4 metadata after encoding.

@@ -1,0 +1,22 @@
+I DON'T EDIT VIDEO. I COMPILE IT. — timeline
+
+  00:00:00-00:01:22  walk-in      background, grid, floor, character, chapter, hud
+  00:01:22-00:03:12  cold open    background, grid, floor, character, captions, panel:timeline, hud
+  00:03:12-00:05:03  thesis       background, grid, floor, character, captions, panel:compile, hud
+  00:05:03-00:10:06  pipeline     background, grid, floor, character, captions, panel:pipeline, hud
+  00:10:06-00:14:17  raster       background, grid, floor, character, captions, panel:raster, hud
+  00:14:17-00:18:02  mix          background, grid, floor, character, captions, panel:mix, hud
+  00:18:02-00:22:14  audit        background, grid, floor, character, captions, panel:audit, hud
+  00:22:14-00:26:10  local        background, grid, floor, character, captions, panel:stack, hud
+  00:26:10-00:31:24  ship         background, grid, floor, character, captions, panel:ship, hud
+  00:29:18-00:31:24  wave-out     background, grid, floor, character, captions, hud, vignette
+
+Lines:
+  2.0-3.3s  I DON'T EDIT VIDEO
+  3.9-5.0s  I COMPILE IT
+  5.6-10.0s  BRIEF → DIRECTION → FRAMES
+  10.7-14.3s  EVERY FRAME IS CODE
+  15.1-17.9s  SOUND, MIXED BY NUMBER
+  18.6-22.2s  THE FILM AUDITS ITSELF
+  23.0-26.1s  NO CLOUD. NO RENDER FARM.
+  26.8-28.7s  THE REPO SHIPS THE VIDEO

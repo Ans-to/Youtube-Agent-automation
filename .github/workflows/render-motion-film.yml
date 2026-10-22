@@ -1,0 +1,561 @@
+name: Render motion film
+
+# Renders the hand-authored film in video_studio/films/ on a GitHub runner and
+# publishes the encoded MP4s as a build artifact.
+#
+# The film is real animation code (Canvas 2D drawing with an explicit 20 s
+# timeline, 5 shots and 4 transitions), not a storyboard template. The runner
+# only needs Node, FFmpeg and the repository's own code: no cloud rendering
+# service, no API key, no downloaded assets.
+
+on:
+  workflow_dispatch:
+    inputs:
+      delivery_height:
+        description: Height of the delivery copy in pixels
+        required: true
+        default: "1080"
+        type: string
+      quality:
+        description: JPEG quality for the intermediate frames (80-95)
+        required: true
+        default: "92"
+        type: string
+      skip_4k:
+        description: Skip the 4K master and render only the delivery copy
+        required: false
+        default: false
+        type: boolean
+  push:
+    # `main` always renders. The PR branch is listed so a pull request can get a
+    # real 4K artifact from CI without merging; the job-level `if` below keeps it
+    # inert unless the commit message asks for a render with [render].
+    branches:
+      - main
+      - arena/118abf10-youtube-agent-automation
+      - arena/8e0c89ef-youtube-agent-automation
+    paths:
+      - "video_studio/films/**"
+      - "video_studio/render_skia.js"
+      - "video_studio/render.html"
+      - "video_studio/fonts/**"
+      - "video_studio/audio_design.py"
+      - "video_studio/audit/**"
+      - "video_studio/audit_video.py"
+      - "video_studio/validate_frames.py"
+      - "tools/render_authored_film.py"
+      - "tools/assemble_voiceover.py"
+      - "tools/check_invariants.py"
+      - ".github/workflows/render-motion-film.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-motion-film-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  OUT_DIR: workspace/generated/motion-film
+
+jobs:
+  render:
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      contains(github.event.head_commit.message, '[render]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/package-lock.json
+
+      - name: Install FFmpeg and renderer dependencies
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+          cd video_studio
+          npm ci
+          node -e "const c = require('@napi-rs/canvas'); console.log('canvas module', require('@napi-rs/canvas/package.json').version, typeof c.createCanvas)"
+
+      - name: Render the film
+        env:
+          QUALITY: ${{ inputs.quality || '92' }}
+          DELIVERY_HEIGHT: ${{ inputs.delivery_height || '1080' }}
+          SKIP_4K: ${{ inputs.skip_4k || 'false' }}
+        run: |
+          set -euo pipefail
+          mkdir -p "$OUT_DIR"
+          args=(
+            --out "$OUT_DIR"
+            --width 3840 --height 2160 --fps 30
+            --quality "$QUALITY"
+            --delivery-height "$DELIVERY_HEIGHT"
+            --json
+          )
+          if [ "$SKIP_4K" = "true" ]; then
+            args+=(--skip-4k)
+          fi
+          python tools/render_authored_film.py "${args[@]}" | tee "$OUT_DIR/render.log"
+
+      - name: Make a contact sheet for a quick look
+        run: |
+          set -eu
+          preview="$OUT_DIR/film-${{ inputs.delivery_height || '1080' }}p.mp4"
+          if [ ! -f "$preview" ]; then
+            preview=$(ls "$OUT_DIR"/*.mp4 | head -1)
+          fi
+          ffmpeg -y -hide_banner -loglevel error -i "$preview" \
+            -vf "fps=1/2,scale=480:-2:flags=lanczos,tile=5x2:padding=6:color=0x101010" -frames:v 1 \
+            "$OUT_DIR/contact-sheet.jpg"
+          test -s "$OUT_DIR/contact-sheet.jpg"
+
+      - name: Verify the rendered film meets the delivery contract
+        env:
+          DELIVERY_HEIGHT: ${{ inputs.delivery_height || '1080' }}
+          SKIP_4K: ${{ inputs.skip_4k || 'false' }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import subprocess
+          from pathlib import Path
+
+          out = Path("workspace/generated/motion-film")
+          delivery_height = int(os.environ.get("DELIVERY_HEIGHT") or 1080)
+          skip_4k = os.environ.get("SKIP_4K") == "true"
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+
+          errors = []
+          if summary.get("motion_spec", {}).get("status") != "passed":
+              errors.append("motion spec did not pass: %s" % summary.get("motion_spec", {}).get("statement"))
+
+          audit = summary.get("audit") or {}
+          if not audit:
+              errors.append("the content audit did not run")
+          elif audit.get("status") == "flagged":
+              errors.append("content audit flagged a violation: %s" % audit.get("statement"))
+
+          outputs = summary.get("outputs") or []
+          sizes = []
+          if not outputs:
+              errors.append("no encoded outputs were recorded")
+
+          for item in outputs:
+              path = Path(item["path"])
+              if not path.is_file() or path.stat().st_size == 0:
+                  errors.append("missing or empty output: %s" % path)
+                  continue
+              probe = subprocess.run(
+                  ["ffprobe", "-v", "error", "-show_entries",
+                   "format=duration,size:stream=codec_type,codec_name,width,height,r_frame_rate",
+                   "-of", "json", str(path)],
+                  check=False, capture_output=True, text=True,
+              )
+              if probe.returncode != 0:
+                  errors.append("%s: ffprobe failed: %s" % (path.name, probe.stderr[-300:]))
+                  continue
+              info = json.loads(probe.stdout)
+              streams = info.get("streams", [])
+              video = next((s for s in streams if s.get("codec_type") == "video"), None)
+              audio = next((s for s in streams if s.get("codec_type") == "audio"), None)
+              if not video:
+                  errors.append("%s: no video stream" % path.name)
+                  continue
+              if video.get("codec_name") != "h264":
+                  errors.append("%s: expected h264, got %s" % (path.name, video.get("codec_name")))
+              if not audio:
+                  errors.append("%s: no audio stream" % path.name)
+              width, height = video.get("width"), video.get("height")
+              sizes.append((width, height))
+              if (width, height) == (3840, 2160):
+                  kind = "4K master"
+              elif height == delivery_height:
+                  kind = "delivery copy"
+              else:
+                  kind = "unexpected size"
+                  errors.append("%s: expected 3840x2160 or %dp, got %sx%s"
+                                % (path.name, delivery_height, width, height))
+              duration = float(info.get("format", {}).get("duration", 0) or 0)
+              frames = summary["frames"]["count"]
+              fps = summary["canvas"]["fps"]
+              want = frames / fps
+              if abs(duration - want) > 0.5:
+                  errors.append("%s: duration %.2fs does not match %d frames at %d fps (%.2fs)"
+                                % (path.name, duration, frames, fps, want))
+              print("PASS %-30s %-12s %sx%s %.2fs %s"
+                    % (path.name, kind, width, height, duration, video.get("codec_name")))
+
+          if not skip_4k and (3840, 2160) not in sizes:
+              errors.append("the 4K master is missing from the outputs")
+
+          for name in ("audit.md", "audit.json", "soundtrack.wav", "contact-sheet.jpg", "film.json", "timeline.txt"):
+              path = out / name
+              if not path.is_file() or path.stat().st_size == 0:
+                  errors.append("missing deliverable: %s" % name)
+
+          if errors:
+              for error in errors:
+                  print("FAIL " + error)
+                  # Annotations are visible in the Actions UI and readable from
+                  # the API even when the raw log archive is not.
+                  print("::error title=Delivery check failed::" + error.replace("\n", " ")[:900])
+              raise SystemExit(1)
+
+          print()
+          print("FILM:", summary["title"], "|", summary["frames"]["count"], "frames |",
+                summary["elapsed_seconds"], "s")
+          print(summary["motion_spec"]["statement"])
+          print(audit.get("statement"))
+          print("All delivery checks passed.")
+          PY
+
+      - name: Publish what the run produced
+        if: success()
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          out = Path("workspace/generated/motion-film")
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+
+          def notice(title, text):
+              print("::notice title=%s::%s" % (title, str(text).replace("\n", " ")[:900]))
+
+          canvas = summary["canvas"]
+          notice("Film", "%s | %d frames | %dx%d @ %d fps | rendered in %.1fs"
+                 % (summary["title"], summary["frames"]["count"], canvas["width"],
+                    canvas["height"], canvas["fps"], summary["elapsed_seconds"]))
+          for item in summary.get("outputs", []):
+              notice("Output", "%s | %.2f MB | sha256 %s"
+                     % (Path(item["path"]).name, item["bytes"] / 1048576, item["sha256"]))
+          notice("Motion spec", summary["motion_spec"]["statement"])
+          audit = summary.get("audit") or {}
+          notice("Content audit", audit.get("statement") or "audit skipped")
+          PY
+
+      - name: Upload the rendered film and its evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: motion-film
+          path: |
+            workspace/generated/motion-film/*.mp4
+            workspace/generated/motion-film/*.wav
+            workspace/generated/motion-film/*.md
+            workspace/generated/motion-film/*.json
+            workspace/generated/motion-film/*.log
+            workspace/generated/motion-film/*.jpg
+            workspace/generated/motion-film/*.txt
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Keep the render log when a step fails
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: motion-film-diagnostics
+          path: |
+            workspace/generated/motion-film/*.log
+            workspace/generated/motion-film/*.json
+            workspace/generated/motion-film/*.md
+            workspace/generated/motion-film/*.mp4
+            workspace/generated/motion-film/*.jpg
+          if-no-files-found: warn
+          retention-days: 7
+
+  # The character cut is a dialogue scene (rig, lip-sync, coverage) rather than the
+  # kinetic type piece, so it renders in its own job and its own artifact.
+  character:
+    if: >-
+      contains(github.event.head_commit.message, '[render-character]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      CHAR_OUT: workspace/generated/character-film
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: true
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/package-lock.json
+
+      - name: Install FFmpeg and renderer dependencies
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          cd video_studio
+          npm ci
+          node -e "require('@napi-rs/canvas'); console.log('canvas ok')"
+
+      - name: Check the character rig
+        run: node video_studio/character/selfcheck.mjs
+
+      # A neural voice on the CPU. Piper is free and runs offline once the weights
+      # are here; nothing leaves the runner and there is no account or key. The
+      # helper tries the public model host first, then a checksum-pinned git
+      # mirror, so a network that blocks one route still renders.
+      - name: Install the local voice
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip
+          python -m pip install "piper-tts==1.8.0" numpy
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, "video_studio")
+          from voiceover import ensure_piper_voices
+          model = ensure_piper_voices("en_US-amy-medium", allow_download=True)
+          print("::notice title=Voice::%s | %.1f MB | checksum verified"
+                % (model.name, model.stat().st_size / 1048576))
+          PY
+
+      - name: Render the character cut
+        run: |
+          set -euo pipefail
+          mkdir -p "$CHAR_OUT"
+          python tools/render_authored_film.py \
+            --script video_studio/films/character_speaks.mjs \
+            --voice-script video_studio/films/character_speaks.voice.json \
+            --voice en_US-amy-medium --voice-dir "$CHAR_OUT/voice" --voice-offline \
+            --out "$CHAR_OUT" \
+            --width 1920 --height 1080 --fps 30 --delivery-height 1080 \
+            --json | tee "$CHAR_OUT/render.log"
+
+      # Picture and sound are checked, not assumed: the voice must exist, the film
+      # must actually contain it, and the score must be measurably ducked.
+      - name: Prove the voice made it into the film
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, subprocess
+          from pathlib import Path
+
+          out = Path("workspace/generated/character-film")
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+          voice = summary.get("voice")
+          mix = summary.get("mix")
+          assert voice and voice.get("line_count") == 4, voice
+          assert mix and mix["voice_to_bed_db"] >= 4.0, mix
+          lines = json.loads((out / "voice" / "lines.json").read_text(encoding="utf-8"))["lines"]
+          spans = [(round(l["start"], 2), round(l["end"], 2)) for l in lines]
+          print("::notice title=Voice lines::" + ", ".join("%.2f-%.2f" % s for s in spans))
+          print("::notice title=Ducking::score %.1f dB down under speech, voice %.1f dB above the bed, peak %.2f"
+                % (mix["duck_depth_db"], mix["voice_to_bed_db"], mix["peak"]))
+          film = next(out.glob("film-1080p.mp4"))
+          probe = subprocess.run(
+              ["ffmpeg", "-hide_banner", "-nostats", "-i", str(film), "-af", "volumedetect",
+               "-f", "null", "-"], capture_output=True, text=True, check=False)
+          mean = [l for l in probe.stderr.splitlines() if "mean_volume" in l]
+          print("::notice title=Film audio::" + (mean[0].split("] ")[-1] if mean else "unmeasured"))
+          if mean and float(mean[0].split("mean_volume:")[-1].split("dB")[0]) < -50:
+              raise SystemExit("the delivered film's audio track is silent")
+          PY
+
+      - name: Publish what the run produced
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          out = Path("workspace/generated/character-film")
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+          for item in summary.get("outputs", []):
+              print("::notice title=Character cut::%s | %.2f MB | sha256 %s"
+                    % (Path(item["path"]).name, item["bytes"] / 1048576, item["sha256"]))
+          print("::notice title=Motion::" + summary["motion_spec"]["statement"])
+          print("::notice title=Audit::" + (summary.get("audit", {}).get("statement") or "skipped"))
+          PY
+
+      # The artifact is the deliverable, but it is also useful to have the cut in
+      # the tree: the branch carries the film the reviewer actually watches.
+      - name: Commit the cut back to the branch
+        if: github.event_name == 'push'
+        run: |
+          set -euo pipefail
+          git config user.name "agent-render"
+          git config user.email "agent-render@users.noreply.github.com"
+          # workspace/ is ignored in .gitignore (it holds local render output), but
+          # in CI this directory *is* the deliverable: force it in so the branch
+          # carries the exact file the workflow produced. Frame JPEGs are excluded
+          # on purpose; they live in the artifact, not in history.
+          git add -f \
+            workspace/generated/character-film/*.mp4 \
+            workspace/generated/character-film/*.wav \
+            workspace/generated/character-film/*.json \
+            workspace/generated/character-film/*.md \
+            workspace/generated/character-film/*.jpg \
+            workspace/generated/character-film/*.txt \
+            workspace/generated/character-film/voice
+          if git diff --cached --quiet; then
+            echo "nothing changed"
+            exit 0
+          fi
+          git commit -m "chore(character): rendered cut with voiceover [skip ci]"
+          git pull --rebase origin "${GITHUB_REF_NAME}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Upload the character cut
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: character-film
+          path: |
+            workspace/generated/character-film/*.mp4
+            workspace/generated/character-film/*.wav
+            workspace/generated/character-film/*.json
+            workspace/generated/character-film/*.md
+            workspace/generated/character-film/*.jpg
+            workspace/generated/character-film/*.txt
+            workspace/generated/character-film/*.log
+          if-no-files-found: error
+          retention-days: 30
+
+  # The long cut: eight chapters, one instrument panel each, 3840x2160 design
+  # canvas. Its narration was rendered outside the repository, so the job mixes
+  # the committed voice artifacts (voice/, lines.json, envelope.json) instead of
+  # synthesising a new one — the picture is re-rendered from code every time, the
+  # audio it is cut to does not change under it.
+  long-cut:
+    if: >-
+      github.ref == 'refs/heads/main' ||
+      contains(github.event.head_commit.message, '[render-long]')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      LONG_OUT: workspace/generated/ships-it
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/package-lock.json
+
+      - name: Install FFmpeg and renderer dependencies
+        run: |
+          set -eu
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install numpy
+          cd video_studio
+          npm ci
+          node -e "require('@napi-rs/canvas'); console.log('canvas ok')"
+
+      - name: Check the character rig
+        run: node video_studio/character/selfcheck.mjs
+
+      - name: Prove the committed narration is present
+        run: |
+          set -eu
+          test -f "$LONG_OUT/voice/voiceover.wav"
+          test -f "$LONG_OUT/voice/lines.json"
+          test -f "$LONG_OUT/voice/envelope.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ["LONG_OUT"])
+          lines = json.loads((out / "voice" / "lines.json").read_text(encoding="utf-8"))["lines"]
+          assert len(lines) == 8, len(lines)
+          for previous, current in zip(lines, lines[1:]):
+              assert current["start"] > previous["start"], (previous, current)
+          print("::notice title=Narration::8 lines, %.2fs..%.2fs"
+                % (lines[0]["start"], lines[-1]["end"]))
+          PY
+
+      - name: Render the long cut
+        run: |
+          set -euo pipefail
+          python tools/render_authored_film.py \
+            --script video_studio/films/character_ships_it.mjs \
+            --voice-dir "$LONG_OUT/voice" \
+            --out "$LONG_OUT" \
+            --width 3840 --height 2160 --fps 30 --delivery-height 1080 \
+            --json | tee "$LONG_OUT/render.log"
+
+      - name: Verify the delivery contract
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          out = Path(os.environ["LONG_OUT"])
+          summary = json.loads((out / "render-summary.json").read_text(encoding="utf-8"))
+          motion = summary["motion_spec"]
+          print("::notice title=Motion::" + motion["statement"])
+          print("::notice title=Audit::" + summary.get("audit", {}).get("statement", "n/a"))
+          assert motion["status"] == "passed", motion
+          voice = summary["voice"]
+          assert voice is not None, "the film has no narration attached"
+          assert voice.get("line_count") == 8, voice
+          assert summary["mix"]["voice_to_bed_db"] >= 4.0, summary["mix"]
+          # every chapter must be the same distance from the frame, not just the
+          # middle of the film: the loudest and quietest line are compared here
+          levels = [line["rms_db"] for line in
+                    json.loads((out / "voice" / "voiceover.json").read_text(encoding="utf-8"))["lines"]]
+          assert max(levels) - min(levels) <= 6.0, levels
+          print("::notice title=Dialogue level::%.1f..%.1f dBFS RMS across 8 lines"
+                % (min(levels), max(levels)))
+          delivery = next(out.glob("film-1080p.mp4"))
+          probe = summary["outputs"][0]["probe"]
+          assert probe.get("available"), probe
+          assert probe["video"]["width"] == 1920, probe
+          assert (out / "contact-sheet.jpg").stat().st_size > 5000
+          print("::notice title=Delivery::%s %.1f MB"
+                % (delivery.name, delivery.stat().st_size / 1048576))
+          PY
+
+      - name: Upload the long cut
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: character-long-cut
+          path: |
+            workspace/generated/ships-it/*.mp4
+            workspace/generated/ships-it/*.wav
+            workspace/generated/ships-it/*.json
+            workspace/generated/ships-it/*.md
+            workspace/generated/ships-it/*.jpg
+            workspace/generated/ships-it/*.txt
+            workspace/generated/ships-it/*.log
+          if-no-files-found: error
+          retention-days: 30
