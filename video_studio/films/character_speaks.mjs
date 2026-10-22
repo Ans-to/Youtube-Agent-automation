@@ -20,6 +20,7 @@ import { GlobalFonts, createCanvas } from '@napi-rs/canvas';
 import { characterFrame, speechTimeline, blinkSchedule, noise1, HIP_HEIGHT } from '../character/animate.mjs';
 import { drawCharacter, LOOK } from '../character/body.mjs';
 import { drawStick, resolveInk, INK } from '../character/stick.mjs';
+import { expressionCues, expressionAt, actingAt, actingCues, EXPRESSIONS } from '../character/expression.mjs';
 
 const require = createRequire(import.meta.url);
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -33,7 +34,7 @@ const DURATION_SECONDS = 12;   // only used when no voice track is supplied
 function parseArgs(argv) {
   const opts = {
     out: 'frames', width: DESIGN_W, height: null, fps: 30, quality: 92,
-    from: 0, to: null, still: null, quiet: false,
+    from: 0, to: null, still: null, quiet: false, plan: false,
     voiceLines: null, voiceEnvelope: null, style: 'stick', boil: 1,
   };
   for (let i = 0; i < argv.length; i += 1) {
@@ -48,6 +49,7 @@ function parseArgs(argv) {
     else if (flag === '--to') opts.to = Number(value());
     else if (flag === '--still') opts.still = value().split(',').map(Number);
     else if (flag === '--quiet') opts.quiet = true;
+    else if (flag === '--plan') opts.plan = true;
     else if (flag === '--voice-lines') opts.voiceLines = value();
     else if (flag === '--voice-envelope') opts.voiceEnvelope = value();
     else if (flag === '--style') opts.style = value();
@@ -136,7 +138,7 @@ function figureBounds(solved) {
 }
 
 /** How much of the frame above the head a shot keeps, per shot id. */
-const HEADROOM = { W: 0.20, M: 0.16, C: 0.14, W2: 0.20 };
+const HEADROOM = { W: 0.20, M: 0.16, C: 0.14, M2: 0.17, W3: 0.15, C2: 0.13, W2: 0.20 };
 
 /**
  * Vertical pivot for a shot, solved so the top of the head lands on the
@@ -164,12 +166,22 @@ const ease = {
   outBack: (x) => (x <= 0 ? 0 : 1 + 2.4 * Math.pow(x - 1, 3) + 1.6 * Math.pow(x - 1, 2)),
 };
 
-// 0-3 walk in | 3-8 speak with gestures | 8-12 react, wave, walk out
+// Ten beats: walk in, four lines of the idea, a turn, then the close.
+//
+// `spoken` is what the voice says and what the face reacts to; `caption` is what
+// the screen shows. They are separate because a caption is not a transcript —
+// the voice says "There is no camera here," and the card reads "NO CAMERA".
 const AUTHORED_LINES = [
-  { text: 'EVERY FRAME', start: 2.9, end: 4.5 },
-  { text: 'IS DRAWN TWICE', start: 4.9, end: 6.6 },
-  { text: 'ONCE IN BONES', start: 7.0, end: 8.4 },
-  { text: 'ONCE IN CODE', start: 8.7, end: 10.2 },
+  { spoken: 'Every frame of this film,', caption: 'EVERY FRAME', start: 2.9, end: 4.4, face: 'talk' },
+  { spoken: 'is drawn twice.', caption: 'IS DRAWN TWICE', start: 4.8, end: 5.9, face: 'think' },
+  { spoken: 'Once in bones,', caption: 'ONCE IN BONES', start: 6.4, end: 7.5, face: 'stern' },
+  { spoken: 'once in code.', caption: 'ONCE IN CODE', start: 8.0, end: 9.0, face: 'smile' },
+  { spoken: 'There is no camera here,', caption: 'NO CAMERA', start: 9.9, end: 11.4, face: 'question' },
+  { spoken: 'and no one is acting.', caption: 'NO ONE ACTING', start: 11.8, end: 13.1, face: 'worry' },
+  { spoken: 'Just numbers that already know where to stand,', caption: 'NUMBERS IN PLACE', start: 14.0, end: 16.6, face: 'think' },
+  { spoken: 'and a pen that knows how to move.', caption: 'A PEN IN MOTION', start: 17.1, end: 19.0, face: 'emphatic' },
+  { spoken: 'No studio, no schedule, no budget to burn,', caption: 'NOTHING TO BURN', start: 20.3, end: 23.5, face: 'stern' },
+  { spoken: 'just a loop that runs while I sleep.', caption: 'IT RUNS ALONE', start: 24.0, end: 26.3, face: 'grin' },
 ];
 
 /**
@@ -213,6 +225,23 @@ const VOICE = loadVoice(OPTS.voiceLines, OPTS.voiceEnvelope);
 const LINES = AUTHORED_LINES.map((line, index) => (
   VOICE ? { ...line, start: VOICE.lines[index].start, end: VOICE.lines[index].end } : line
 ));
+// A machine-readable plan, so a test or a tool never has to keep a copy of the
+// caption count in sync with this file by hand.
+if (OPTS.plan) {
+  console.log(JSON.stringify({
+    fps: FPS,
+    lines: LINES.map((line) => ({
+      id: line.id, caption: line.caption, spoken: line.spoken, start: line.start, end: line.end,
+    })),
+  }, null, 2));
+  process.exit(0);
+}
+
+// Everything that reads the text for timing (visemes, the face, the body) uses
+// the spoken sentence; only the drawing uses the caption.
+const SPEAK = LINES.map((line) => ({
+  text: line.spoken, start: line.start, end: line.end, expression: line.face,
+}));
 
 /** Mouth amplitude from the rendered audio: 0 shut, 1 on the loudest syllable. */
 function envelopeAt(seconds) {
@@ -227,7 +256,7 @@ function envelopeAt(seconds) {
 }
 
 const SPEECH = LINES.flatMap((line) =>
-  speechTimeline(line.text.split(' '), { start: line.start, end: line.end, seed: line.start }));
+  speechTimeline(line.spoken.split(' '), { start: line.start, end: line.end, seed: line.start }));
 
 const LAST_END = LINES[LINES.length - 1].end;
 // A voice-driven cut ends when the voice does, plus room for the wave and exit.
@@ -255,18 +284,27 @@ const FIG_SCALE = (() => {
  * talk, close for the line that matters, wide again to leave. `zoom` multiplies
  * the figure's scale, `anchor` is where the figure sits across the frame.
  */
+// The actor's tracks. Built once from the film's own lines, so the face and the
+// body follow the script and the voice timings rather than a hand-kept table.
+const FACE_CUES = expressionCues(SPEAK);
+const ACTING_CUES = actingCues(SPEAK);
+
 const WALK_IN_END = Math.max(0.9, LINES[0].start - 0.35);
 const WALK_OUT_START = Math.min(LAST_END + 0.30, DURATION - 0.9);
 const WAVE_AT = Math.min(LINES[LINES.length - 1].start + 0.45, DURATION - 1.75);
 
+const midpoint = (a, b) => (LINES[a].end + LINES[b].start) / 2;
 const COVERAGE = [
   // Zoom values are chosen so the frame edge lands somewhere a camera would put
-  // it: the full figure, just above the knee, then the waist. Intermediate
+  // it: the full figure, just above the knee, then the chest. Intermediate
   // values slice through a shin, which reads as a mistake rather than a choice.
   { id: 'W', start: 0.0, end: LINES[0].start + 0.55, zoom: 1.00, anchor: 0.40, note: 'wide, walk-in' },
-  { id: 'M', start: LINES[0].start + 0.55, end: (LINES[1].end + LINES[2].start) / 2, zoom: 1.45, anchor: 0.40, note: 'medium, first two lines' },
-  { id: 'C', start: (LINES[1].end + LINES[2].start) / 2, end: LINES[2].end + 0.5, zoom: 1.95, anchor: 0.40, note: 'close, the turn' },
-  { id: 'W2', start: LINES[2].end + 0.5, end: DURATION, zoom: 1.00, anchor: 0.45, note: 'wide, wave and exit' },
+  { id: 'M', start: LINES[0].start + 0.55, end: midpoint(1, 2), zoom: 1.45, anchor: 0.40, note: 'medium, the statement' },
+  { id: 'C', start: midpoint(1, 2), end: LINES[3].end + 0.45, zoom: 1.95, anchor: 0.40, note: 'close, bones and code' },
+  { id: 'M2', start: LINES[3].end + 0.45, end: LINES[5].end + 0.3, zoom: 1.30, anchor: 0.58, note: 'medium, the turn' },
+  { id: 'W3', start: LINES[5].end + 0.3, end: LINES[7].start + 0.5, zoom: 1.62, anchor: 0.34, note: 'medium wide, numbers' },
+  { id: 'C2', start: LINES[7].start + 0.5, end: LINES[8].end + 0.35, zoom: 2.10, anchor: 0.36, note: 'close, the pen' },
+  { id: 'W2', start: LINES[8].end + 0.35, end: DURATION, zoom: 1.00, anchor: 0.45, note: 'wide, wave and exit' },
 ];
 
 function coverageAt(seconds) {
@@ -419,77 +457,108 @@ function drawFloor(ctx, t, showShadow = true) {
   ctx.fill();
 }
 
+/**
+ * The frame the reference video uses: two black bands, a pale stage between
+ * them, and the caption set in gold inside the top band.
+ *
+ * The bands are not decoration. They give the type a place to live where it can
+ * never collide with the figure — the old mid-frame captions became unreadable
+ * as soon as a close-up put the cape behind them — and they hold the stage to a
+ * cinematic ratio even in a 16:9 export.
+ */
+const BAND_TOP = 170;
+const BAND_BOTTOM = 150;
+const GOLD = '#F2C230';
+
+function drawFrameBands(ctx) {
+  ctx.fillStyle = '#0A0A0A';
+  ctx.fillRect(0, 0, W, BAND_TOP);
+  ctx.fillRect(0, H - BAND_BOTTOM, W, BAND_BOTTOM);
+}
+
 /** A caption that arrives word by word and leaves the same way. */
 function drawCaption(ctx, t, line, index) {
-  const inAt = line.start - 0.25;
-  const outAt = line.end + 0.35;
-  const p = ease.outExpo(span(t, inAt, inAt + 0.5));
-  const out = ease.inCubic(span(t, outAt, outAt + 0.4));
+  const inAt = line.start - 0.22;
+  const outAt = line.end + 0.3;
+  const p = ease.outExpo(span(t, inAt, inAt + 0.45));
+  const out = ease.inCubic(span(t, outAt, outAt + 0.32));
   if (p <= 0 || out >= 1) return;
 
-  const words = line.text.split(' ');
-  const size = 148;
+  const words = (line.caption || line.text).split(' ');
+  const size = 62;
+  const tracking = size * 0.15;
   ctx.save();
   ctx.font = `700 ${size}px "Space Grotesk"`;
-  const widths = words.map((w) => ctx.measureText(w).width);
-  const gap = size * 0.26;
-  const total = widths.reduce((a, b) => a + b, 0) + gap * (words.length - 1);
-  const shot = coverageAt(t);
-  let x = shot.id === 'C' ? W * 0.60 : W * 0.62;
-  const y = shot.id === 'C' ? 900 : 620;
+  // measureText ignores the tracking we add between glyphs, so each word is laid
+  // out character by character and the gap is added by hand.
+  const wordWidth = (word) => {
+    let width = 0;
+    for (const character of word) width += ctx.measureText(character).width + tracking;
+    return width - tracking;
+  };
+  const widths = words.map(wordWidth);
+  const gap = size * 0.62;
 
-  // accent rule that draws on with the line
-  ctx.fillStyle = accentRGBA(0.85);
-  ctx.fillRect(W * 0.62 - 8, y + 96, (total + 16) * ease.outCubic(span(t, inAt, inAt + 0.7)), 5);
+  const x0 = 200;
+  const baseY = 112;
 
+  // a red slash marks the line, and grows with it
+  const slash = ease.outCubic(span(t, inAt, inAt + 0.5));
+  ctx.globalAlpha = clamp(p * 1.6) * (1 - out);
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(x0 - 44, baseY - size * 0.62, 6, size * 0.72 * slash);
+
+  let x = x0;
   words.forEach((word, i) => {
-    const per = span(t, inAt + i * 0.09, inAt + i * 0.09 + 0.5);
-    const e = ease.outBack(per);
-    const alpha = clamp(per * 3) * (1 - out);
-    ctx.save();
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = i === words.length - 1 ? C.accent : C.fg;
-    const dy = (1 - e) * 90 + out * -70;
-    ctx.fillText(word, x, y + dy);
-    ctx.restore();
+    const per = span(t, inAt + i * 0.07, inAt + i * 0.07 + 0.42);
+    ctx.globalAlpha = clamp(per * 3) * (1 - out);
+    const dy = (1 - ease.outCubic(per)) * 26 + out * -18;
+    let cx = x;
+    for (const character of word) {
+      ctx.fillText(character, cx, baseY + dy);
+      cx += ctx.measureText(character).width + tracking;
+    }
     x += widths[i] + gap;
   });
 
   // index marker, so the caption is part of the design language
   ctx.globalAlpha = clamp(p * 2) * (1 - out);
-  ctx.font = '600 46px "Inter"';
-  ctx.fillStyle = C.muted;
-  ctx.fillText(`0${index + 1} / 0${LINES.length}`, W * 0.62, y - 150);
+  ctx.font = '600 38px "Inter"';
+  ctx.fillStyle = 'rgba(242,194,48,0.55)';
+  ctx.textAlign = 'right';
+  const pad = (n) => String(n).padStart(2, '0');
+  ctx.fillText(`${pad(index + 1)} / ${pad(LINES.length)}`, W - 196, baseY);
   ctx.restore();
 }
 
 function drawHud(ctx, t) {
   const p = clamp(t / DURATION);
   ctx.save();
-  ctx.font = '600 42px "Inter"';
-  ctx.fillStyle = C.muted;
-  ctx.globalAlpha = clamp(t / 0.35);
-  ctx.fillText('CHARACTER / EVERY FRAME IS CODE', 180, 150);
-  ctx.globalAlpha = 1;
 
-  // opening beat: a rule sweeps across the top of frame, so frame 1 has motion
+  // bottom band: a progress rule and the timecode, like a screening copy
+  const bandY = H - BAND_BOTTOM;
+  ctx.fillStyle = 'rgba(255,255,255,0.12)';
+  ctx.fillRect(196, bandY + 74, W * 0.42, 4);
+  ctx.fillStyle = GOLD;
+  ctx.fillRect(196, bandY + 74, W * 0.42 * p, 4);
+
+  ctx.font = '600 34px "Inter"';
+  ctx.fillStyle = 'rgba(242,242,242,0.62)';
+  ctx.textAlign = 'left';
+  const total = Math.round(t * FPS);
+  const timecode = `${String(Math.floor(total / (FPS * 60))).padStart(2, '0')}:${String(Math.floor(total / FPS) % 60).padStart(2, '0')}:${String(total % FPS).padStart(2, '0')}`;
+  ctx.fillText(timecode, 196, bandY + 46);
+
+  ctx.textAlign = 'right';
+  ctx.fillStyle = 'rgba(242,242,242,0.45)';
+  ctx.fillText('EVERY FRAME IS CODE / CHARACTER CUT', W - 196, bandY + 46);
+
+  // opening beat: a rule sweeps across the stage, so frame 1 has motion
   const intro = ease.outCubic(span(t, 0, 0.9));
   if (intro > 0 && intro < 1) {
     ctx.fillStyle = accentRGBA(0.75);
-    ctx.fillRect(180, 200, (W - 360) * intro, 4);
+    ctx.fillRect(196, BAND_TOP + 46, (W - 392) * intro, 4);
   }
-
-  ctx.fillStyle = 'rgba(255,255,255,0.10)';
-  ctx.fillRect(180, H - 150, 900, 4);
-  ctx.fillStyle = C.accent;
-  ctx.fillRect(180, H - 150, 900 * p, 4);
-
-  const total = Math.round(t * FPS);
-  const timecode = `${String(Math.floor(total / (FPS * 60))).padStart(2, '0')}:${String(Math.floor(total / FPS) % 60).padStart(2, '0')}:${String(total % FPS).padStart(2, '0')}`;
-  ctx.fillStyle = C.muted;
-  ctx.textAlign = 'right';
-  ctx.fillText(timecode, W - 180, H - 120);
-  ctx.fillText('3840 x 2160 / 30 FPS', W - 180, 150);
   ctx.restore();
 }
 
@@ -505,13 +574,11 @@ function render(t) {
   drawFloor(ctx, t, coverageAt(t).zoom <= 1.05);
 
   const { x, walking } = figureAt(t);
-  // gesture on the free arm for each line: down between lines, lifting on the beat
-  let gesture = 0;
-  for (const line of LINES) {
-    const up = ease.outCubic(span(t, line.start - 0.1, line.start + 0.35))
-      * (1 - ease.inCubic(span(t, line.end - 0.1, line.end + 0.35)));
-    gesture = Math.max(gesture, up);
-  }
+  const expression = expressionAt(t, FACE_CUES);
+  const acting = actingAt(t, ACTING_CUES);
+  // Gesture comes from the actor track, which weights a stressed line higher than
+  // a connective; the old version lifted the arm identically on every line.
+  const gesture = acting.gesture;
 
   const frame = characterFrame(t, {
     mode: walking ? 'walk' : 'idle',
@@ -529,6 +596,11 @@ function render(t) {
     blinks: BLINKS,
     wave: t > WAVE_AT - 0.05 && t < WAVE_AT + 1.75 ? { at: WAVE_AT, dur: 1.7 } : null,
     gesture,
+    // Weight shift, nod and lean onto the existing rig: the body acts while the
+    // face talks, instead of standing to attention through the whole cut.
+    lean: acting.lean,
+    nod: acting.nod,
+    weight: acting.weight,
   });
 
   // camera: framing comes from the current shot size, movement from the dolly,
@@ -568,6 +640,11 @@ function render(t) {
       boil: BOIL,
       frame: Math.round(t * FPS),
       legShorten: frame.legShorten,
+      expression,
+      cape: true,
+      capeSway: (x - figureAt(Math.max(0, t - 0.18)).x) * 0.012,
+      capeLift: Math.max(0, -acting.nod * 3),
+      // The declared accent is the cape lining; the pen refuses any other hue.
     });
   } else {
     drawCharacter(ctx, frame.solved, {
@@ -594,6 +671,7 @@ function render(t) {
   const captionIndex = LINES.reduce((found, line, index) => (
     t >= line.start - 0.25 && t <= line.end + 0.75 ? index : found
   ), -1);
+  drawFrameBands(ctx);
   if (captionIndex >= 0) drawCaption(ctx, t, LINES[captionIndex], captionIndex);
   drawHud(ctx, t);
 
@@ -700,7 +778,7 @@ function writeFilm(outDir) {
     lines.push(`  ${timecode(shot.start)}-${timecode(shot.end)}  ${shot.label.padEnd(10)} ${shot.layers.join(', ')}`);
   }
   lines.push('', 'Lines:');
-  for (const line of LINES) lines.push(`  ${line.start.toFixed(1)}-${line.end.toFixed(1)}s  ${line.text}`);
+  for (const line of LINES) lines.push(`  ${line.start.toFixed(1)}-${line.end.toFixed(1)}s  ${line.caption}  ("${line.spoken}")`);
   fs.writeFileSync(path.join(outDir, 'timeline.txt'), lines.join('\n') + '\n');
   return film;
 }

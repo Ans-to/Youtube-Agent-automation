@@ -9,13 +9,33 @@ licensed or attributable, so there is nothing to strike.
 
 ## Watch it
 
-`docs/media/stickman-film.mp4` — the 12-second cut, 1080p, rendered by
-`tools/render_authored_film.py` from `video_studio/films/character_speaks.mjs`.
+`docs/media/stickman-film.mp4` — a 28-second cut, 1080p, with a spoken
+voice-over, rendered by `tools/render_authored_film.py` from
+`video_studio/films/character_speaks.mjs` and its companion
+`character_speaks.voice.json`.
 
 [![Contact sheet of the film](preview/stickman-film-contact-sheet.jpg)](media/stickman-film.mp4)
 
-The figure walks in, speaks four lines with a mouth driven by the voice, raises an
-arm to wave, and walks out. Every frame of it is code.
+The figure walks in, speaks ten lines with a mouth driven by the measured audio,
+changes expression on every line, shifts its weight and lifts its free arm on the
+stresses, raises an arm to wave, and walks out. Every frame of it is code, and the
+voice is synthesised on the machine — no cloud, no samples, no API key.
+
+### The voice
+
+`video_studio/espeak_lib.py` loads a speech engine from a Python wheel, so the
+narration needs no system package, no download and no administrator. `voiceover.py`
+reads `character_speaks.voice.json` (the line text, the pause after each line, a
+rate per line), synthesises each line, then runs high-pass, de-ess, presence lift,
+compression and a −1.5 dBFS normalise before it mixes. Timings come from the
+rendered audio, so the picture, the captions, the visemes and the expression cues
+all follow the voice rather than a table typed by hand.
+
+Re-narrate without a download:
+
+```bash
+python3 -c "import sys; sys.path.insert(0,'video_studio'); import voiceover; from pathlib import Path; print(voiceover.build(Path('video_studio/films/character_speaks.voice.json'), Path('out'), allow_download=False))"
+```
 
 ![Pose sheet](preview/stickman-poses.png)
 
@@ -28,17 +48,30 @@ arm to wave, and walks out. Every frame of it is code.
 |---|---|---|
 | Paper | `#F2F2F2` | background, the inside of the head |
 | Ink | `#121212` | every stroke, every joint, the face |
+| Cape | `#787878` | the cloth, and nothing else |
+| Accent | `#B3151F` | the cape lining, and nothing else |
 
-No accent, no gradient on the figure, no third colour. `resolveInk()` **throws**
-if either colour is not exactly neutral grey, and **throws** if an accent is
-supplied without `allowAccent: true`. Black and white is enforced in code, not
-remembered by whoever writes the next scene.
+The figure is two values plus one mid grey for the cloth. A cape filled with ink
+is not a drawing, it is a blob: the arms vanish into it. A light grey keeps the
+silhouette readable and leaves the black limbs on top of it.
+
+`resolveInk()` **throws** if a colour is not exactly neutral grey, and **throws**
+if an accent is supplied without `allowAccent: true`. Only one accent is ever
+allowed — `#B3151F`, the lining at the hem. The pen refuses the accent on skin:
+an earlier cut outlined the head in red, which read as an injury. Colour is
+enforced in code, not remembered by whoever writes the next scene.
 
 The film behind the figure follows the same palette: on `--style stick` the
-backdrop, floor, vignette and captions all switch to paper and ink, and every
-accent colour in the scene goes through one helper that returns ink on paper.
-A test decodes a rendered frame and fails if any pixel is more than 12 levels
-away from grey.
+backdrop, floor and vignette all switch to paper and ink, and every accent
+colour in the scene goes through one helper. A test decodes a rendered frame and
+fails if the accent covers more than 2% of it.
+
+The frame itself is lifted from the reference video: black bands top and bottom,
+a pale stage between them, and the caption set in gold (`#F2C230`) inside the top
+band with a red slash in front of it. The bands are not decoration — they give the
+type somewhere to live that cannot collide with the figure, which is what made
+the old mid-frame captions unreadable as soon as a close-up put the cape behind
+them.
 
 ## Why it does not look like a diagram
 
@@ -50,11 +83,19 @@ Four habits, all of them in `video_studio/character/stick.mjs`:
 2. **A frame, not a pile of sticks.** Sloping shoulder bridges from the base of
    the neck, and a pelvis band that sags slightly, join the limbs into one
    figure. Straight bars look like a coat hanger; this is the difference.
-3. **A face that acts.** Dot eyes that close to lines when blinking, brows driven
-   by `browRaise`, and a mouth whose opening and width come from the viseme the
-   voice layer produced. The mouth is filled only when it is properly open, so a
-   closed mouth stays a line.
-4. **Line boil.** A deterministic per-bone, per-frame wobble, off by default
+3. **A face that acts.** Ten named expressions in `expression.mjs` — rest, talk,
+   smile, grin, question, think, surprise, stern, worry, emphatic. Each one is a
+   set of numbers (brow height, brow angle, lid opening, squint, mouth curve,
+   mouth width, head tilt, chin pitch), and the film picks one per spoken line and
+   blends between them in a third of a second. The brows carry the meaning: the
+   inner ends lift for a question, drop and close in for a hard line. On top of
+   that, the mouth opening and width come from the viseme the voice layer measured
+   in the rendered audio, so the lips match the syllables instead of guessing.
+4. **A body that acts.** The same cue table drives weight shifts, nods and leans,
+   scaled by how hard a line is stressed, and the free arm lifts on the beat. The
+   figure is never perfectly still while it talks — a still figure with a moving
+   mouth reads as a puppet.
+5. **Line boil.** A deterministic per-bone, per-frame wobble, off by default
    (`--boil 1` for the hand-inked look). Deterministic means frame 40 renders
    identically every time — the wobble moves between frames, never within one.
 
@@ -88,7 +129,7 @@ image:
 ## How it is checked
 
 `node video_studio/character/selfcheck.mjs` prints JSON and exits non-zero on
-failure. Forty checks, thirteen of which are about the pen:
+failure. Seventy-nine checks, thirteen of which are about the pen:
 
 - the default palette is two greys and no accent
 - a warm paper, a tinted ink, or an unapproved accent is refused
@@ -108,6 +149,17 @@ failure. Forty checks, thirteen of which are about the pen:
   legs at full length
 - no bone jumps between frames, and acceleration stays continuous — including
   across the walk-to-stand fade
+
+And these are about the acting:
+
+- there is more than one expression, and every expression defines every field
+- a question is asked with the brows, not the mouth, and a flat statement is not
+  given a question face
+- the face is continuous across a cue boundary — no expression pops in a frame
+- the body never stands perfectly still inside a phrase, and the acting does not
+  jump between frames
+- the cape is drawn behind the limbs, carries the single accent, and a violent
+  sway cannot fly it off the figure
 
 `tests/test_character_rig.py` runs that file through Node, requires all fifty-four
 checks, and adds film-level tests: a default render is grey to the last pixel,

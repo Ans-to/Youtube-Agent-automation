@@ -20,6 +20,7 @@
 import { solve, neutralPose, twoBoneIK, plantFoot, sampleVisemes, blinkAt, BONES } from './rig.mjs';
 import { characterFrame, walkPose, speechTimeline, blinkSchedule, HIP_HEIGHT, blendPoses, GROUND } from './animate.mjs';
 import { drawStick, stickGeometry, resolveInk, INK, STICK } from './stick.mjs';
+import { EXPRESSIONS, expressionForLine, expressionAt, expressionCues, actingAt, actingCues, blendExpression, NEUTRAL } from './expression.mjs';
 
 const failures = [];
 const checks = [];
@@ -169,9 +170,17 @@ function check(name, ok, detail) {
 // 8. the stickman pen is monochrome, and says so
 {
   const ink = resolveInk();
-  check('the stickman default palette is two greys and no accent',
-    ink.accent === null && ink.paper !== ink.ink,
-    `paper ${ink.paper}, ink ${ink.ink}, accent ${ink.accent}`);
+  // One declared accent, on the cloth. Everything else is grey.
+  check('the stickman palette is two greys, one cloth tone and one declared accent',
+    ink.paper !== ink.ink && ink.cape !== ink.paper && ink.cape !== ink.ink
+      && String(ink.accent).toLowerCase() === '#b3151f',
+    `paper ${ink.paper}, ink ${ink.ink}, cape ${ink.cape}, accent ${ink.accent}`);
+  const isGreyHex = (hex) => {
+    const t = String(hex).slice(1).toLowerCase();
+    return t.slice(0, 2) === t.slice(2, 4) && t.slice(2, 4) === t.slice(4, 6);
+  };
+  check('the cloth tone is neutral grey, not a tint',
+    isGreyHex(ink.cape), `cape ${ink.cape}`);
 
   const rejects = (label, fn) => {
     let threw = false;
@@ -180,11 +189,11 @@ function check(name, ok, detail) {
   };
   rejects('a warm paper colour is refused', () => resolveInk({ ink: { paper: '#F4F1EA' } }));
   rejects('an ink with a hue is refused', () => resolveInk({ ink: { ink: '#1A2A3A' } }));
-  rejects('an accent is refused unless explicitly allowed',
+  rejects('a second accent is refused',
     () => resolveInk({ ink: { accent: '#C8FF3D' } }));
   let accentOk = true;
   try { resolveInk({ ink: { accent: '#C8FF3D' }, allowAccent: true }); } catch { accentOk = false; }
-  check('an accent is allowed when asked for by name', accentOk, 'allowAccent: true still threw');
+  check('an override accent is allowed when asked for by name', accentOk, 'allowAccent: true still threw');
 }
 
 // 9. stroke weights come from the skeleton, not from constants
@@ -204,6 +213,67 @@ function check(name, ok, detail) {
   check('a bigger root draws a proportionally heavier figure',
     near(bigGeom.widths.thigh / geom.widths.thigh, 2, 0.01),
     `ratio ${(bigGeom.widths.thigh / geom.widths.thigh).toFixed(3)} for a 2x scale`);
+}
+
+// 9b. the face has states, and a line chooses one
+{
+  const names = Object.keys(EXPRESSIONS);
+  check('there is more than one expression to act with', names.length >= 8, `${names.length} expressions`);
+  for (const name of names) {
+    const face = EXPRESSIONS[name];
+    const missing = Object.keys(NEUTRAL).filter((key) => face[key] === undefined && NEUTRAL[key] !== 0);
+    check(`expression "${name}" is complete`, missing.length === 0, `missing ${missing.join(', ')}`);
+  }
+  check('a question is asked with the brows, not the mouth',
+    expressionForLine('Why does it work?') === 'question'
+      && EXPRESSIONS.question.browAngle < -0.2,
+    `question angle ${EXPRESSIONS.question.browAngle}`);
+  check('a flat statement is not given a question face',
+    expressionForLine('is drawn twice.') === 'talk', expressionForLine('is drawn twice.'));
+  check('a contrast line gets a set face',
+    expressionForLine('But it is never free.') === 'stern', expressionForLine('But it is never free.'));
+
+  const cues = expressionCues([
+    { text: 'Every frame,', start: 2.9, end: 4.5 },
+    { text: 'Why?', start: 5.0, end: 5.6 },
+  ]);
+  const inside = expressionAt(3.6, cues);
+  const quiet = expressionAt(1.0, cues);
+  check('the face differs inside a line and between lines',
+    Math.abs(inside.brow - quiet.brow) > 0.05, `brow ${inside.brow} vs ${quiet.brow}`);
+  check('the face is continuous across a cue boundary',
+    (() => {
+      let worst = 0;
+      let prev = expressionAt(2.7, cues);
+      for (let t = 2.75; t < 6.2; t += 1 / 30) {
+        const now = expressionAt(t, cues);
+        for (const key of Object.keys(NEUTRAL)) worst = Math.max(worst, Math.abs(now[key] - prev[key]));
+        prev = now;
+      }
+      return worst < 0.12;
+    })(), 'the face jumped between frames');
+  const half = blendExpression(EXPRESSIONS.smile, EXPRESSIONS.stern, 0.5);
+  check('two expressions blend field by field',
+    Math.abs(half.smile - (EXPRESSIONS.smile.smile + EXPRESSIONS.stern.smile) / 2) < 1e-9,
+    `smile ${half.smile}`);
+}
+
+// 9c. the body acts while the face talks
+{
+  const cues = actingCues([{ text: 'Every frame,', start: 3, end: 4.5 }, { text: 'Never free!', start: 5, end: 6 }]);
+  check('a stressed line is acted harder than a connective',
+    cues[1].weight > cues[0].weight, `${cues[1].weight} vs ${cues[0].weight}`);
+  const values = [];
+  for (let t = 2.8; t <= 6.4; t += 0.05) values.push(actingAt(t, cues));
+  check('the body never stands perfectly still inside a phrase',
+    values.some((v) => Math.abs(v.weight) > 1e-4) && values.some((v) => Math.abs(v.gesture) > 0.1),
+    'no weight shift or gesture was produced');
+  let worst = 0;
+  for (let i = 1; i < values.length; i += 1) {
+    worst = Math.max(worst, Math.abs(values[i].nod - values[i - 1].nod),
+      Math.abs(values[i].weight - values[i - 1].weight));
+  }
+  check('the acting does not jump between frames', worst < 0.06, `largest step ${worst.toFixed(3)}`);
 }
 
 // 10. a recording canvas: the checks below read what was actually painted
@@ -235,6 +305,11 @@ function recordingContext() {
     arc(x, y, r, a0, a1) { ops.push(['arc', x, y, r, a0, a1]); },
     ellipse(x, y, rx, ry, rot) { ops.push(['ellipse', x, y, rx, ry, rot]); },
     fill() { ops.push(['fill', style.fillStyle]); },
+    // Clipping is real on a canvas and meaningless on a recorder; both are fine
+    // as long as the recorded path is the one that was built.
+    clip() { ops.push(['clip']); },
+    rect(x, y, w, h) { ops.push(['rect', x, y, w, h]); },
+    fillRect(x, y, w, h) { ops.push(['fillRect', style.fillStyle, x, y, w, h]); },
     stroke() { ops.push(['stroke', style.strokeStyle]); },
   };
   Object.defineProperty(ctx, 'fillStyle', paint('fillStyle'));
@@ -247,14 +322,16 @@ function recordingContext() {
   const frame = characterFrame(2.4, { scale: 0.7, groundY: 1200, hipX: 400 });
   const ctx = recordingContext();
   drawStick(ctx, frame.solved, { viseme: { open: 0.6, wide: 0.4, round: 0.1 }, blink: 0, browRaise: 0.2, boil: 1, frame: 73 });
-  const parsed = [...ctx.colours].map((value) => String(value));
-  const hex = parsed.filter((v) => /^#[0-9a-fA-F]{6}$/.test(v));
-  const grey = hex.every((v) => {
+  const hex = [...ctx.colours].map((v) => String(v)).filter((v) => /^#[0-9a-fA-F]{6}$/.test(v));
+  const isGreyHex = (v) => {
     const t = v.slice(1).toLowerCase();
     return t.slice(0, 2) === t.slice(2, 4) && t.slice(2, 4) === t.slice(4, 6);
-  });
-  check('every colour the stickman paints is greyscale',
-    hex.length > 0 && grey && hex.length === new Set(hex.map((v) => v.toLowerCase())).size + (parsed.length - hex.length),
+  };
+  const grey = hex.filter(isGreyHex);
+  const coloured = hex.filter((v) => !isGreyHex(v));
+  check('every colour the stickman paints is grey, except the declared accent',
+    hex.length > 0 && grey.length > 0
+      && coloured.every((v) => v.toLowerCase() === '#b3151f'),
     `colours used: ${[...new Set(hex)].join(', ')}`);
   check('the stickman draws a figure, not an empty frame',
     ctx.ops.filter((op) => op[0] === 'fill' || op[0] === 'stroke').length > 20,
@@ -498,6 +575,33 @@ function recordingContext() {
   check('the walk weight is honoured',
     !near(walking.solved.footL.origin[0], full.solved.footL.origin[0], 0.01),
     'the walk pose equals the idle pose');
+}
+
+// 17. the cape is cloth: present, sized, and behind the figure
+{
+  const frame = characterFrame(1.4, { scale: 0.6, groundY: 1000, hipX: 200 });
+  const bare = recordingContext();
+  drawStick(bare, frame.solved, { boil: 0, frame: 0, expression: EXPRESSIONS.talk });
+  const dressed = recordingContext();
+  drawStick(dressed, frame.solved, { boil: 0, frame: 0, expression: EXPRESSIONS.talk, cape: true });
+  const paint = (ctx) => ctx.ops.filter((op) => op[0] === 'fill' || op[0] === 'stroke').length;
+  check('the cape adds shapes to the figure', paint(dressed) > paint(bare),
+    `${paint(dressed)} paint ops dressed vs ${paint(bare)} bare`);
+  const firstCapeAt = dressed.ops.findIndex((op) => op[0] === 'fill' && String(op[1]).toLowerCase() === String(INK.cape).toLowerCase());
+  const firstLimbAt = dressed.ops.findIndex((op) => op[0] === 'fill' && String(op[1]).toLowerCase() === String(INK.ink).toLowerCase());
+  check('the cape is drawn behind the limbs', firstCapeAt >= 0 && firstCapeAt < firstLimbAt,
+    `cape fill at ${firstCapeAt}, first ink fill at ${firstLimbAt}`);
+  check('the cape carries the one accent', dressed.colours.has(INK.accent), 'the lining was not drawn');
+  const clamped = recordingContext();
+  drawStick(clamped, frame.solved, { boil: 0, frame: 0, cape: true, capeSway: 40 });
+  let far = 0;
+  for (const op of clamped.ops) {
+    if (op[0] === 'moveTo' || op[0] === 'lineTo' || op[0] === 'quadraticCurveTo') {
+      for (let i = 1; i < op.length; i += 2) far = Math.max(far, Math.abs(op[i] - frame.solved.chest.end[0]));
+    }
+  }
+  check('a violent sway does not fly the cape off the figure', far < 3000,
+    `hem reached ${far.toFixed(0)} px from the chest`);
 }
 
 const failed = failures.length > 0;

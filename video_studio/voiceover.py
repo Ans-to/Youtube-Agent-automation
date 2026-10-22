@@ -269,7 +269,16 @@ def piper_available() -> bool:
 
 
 def espeak_available() -> bool:
-    return shutil.which("espeak-ng") is not None or shutil.which("espeak") is not None
+    """True when a formant voice can actually be rendered.
+
+    The command line is preferred when it exists, but it is not required: the
+    synthesizer is also available as a shared library from a wheel, which is the
+    only form that works on a machine without system packages. Before this, a
+    box with no `espeak-ng` binary reported "no local speech backend" even though
+    `pip install espeakng-loader` was a one-line fix.
+    """
+    return shutil.which("espeak-ng") is not None or shutil.which("espeak") is not None \
+        or _espeak_lib_available()
 
 
 def synth_piper_line(line: Line, model: Path, out_path: Path) -> None:
@@ -295,18 +304,50 @@ def synth_piper_line(line: Line, model: Path, out_path: Path) -> None:
     write_wav(out_path, audio, voice.config.sample_rate)
 
 
+def _espeak_lib():
+    """The ctypes binding, or None when the wheel is not installed."""
+    try:
+        import espeak_lib
+    except ImportError:
+        return None
+    return espeak_lib
+
+
+def _espeak_lib_available() -> bool:
+    module = _espeak_lib()
+    return bool(module and module.available())
+
+
 def synth_espeak_line(line: Line, out_path: Path) -> None:
-    binary = shutil.which("espeak-ng") or shutil.which("espeak")
-    if not binary:
-        raise VoiceBackendMissing("espeak-ng is not installed")
+    """Render one line with the formant synthesizer.
+
+    The command line is used when present because it is the reference
+    implementation; otherwise the same library is loaded from the wheel. Either
+    way the prosody knobs are identical, so a script does not sound different
+    depending on how the machine happens to be set up.
+    """
     words_per_minute = int(150 * max(0.7, min(1.4, line.rate)))
-    result = subprocess.run(  # noqa: S603 - fixed argv, no shell
-        [binary, "-v", "en-us", "-s", str(words_per_minute), "-p", "42", "-a", "160",
-         "-w", str(out_path), spoken_text(line.text)],
-        capture_output=True, text=True, check=False, timeout=120,
-    )
-    if result.returncode != 0 or not out_path.is_file():
-        raise VoiceBackendMissing("espeak-ng failed: " + (result.stderr or "")[-300:])
+    text = spoken_text(line.text)
+    binary = shutil.which("espeak-ng") or shutil.which("espeak")
+    if binary:
+        result = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            [binary, "-v", "en-us", "-s", str(words_per_minute), "-p", "42", "-a", "160",
+             "-w", str(out_path), text],
+            capture_output=True, text=True, check=False, timeout=120,
+        )
+        if result.returncode != 0 or not out_path.is_file():
+            raise VoiceBackendMissing("espeak-ng failed: " + (result.stderr or "")[-300:])
+        return
+
+    module = _espeak_lib()
+    if module is None:
+        raise VoiceBackendMissing(
+            "no formant voice available: pip install espeakng-loader (no system package needed)")
+    if not module.available():
+        raise VoiceBackendMissing(module.why_unavailable())
+    pcm, rate = module.synthesize(text, voice="en-us", wpm=words_per_minute, pitch=42,
+                                  amplitude=160)
+    module.write_wav(out_path, pcm, rate)
 
 
 # ------------------------------------------------------------------------ DSP
@@ -524,8 +565,9 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
     if chosen in ("none", "auto"):
         raise VoiceBackendMissing(
             "no local speech backend. Install one free option and rerun:\n"
+            "  pip install espeakng-loader      (offline, no model download)\n"
             "  pip install piper-tts && python -m piper.download_voices en_US-lessac-medium\n"
-            "  or install espeak-ng for the fallback voice."
+            "  (a better voice, but it needs the one-time model download)"
         )
 
     rendered: list[tuple[Line, np.ndarray]] = []

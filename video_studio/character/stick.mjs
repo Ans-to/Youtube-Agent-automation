@@ -40,8 +40,25 @@ import { taperedLimb } from './body.mjs';
 export const INK = {
   paper: '#F2F2F2',
   ink: '#121212',
-  /** Optional single accent. Null by default — monochrome is the brief. */
-  accent: null,
+  /**
+   * Cloth tone: a neutral grey between paper and ink.
+   *
+   * A cloak filled with the same ink as the limbs swallows them — a black arm on
+   * a black cape is not a drawing, it is a blob. A light grey restores
+   * the separation without introducing a hue, so the figure stays monochrome and
+   * still has depth.
+   */
+  cape: '#787878',
+  /**
+   * The one accent, for the cape lining.
+   *
+   * The reference the channel is modelled on is a black silhouette with a single
+   * crimson moving through it — the colour sits on the cloth, never on the skin.
+   * It is a declared value rather than a free choice: `resolveInk` refuses an
+   * accent that is not the one this file names unless `allowAccent` says the
+   * caller knows what it is doing.
+   */
+  accent: '#B3151F',
 };
 
 /** Stroke widths, as a fraction of the bone that carries them. */
@@ -72,6 +89,8 @@ export const STICK = {
   mouthWidth: 0.42,
 };
 
+const DEFAULT_ACCENT = '#B3151F';
+
 const GREY = /^#[0-9a-fA-F]{6}$/;
 
 const isGrey = (hex) => {
@@ -92,11 +111,14 @@ export function resolveInk(opts = {}) {
   const ink = { ...INK, ...(opts.ink || {}) };
   if (!isGrey(ink.paper)) throw new Error('stick: paper must be a greyscale hex colour, got ' + ink.paper);
   if (!isGrey(ink.ink)) throw new Error('stick: ink must be a greyscale hex colour, got ' + ink.ink);
+  if (!isGrey(ink.cape)) throw new Error('stick: cape must be a greyscale hex colour, got ' + ink.cape);
   if (ink.accent !== null && ink.accent !== undefined) {
-    if (!opts.allowAccent) {
-      throw new Error('stick: an accent colour needs allowAccent: true; this figure is monochrome by default');
-    }
     if (!GREY.test(String(ink.accent))) throw new Error('stick: accent must be a hex colour, got ' + ink.accent);
+    // One accent, and only the declared one. A second colour — however tasteful —
+    // is how a monochrome channel slowly stops being one.
+    if (!opts.allowAccent && String(ink.accent).toLowerCase() !== String(DEFAULT_ACCENT).toLowerCase()) {
+      throw new Error('stick: ' + ink.accent + ' is not the declared accent; pass allowAccent: true to override');
+    }
   }
   return ink;
 }
@@ -214,6 +236,11 @@ function drawFace(ctx, s, ink, opts, geom) {
   const eyeDX = radius * 0.34;
   const eyeR = Math.max(1.2, radius * 0.085);
   const blink = Math.min(1, Math.max(0, opts.blink || 0));
+  const faceCfg = opts.expression || {};
+  // `eyeOpen` scales the eye; `squint` flattens it from below, so a hard look
+  // narrows without the eye shrinking to a dot.
+  const eyeOpen = Math.max(0.35, Math.min(1.5, faceCfg.eyeOpen === undefined ? 1 : faceCfg.eyeOpen));
+  const squint = Math.max(0, Math.min(1, faceCfg.squint || 0));
 
   for (const sign of [-1, 1]) {
     const ex = cx + lean + sign * eyeDX;
@@ -226,25 +253,46 @@ function drawFace(ctx, s, ink, opts, geom) {
       ctx.lineCap = 'round';
       ctx.stroke();
     } else {
-      const squash = 1 - blink * 0.8;
+      const squash = Math.max(0.06, (1 - blink * 0.85) * eyeOpen * (1 - squint * 0.55));
+      const widen = 1 + squint * 0.22;
       ctx.beginPath();
-      ctx.ellipse(ex, eyeY, eyeR, eyeR * squash, 0, 0, Math.PI * 2);
+      ctx.ellipse(ex, eyeY, eyeR * widen, eyeR * squash, 0, 0, Math.PI * 2);
       ctx.fillStyle = ink.ink;
       ctx.fill();
+      if (squint > 0.25) {
+        // A lid line over a narrowed eye. Without it a squashed ellipse reads as a
+        // small dot rather than as effort.
+        ctx.beginPath();
+        ctx.moveTo(ex - eyeR * 1.5, eyeY - eyeR * squash * 1.15);
+        ctx.lineTo(ex + eyeR * 1.5, eyeY - eyeR * squash * 1.15);
+        ctx.strokeStyle = ink.ink;
+        ctx.lineWidth = Math.max(1, radius * 0.05);
+        ctx.lineCap = 'round';
+        ctx.stroke();
+      }
     }
   }
 
-  // Brows: one line each, raised by the speech layer's brow value.
-  const brow = Math.min(1, Math.max(0, opts.browRaise || 0));
-  const browY = eyeY - radius * (0.30 + brow * 0.10);
+  // Brows carry the expression. Raising them lifts the whole line; angling them
+  // lifts or drops the *inner* ends, which is what separates a question from a
+  // challenge. A flat raised brow reads as surprise no matter what the mouth does.
+  const face = opts.expression || {};
+  const brow = Math.min(1, Math.max(0, opts.browRaise === undefined ? (face.brow ?? 0.2) : opts.browRaise));
+  const browAngle = Math.max(-0.9, Math.min(0.9, face.browAngle || 0));
+  const browY = eyeY - radius * (0.34 + brow * 0.16);
   for (const sign of [-1, 1]) {
     const bx = cx + lean + sign * eyeDX;
+    // Inner end (toward the centre) moves with the angle; the outer end anchors.
+    const innerLift = browAngle * radius * 0.18;
+    const inner = [bx - sign * radius * 0.16, browY + innerLift];
+    const outer = [bx + sign * radius * 0.15, browY - browAngle * radius * 0.04];
     ctx.beginPath();
-    ctx.moveTo(bx - radius * 0.15, browY + sign * radius * 0.02);
-    ctx.lineTo(bx + radius * 0.15, browY - sign * radius * 0.02 - brow * radius * 0.04);
+    ctx.moveTo(inner[0], inner[1]);
+    ctx.lineTo(outer[0], outer[1]);
     ctx.strokeStyle = ink.ink;
-    ctx.lineWidth = Math.max(1, radius * 0.06);
+    ctx.lineWidth = Math.max(1, radius * (0.055 + brow * 0.02));
     ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
     ctx.stroke();
   }
 
@@ -254,12 +302,20 @@ function drawFace(ctx, s, ink, opts, geom) {
     const viseme = opts.viseme || VISEMES.REST;
     const open = Math.min(1, Math.max(0, viseme.open === undefined ? 0.12 : viseme.open));
     const wide = Math.min(1, Math.max(0, viseme.wide === undefined ? 0.5 : viseme.wide));
-    const mouthY = cy + radius * 0.34;
-    const halfW = radius * STICK.mouthWidth * (0.55 + wide * 0.75);
+    // The curve is the expression; the opening is the viseme. They are separate
+    // controls on purpose: a smiling face can still be mid-word.
+    const smile = Math.max(-1, Math.min(1, face.smile === undefined ? 0.1 : face.smile));
+    const expressionWide = face.wide === undefined ? wide : face.wide;
+    const mouthY = cy + radius * (0.34 + (face.pitch || 0) * 0.08);
+    const halfW = radius * STICK.mouthWidth * (0.55 + expressionWide * 0.75);
+    // A smile lifts the corners; a frown pulls them down. The curve at rest is a
+    // gentle line, never a flat bar.
+    const cornerLift = -smile * radius * 0.13;
     const drop = radius * 0.02 + open * radius * 0.30;
     ctx.beginPath();
-    ctx.moveTo(cx + lean - halfW, mouthY);
-    ctx.quadraticCurveTo(cx + lean, mouthY + drop * 1.9, cx + lean + halfW, mouthY);
+    ctx.moveTo(cx + lean - halfW, mouthY + cornerLift);
+    ctx.quadraticCurveTo(cx + lean, mouthY + drop * 1.9 + cornerLift * 0.15,
+      cx + lean + halfW, mouthY + cornerLift);
     ctx.strokeStyle = ink.ink;
     ctx.lineWidth = Math.max(1.1, radius * 0.055 + open * radius * 0.02);
     ctx.lineCap = 'round';
@@ -268,9 +324,11 @@ function drawFace(ctx, s, ink, opts, geom) {
       // A filled mouth only when it is genuinely open, so the face is not a
       // permanent hole; the fill is the ink colour, never a red.
       ctx.beginPath();
-      ctx.moveTo(cx + lean - halfW, mouthY);
-      ctx.quadraticCurveTo(cx + lean, mouthY + drop * 1.9, cx + lean + halfW, mouthY);
-      ctx.quadraticCurveTo(cx + lean, mouthY + drop * 0.55, cx + lean - halfW, mouthY);
+      ctx.moveTo(cx + lean - halfW, mouthY + cornerLift);
+      ctx.quadraticCurveTo(cx + lean, mouthY + drop * 1.9 + cornerLift * 0.15,
+        cx + lean + halfW, mouthY + cornerLift);
+      ctx.quadraticCurveTo(cx + lean, mouthY + drop * 0.55 + cornerLift * 0.5,
+        cx + lean - halfW, mouthY + cornerLift);
       ctx.fillStyle = ink.ink;
       ctx.fill();
     }
@@ -313,6 +371,99 @@ function hand(ctx, s, bone, w, colour, opts) {
   disc(ctx, tip, w * 1.5, colour);
 }
 
+
+/**
+ * The cape, and the coat under it.
+ *
+ * A line figure has no silhouette, and a silhouette is what makes a character
+ * read at a glance — the reference the channel is aiming at is built on them.
+ * But a cape drawn as separate ribbons looks like ribbons: the first attempt
+ * covered the chest in grey stripes. Cloth is one shape with a hem that moves.
+ *
+ * So: a single filled path from shoulder to shoulder, flaring out and down, with
+ * a hem whose scallops drift. Motion is lag, not physics — the hem follows the
+ * body with a delay, so a change of direction ripples down the cloth instead of
+ * moving it all at once, and it is a pure function of the frame number.
+ */
+function drawCape(ctx, solved, ink, opts) {
+  const chest = solved.chest;
+  const spine = solved.spine;
+  if (!chest || !spine) return;
+  const scale = (solved.hips && solved.hips.scale) || 1;
+  const frame = opts.frame || 0;
+  // Cloth trails motion; it does not fly. An unclamped sway turned the cape into a
+  // flag whenever the figure walked quickly (the walk-out covers 1300 px in under
+  // a second, which produced a horizontal triangle).
+  const sway = Math.max(-0.55, Math.min(0.55, opts.capeSway || 0));
+  const lift = opts.capeLift || 0;
+  const length = (opts.capeLength === undefined ? 1 : opts.capeLength) * 900 * scale;
+
+  const shoulderY = chest.end[1] + 8 * scale;
+  const shoulderHalf = Math.max(84 * scale, (Math.abs(solved.armL.origin[0] - solved.armR.origin[0]) / 2) * 0.62);
+  const cx = chest.end[0];
+
+  // The hem: a row of points, each scalloped and each lagging the one before it.
+  const points = 7;
+  const hem = [];
+  for (let i = 0; i < points; i += 1) {
+    const u = i / (points - 1);
+    const side = (u - 0.5) * 2;
+    const lag = 0.5 + Math.abs(side) * 0.6;
+    const phase = frame * 0.05 * (0.8 + lag) + side * 1.7;
+    const scallop = Math.cos(u * Math.PI * 2) * 26 * scale;
+    // Cloth trails the direction the body is moving in, and lifts when the body
+    // drops — the two cues that read as weight.
+    const drift = sway * 150 * scale * (0.4 + Math.abs(side) * 0.9);
+    const flare = shoulderHalf * (1.15 + Math.abs(side) * 1.55);
+    hem.push({
+      x: cx + side * flare + drift + Math.sin(phase) * 18 * scale,
+      y: shoulderY + length * (0.82 + 0.18 * Math.cos(phase * 0.8)) + scallop - lift * 70 * scale,
+    });
+  }
+
+  // One shape: shoulders across the top, down the outside, along the hem, back up.
+  // Drawn once into a path that is kept, so the lining can be clipped to exactly
+  // the same outline — following a scalloped hem with a second hand-built path
+  // produced a red zigzag instead of a band.
+  // `Path2D` is not available in every canvas binding this runs on (the Node one
+  // used for offscreen rendering has no global constructor), so the outline is
+  // traced twice through the context itself.
+  const traceCape = () => {
+    ctx.beginPath();
+    ctx.moveTo(cx - shoulderHalf, shoulderY);
+    ctx.quadraticCurveTo(cx - shoulderHalf * 1.35, shoulderY + length * 0.32, hem[0].x, hem[0].y);
+    for (let i = 1; i < hem.length; i += 1) {
+      const prev = hem[i - 1];
+      ctx.quadraticCurveTo((prev.x + hem[i].x) / 2, (prev.y + hem[i].y) / 2 + 18 * scale,
+        hem[i].x, hem[i].y);
+    }
+    ctx.quadraticCurveTo(cx + shoulderHalf * 1.35, shoulderY + length * 0.32,
+      cx + shoulderHalf, shoulderY);
+    ctx.closePath();
+  };
+
+  traceCape();
+  ctx.fillStyle = ink.cape || ink.ink;
+  ctx.fill();
+
+  // The lining: the cloth clipped to its own outline, flooded over the bottom
+  // band. One accent, on the moving edge of the cloth, exactly where the eye goes.
+  if (ink.accent && opts.capeLining !== false) {
+    // The band is positioned from the hem itself. Anchoring it to a fraction of
+    // the cape's length put it below the scallops on a long cape and left a red
+    // sliver at one point only.
+    const hemTop = Math.min(...hem.map((point) => point.y));
+    const hemBottom = Math.max(...hem.map((point) => point.y));
+    const bandTop = hemBottom - (hemBottom - hemTop) * 0.85 - 70 * scale;
+    ctx.save();
+    traceCape();
+    ctx.clip();
+    ctx.fillStyle = ink.accent;
+    ctx.fillRect(cx - shoulderHalf * 4, bandTop, shoulderHalf * 8, hemBottom - bandTop + 40 * scale);
+    ctx.restore();
+  }
+}
+
 /**
  * Draw the whole stickman.
  *
@@ -330,6 +481,9 @@ export function drawStick(ctx, solved, opts = {}) {
   ctx.save();
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
+
+  // Cloth first: it is behind the figure, and it is what gives the silhouette.
+  if (opts.cape) drawCape(ctx, solved, ink, opts);
 
   // A leg that is swinging is drawn foreshortened: both segments are pulled toward
   // the hip by the same factor, so the foot leaves the floor while the knee stays
@@ -392,7 +546,9 @@ export function drawStick(ctx, solved, opts = {}) {
     ctx.ellipse(0, 0, radius * 0.96, radius, 0, 0, Math.PI * 2);
     ctx.fillStyle = ink.paper;
     ctx.fill();
-    ctx.strokeStyle = ink.accent || ink.ink;
+    // The head is ink. The accent belongs to the cloth only; a red outline made
+    // the face look inflamed rather than styled.
+    ctx.strokeStyle = ink.ink;
     ctx.lineWidth = w.neck * 1.02;
     ctx.stroke();
     ctx.restore();

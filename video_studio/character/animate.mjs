@@ -493,6 +493,22 @@ export function characterFrame(t, spec = {}) {
     };
   }
 
+  // Acting: small angles on the existing joints. A figure that stands to
+  // attention through a whole cut reads as a puppet however good its mouth is.
+  if (spec.weight) {
+    pose.hips = (pose.hips || 0) + spec.weight;
+    pose.spine = (pose.spine || 0) - spec.weight * 0.7;
+    pose.chest = (pose.chest || 0) + spec.weight * 0.3;
+  }
+  if (spec.nod) {
+    pose.head = (pose.head || 0) + spec.nod;
+    pose.neck = (pose.neck || 0) + spec.nod * 0.5;
+  }
+  if (spec.lean) {
+    pose.spine = (pose.spine || 0) + spec.lean;
+    pose.chest = (pose.chest || 0) + spec.lean * 0.4;
+  }
+
   if (spec.gesture > 0.01) {
     // a conversational beat: the free arm lifts, elbow leads, hand trails
     const lift = spec.gesture;
