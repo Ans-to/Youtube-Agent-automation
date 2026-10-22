@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run a sequential, local-model specialist pipeline with a persistent audit trail."""
 import argparse
+import ast
 import hashlib
 import json
 import os
@@ -19,6 +20,7 @@ import tool_agent
 WORKSPACE = canonical_path(ROOT / "workspace")
 sys.path.insert(0, str(BASE))
 import dispatch
+import routing
 
 DEFAULT_PIPELINE = [
     "AGENT-02", "AGENT-03", "AGENT-09", "AGENT-20",
@@ -30,30 +32,11 @@ def slug(value):
     return re.sub(r"[^a-z0-9]+", "-", value.lower()).strip("-")[:48] or "project"
 
 
-def requested_narration_language(text):
-    """Return an explicit narration/subtitle language override, or None.
-
-    Avoid switching because a topic merely mentions English or Urdu. Match language words
-    only when tied to narration, voice-over, subtitles/captions, or an explicit in-language
-    instruction.
-    """
-    value = str(text or "")
-    language_token = r"(english|en|urdu(?:\s*[-+&]\s*english)?|ur(?:\s*[-+&]\s*en)?)"
-    patterns = (
-        r"(?i)\b(?:narration|voice(?:[\s-]?over)?|subtitles?|captions?)\s+(?:language\s*[:=]\s*|in\s+)" + language_token + r"\b",
-        r"(?i)\blanguage\s*[:=]\s*" + language_token + r"\b",
-        r"(?i)\b" + language_token + r"\s+(?:narration|voice[\s-]?over|subtitles?|captions?)\b",
-        r"(?i)\b(?:speak|narrate|read|use)\s+(?:it\s+)?in\s+" + language_token + r"\b",
-    )
-    selected = None
-    for pattern in patterns:
-        match = re.search(pattern, value)
-        if match:
-            selected = match.group(1)
-            break
-    if not selected:
-        return None
-    return "en" if selected.strip().lower() in {"english", "en"} else "ur-en"
+# Language selection is part of routing: a pipeline's arguments are validated
+# against what the narration profile allows, whether a model or a pattern chose
+# the pipeline. Re-exported here because existing callers import it from this
+# module.
+requested_narration_language = routing.requested_narration_language
 
 
 def configured_narration_language_instruction(config):
@@ -328,122 +311,162 @@ def tool_model_call(cfg):
     return call
 
 
-def run_builtin_tools(task, destination, cfg, source_context=""):
-    """Run only fixed, repository-owned artifact builders selected by clear task intent."""
+def routing_model_call(cfg):
+    """Adapter that lets the routing head use the configured loopback model.
+
+    The router answers with a small JSON object, so it gets a small budget and the
+    same loopback endpoint the tool planner uses. ``None`` when no model is
+    enabled, which is what makes the deterministic path the default rather than a
+    fallback that only triggers on failure.
+    """
+    base = tool_model_call(cfg)
+    if base is None:
+        return None
+
+    def call(prompt, max_tokens):
+        return base(prompt, max(256, min(int(max_tokens), 900)))
+
+    return call
+
+
+def run_builtin_tools(task, destination, cfg, source_context="", route_sink=None):
+    """Run the fixed, repository-owned builders the router selected.
+
+    Selection is delegated to ``agents/routing.py``; this function owns execution
+    and the guards that must hold no matter who selected the pipeline — no render
+    without a local model, no voice backend silently substituted, no fixed builder
+    replaced by generated text. ``route_sink``, when given, receives the route so
+    the caller can record the decision and its evidence in the manifest.
+    """
     results = []
-    text = task.strip()
-    request_match = re.search(r"(?is)USER REQUEST:\s*(.+?)(?:\n\nREQUIRED OUTCOME:|$)", text)
-    intent_text = request_match.group(1).strip() if request_match else text
-    lower = text.lower()
+    intent_text = routing.extract_intent(task)
     intent_lower = intent_text.lower()
     model_enabled = bool(cfg.get("model", {}).get("enabled"))
-    verbs = r"\b(build|create|make|generate|produce|develop|implement|render|export)\b"
-
-    # "Build a YouTube automation studio" is a software task, not a request to render a video.
-    video_intent = re.search(
-        r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b",
-        intent_lower,
-    )
-    video_requested = bool(video_intent and re.search(verbs, intent_lower))
-    product_requested = bool(re.search(
-        r"\b(?:build|create|make|develop|implement)\s+(?:(?:me|a|an|the)\s+)?(?:(?:simple|small|local|offline|responsive|basic|functional|custom|tiny|working|digital)\s+){0,3}(?:product|app|website|web app|software tool|tool|utility|prototype|calculator|dashboard)\b",
-        intent_lower,
-    ) or re.search(r"\bproduct idea for (?:a )?tool\b", intent_lower))
-    render_requested = bool(re.search(r"\b(render|mp4|export video|final video)\b", intent_lower))
-    # A web build is executed by the sandboxed tool loop (write, verify, repair),
-    # not by the single-file product template.
-    web_requested = bool(re.search(
-        r"\b(?:build|create|make|develop|implement|launch|design|code)\s+"
-        r"(?:(?:me|a|an|the|my)\s+)?"
-        r"(?:(?:simple|small|local|offline|responsive|basic|functional|custom|tiny|working|modern|"
-        r"personal|professional|static|single[- ]page)\s+){0,3}"
-        r"(?:website|web\s?app|webapp|landing\s+page|static\s+site|web\s+site|site|portfolio)\b",
-        intent_lower,
-    ))
-    if web_requested:
-        product_requested = False
+    route = routing.route_task(task, cfg, model_call=routing_model_call(cfg))
+    if route_sink is not None:
+        route_sink["route"] = route
     template_demo = bool(re.search(r"\b(template demo|demo render)\b", intent_lower)) and not model_enabled
+    kinds = {request.pipeline for request in route.requests}
     source_path = None
-    if source_context.strip() and (video_requested or product_requested or web_requested):
+    if source_context.strip() and kinds:
         source_path = destination / "source-notes.md"
         source_path.write_text(source_context[:50000], encoding="utf-8")
-    if video_requested:
-        topic_match = re.search(r"(?i)\b(?:about|on|topic\s*[:=])\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", intent_text)
-        topic = (topic_match.group(1).strip() if topic_match else intent_text[:220]).strip(" \t\r\n.,;:")
-        topic = topic[:500] or "Technology explainer"
-        fmt = "shorts" if re.search(r"\b(shorts|short-form|vertical)\b", intent_lower) else "long"
-        output = destination / "video-production"
-        relative_out = safe_relative_path(output, ROOT).as_posix()
-        command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
-                   "--topic", topic, "--format", fmt, "--out", relative_out]
-        language_override = requested_narration_language(intent_text)
-        if language_override:
-            command.extend(["--language", language_override])
-        if source_path is not None:
-            command.extend(["--source-file", str(source_path)])
-        else:
-            command.append("--research")
-        duration_match = re.search(r"(?i)target[_ ]minutes\s*[:=]\s*(\d+(?:\.\d+)?)", intent_text)
-        if duration_match:
-            command.extend(["--target-minutes", duration_match.group(1)])
-        if render_requested and model_enabled:
-            command.append("--render")
-            if re.search(r"\b(with voice|with local narration|piper narration)\b", intent_lower):
-                command.append("--with-voice")
-        elif render_requested and template_demo:
-            # Only an explicitly labelled English CI/demo request should override the
-            # configured language. Otherwise production.py uses config and fails closed
-            # when the selected profile has no compatible voice backend.
-            command.extend(["--render", "--render-template"])
-        elif render_requested and not model_enabled:
-            results.append({
-                "tool": "video_render", "status": "blocked",
-                "artifact_dir": relative_out,
-                "reason": "Full-length MP4 rendering is blocked because no local model is enabled. A separate deterministic template package will be generated and clearly labelled; it is not a substitute for the requested final video.",
-            })
-        tool_result = _run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400)
-        tool_result["generation_mode"] = "local_model" if model_enabled else ("explicit_template_demo" if template_demo and render_requested else "deterministic_template")
-        tool_result["render_requested"] = render_requested
-        tool_result["render_expected"] = bool(render_requested and (model_enabled or template_demo))
-        if not model_enabled:
-            tool_result["note"] = "No local model is enabled: script and storyboard are deterministic scaffolding, not a researched or AI-written final video."
-        results.append(tool_result)
 
-    if web_requested:
-        allow_exec = os.environ.get("AGENT_HQ_ALLOW_EXEC", "").strip().lower() in {"1", "true", "yes", "on"}
-        result = tool_agent.run_tool_agent(
-            goal=intent_text,
-            workspace_root=destination,
-            task_id=destination.name + "-web",
-            model_call=tool_model_call(cfg),
-            allow_exec=allow_exec,
-        )
-        result["tool"] = "tool_agent"
-        artifact_dir = result.get("artifact_dir")
-        if artifact_dir:
-            result["artifact_dir"] = safe_relative_path(destination / artifact_dir, ROOT).as_posix()
-        result["generation_mode"] = "local_model_tool_loop" if result.get("mode") == "model" else "deterministic_scaffold"
-        result["human_review_required"] = True
-        results.append(result)
-
-    if product_requested:
-        title_match = re.search(r"(?i)\b(?:product|prototype|app|tool|website)\s*(?:called|named|titled|:)\s*([^.;\n]{1,100})", intent_text)
-        title_seed = re.sub(r"(?i)^\s*(?:please\s+)?(?:build|create|make|generate|develop|implement)\s+(?:a|an|the)?\s*", "", intent_text).strip()
-        title = title_match.group(1).strip() if title_match else re.sub(r"[-_]+", " ", slug(title_seed[:70])).title()
-        idea_match = re.search(r"(?is)user problem and product idea:\s*(.+?)(?:\.\s*research the user need|$)", intent_text)
-        idea = (idea_match.group(1).strip() if idea_match else intent_text[:1000])[:1000]
-        output = destination / "product-prototype"
-        relative_out = safe_relative_path(output, ROOT).as_posix()
-        command = [sys.executable, str(ROOT / "product_studio" / "build_product.py"),
-                   "--title", title[:100], "--idea", idea, "--out", relative_out]
-        if source_path is not None:
-            command.extend(["--source-file", str(source_path)])
-        tool_result = _run_fixed_tool("product_studio", command, destination, relative_out, timeout=900)
-        tool_result["generation_mode"] = "local_model" if model_enabled else "deterministic_template"
-        if not model_enabled:
-            tool_result["note"] = "Local model disabled: this is a generic starter template, not a product-specific AI implementation."
-        results.append(tool_result)
+    video_plan = routing.video_instructions(intent_text) if "video_production" in kinds else {}
+    for request in route.requests:
+        if request.pipeline == "video_production":
+            results.extend(_run_video_pipeline(request, destination, model_enabled,
+                                               template_demo, source_path, video_plan))
+        elif request.pipeline in {"web_build", "document_deliverable", "cli_tool"}:
+            results.append(_run_tool_loop(request, intent_text, destination, cfg))
+        elif request.pipeline == "product_prototype":
+            results.append(_run_product_pipeline(request, destination, model_enabled, source_path))
     return results
+
+
+def _run_video_pipeline(request, destination, model_enabled, template_demo, source_path,
+                        instructions):
+    """Build a video package, and only render when the guards allow it.
+
+    Creative arguments come from the route; execution instructions (render,
+    narration, format, length, language) are parsed from the request and win over
+    an empty route argument. A model that forgets to pass ``render`` therefore
+    cannot quietly downgrade an explicit MP4 request to a package build.
+    """
+    render_requested = bool(request.args.get("render")) or bool(instructions.get("render"))
+    topic = str(request.args.get("topic") or "").strip() or "Technology explainer"
+    output = destination / "video-production"
+    relative_out = safe_relative_path(output, ROOT).as_posix()
+    command = [sys.executable, str(ROOT / "video_studio" / "production.py"),
+               "--topic", topic[:500],
+               "--format", "shorts" if (request.args.get("format") or instructions.get("format")) == "shorts" else "long",
+               "--out", relative_out]
+    language = request.args.get("language") or instructions.get("language")
+    if language:
+        command.extend(["--language", language])
+    if source_path is not None:
+        command.extend(["--source-file", str(source_path)])
+    else:
+        command.append("--research")
+    minutes = request.args.get("target_minutes") or instructions.get("target_minutes")
+    if minutes:
+        command.extend(["--target-minutes", str(minutes)])
+    blocked = None
+    if render_requested and model_enabled:
+        command.append("--render")
+        if instructions.get("with_voice"):
+            command.append("--with-voice")
+    elif render_requested and template_demo:
+        # Only an explicitly labelled English CI/demo request should override the
+        # configured language. Otherwise production.py uses config and fails closed
+        # when the selected profile has no compatible voice backend.
+        command.extend(["--render", "--render-template"])
+    elif render_requested:
+        # Keep the package build, refuse the render, and say why.
+        blocked = {
+            "tool": "video_render", "status": "blocked",
+            "artifact_dir": relative_out,
+            "reason": "Full-length MP4 rendering is blocked because no local model is enabled. A separate deterministic template package will be generated and clearly labelled; it is not a substitute for the requested final video.",
+        }
+    tool_result = _run_fixed_tool("video_studio", command, destination, relative_out, timeout=14400)
+    tool_result["generation_mode"] = ("local_model" if model_enabled else
+                                      ("explicit_template_demo" if template_demo and render_requested
+                                       else "deterministic_template"))
+    tool_result["render_requested"] = render_requested
+    tool_result["render_expected"] = bool(render_requested and (model_enabled or template_demo))
+    if not model_enabled:
+        tool_result["note"] = "No local model is enabled: script and storyboard are deterministic scaffolding, not a researched or AI-written final video."
+    tool_result["selected_by"] = "video_production"
+    # The render refusal is reported as its own result: the artifact exists and
+    # the requested render does not, and collapsing the two would hide one.
+    return ([blocked] if blocked is not None else []) + [tool_result]
+
+
+def _run_tool_loop(request, intent_text, destination, cfg):
+    """Execute a web, document, or CLI deliverable in the confined tool loop."""
+    deliverable = routing.PIPELINES_BY_ID[request.pipeline].deliverable
+    suffix = {"web": "-web", "document": "-document", "cli": "-cli"}[deliverable]
+    allow_exec = os.environ.get("AGENT_HQ_ALLOW_EXEC", "").strip().lower() in {"1", "true", "yes", "on"}
+    result = tool_agent.run_tool_agent(
+        goal=intent_text,
+        workspace_root=destination,
+        task_id=destination.name + suffix,
+        model_call=tool_model_call(cfg),
+        allow_exec=allow_exec,
+        deliverable=deliverable,
+        # A name the router read from the goal ("called photo-dedupe") is used
+        # verbatim; the scaffold re-derives one when this is empty.
+        deliverable_name=str(request.args.get("name", "") or ""),
+    )
+    result["tool"] = "tool_agent"
+    result["selected_by"] = request.pipeline
+    artifact_dir = result.get("artifact_dir")
+    if artifact_dir:
+        result["artifact_dir"] = safe_relative_path(destination / artifact_dir, ROOT).as_posix()
+    result["generation_mode"] = "local_model_tool_loop" if result.get("mode") == "model" else "deterministic_scaffold"
+    result["human_review_required"] = True
+    return result
+
+
+def _run_product_pipeline(request, destination, model_enabled, source_path):
+    """Package a product prototype with the existing fixed builder."""
+    intent_text = str(request.args.get("idea", ""))
+    title = str(request.args.get("title", "")).strip()
+    if not title:
+        title_seed = re.sub(r"(?i)^\s*(?:please\s+)?(?:build|create|make|generate|develop|implement)\s+(?:a|an|the)?\s*", "", intent_text).strip()
+        title = re.sub(r"[-_]+", " ", slug(title_seed[:70])).title()
+    idea = (intent_text or "A small offline product prototype")[:1000]
+    output = destination / "product-prototype"
+    relative_out = safe_relative_path(output, ROOT).as_posix()
+    command = [sys.executable, str(ROOT / "product_studio" / "build_product.py"),
+               "--title", title[:100], "--idea", idea, "--out", relative_out]
+    if source_path is not None:
+        command.extend(["--source-file", str(source_path)])
+    tool_result = _run_fixed_tool("product_studio", command, destination, relative_out, timeout=900)
+    tool_result["generation_mode"] = "local_model" if model_enabled else "deterministic_template"
+    if not model_enabled:
+        tool_result["note"] = "Local model disabled: this is a generic starter template, not a product-specific AI implementation."
+    return tool_result
 
 
 def _run_fixed_tool(name, command, destination, relative_out, timeout):
@@ -711,21 +734,12 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                 check["checks"].append("mp4_subtitles_strict_qc_and_hash")
             check["checks"].append("release_safety_flags")
         elif tool == "tool_agent":
-            index_path = require_file(target, "index.html", errors)
+            deliverable = str(result.get("deliverable") or "web")
+            if deliverable not in tool_agent.DELIVERABLES:
+                errors.append("Tool run declares an unknown deliverable kind: " + deliverable[:40])
+                deliverable = "web"
             summary_path = require_file(target, "tool-summary.json", errors)
             plan_path = require_file(target, "tool-plan.json", errors)
-            if nonempty_file(index_path):
-                html_text = index_path.read_text(encoding="utf-8", errors="replace")
-                lowered = html_text.lower()
-                if "<!doctype html" not in lowered or "<html" not in lowered:
-                    errors.append("Web artifact is not a complete HTML document.")
-                if "connect-src 'none'" not in lowered:
-                    errors.append("Web artifact does not declare a no-network Content-Security-Policy.")
-                if "http://" in lowered or "https://" in lowered.replace("http://www.w3.org", ""):
-                    # Any external asset would break the offline guarantee.
-                    external = [url for url in re.findall(r"https?://[^\s\"'<>]+", html_text) if "www.w3.org" not in url]
-                    if external:
-                        errors.append("Web artifact references external URLs: " + ", ".join(sorted(set(external))[:5]))
             verification_errors = []
             if nonempty_file(summary_path):
                 try:
@@ -736,6 +750,8 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                         errors.append("Tool summary does not record a verified run.")
                     if summary.get("human_review_required") is not True:
                         errors.append("Tool summary must require human review.")
+                    if summary.get("deliverable") != deliverable:
+                        errors.append("Tool summary deliverable does not match the run.")
                 except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
                     errors.append("Tool summary JSON could not be validated: " + str(exc)[:250])
             declared_checks = result.get("verification")
@@ -747,7 +763,62 @@ def verify_artifact_tool_runs(tool_runs, project_root=None):
                     verification_errors.append(f"{len(failed_checks)} acceptance check(s) did not pass.")
             if verification_errors:
                 errors.extend(verification_errors)
-            check["checks"].append("web_offline_csp_tool_summary_and_acceptance_checks")
+
+            if deliverable == "web":
+                index_path = require_file(target, "index.html", errors)
+                if nonempty_file(index_path):
+                    html_text = index_path.read_text(encoding="utf-8", errors="replace")
+                    lowered = html_text.lower()
+                    if "<!doctype html" not in lowered or "<html" not in lowered:
+                        errors.append("Web artifact is not a complete HTML document.")
+                    if "connect-src 'none'" not in lowered:
+                        errors.append("Web artifact does not declare a no-network Content-Security-Policy.")
+                    if "http://" in lowered or "https://" in lowered.replace("http://www.w3.org", ""):
+                        # Any external asset would break the offline guarantee.
+                        external = [url for url in re.findall(r"https?://[^\s\"'<>]+", html_text) if "www.w3.org" not in url]
+                        if external:
+                            errors.append("Web artifact references external URLs: " + ", ".join(sorted(set(external))[:5]))
+                check["checks"].append("web_offline_csp_tool_summary_and_acceptance_checks")
+            elif deliverable == "document":
+                document_path = require_file(target, "deliverable.md", errors)
+                metadata_path = require_file(target, "deliverable.json", errors)
+                if nonempty_file(document_path):
+                    text = document_path.read_text(encoding="utf-8", errors="replace")
+                    if not text.lstrip().startswith("# "):
+                        errors.append("Document does not open with a level-1 heading.")
+                    if "## Acceptance criteria" not in text:
+                        errors.append("Document has no acceptance-criteria section.")
+                if nonempty_file(metadata_path):
+                    try:
+                        metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+                        if not isinstance(metadata, dict):
+                            raise ValueError("Document metadata must be a JSON object.")
+                        if metadata.get("deliverable") != "document":
+                            errors.append("Document metadata does not declare the document deliverable.")
+                        if metadata.get("ai_generated") is not False:
+                            errors.append("Document metadata must not claim AI authorship it cannot support.")
+                        if metadata.get("human_review_required") is not True:
+                            errors.append("Document metadata must require human review.")
+                        criteria = metadata.get("acceptance_criteria")
+                        if not isinstance(criteria, list) or not criteria:
+                            errors.append("Document metadata carries no acceptance criteria.")
+                    except (json.JSONDecodeError, OSError, ValueError, AttributeError) as exc:
+                        errors.append("Document metadata could not be validated: " + str(exc)[:250])
+                check["checks"].append("document_structure_metadata_and_acceptance_criteria")
+            elif deliverable == "cli":
+                cli_path = require_file(target, "tool.py", errors)
+                require_file(target, "README.md", errors)
+                if nonempty_file(cli_path):
+                    source = cli_path.read_text(encoding="utf-8", errors="replace")
+                    try:
+                        ast.parse(source)
+                    except (SyntaxError, ValueError) as exc:
+                        errors.append("CLI tool is not valid Python: " + str(exc)[:200])
+                    if "--self-test" not in source:
+                        errors.append("CLI tool does not expose a --self-test check.")
+                check["checks"].append("cli_parses_self_test_and_readme")
+            if not nonempty_file(plan_path):
+                errors.append("Missing or empty artifact: tool-plan.json")
         elif tool == "product_studio":
             candidates = sorted(
                 child for child in target.iterdir()
@@ -1114,7 +1185,16 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
         + combined_context[-10000:]
     )[:40000]
     save_progress("running", "Artifact generation", "Specialist stages finished; building selected artifacts and preparing the final quality status.", len(assignments), len(assignments))
-    tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context)
+    route_sink = {}
+    tool_runs = run_builtin_tools(task, destination, cfg, source_context=tool_context,
+                                  route_sink=route_sink)
+    route = route_sink.get("route")
+    routing_record = route.as_dict() if route is not None else {}
+    if routing_record:
+        # The decision, the deterministic comparison, and every veto belong with
+        # the run: "why did nothing build?" must be answerable from the manifest.
+        (destination / "routing.json").write_text(
+            json.dumps(routing_record, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     save_progress("running", "Post-build artifact validation", "Verifying generated files, media, strict QA reports, and release-safety metadata.")
     artifact_checks = verify_artifact_tool_runs(tool_runs, project_root=ROOT)
     required_tool_failed = any(item.get("status") == "failed" for item in tool_runs)
@@ -1129,7 +1209,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
             )
         )
     )
-    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks)
+    manifest = build_manifest(task, records, cfg, status=final_status, delegation_mode=delegation_mode, assignments=assignments, tool_runs=tool_runs, ceo_research_reports=ceo_research_reports, artifact_checks=artifact_checks, routing=routing_record)
     manifest["repair_attempt"] = repair_attempt
     (destination / "pipeline-status.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     progress_status = "completed" if final_status == "draft" else ("failed" if final_status == "failed" else "needs_human_action")
@@ -1137,12 +1217,13 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None)
     return destination, manifest
 
 
-def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None, artifact_checks=None):
+def build_manifest(task, records, cfg, status, delegation_mode="unspecified", assignments=None, tool_runs=None, ceo_research_reports=None, artifact_checks=None, routing=None):
     return {
         "created_at": datetime.now(timezone.utc).isoformat(),
         "task": task.strip(),
         "pipeline": records,
         "delegation_mode": delegation_mode,
+        "routing": routing or {},
         "ceo_assignments": assignments or [],
         "ceo_research_reports": ceo_research_reports or [],
         "tool_runs": tool_runs or [],
