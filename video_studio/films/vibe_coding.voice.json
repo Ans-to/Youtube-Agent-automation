@@ -1,0 +1,1219 @@
+{
+  "title": "Vibe Coding on Arena, through GitHub \u2014 narration",
+  "notes": [
+    "One line per beat. The film reads the timings the synthesiser actually produced,",
+    "so the picture, the captions and the highlights follow the voice.",
+    "rate 0.96 is deliberately a little slower than default: this is an instruction film,",
+    "and a viewer who is following along cannot rewind as fast as they can listen."
+  ],
+  "lines": [
+    {
+      "id": "L001",
+      "scene": "open",
+      "text": "This is how you build a real app without writing the code yourself.",
+      "gap_before": 3.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L002",
+      "scene": "open",
+      "text": "You describe what you want in plain English. An agent writes it, on GitHub, while you watch.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L003",
+      "scene": "open",
+      "text": "This is called vibe coding, and this video walks the whole loop, step by step.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L004",
+      "scene": "open",
+      "text": "By the end you will have a repository, a pull request, and a working site.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L005",
+      "scene": "define",
+      "text": "Vibe coding means you work in intention, not in syntax.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L006",
+      "scene": "define",
+      "text": "You say what you want. You look at the result. You say what to change.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L007",
+      "scene": "define",
+      "text": "The agent writes the files, runs the tools, and records the work as commits.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L008",
+      "scene": "define",
+      "text": "That does not mean you stop thinking.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L009",
+      "scene": "define",
+      "text": "It means your attention goes on the decision, not on the typing.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L010",
+      "scene": "define",
+      "text": "Three rules carry the rest of this video.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L011",
+      "scene": "define",
+      "text": "One. Small steps, one change at a time.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L012",
+      "scene": "define",
+      "text": "Two. Read the diff before you accept it.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L013",
+      "scene": "define",
+      "text": "Three. Keep every change in Git, so any step can be undone.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L014",
+      "scene": "loop",
+      "text": "Here is the loop we will repeat.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L015",
+      "scene": "loop",
+      "text": "You write a prompt. The agent plans the work, and edits a branch.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L016",
+      "scene": "loop",
+      "text": "GitHub records the change, and the checks run automatically.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L017",
+      "scene": "loop",
+      "text": "You read the pull request, leave a note, and merge.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L018",
+      "scene": "loop",
+      "text": "Then you go again, one small step further.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L019",
+      "scene": "loop",
+      "text": "Six parts. Prompt, plan, branch, diff, checks, merge.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L020",
+      "scene": "loop",
+      "text": "Every step in this video is one turn of that loop.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L021",
+      "scene": "github",
+      "text": "Step one. A GitHub account, and one empty repository.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L022",
+      "scene": "github",
+      "text": "Go to github dot com, sign up, and confirm your email address.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L023",
+      "scene": "github",
+      "text": "Then press New repository, in the top right corner.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L024",
+      "scene": "github",
+      "text": "Give it a short name, in lower case, with hyphens between the words.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L025",
+      "scene": "github",
+      "text": "Choose Public if you want free checks and a public site.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L026",
+      "scene": "github",
+      "text": "Choose Private if the work is not ready to be seen.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L027",
+      "scene": "github",
+      "text": "Tick Add a README. It gives the repository its first file, and its first commit.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L028",
+      "scene": "github",
+      "text": "Press Create repository, and you are looking at the home of your project.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L029",
+      "scene": "github",
+      "text": "That page has four parts you will use every day.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L030",
+      "scene": "github",
+      "text": "The file list. The commit history. The branches. And the Actions tab.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L031",
+      "scene": "github",
+      "text": "The Actions tab is where the checks run. We will come back to it.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L032",
+      "scene": "github",
+      "text": "That is all the Git you need for now. The rest is conversation.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L033",
+      "scene": "connect",
+      "text": "Step two. Connect GitHub to Arena. You do this once.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L034",
+      "scene": "connect",
+      "text": "In Arena, open the GitHub connection, and approve the sign in.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L035",
+      "scene": "connect",
+      "text": "Then choose which repositories the agent may touch.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L036",
+      "scene": "connect",
+      "text": "Start with one. You can add more later.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L037",
+      "scene": "connect",
+      "text": "Read that permission screen properly.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L038",
+      "scene": "connect",
+      "text": "It is the difference between a useful helper and a very fast hazard.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L039",
+      "scene": "connect",
+      "text": "Now open your repository in Arena, and start a conversation.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L040",
+      "scene": "connect",
+      "text": "The agent can see the files, the history, and the branch it is working on.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L041",
+      "scene": "connect",
+      "text": "Your repository name sits at the top of the conversation.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L042",
+      "scene": "connect",
+      "text": "Check it every single time. Wrong repository is the most expensive easy mistake.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L043",
+      "scene": "prompt",
+      "text": "Step three. The first prompt. This is where most people lose the thread.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L044",
+      "scene": "prompt",
+      "text": "A weak prompt says, make me an app.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L045",
+      "scene": "prompt",
+      "text": "A strong prompt says what it is, who it is for, and what done looks like.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L046",
+      "scene": "prompt",
+      "text": "It names the pages. It names the files, if you care. It names what is out of scope.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L047",
+      "scene": "prompt",
+      "text": "Here is a prompt that works.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L048",
+      "scene": "prompt",
+      "text": "Build a one page site that lists my favourite books.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L049",
+      "scene": "prompt",
+      "text": "It should read a file called books dot json, and draw one card for each book.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L050",
+      "scene": "prompt",
+      "text": "Keep it to plain HTML, CSS and JavaScript. No framework, and no build step.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L051",
+      "scene": "prompt",
+      "text": "Add a README that explains how to run it.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L052",
+      "scene": "prompt",
+      "text": "Do not add a database yet.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L053",
+      "scene": "prompt",
+      "text": "That last sentence matters. It stops the agent building three weeks of work.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L054",
+      "scene": "prompt",
+      "text": "Send it, then read the plan before it writes anything.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L055",
+      "scene": "prompt",
+      "text": "If the plan is wrong, say so now, while it is still cheap to change.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L056",
+      "scene": "agent",
+      "text": "Step four. The agent works in a branch, not on your main files.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L057",
+      "scene": "agent",
+      "text": "A branch is a copy of the project where changes can be tried safely.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L058",
+      "scene": "agent",
+      "text": "You will see the branch name in the pull request, something like feature slash book list.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L059",
+      "scene": "agent",
+      "text": "Behind the scenes, it reads files, writes files, and runs what it can run.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L060",
+      "scene": "agent",
+      "text": "Each of those steps appears in the conversation, as a line you can expand.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L061",
+      "scene": "agent",
+      "text": "Read those lines. They say what actually happened, not what was promised.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L062",
+      "scene": "agent",
+      "text": "When the work is finished, it opens a pull request and links it in the chat.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L063",
+      "scene": "agent",
+      "text": "Nothing is live yet. That is exactly the point.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L064",
+      "scene": "diff",
+      "text": "Step five. Read the diff. This is the skill worth learning.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L065",
+      "scene": "diff",
+      "text": "A diff shows every line added in green, and every line removed in red.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L066",
+      "scene": "diff",
+      "text": "Start with the file list. If a file changed that should not have, stop.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L067",
+      "scene": "diff",
+      "text": "Then read the new file from the top. It is usually shorter than you fear.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L068",
+      "scene": "diff",
+      "text": "Look for the three usual problems.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L069",
+      "scene": "diff",
+      "text": "One. It added a dependency you did not ask for.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L070",
+      "scene": "diff",
+      "text": "Two. It hard coded a value that should have been a setting.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L071",
+      "scene": "diff",
+      "text": "Three. It wrote a test that tests nothing at all.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L072",
+      "scene": "diff",
+      "text": "If something is wrong, do not fix it by hand. Ask for the change.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L073",
+      "scene": "diff",
+      "text": "One clear sentence in the conversation is worth ten manual edits.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L074",
+      "scene": "checks",
+      "text": "Step six. Let the checks run.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L075",
+      "scene": "checks",
+      "text": "Every pull request starts GitHub Actions. Those are the checks at the bottom.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L076",
+      "scene": "checks",
+      "text": "Green means the build and the tests passed.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L077",
+      "scene": "checks",
+      "text": "Red means something failed, and the log will tell you what.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L078",
+      "scene": "checks",
+      "text": "Sometimes a check is red because of the setup, not because of your code.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L079",
+      "scene": "checks",
+      "text": "Read the first error only. Fixing the first error often fixes the rest.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L080",
+      "scene": "checks",
+      "text": "Ask the agent to fix it, and it pushes to the same branch.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L081",
+      "scene": "checks",
+      "text": "The pull request updates itself. You do not open a second one.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L082",
+      "scene": "checks",
+      "text": "Wait for green before you merge.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L083",
+      "scene": "checks",
+      "text": "Not because rules are nice, but because green is information.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L084",
+      "scene": "merge",
+      "text": "Step seven. Merge, and put it online.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L085",
+      "scene": "merge",
+      "text": "Press Merge pull request, then Confirm.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L086",
+      "scene": "merge",
+      "text": "The branch is folded into main, and the pull request closes itself.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L087",
+      "scene": "merge",
+      "text": "If you turned on GitHub Pages, main is now a live website.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L088",
+      "scene": "merge",
+      "text": "The address is your username dot github dot io, slash the repository name.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L089",
+      "scene": "merge",
+      "text": "It takes about a minute. Refresh until it appears.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L090",
+      "scene": "merge",
+      "text": "Your first version is live, and every change after this is the same loop.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L091",
+      "scene": "merge",
+      "text": "Small prompt. Read the diff. Wait for green. Merge.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L092",
+      "scene": "merge",
+      "text": "That is the whole job.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L093",
+      "scene": "feature",
+      "text": "Let us do it once more, in real time, with a second feature.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L094",
+      "scene": "feature",
+      "text": "The site lists books. Now you want a search box.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L095",
+      "scene": "feature",
+      "text": "The prompt names the outcome, the constraint, and the thing to leave alone.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L096",
+      "scene": "feature",
+      "text": "Add a search box above the list.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L097",
+      "scene": "feature",
+      "text": "It should filter the cards as I type, ignore capital letters, and show a message when nothing matches.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L098",
+      "scene": "feature",
+      "text": "Do not change the card design, and do not add a library.",
+      "gap_before": 0.0,
+      "pause_after": 0.5,
+      "rate": 0.96
+    },
+    {
+      "id": "L099",
+      "scene": "feature",
+      "text": "One file changes. One pull request. About forty lines.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L100",
+      "scene": "feature",
+      "text": "You read the diff in under a minute, and you merge.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L101",
+      "scene": "feature",
+      "text": "That is what ten thousand commits look like from the outside.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L102",
+      "scene": "feature",
+      "text": "Small, reviewed, reversible steps, stacked until it is a product.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L103",
+      "scene": "mistakes",
+      "text": "Step eight. What to do when it goes wrong.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L104",
+      "scene": "mistakes",
+      "text": "It will go wrong. The tool is fast, and fast tools make confident mistakes.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L105",
+      "scene": "mistakes",
+      "text": "If the site breaks, open the pull request that broke it, and press Revert.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L106",
+      "scene": "mistakes",
+      "text": "That creates a new commit which undoes the old one. Nothing is lost.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L107",
+      "scene": "mistakes",
+      "text": "If the agent goes in circles, start a new conversation with a smaller ask.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L108",
+      "scene": "mistakes",
+      "text": "A long confused conversation gets more confused, not less.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L109",
+      "scene": "mistakes",
+      "text": "If it deleted something you wanted, the history still has it.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L110",
+      "scene": "mistakes",
+      "text": "That is the whole reason we commit.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L111",
+      "scene": "mistakes",
+      "text": "Recovery is a skill. Practise it before you need it.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L112",
+      "scene": "patterns",
+      "text": "Step nine. The patterns that make prompts work.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L113",
+      "scene": "patterns",
+      "text": "Name the outcome, not the technique.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L114",
+      "scene": "patterns",
+      "text": "Say what the user sees, not which function to write.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L115",
+      "scene": "patterns",
+      "text": "Give one example. A rough example beats a perfect adjective.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L116",
+      "scene": "patterns",
+      "text": "State the constraint. No framework. Under fifty lines. Do not touch the header.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L117",
+      "scene": "patterns",
+      "text": "Ask for a plan first when the task is big.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L118",
+      "scene": "patterns",
+      "text": "Say what to leave alone. That sentence saves the most time.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L119",
+      "scene": "patterns",
+      "text": "Ask for one idea per pull request, because one idea is easy to review.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L120",
+      "scene": "patterns",
+      "text": "Paste the error, not your theory about the error.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L121",
+      "scene": "patterns",
+      "text": "And when it works, say so, and ask for the next smallest step.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L122",
+      "scene": "patterns",
+      "text": "You are steering. It is not driving.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L123",
+      "scene": "safety",
+      "text": "Step ten. Keep your secrets out of the repository.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L124",
+      "scene": "safety",
+      "text": "Never paste a password, a key, or a token into a file.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L125",
+      "scene": "safety",
+      "text": "If a project needs a secret, put it in the repository settings, under Secrets.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L126",
+      "scene": "safety",
+      "text": "A public repository is public forever.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L127",
+      "scene": "safety",
+      "text": "Assume that anything committed will eventually be read.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L128",
+      "scene": "safety",
+      "text": "If a key does leak, revoke it first, and clean the history second.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L129",
+      "scene": "safety",
+      "text": "Revoking takes ten seconds. Cleaning history takes an afternoon.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L130",
+      "scene": "habits",
+      "text": "Step eleven. The habits that keep this fast.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L131",
+      "scene": "habits",
+      "text": "Keep main working. Break work in branches, and merge only what is green.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L132",
+      "scene": "habits",
+      "text": "One pull request, one idea.",
+      "gap_before": 0.0,
+      "pause_after": 0.35,
+      "rate": 0.96
+    },
+    {
+      "id": "L133",
+      "scene": "habits",
+      "text": "Reviewing ten small ones beats reviewing one huge one, every time.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L134",
+      "scene": "habits",
+      "text": "Write the README as you go, so the next prompt has context.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L135",
+      "scene": "habits",
+      "text": "Write commit messages in plain English. Future you is a reader.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L136",
+      "scene": "habits",
+      "text": "Keep the list of what is next inside the repository, not in your head.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L137",
+      "scene": "habits",
+      "text": "And once a week, look at what you shipped.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L138",
+      "scene": "habits",
+      "text": "The list is usually longer than you think.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L139",
+      "scene": "habits",
+      "text": "Speed comes from the loop, not from the typing.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L140",
+      "scene": "recap",
+      "text": "Let us put the whole loop back together.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L141",
+      "scene": "recap",
+      "text": "Create the repository. Connect the account. Check the repository name.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L142",
+      "scene": "recap",
+      "text": "Write a small prompt that names the outcome and the constraint.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L143",
+      "scene": "recap",
+      "text": "Let the agent work in a branch, and read what it says it did.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L144",
+      "scene": "recap",
+      "text": "Read the diff, file by file, and ask for changes.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L145",
+      "scene": "recap",
+      "text": "Wait for green checks, then merge, then watch the site update.",
+      "gap_before": 0.0,
+      "pause_after": 0.45,
+      "rate": 0.96
+    },
+    {
+      "id": "L146",
+      "scene": "recap",
+      "text": "When it breaks, revert, and take a smaller step.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L147",
+      "scene": "recap",
+      "text": "That is vibe coding on Arena, through GitHub.",
+      "gap_before": 0.0,
+      "pause_after": 0.8,
+      "rate": 0.96
+    },
+    {
+      "id": "L148",
+      "scene": "outro",
+      "text": "You do not need to know how to write every line.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L149",
+      "scene": "outro",
+      "text": "You need to know what you want, and how to check it.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L150",
+      "scene": "outro",
+      "text": "Start with one page, one prompt, one pull request.",
+      "gap_before": 0.0,
+      "pause_after": 0.4,
+      "rate": 0.96
+    },
+    {
+      "id": "L151",
+      "scene": "outro",
+      "text": "Then do it again tomorrow, and let the repository become the proof.",
+      "gap_before": 0.0,
+      "pause_after": 0.6,
+      "rate": 0.96
+    }
+  ]
+}

@@ -21,6 +21,7 @@ import { solve, neutralPose, twoBoneIK, plantFoot, sampleVisemes, blinkAt, BONES
 import { characterFrame, walkPose, speechTimeline, blinkSchedule, HIP_HEIGHT, blendPoses, GROUND } from './animate.mjs';
 import { drawStick, stickGeometry, resolveInk, INK, STICK } from './stick.mjs';
 import { EXPRESSIONS, expressionForLine, expressionAt, expressionCues, actingAt, actingCues, blendExpression, NEUTRAL } from './expression.mjs';
+import { drawSilhouette, SIL, capsulePath, capePath } from './silhouette.mjs';
 
 const failures = [];
 const checks = [];
@@ -602,6 +603,73 @@ function recordingContext() {
   }
   check('a violent sway does not fly the cape off the figure', far < 3000,
     `hem reached ${far.toFixed(0)} px from the chest`);
+}
+
+// 20. the silhouette pen: a body, not a diagram
+{
+  const frame = characterFrame(1.6, { scale: 0.6, groundY: 1200, hipX: 400 });
+  const ctx = recordingContext();
+  const info = drawSilhouette(ctx, frame.solved, {
+    expression: EXPRESSIONS.talk, viseme: { open: 0.5 }, cape: true, capeSway: 0.2, frame: 5,
+  });
+  const fills = ctx.ops.filter((op) => op[0] === 'fill');
+  const strokes = ctx.ops.filter((op) => op[0] === 'stroke');
+  const paint = (op) => String(op[1]).toLowerCase();
+
+  // The whole point of the pen. An outline is what made the old figure read as a
+  // template: a drawn shape says "drawing of a person", a filled one says person.
+  check('the silhouette has a body: many filled shapes', fills.length >= 12, `${fills.length} fills`);
+  check('the body is not outlined', strokes.every((op) => paint(op) === String(INK.paper).toLowerCase()),
+    `strokes painted ${[...new Set(strokes.map(paint))].join(', ')}`);
+  check('the head is solid ink, not a paper disc with a line around it',
+    fills.filter((op) => paint(op) === String(INK.ink).toLowerCase()).length > 0, 'no ink fill');
+  check('the face is cut out of the head in paper', fills.some((op) => paint(op) === String(INK.paper).toLowerCase()),
+    'nothing was painted in paper');
+
+  // The far side is a lighter flat tone, not transparency: a translucent limb
+  // shows the cape through it and reads as a hole in the figure.
+  const tones = [...ctx.colours].map(String);
+  check('the far side is a flat tone, not a transparent limb', tones.some((v) => /^rgb\(/.test(v)),
+    `colours: ${tones.join(', ')}`);
+
+  // Cape behind the figure: the first ink fill is the cloth.
+  const firstInk = fills.findIndex((op) => paint(op) === String(INK.ink).toLowerCase());
+  check('the cape is drawn before the limbs', firstInk <= 1, `first ink fill at ${firstInk}`);
+  check('the cape carries the one accent', ctx.colours.has(INK.accent), 'the lining was not drawn');
+
+  // Sizes still come from the solved bones, frame after frame.
+  const tall = drawSilhouette(recordingContext(), characterFrame(1.6, { scale: 1.2, groundY: 1200, hipX: 400 }).solved, { cape: false });
+  check('the silhouette sizes itself from the solved bones',
+    Math.abs(tall.widths.thigh / info.widths.thigh - 2) < 0.01,
+    `thigh width ratio ${(tall.widths.thigh / info.widths.thigh).toFixed(3)} at double scale`);
+  check('the head is sized from the head bone',
+    Math.abs(info.radius - frame.solved.head.length * SIL.head) < 1e-6,
+    `${info.radius} vs ${frame.solved.head.length * SIL.head}`);
+
+  // A capsule must close on itself; an open path fills as a wedge.
+  const cap = recordingContext();
+  capsulePath(cap, [0, 0], [100, 40], 12, 6);
+  const closes = cap.ops.some((op) => op[0] === 'closePath');
+  check('a limb capsule is a closed shape', closes, 'the capsule path was left open');
+
+  // The cape must taper to a point; a cloak that ends in a wide hem is a skirt.
+  const swing = recordingContext();
+  const cloth = capePath(swing, frame.solved, info.widths, { sway: 0, reach: 1 });
+  const first = cloth.widths[0];
+  const last = cloth.widths[cloth.widths.length - 1];
+  check('the cape tapers to a point', last < first * 0.45, `tip ${last.toFixed(1)} vs collar ${first.toFixed(1)}`);
+  const swung = recordingContext();
+  const far = capePath(swung, frame.solved, info.widths, { sway: 0.5, reach: 1 });
+  check('the cape hangs below the hip', far.spine[far.spine.length - 1][1] > frame.solved.spine.origin[1],
+    'the hook never left the shoulder');
+
+  // Determinism: the same frame and the same options draw the same picture.
+  const a = recordingContext();
+  const b = recordingContext();
+  const opts = { expression: EXPRESSIONS.stern, viseme: { open: 0.2 }, cape: true, capeSway: 0.1, frame: 9 };
+  drawSilhouette(a, frame.solved, opts);
+  drawSilhouette(b, frame.solved, opts);
+  check('the silhouette is deterministic', JSON.stringify(a.ops) === JSON.stringify(b.ops), 'two identical draws differed');
 }
 
 const failed = failures.length > 0;
