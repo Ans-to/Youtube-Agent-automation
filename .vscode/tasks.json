@@ -2,6 +2,39 @@
   "version": "2.0.0",
   "tasks": [
     {
+      "label": "OfflineAgentHQ: Start dashboard",
+      "type": "shell",
+      "command": "python dashboard.py",
+      "windows": { "command": "python dashboard.py" },
+      "linux": { "command": "python3 dashboard.py" },
+      "osx": { "command": "python3 dashboard.py" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "OfflineAgentHQ: Run local tests",
+      "type": "shell",
+      "command": "python -m unittest discover -s tests -v",
+      "windows": { "command": "python -m unittest discover -s tests -v" },
+      "linux": { "command": "python3 -m unittest discover -s tests -v" },
+      "osx": { "command": "python3 -m unittest discover -s tests -v" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "group": { "kind": "test", "isDefault": true },
+      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "OfflineAgentHQ: Syntax check",
+      "type": "shell",
+      "command": "python -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py",
+      "windows": { "command": "python -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py" },
+      "linux": { "command": "python3 -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py" },
+      "osx": { "command": "python3 -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py" },
+      "options": { "cwd": "${workspaceFolder}" },
+      "problemMatcher": []
+    },
+    {
       "label": "OfflineAgentHQ: Safe sync and test",
       "type": "shell",
       "command": "powershell.exe",
@@ -16,7 +49,7 @@
       "problemMatcher": []
     },
     {
-      "label": "OfflineAgentHQ: Run local tests",
+      "label": "OfflineAgentHQ: Run local tests (no sync)",
       "type": "shell",
       "command": "powershell.exe",
       "args": [

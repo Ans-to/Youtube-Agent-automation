@@ -154,6 +154,33 @@ class DashboardWorkflowTests(unittest.TestCase):
         self.assertNotIn("<script>", rendered)
         self.assertIn("&lt;script&gt;", rendered)
 
+    def test_command_deck_is_served_from_the_repository_template(self):
+        self.assertTrue(dashboard.DECK.is_file())
+        self.assertEqual(dashboard.HTML_PAGE, dashboard.DECK.read_text(encoding="utf-8"))
+
+    def test_command_deck_declares_no_external_resources(self):
+        # The dashboard must render with no network access: no CDN fonts, no
+        # remote stylesheets, no remote images. XML namespace identifiers such
+        # as xmlns="http://www.w3.org/2000/svg" are not fetches and are allowed.
+        import re
+        html = dashboard.HTML_PAGE
+        fetches = re.findall(r'(?:src|href)\s*=\s*["\'](https?:)?//[^"\']+', html)
+        self.assertEqual(fetches, [])
+        self.assertNotIn("url(http", html)
+        self.assertNotIn("url(//", html)
+        self.assertNotIn("@import", html)
+        self.assertNotIn("fonts.googleapis", html)
+
+    def test_command_deck_stills_exist_for_every_referenced_image(self):
+        import re
+        referenced = set(re.findall(r'/stills/([A-Za-z0-9_.-]+\.jpg)', dashboard.HTML_PAGE))
+        self.assertEqual(referenced, {"hero.jpg", "code.jpg", "server.jpg", "studio.jpg"})
+        for name in referenced:
+            with self.subTest(still=name):
+                path = dashboard.BASE / "web" / "stills" / name
+                self.assertTrue(path.is_file())
+                self.assertGreater(path.stat().st_size, 2048)
+
 
 if __name__ == "__main__":
     unittest.main()

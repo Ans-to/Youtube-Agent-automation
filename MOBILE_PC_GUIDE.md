@@ -10,6 +10,8 @@ Offline Agent HQ uses a browser-based, responsive dashboard with a Python local 
 4. Run start_windows.bat, or from the project root run python dashboard.py. The app opens in your default browser by itself.
 5. To install it as an app, use the install icon in Edge or Chrome, or menu > Apps > Install this site as an app. See [docs/INSTALL.md](docs/INSTALL.md).
 
+To run and debug it from the editor instead, open the folder in VS Code and press `F5` (choose **Agent HQ: Dashboard**). The preconfigured launch and task definitions are described in [docs/VSCODE.md](docs/VSCODE.md).
+
 The local model is disabled by default. The dashboard and template workflows can run without API keys, but meaningful AI generation requires a compatible local inference server configured in your private config.json. Local video rendering requires Node.js, Chromium/Puppeteer, and FFmpeg. Optional Urdu narration requires a compatible local Piper model. Optional YouTube uploads require Google OAuth and explicit release approval.
 
 ## Android phone
