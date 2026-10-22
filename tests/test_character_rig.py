@@ -7,6 +7,10 @@ broken skeleton fails the normal test suite instead of only a manual render.
 Every check in that file corresponds to a bug that actually shipped during
 development: NaN bone lengths, feet floating above the floor, IK mixing authored
 and world-space lengths, and artwork drifting from the skeleton.
+
+The second class renders the actual film. A monochrome claim is only worth
+anything if the pixels are grey, so one test decodes a rendered frame and
+measures the colour spread of every pixel.
 """
 import json
 import math
@@ -52,7 +56,18 @@ class CharacterRigTests(unittest.TestCase):
     def test_selfcheck_reports_every_check(self):
         names = [check["name"] for check in self.report.get("checks", [])]
         self.assertTrue(names, "the rig self-check produced no checks")
-        self.assertGreaterEqual(len(names), 10, "the self-check lost coverage")
+        self.assertGreaterEqual(len(names), 40, "the self-check lost coverage")
+
+    def test_the_stickman_checks_are_present(self):
+        names = " | ".join(check["name"] for check in self.report.get("checks", []))
+        for wanted in (
+            "every colour the stickman paints is greyscale",
+            "the same frame and the same boil draw the same picture",
+            "with boil off the picture does not depend on the frame number",
+            "a warm paper colour is refused",
+            "thigh weight is a fraction of the solved thigh bone",
+        ):
+            self.assertIn(wanted, names)
 
     def test_no_check_failed(self):
         failures = self.report.get("failures") or []
@@ -126,6 +141,80 @@ class CharacterFilmTimingTests(unittest.TestCase):
         self.assertAlmostEqual(kinds["impact"], expected - 0.18, places=2)
         self.assertLess(kinds["whoosh"], kinds["impact"])
         self.assertLess(kinds["click"], kinds["whoosh"])
+
+
+MONO_PROBE = """
+import { createCanvas, loadImage } from '@napi-rs/canvas';
+const image = await loadImage(process.argv[1]);
+const canvas = createCanvas(image.width, image.height);
+const ctx = canvas.getContext('2d');
+ctx.drawImage(image, 0, 0);
+const { data } = ctx.getImageData(0, 0, image.width, image.height);
+let worst = 0;
+let saturated = 0;
+for (let i = 0; i < data.length; i += 4) {
+  const r = data[i], g = data[i + 1], b = data[i + 2];
+  const spread = Math.max(r, g, b) - Math.min(r, g, b);
+  if (spread > worst) worst = spread;
+  if (spread > 12) saturated += 1;
+}
+console.log(JSON.stringify({ width: image.width, height: image.height, worst_spread: worst, saturated_pixels: saturated }));
+"""
+
+
+@unittest.skipIf(not canvas_ready() or not FILM.is_file(), "node, canvas or the film is unavailable")
+class CharacterMonochromeTests(unittest.TestCase):
+    """The channel is black and white, so a colour pixel is a bug, not a taste."""
+
+    def render(self, out: Path, extra: list[str]) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [NODE, str(FILM), "--out", str(out), "--width", "640",
+             "--still", "1.0,4.4", "--quiet", *extra],
+            cwd=str(STUDIO), capture_output=True, text=True, timeout=300, check=False,
+        )
+
+    def measure(self, image: Path) -> dict:
+        result = subprocess.run(
+            [NODE, "--input-type=module", "-e", MONO_PROBE, str(image)],
+            cwd=str(STUDIO), capture_output=True, text=True, timeout=180, check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr[-500:])
+        return json.loads(result.stdout)
+
+    def test_a_default_render_is_grey_to_the_last_pixel(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "frames"
+            result = self.render(out, [])
+            self.assertEqual(result.returncode, 0, result.stderr[-800:])
+            film = json.loads((out / "film.json").read_text(encoding="utf-8"))
+            self.assertEqual(film["character"]["style"], "stick")
+            self.assertTrue(film["character"]["monochrome"])
+            self.assertIsNone(film["character"]["ink"]["accent"])
+            report = self.measure(out / "still-4.40.jpg")
+
+        # JPEG chroma subsampling moves a pixel by a value or two even on a grey
+        # image; anything wider than that is a real colour leaking in.
+        self.assertLessEqual(report["worst_spread"], 12,
+                             f"a colour leaked into a monochrome frame: {report}")
+        self.assertEqual(report["saturated_pixels"], 0, report)
+
+    def test_the_design_pen_is_still_available(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "frames"
+            result = self.render(out, ["--style", "design"])
+            self.assertEqual(result.returncode, 0, result.stderr[-800:])
+            film = json.loads((out / "film.json").read_text(encoding="utf-8"))
+        self.assertEqual(film["character"]["style"], "design")
+        self.assertFalse(film["character"]["monochrome"])
+
+    def test_the_pen_and_the_boil_are_validated(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            unknown = self.render(Path(tmp) / "a", ["--style", "crayon"])
+            negative = self.render(Path(tmp) / "b", ["--boil", "-2"])
+        self.assertNotEqual(unknown.returncode, 0)
+        self.assertIn("Unknown --style", unknown.stderr + unknown.stdout)
+        self.assertNotEqual(negative.returncode, 0)
+        self.assertIn("--boil", negative.stderr + negative.stdout)
 
 
 if __name__ == "__main__":
