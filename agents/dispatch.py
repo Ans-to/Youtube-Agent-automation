@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Run one of the specialist profiles with an injected field-specific playbook."""
-import argparse,json,re,urllib.request,urllib.error,urllib.parse,ipaddress
+import argparse,json,re
 from adhd_style import runtime_instructions
 from datetime import datetime
 from pathlib import Path
@@ -28,22 +28,8 @@ SKILLBOOK=BASE/"skillbooks.json"
 MOTION_ROLES={"AGENT-19","AGENT-20","AGENT-21","AGENT-22","AGENT-23","AGENT-24","AGENT-25","AGENT-31","AGENT-32","AGENT-33","AGENT-41","AGENT-42","AGENT-51","AGENT-52"}
 FEEDBACK_DIR=ROOT/"workspace"/"training"/"feedback"
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, "Redirects are disabled for local model requests", headers, fp)
-
-def post_local_model(url, body, timeout):
-    parts=urllib.parse.urlsplit(url)
-    try:
-        address=ipaddress.ip_address(parts.hostname or "");port=parts.port
-    except ValueError as exc:
-        raise ValueError("Use a literal loopback IP endpoint such as http://127.0.0.1:8080/v1/chat/completions.") from exc
-    if parts.scheme!="http" or not address.is_loopback or port is None or not 1<=port<=65535 or parts.username or parts.password or parts.query or parts.fragment:
-        raise ValueError("Only a plain HTTP endpoint on a literal loopback IP and explicit port is allowed.")
-    req=urllib.request.Request(url,data=json.dumps(body).encode("utf-8"),headers={"Content-Type":"application/json","Accept":"application/json"},method="POST")
-    with urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect()).open(req,timeout=max(1,min(int(timeout),300))) as response:data=json.loads(response.read(20*1024*1024+1).decode("utf-8"))
-    if not isinstance(data,dict):raise ValueError("Local model response must be a JSON object.")
-    return data
+# The loopback check and the request live in one shared adapter.
+from app.infrastructure.local_model import post_local_model  # noqa: E402
 
 def load_json(path,default):
     try:return json.loads(path.read_text(encoding="utf-8"))

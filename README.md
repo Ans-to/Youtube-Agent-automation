@@ -35,6 +35,10 @@ See the [roadmap](docs/ROADMAP.md) for the honest gap to professional motion des
 
 **The rules are enforced, not just described.** [docs/NORTH_STAR.md](docs/NORTH_STAR.md) is the project's contract: no paid services, no API keys, loopback-only inference, deterministic local rendering, writes confined to `workspace/`, and approval gates on irreversible actions. `python tools/check_invariants.py` fails the build if first-party code starts depending on a billable service, commits a credential-shaped literal, points the model at a non-loopback endpoint, or removes a safety mechanism.
 
+**The codebase rules are enforced too.** [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) defines the layers, and `python tools/check_structure.py` fails the build when they slip: an import from `app/` back into the UI, a module-level run flag, a helper copied into a second file instead of shared, a name that does not follow the conventions, a new script dropped in the repository root, or an entry point growing past its budget. The same check runs in CI and inside `tools/run_quality_gate.py`.
+
+**The business logic is separate from the interface.** `app/` holds configuration, paths, run state and the workflows; `ui/dashboard/` holds routing, request limits and page rendering; the top-level `dashboard.py` is 240 lines of wiring and a launcher. A change to how a task is queued does not touch a template, and a change to a page does not touch the queue. State lives in one object (`app.state.RunState`) with one lock instead of twelve module globals — four of which, it turned out, were never written by anything.
+
 ## What is implemented
 
 - **Local dashboard:** mobile-friendly command deck at `http://127.0.0.1:8765` with seven working areas — overview, tasks, video studio, CEO pipeline, products, roster, outputs — switched with the left rail, keys `1`–`7`, or the command bar. The page lives in `web/deck.html` and renders only from `/api/state`; see [docs/UI.md](docs/UI.md).
@@ -214,7 +218,7 @@ Run the portable quality gate from the repository root in Windows PowerShell, Co
 python tools/run_quality_gate.py
 ```
 
-That compiles project Python, runs the full unit-test suite, checks renderer JavaScript syntax when Node.js is installed, and prints the device-capability profile. For actual landscape and vertical MP4 renders, use the stricter end-to-end mode after installing Node.js, FFmpeg/FFprobe, and the renderer's Puppeteer dependency:
+That compiles project Python, enforces the North Star invariants, enforces the code-structure rules, runs the full unit-test suite, checks renderer JavaScript syntax when Node.js is installed, and prints the device-capability profile. In VS Code the same checks are on the task list: **OfflineAgentHQ: Check structure** and **OfflineAgentHQ: Run local tests**. For actual landscape and vertical MP4 renders, use the stricter end-to-end mode after installing Node.js, FFmpeg/FFprobe, and the renderer's Puppeteer dependency:
 
 ```sh
 python tools/run_quality_gate.py --render-smoke --report workspace/local-quality-gate-report.json

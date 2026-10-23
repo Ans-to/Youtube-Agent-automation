@@ -43,18 +43,13 @@ class DependencyMissing(RuntimeError):
 
 
 def resolve_ffmpeg() -> str:
-    ffmpeg = shutil.which("ffmpeg")
-    if ffmpeg:
-        return ffmpeg
-    try:  # the same optional convenience the render drivers offer
-        import imageio_ffmpeg
+    """FFmpeg, or this tool's own dependency error. Logic lives in one adapter."""
+    from app.infrastructure.ffmpeg import require_ffmpeg
 
-        bundled = imageio_ffmpeg.get_ffmpeg_exe()
-        if Path(bundled).is_file():
-            return bundled
-    except Exception:  # noqa: BLE001 - an absent optional dependency is not an error
-        pass
-    raise DependencyMissing("FFmpeg is not installed (apt-get install ffmpeg, or pip install imageio-ffmpeg)")
+    return require_ffmpeg(
+        message="FFmpeg is not installed (apt-get install ffmpeg, or pip install imageio-ffmpeg)",
+        error=DependencyMissing,
+    )
 
 
 def find_clip(clips: Path, line_id: str) -> Path:

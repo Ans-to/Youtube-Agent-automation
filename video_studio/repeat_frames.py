@@ -45,8 +45,6 @@ This is the check that should have caught the 21-second title card.
 from __future__ import annotations
 
 import json
-import math
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -72,18 +70,18 @@ DEFAULT_MAX_STILL_SECONDS = 1.0
 
 
 def resolve_ffmpeg(ffmpeg: str | None = None) -> str | None:
-    """Prefer a system ffmpeg, fall back to the bundled imageio binary."""
+    """Prefer an explicit path, then the shared adapter (system, then bundled)."""
     if ffmpeg:
         return ffmpeg
-    found = shutil.which("ffmpeg")
-    if found:
-        return found
-    try:  # pragma: no cover - depends on the local install
-        import imageio_ffmpeg
+    try:
+        from app.infrastructure.ffmpeg import find_ffmpeg
+    except ImportError:  # run as a script from video_studio/
+        import sys
 
-        return imageio_ffmpeg.get_ffmpeg_exe()
-    except Exception:
-        return None
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from app.infrastructure.ffmpeg import find_ffmpeg  # type: ignore[no-redef]
+
+    return find_ffmpeg()
 
 
 def pool(frame: np.ndarray, blocks_x: int = BLOCKS_X, blocks_y: int = BLOCKS_Y) -> np.ndarray:

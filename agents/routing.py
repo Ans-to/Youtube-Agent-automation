@@ -42,6 +42,8 @@ from __future__ import annotations
 
 import json
 import re
+import sys
+from pathlib import Path
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
@@ -707,18 +709,17 @@ def build_route_prompt(goal: str, *, allow_model_language: bool = True) -> str:
 
 
 def _extract_json_object(text: str) -> dict | None:
-    """The first JSON object that decodes, tolerating prose around it."""
-    if not isinstance(text, str):
-        return None
-    decoder = json.JSONDecoder()
-    for match in re.finditer(r"\{", text):
-        try:
-            parsed, _ = decoder.raw_decode(text[match.start():])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict):
-            return parsed
-    return None
+    """The first JSON object that decodes, tolerating prose around it.
+
+    Shared with ``tools/tool_agent.py``; see app/infrastructure/jsonio.py.
+    """
+    try:
+        from app.infrastructure.jsonio import extract_json_object
+    except ImportError:  # standalone execution from agents/
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from app.infrastructure.jsonio import extract_json_object  # type: ignore[no-redef]
+
+    return extract_json_object(text)
 
 
 def _coerce_argument(value: Any, schema: Mapping[str, Any]) -> Any:

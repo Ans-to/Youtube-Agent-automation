@@ -4,13 +4,59 @@
 
 This repository has three connected but distinct execution surfaces. Keep their contracts separate:
 
-- **Local task application:** `dashboard.py` is the HTTP/UI entry point; `agent.py` runs queued work; `queue_store.py` owns cross-process queue locking and atomic task persistence.
+- **Local task application:** `dashboard.py` is the HTTP entry point and composition root, 30 lines of wiring plus launcher; the behaviour lives in `app/` (see *Application layers* below); `agent.py` runs queued work; `queue_store.py` owns cross-process queue locking and atomic task persistence.
 - **Agent domain and orchestration:** `agents/orchestrate.py` coordinates specialist stages; `agents/routing.py` decides which pipeline a goal needs (see [ROUTING.md](ROUTING.md)); `agents/dispatch.py` resolves role assignments; `agents/practice.py` contains training/practice workflows; `quality_outputs.py` creates explicitly labelled offline fallback artifacts.
 - **Video production:** `video_studio/production.py` coordinates research, script/storyboard creation, rendering, QA and readiness; `video_studio/studio.py` renders the storyboard; `render.js` and `render.html` implement the Canvas2D visual layer. Technical media QA is not editorial or artistic approval.
 - **Digital products:** `product_studio/build_product.py` owns the product artifact build workflow.
 - **External boundary:** `bridge/bridge.py` accepts only its allowlisted request types. YouTube publishing remains separate and approval-gated in `video_studio/publish_youtube.py`.
 - **Shared infrastructure:** `app_config.py` is the shared configuration boundary; `tools/path_utils.py` owns canonical path and workspace-containment helpers; `queue_store.py` is the source of truth for task persistence.
 - **Tool layer:** `tools/tool_runtime.py` is the only sanctioned way for an agent to read, write, or execute inside a task workspace. `tools/check_invariants.py` enforces the rules in `docs/NORTH_STAR.md`.
+
+## Application layers
+
+The extraction described under *Target folder structure* below is done for the
+local task application. New code goes in one of these, and the direction is
+enforced, not suggested:
+
+```text
+app/                                  business logic - no HTTP, no HTML
+  errors.py                           one exception vocabulary, with HTTP status
+  paths.py                            ProjectPaths: every location, declared once
+  state.py                            RunState: run flags behind one lock
+  config.py                           (via app_config.py) configuration boundary
+  services/
+    tasks.py                          TaskQueue: the durable work queue
+    workflows.py                      TaskWorker, PipelineRunner, WorkflowCoordinator
+    status.py                         the read model the UI renders
+    requests.py                       form -> validated TaskRequest (pure)
+  infrastructure/                     the only code that talks to the outside
+    local_model.py                    loopback-only model client (was copied 3x)
+    ffmpeg.py                         binary lookup (was copied 3x)
+    jsonio.py                         atomic JSON + tolerant JSON parsing (was copied 4x)
+ui/                                   presentation - may import app, never the reverse
+  dashboard/
+    server.py                         routing, request limits, error mapping
+    views.py                          the two detail pages and the error page
+    security.py                       Host/Origin rules and workspace-file checks
+web/                                  static assets and deck.html
+```
+
+Top-level `dashboard.py`, `agent.py`, `queue_store.py`, `app_config.py` and
+`quality_outputs.py` stay where they are: Windows launchers, the PowerShell
+setup scripts and the Termux instructions call them by name. Each is now thin -
+`dashboard.py` is a composition root, and its old module-level helpers delegate
+to `app/`.
+
+`tools/check_structure.py` enforces the rules on every run and in CI:
+
+| Rule | What it stops |
+| --- | --- |
+| `S1 LAYER` | `app/` importing `ui/`, `web/` or `dashboard` |
+| `S2 STATE` | module-level run flags (`RUNNING = False`) creeping back |
+| `S3 DUP` | a function body of 8+ statements copied into a second file |
+| `S4 NAME` | non-`snake_case` modules/functions, non-`PascalCase` classes |
+| `S5 ROOT` | a new script in the repository root instead of `tools/` or `app/` |
+| `S6 SIZE` | an entry point growing past its documented line budget |
 
 ## Dependency direction
 
@@ -186,6 +232,8 @@ actions) stay in the executor — routing is a decision, not a permission.
 - Errors must not include tokens, prompts, or full configuration values. Catch errors at application boundaries; preserve useful internal exception chaining for diagnostics.
 - Do not silently turn invalid configuration into a successful default run. Missing optional local config is valid; malformed config is an actionable error.
 - Prefer structured status fields for workflow errors and keep a distinction between failed, blocked, and human-review-required work.
+- Expected failures derive from `app.errors.HQError`, carry an HTTP `status`, and expose `user_message()` which is safe to render. Each also inherits its old built-in base (`ValueError`, `RuntimeError`, `OSError`) so existing `except` clauses keep working while code migrates.
+- One boundary owns the broad `except`: the HTTP handler. It maps `HQError` to its status, logs anything else with its type, and answers 500 without echoing the exception text. Inside the application, catch the narrow exceptions you can actually handle.
 
 ## Environment overrides
 
@@ -204,9 +252,23 @@ Environment variables override the corresponding local JSON values:
 
 Environment overrides are an allowlist, not a general environment-to-config merge. Never put credentials in source files or diagnostic logs.
 
-## Target folder structure
+Two more variables select *which* installation runs, rather than setting a value:
 
-The current top-level scripts are compatibility entry points used by Windows launchers, Termux instructions and automation. Do not move or rename them in a single sweeping change. As modules are extracted and tests prove parity, use this target for new code:
+| Variable | Effect |
+| --- | --- |
+| `AGENT_HQ_HOME` | run against another checkout (`app.paths.ProjectPaths.discover`) |
+| `AGENT_HQ_CONFIG` | use another file instead of `config.json` |
+
+A `.env` file beside the config is read when no explicit environment mapping is
+passed, with real environment variables winning. See `.env.example`. A malformed
+line is a `ConfigError` naming the line number and never the content.
+
+## Folder structure
+
+This is the implemented layout, not an aspiration. The top-level scripts remain
+compatibility entry points used by Windows launchers, Termux instructions and
+automation; do not move or rename them without updating those. New code goes in
+the layer that owns it:
 
 ```text
 app/
@@ -231,7 +293,8 @@ docs/             # architecture, operations, ADRs and research
 - Task status transitions must be persisted under `task_queue_lock`; interrupted work must not be silently replayed.
 - UI-only progress may be cached, but should be derived from persisted task records when possible.
 - Keep the state model explicit: pending/queued → running → completed, failed, or needs_human_action. A generated artifact does not imply that an external action occurred.
-- When extracting dashboard workflow flags into a state service, preserve the existing lock ownership, exclusive-workflow behavior and queue-resumption tests.
+- Volatile run flags are owned by `app.state.RunState`: one lock, a claim that names the owning workflow, and a consistent `snapshot()` for rendering. `dashboard.py` exposes the old names read-only; assigning to them raises rather than silently doing nothing.
+- Four of the old dashboard flags (`VIDEO_RUNNING`, `PRODUCT_RUNNING`, `PRODUCT_LAST_OUTPUT`, `TRAINING_*`) were never written by any code. They were removed; "is a video running?" is derived from the task records instead.
 
 ## Naming, reuse and dead-code policy
 
@@ -240,6 +303,8 @@ docs/             # architecture, operations, ADRs and research
 - Before deleting or renaming a file, search imports, entry points, workflows, PowerShell/BAT scripts, README commands and test fixtures. A file that looks unused may be a public launch path or a test fixture.
 - Consolidate duplicated helpers only when semantics match. In particular, do not merge the dashboard's HTML-safe Markdown renderer with domain output generation.
 - Keep deterministic smoke fixtures clearly labelled and never treat smoke-test success as production-readiness evidence.
+- Duplication is a failing check, not a preference: two identical function bodies of eight or more statements must become one shared module. Deliberate exceptions go in `ALLOWED_DUPLICATES` in `tools/check_structure.py` with a reason.
+- Configuration is not code: `config.json` (private), `.env` (private, see `.env.example`), and an allowlist of environment variables. Never read a raw environment variable for a setting that is not on that list.
 
 ## Refactoring checklist
 

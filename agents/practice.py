@@ -16,6 +16,7 @@ ROOT = BASE.parent
 WORKSPACE = (ROOT / "workspace").resolve()
 sys.path.insert(0, str(BASE))
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(ROOT / "tools"))
 import dispatch
 from queue_store import task_queue_lock
 
@@ -25,9 +26,10 @@ def utc_stamp():
 
 
 def is_within(path, parent):
-    path = Path(path).expanduser().resolve()
-    parent = Path(parent).expanduser().resolve()
-    return path != parent and parent in path.parents
+    """True when ``path`` is strictly inside ``parent`` (canonical paths)."""
+    from path_utils import is_within as shared
+
+    return shared(path, parent, allow_equal=False)
 
 
 def load_config():

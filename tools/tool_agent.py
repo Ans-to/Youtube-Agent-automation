@@ -50,6 +50,7 @@ except ImportError:  # pragma: no cover - standalone execution
     import sys
 
     sys.path.insert(0, str(Path(__file__).resolve().parent))
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     import data_analysis  # type: ignore[no-redef]
     import review  # type: ignore[no-redef]
     from path_utils import canonical_path, safe_relative_path  # type: ignore[no-redef]
@@ -227,18 +228,13 @@ def build_plan_prompt(goal: str, catalog_json: str, *, allow_exec: bool,
 # ---------------------------------------------------------------------------
 
 def _extract_json_object(text: str) -> dict | None:
-    """Return the first JSON object that decodes, tolerating prose around it."""
-    if not isinstance(text, str):
-        return None
-    decoder = json.JSONDecoder()
-    for match in re.finditer(r"\{", text):
-        try:
-            parsed, _ = decoder.raw_decode(text[match.start():])
-        except json.JSONDecodeError:
-            continue
-        if isinstance(parsed, dict):
-            return parsed
-    return None
+    """Return the first JSON object that decodes, tolerating prose around it.
+
+    Shared with ``agents/routing.py``; see app/infrastructure/jsonio.py.
+    """
+    from app.infrastructure.jsonio import extract_json_object
+
+    return extract_json_object(text)
 
 
 def parse_plan(text: str, registry: ToolRegistry, *, goal: str = "", mode: str = "model") -> ToolPlan:
