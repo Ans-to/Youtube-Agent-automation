@@ -64,7 +64,7 @@ export function roundRect(ctx, x, y, w, h, r) {
 
 export function panel(ctx, { x, y, w, h, r = 28, fill = UI.window, stroke = UI.line, alpha = 1, shadow = 0 }) {
   ctx.save();
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha);
   if (shadow) {
     ctx.shadowColor = `rgba(8,8,12,${0.18 * shadow})`;
     ctx.shadowBlur = 60 * shadow;
@@ -151,7 +151,7 @@ export function wordsIn(ctx, value, x, y, opts = {}) {
     words.forEach((word, wi) => {
       const p = clamp((progress - (index * stagger)) / 0.55);
       const e = ease.outExpo(p);
-      ctx.globalAlpha = alpha * clamp(p * 2.2);
+      ctx.globalAlpha = ctx.globalAlpha * (alpha * clamp(p * 2.2));
       text(ctx, word, cursor, y + li * lineHeight + (1 - e) * rise, {
         size, weight, family, color: opts.colorFor ? opts.colorFor(index) : color, tracking,
       });
@@ -172,7 +172,7 @@ export function browser(ctx, {
 }) {
   const outer = { x, y, w, h };
   ctx.save();
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha);
   ctx.translate(x + w / 2, y + h / 2);
   ctx.scale(scaleIn, scaleIn);
   ctx.translate(-(x + w / 2), -(y + h / 2));
@@ -192,10 +192,10 @@ export function browser(ctx, {
     ctx.beginPath();
     ctx.arc(x + 52 + i * 34, y + barH / 2, 11, 0, Math.PI * 2);
     ctx.fillStyle = colour;
-    ctx.globalAlpha = alpha * 0.9;
+    ctx.globalAlpha = ctx.globalAlpha * (alpha * 0.9);
     ctx.fill();
   });
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha);
 
   // tab
   const tabW = Math.min(w * 0.34, 720);
@@ -242,7 +242,7 @@ export function browser(ctx, {
 /** A pointer, so a click can be shown rather than described. */
 export function cursor(ctx, x, y, { alpha = 1, press = 0, scale = 1 } = {}) {
   ctx.save();
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha);
   ctx.translate(x, y);
   ctx.scale(scale * (1 - press * 0.12), scale * (1 - press * 0.12));
   ctx.beginPath();
@@ -266,7 +266,7 @@ export function cursor(ctx, x, y, { alpha = 1, press = 0, scale = 1 } = {}) {
 export function clickRing(ctx, x, y, progress, { colour = UI.gold, radius = 90 } = {}) {
   if (progress <= 0 || progress >= 1) return;
   ctx.save();
-  ctx.globalAlpha = (1 - progress) * 0.9;
+  ctx.globalAlpha = ctx.globalAlpha * ((1 - progress) * 0.9);
   ctx.strokeStyle = colour;
   ctx.lineWidth = 8 * (1 - progress) + 2;
   ctx.beginPath();
@@ -305,7 +305,7 @@ export function checkRow(ctx, { x, y, w, name, state = 'pending', progress = 1, 
   const colour = state === 'pass' ? UI.green : state === 'fail' ? UI.red : UI.faint;
   const cy = y + 34;
   ctx.save();
-  ctx.globalAlpha = progress;
+  ctx.globalAlpha = ctx.globalAlpha * (progress);
   // icon: a tick, a cross, or a spinner
   ctx.beginPath();
   ctx.arc(x + 26, cy, 24, 0, Math.PI * 2);
@@ -346,7 +346,7 @@ export function checkRow(ctx, { x, y, w, name, state = 'pending', progress = 1, 
 /** A label chip: the small caps pill used for steps and states. */
 export function chip(ctx, value, { x, y, colour = UI.ink, fill = null, size = 30, alpha = 1, pad = 22 }) {
   ctx.save();
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha);
   ctx.font = `700 ${size}px "Inter"`;
   const w = ctx.measureText(value).width + pad * 2;
   const h = size * 2.1;
@@ -365,7 +365,7 @@ export function chip(ctx, value, { x, y, colour = UI.ink, fill = null, size = 30
 /** A thin rule that draws on. */
 export function rule(ctx, x, y, w, { progress = 1, colour = UI.gold, thickness = 6, alpha = 1 } = {}) {
   ctx.save();
-  ctx.globalAlpha = alpha;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha);
   ctx.fillStyle = colour;
   ctx.fillRect(x, y, w * clamp(progress), thickness);
   ctx.restore();
@@ -382,7 +382,7 @@ export function slash(ctx, { x, y, length = 1400, angle = -0.35, progress = 0, w
   const grow = ease.outQuint(clamp(progress * 1.6));
   const fade = 1 - clamp((progress - 0.55) / 0.45);
   ctx.save();
-  ctx.globalAlpha = alpha * fade;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha * fade);
   ctx.translate(x, y);
   ctx.rotate(angle);
   ctx.beginPath();
@@ -403,7 +403,7 @@ export function slash(ctx, { x, y, length = 1400, angle = -0.35, progress = 0, w
 /** Speed lines behind a subject: the frame's own velocity. */
 export function speedLines(ctx, { x, y, w, h, progress = 1, count = 22, colour = UI.ink, alpha = 0.22, angle = 0 }) {
   ctx.save();
-  ctx.globalAlpha = alpha * clamp(progress);
+  ctx.globalAlpha = ctx.globalAlpha * (alpha * clamp(progress));
   ctx.translate(x, y);
   ctx.rotate(angle);
   for (let i = 0; i < count; i += 1) {
@@ -421,7 +421,7 @@ export function speedLines(ctx, { x, y, w, h, progress = 1, count = 22, colour =
 export function shards(ctx, { x, y, progress = 0, count = 12, radius = 700, colour = UI.ink, alpha = 1 }) {
   if (progress <= 0 || progress >= 1) return;
   ctx.save();
-  ctx.globalAlpha = alpha * (1 - progress) ** 1.4;
+  ctx.globalAlpha = ctx.globalAlpha * (alpha * (1 - progress) ** 1.4);
   for (let i = 0; i < count; i += 1) {
     const angle = (i / count) * Math.PI * 2 + noise(i) * 0.6;
     const dist = radius * ease.outQuint(progress) * (0.5 + noise(i * 3.3) * 0.8);
@@ -446,7 +446,7 @@ export function rainbowStreak(ctx, { x, y, w, h, progress = 0 }) {
   if (progress <= 0 || progress >= 1) return;
   const colours = ['#FF3B30', '#FF9500', '#F2C230', '#34C759', '#2F6FEB', '#AF52DE'];
   ctx.save();
-  ctx.globalAlpha = 0.9 * (1 - Math.abs(progress - 0.5) * 1.2);
+  ctx.globalAlpha = ctx.globalAlpha * (0.9 * (1 - Math.abs(progress - 0.5) * 1.2));
   ctx.translate(x, y);
   ctx.rotate(-0.22);
   colours.forEach((colour, i) => {
