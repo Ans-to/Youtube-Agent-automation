@@ -48,6 +48,19 @@ const DESIGN_W = 3840;
 const DESIGN_H = 2160;
 const FALLBACK_SECONDS = 690;
 
+// What "moving" means. These numbers are not this file's opinion: they are the
+// same grid and the same threshold as `video_studio/repeat_frames.py`, which is
+// what runs on the delivered file. A probe that is more forgiving than the
+// delivery check is how a film passes its own audit and then freezes at 11:25
+// on YouTube, which is exactly what happened once. tests/test_vibe_probe.py
+// fails if the two ever disagree.
+const PROBE = {
+  blockDelta: 10.0,   // grey levels a 32x18 block must move to count
+  stillShare: 0.02,   // share of blocks that must move; below this is a hold
+  lagSeconds: 0.5,    // compare against half a second ago, not the last frame
+  maxStillSeconds: 1.0,
+};
+
 // ------------------------------------------------------------------ options
 function parseArgs(argv) {
   const opts = {
@@ -453,129 +466,640 @@ function chapterOverlay(ctx, scene, local) {
 
 // ------------------------------------------------------------------- scenes
 /** A dark title card: kinetic words, a slash, and a hit. */
+/**
+ * Lay a line of words out centred, so each word can arrive on its own beat.
+ *
+ * One `text()` call per word, not one per line: a line that fades in as a block
+ * is one event, and this card needs an event every second for twenty-five
+ * seconds. Per-word arrivals also read as the narration speaking the title.
+ */
+function layoutWords(ctx, words, { size, weight = 700, family = 'Space Grotesk', gap = 46 }) {
+  const widths = words.map((word) => measure(ctx, word, { size, weight, family }));
+  const total = widths.reduce((sum, width) => sum + width, 0) + gap * (words.length - 1);
+  let x = W / 2 - total / 2;
+  return words.map((word, i) => {
+    const entry = { text: word, x, w: widths[i] };
+    x += widths[i] + gap;
+    return entry;
+  });
+}
+
+/**
+ * A word arriving: it travels up into place and overshoots slightly.
+ *
+ * The travel and the fade are what move the picture. A word of this size
+ * crossing the frame is a dozen blocks changing at once, which is the only
+ * thing a freeze detector at delivery scale can actually see; a small word
+ * fading in is invisible to it and reads as a slide to a viewer.
+ */
+function slamWord(ctx, entry, y, at, local, colour, {
+  size, travel = 170, duration = 0.85, centre = false, alpha = 1,
+} = {}) {
+  const p = span(local, at, at + duration);
+  if (p <= 0) return false;
+  const e = ease.outExpo(p);
+  ctx.save();
+  ctx.globalAlpha = clamp(p * 3.2) * alpha;
+  ctx.translate(0, (1 - e) * travel);
+  text(ctx, entry.text, centre ? entry.x + entry.w / 2 : entry.x, y, {
+    size, weight: 700, family: 'Space Grotesk', color: colour,
+    align: centre ? 'center' : 'left',
+  });
+  ctx.restore();
+  return true;
+}
+
+/**
+ * The opening card: four spoken lines, four acts.
+ *
+ * The card used to land its type in the first two seconds and then hold for
+ * twenty-three, and the freeze detector found seven dead spans in it. Each
+ * spoken line now owns its own staging, and every stage is carried by big
+ * moving parts: words crossing the frame, a ring of steps turning, slabs
+ * stamping down. The narration is still the clock - every `at` below is
+ * computed from the line's own start and end, so a slower read of the same
+ * script spreads the same events out.
+ */
 function drawTitle(ctx, scene, t, local) {
   stageField(ctx, t, true);
-  const total = scene.end - scene.start;
   speedLines(ctx, { x: W / 2, y: H / 2, w: W * 1.4, h: H, progress: 1, count: 26, colour: '#FFFFFF', alpha: 0.05, angle: -0.2 });
 
-  const p = span(local, 0.1, 2.2);
-  const lines = scene.title.split('\n');
-  lines.forEach((line, i) => {
-    const lp = span(local, 0.15 + i * 0.22, 1.4 + i * 0.22);
-    const e = ease.outExpo(lp);
-    ctx.save();
-    ctx.globalAlpha = clamp(lp * 2);
-    text(ctx, line, W / 2 + (1 - e) * 120, H / 2 - 120 + i * 190, {
-      size: i === 0 ? 190 : 190, weight: 700, family: 'Space Grotesk',
-      color: i === lines.length - 1 ? UI.gold : UI.white, align: 'center',
-    });
-    ctx.restore();
-  });
+  const beat = (line) => (line ? line.start - scene.start : 99);
+  const over = (line) => (line ? line.end - scene.start : 99);
+  const e0 = over(scene.lines[0]);
+  const b1 = beat(scene.lines[1]);
+  const b2 = beat(scene.lines[2]);
+  const b3 = beat(scene.lines[3]);
+  const e3 = over(scene.lines[3]);
 
-  // the hit lands on the loudest word, not on frame one
-  const hit = span(local, 1.5, 1.9);
-  if (hit > 0) {
-    slash(ctx, { x: W / 2, y: H / 2 + 40, length: W * 0.95, angle: -0.06, progress: span(local, 1.5, 2.3), width: 30, colour: UI.red });
-    shards(ctx, { x: W / 2, y: H / 2, progress: span(local, 1.5, 2.4), count: 14, radius: 900, colour: UI.gold });
-  }
   if (local < 0.16) {
     ctx.fillStyle = `rgba(255,255,255,${(1 - local / 0.16) * 0.9})`;
     ctx.fillRect(0, 0, W, H);
   }
 
-  // The card is on screen for twenty-three seconds. Words that land once and
-  // then sit there are a slide, so the four spoken sentences each change the
-  // frame: the name stamps, the three promises arrive, and the words lift to
-  // make room. Each arrival is a beat the viewer can see, not a caption change.
-  const beat = (line) => (line ? line.start - scene.start : 99);
+  // ---------------------------------------------------------- act 1: title
+  // The title arrives as two lines, not five words. Measured at delivery
+  // scale a short word like "IT" moves four blocks of the picture and passes
+  // as a slide; a whole line moves thirteen and registers. The slash then
+  // holds the frame: it grows under the title and fades out of it, so the
+  // first line of narration is a single staged moment instead of two type
+  // entrances and eight quiet seconds.
+  // Whole lines, so each arrival is one solid block of type.
+  const lineEntries = [
+    layoutWords(ctx, ['BUILD IT'], { size: 230, gap: 0 })[0],
+    layoutWords(ctx, ['BY DESCRIBING IT'], { size: 230, gap: 0 })[0],
+  ];
 
-  // 1. the name of the thing, stamped in the corner like a channel ident
-  const nameAt = beat(scene.lines[2]);
-  const nameP = clamp(span(local, nameAt - 0.2, nameAt + 0.5));
-  if (nameP > 0) {
+  // Fast slams, not slow ones. Measured on this material: a slam is visible
+  // to the detector for about 0.8 seconds - a quick alpha ramp, a fast cross
+  // of the frame, and half a second of comparison lag. Drift slower than that
+  // and the picture is a slide. Every event below is spaced on that number,
+  // and the slots are fractions of the spoken line so a slow read spreads
+  // them and a fast read bunches them without ever freezing.
+  const slam1 = 0.4;
+  const slam2 = Math.min(Math.max(0.4 + (e0 - 0.4) * 0.12, 1.3), 1.7);
+  const span1 = Math.max(0.8, b1 - slam2);
+  const ev = (f) => slam2 + span1 * f;
+  const slamDur = 0.7;
+  const slamTravel = 240;
+  const hitAt = ev(0.12);
+  const compactAt = ev(0.28);
+  const slashOffAt = ev(0.44);
+
+  // From act 2 the title lifts and dims; from act 3 it is gone. Staging, not
+  // a fade: the frame changes composition on every spoken line.
+  const lift = ease.inOutCubic(clamp(span(local, b1 - 1.1, b1 + 0.2)));
+  const gone = ease.inOutCubic(clamp(span(local, b2 - 0.2, b2 + 0.7)));
+  // after the hit the title compacts upward, making room for the definition
+  const compact = ease.outCubic(clamp(span(local, compactAt, compactAt + 0.7)));
+
+  lineEntries.forEach((entry, i) => {
+    const at = i === 0 ? slam1 : slam2;
+    const p = span(local, at, at + slamDur);
+    if (p <= 0) return;
+    const e = ease.outExpo(p);
+    ctx.save();
+    ctx.globalAlpha = clamp(p * 3.2) * (1 - lift * 0.5) * (1 - gone);
+    ctx.translate(0, (1 - e) * slamTravel - compact * 220 - lift * 200 - gone * 340);
+    text(ctx, entry.text, entry.x, (i === 0 ? 960 : 1150), {
+      size: 230, weight: 700, family: 'Space Grotesk',
+      color: i === 0 ? UI.white : UI.gold,
+    });
+    ctx.restore();
+  });
+
+  const slashEnd = Math.min(b1 + 0.5, hitAt + 4.5);
+  const slashOff = ease.inCubic(clamp(span(local, slashOffAt, slashOffAt + 0.7)));
+  if (local > hitAt && slashOff < 1) {
+    // a band of light falls through the frame as the slash lands
+    const band = span(local, hitAt, hitAt + 0.45);
+    if (band < 1) {
+      const g = ctx.createLinearGradient(0, -200 + band * (H + 400), 0, 320 + band * (H + 400));
+      g.addColorStop(0, 'rgba(255,240,190,0)');
+      g.addColorStop(0.5, `rgba(255,240,190,${0.32 * (1 - band)})`);
+      g.addColorStop(1, 'rgba(255,240,190,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+    // the slash leaves by travelling out of frame, not by fading: a fade
+    // moves almost nothing measurable, a 46-pixel bar crossing the picture
+    // moves half of it
+    ctx.save();
+    ctx.translate(slashOff * 900, slashOff * 420);
+    slash(ctx, {
+      x: W / 2, y: H / 2 + 40, length: W * 0.95, angle: -0.06,
+      progress: span(local, hitAt, slashEnd), width: 46, colour: UI.red,
+    });
+    ctx.restore();
+    shards(ctx, { x: W / 2, y: H / 2, progress: span(local, hitAt, hitAt + 0.9), count: 14, radius: 900, colour: UI.gold });
+  }
+
+  // The card's own closing line performs itself: three phrases swapping places
+  // under the title. Each swap is two blocks of type crossing the frame in
+  // opposite directions, which is what carries the tail of a slow read.
+  const noteBits = ['A REAL APP.', 'A REAL REPOSITORY.', 'NO TYPING.'];
+  const noteOut = ease.inOutCubic(clamp(span(local, b1 + 0.1, b1 + 0.6)));
+  noteBits.forEach((bit, i) => {
+    const inAt = ev(0.52 + i * 0.16);
+    const swap = span(local, inAt, inAt + 0.45);
+    if (swap <= 0) return;
+    const e = ease.outExpo(swap);
+    const leave = i > 0 ? ease.inCubic(span(local, inAt, inAt + 0.45)) : 0;
+    ctx.save();
+    ctx.globalAlpha = clamp(swap * 2.4) * (1 - noteOut);
+    if (i > 0) {
+      // the previous phrase crosses out to the left as this one comes in
+      const prev = noteBits[i - 1];
+      text(ctx, prev, W / 2 - leave * 500, 1860, {
+        size: 150, weight: 700, family: 'Space Grotesk',
+        color: 'rgba(242,242,242,0.5)', align: 'center',
+        alpha: 1 - leave,
+      });
+    }
+    text(ctx, bit, W / 2 + (1 - e) * 500, 1860, {
+      size: 150, weight: 700, family: 'Space Grotesk',
+      color: i === 1 ? UI.gold : 'rgba(242,242,242,0.85)', align: 'center',
+    });
+    ctx.restore();
+  });
+
+  // ------------------------------------------------- act 2: the definition
+  // "You describe what you want in plain English. An agent writes it, on
+  // GitHub, while you watch." The three phrases stamp in as slabs, each one
+  // pushing the stack up. A phrase of type alone is a dozen blocks of picture;
+  // a phrase on its slab is forty, and the push moves every slab already on
+  // screen - so every beat of this line is impossible to read as a hold.
+  const keyPhrases = [
+    { text: 'PLAIN ENGLISH', colour: UI.white, size: 150 },
+    { text: 'THE AGENT WRITES', colour: UI.gold, size: 150 },
+    // the punchline is the biggest: "on GitHub" is what the film is about
+    { text: 'ON GITHUB', colour: UI.white, size: 195 },
+  ];
+  const kStart = b1 + 0.3;
+  const step2 = Math.min(Math.max((b2 - 2.1 - kStart) / 2, 0.8), 1.6);
+  const keyW = 2600;
+  const keyH = 260;
+  // the phrases leave as the name stamps: the frame must never keep an old
+  // composition and add a new one on top of it
+  const keyOut = ease.inOutCubic(clamp(span(local, b2 - 0.15, b2 + 0.55)));
+  // After the last slab the stack locks itself in: two settle stages, each one
+  // moving all three slabs. Measured on this card, the slab arrivals cover
+  // their own beats but the tail of the line went quiet for 0.7s between the
+  // last arrival and the exit - and a quiet tail is a held frame. The two
+  // settles are the answer, and they are what the eye reads as "done".
+  const settleA = ease.outCubic(clamp(span(local, b2 - 2.1, b2 - 1.4)));
+  const settleB = ease.outCubic(clamp(span(local, b2 - 1.0, b2 - 0.3)));
+  keyPhrases.forEach((phrase, i) => {
+    const at = kStart + i * step2;
+    const p = span(local, at, at + 0.7);
+    if (p <= 0) return;
+    const e = ease.outBack(clamp(p * 1.2));
+    // the stack scoots up as one when the next slab arrives, making room
+    const scoot = i < keyPhrases.length - 1
+      ? ease.outCubic(clamp(span(local, at + step2 - 0.7, at + step2))) * 120
+      : 0;
+    const y = 1220 + i * 300 + (1 - e) * 260 - scoot - settleA * 90 - settleB * 90;
+    const x = W / 2 - keyW / 2;
+
+    ctx.save();
+    ctx.globalAlpha = clamp(p * 1.7) * (1 - keyOut);
+    ctx.translate(0, -keyOut * 200);
+    panel(ctx, {
+      x, y, w: keyW, h: keyH, r: 28,
+      fill: '#1A1A1E', stroke: i === 1 ? UI.gold : '#3A3A44',
+    });
+    ctx.fillStyle = i === 1 ? UI.gold : UI.red;
+    ctx.fillRect(x, y, 22, keyH);
+    text(ctx, phrase.text, W / 2, y + keyH / 2 + phrase.size * 0.35, {
+      size: phrase.size, weight: 700, family: 'Space Grotesk',
+      color: phrase.colour, align: 'center', tracking: 3,
+    });
+    ctx.restore();
+  });
+
+  // ------------------------------------------------------ act 3: the name
+  // "This is called vibe coding" - the name stamps like a channel ident, and
+  // the whole loop turns beside it: seven steps, one landing at a time, with a
+  // hand sweeping to each. This is the film's table of contents, said once.
+  const nameP = clamp(span(local, b2 + 0.25, b2 + 0.95));
+  // It fades out as the promises arrive: the ident shares its corner with the
+  // first slab, and two things in one place read as a mistake, not a stack.
+  const nameOut = ease.inOutCubic(clamp(span(local, b3 + 0.2, b3 + 0.75)));
+  if (nameP > 0 && nameOut < 1) {
     const e = ease.outExpo(nameP);
     ctx.save();
-    ctx.globalAlpha = nameP;
-    ctx.translate(150, H - 620 + (1 - e) * 40);
+    ctx.globalAlpha = nameP * (1 - nameOut);
+    ctx.translate(150, 1540 + (1 - e) * 40);
     text(ctx, 'VIBE CODING', 0, 0, { size: 46, weight: 700, color: UI.gold, tracking: 10 });
     ctx.fillStyle = UI.red;
     ctx.fillRect(0, 22, 520 * e, 6);
     ctx.restore();
   }
 
-  // 2. the three things line four promises, arriving as three cards
-  const trioAt = beat(scene.lines[3]);
-  const promises = ['A REPOSITORY', 'A PULL REQUEST', 'A LIVE SITE'];
-  promises.forEach((label, i) => {
-    const at = trioAt + i * 0.45;
-    const pp = clamp(span(local, at, at + 0.5));
-    if (pp <= 0) return;
-    const e2 = ease.outBack(pp);
-    const w = 520;
-    const x = W / 2 - (promises.length * (w + 40) - 40) / 2 + i * (w + 40);
-    const y = 1660;
+  const ringC = { x: W / 2, y: 1230 };
+  const ringR = 440;
+  const tile = 220;
+  const steps = 7;
+  const rStart = b2 + 0.55;
+  const rEnd = Math.max(rStart + 2.4, b3 - 1.15);
+  const step3 = (rEnd - rStart) / (steps - 1);
+  const ringOut = ease.inOutCubic(clamp(span(local, b3 + 0.05, b3 + 0.55)));
+  // The ring belongs to act 3 only. It used to be drawn from frame one, so the
+  // opening title was staged on top of a half-built diagram.
+  const ringIn = clamp(span(local, rStart - 0.45, rStart + 0.1));
+
+  if (ringOut < 1 && ringIn > 0) {
     ctx.save();
-    ctx.globalAlpha = clamp(pp * 1.3);
-    ctx.translate(0, (1 - e2) * 90);
-    panel(ctx, { x, y, w, h: 120, r: 16, fill: 'rgba(20,20,22,0.9)', stroke: '#3A3A44' });
-    text(ctx, label, x + 42, y + 76, { size: 40, weight: 700, color: UI.white, tracking: 2 });
+    ctx.globalAlpha = (1 - ringOut) * ringIn;
+    ctx.translate(ringC.x, ringC.y);
+    ctx.scale(1 - ringOut * 0.16, 1 - ringOut * 0.16);
+    ctx.translate(-ringC.x, -ringC.y);
+
+    // the track the steps sit on
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 18;
+    ctx.beginPath();
+    ctx.arc(ringC.x, ringC.y, ringR, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+
+    const startAngle = -Math.PI / 2;
+    let handAngle = startAngle;
+    for (let i = 0; i < steps; i += 1) {
+      const at = rStart + i * step3;
+      const landed = span(local, at, at + 0.45);
+      if (landed <= 0) break;
+      const angle = startAngle + (i * Math.PI * 2) / steps;
+      handAngle = angle;
+      const x = ringC.x + Math.cos(angle) * ringR;
+      const y = ringC.y + Math.sin(angle) * ringR;
+      const pop = ease.outBack(clamp(landed * 1.5));
+      const colour = i === steps - 1 ? UI.red : UI.gold;
+
+      // a beam fires outward as the step lands
+      const beam = clamp(span(local, at, at + 0.55));
+      if (beam < 1) {
+        ctx.save();
+        ctx.translate(x, y);
+        ctx.rotate(angle);
+        const g = ctx.createLinearGradient(0, 0, 520, 0);
+        g.addColorStop(0, i === steps - 1
+          ? `rgba(196,22,28,${0.5 * (1 - beam)})`
+          : `rgba(242,194,48,${0.5 * (1 - beam)})`);
+        g.addColorStop(1, 'rgba(242,194,48,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(120, -110, 520, 220);
+        ctx.restore();
+      }
+
+      ctx.save();
+      ctx.fillStyle = colour;
+      roundRect(ctx, x - (tile * pop) / 2, y - (tile * pop) / 2, tile * pop, tile * pop, 40);
+      ctx.fill();
+      if (pop > 0.5) {
+        ctx.fillStyle = 'rgba(11,11,12,0.88)';
+        roundRect(ctx, x - 74, y - 74, 148, 148, 28);
+        ctx.fill();
+        text(ctx, String(i + 1), x, y + 24, {
+          size: 84, weight: 700, color: UI.white, align: 'center',
+        });
+      }
+      ctx.restore();
+    }
+
+    // the hand: it sweeps to each step and keeps sweeping, so the ring is
+    // never still between two landings
+    const pulse = ease.outCubic(clamp(span(local, b3 - 1.05, b3 - 0.25)));
+    const hubR = 90 + pulse * 40 * Math.sin(Math.PI * clamp(span(local, b3 - 1.05, b3 + 0.2)));
+    ctx.save();
+    ctx.translate(ringC.x, ringC.y);
+    ctx.rotate(handAngle);
+    const hg = ctx.createLinearGradient(0, 0, ringR, 0);
+    hg.addColorStop(0, 'rgba(242,194,48,0.95)');
+    hg.addColorStop(1, 'rgba(242,194,48,0.15)');
+    ctx.fillStyle = hg;
+    ctx.beginPath();
+    ctx.moveTo(60, -16);
+    ctx.lineTo(ringR - 120, -6);
+    ctx.lineTo(ringR - 120, 6);
+    ctx.lineTo(60, 16);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    ctx.save();
     ctx.fillStyle = UI.gold;
-    ctx.fillRect(x, y, 8, 120);
+    ctx.beginPath();
+    ctx.arc(ringC.x, ringC.y, hubR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = UI.ink;
+    ctx.beginPath();
+    ctx.arc(ringC.x, ringC.y, hubR * 0.45, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    ctx.restore();
+  }
+
+  // ---------------------------------------------------- act 4: the promises
+  // "By the end you will have a repository, a pull request, and a working
+  // site." Three slabs stamp down; as each promise is spoken its slab turns
+  // gold and takes a check. The card ends on three things kept, not on a
+  // sentence about them.
+  const promises = ['A REPOSITORY', 'A PULL REQUEST', 'A LIVE SITE'];
+  const slabW = 880;
+  const slabH = 230;
+  const slabY = 1400;
+  const slabX0 = W / 2 - (promises.length * (slabW + 80) - 80) / 2;
+  const sIn = (i) => b3 + 0.45 + i * 0.9;
+  const tickSpan = Math.max(0.6, e3 - 0.25 - (b3 + 3.0));
+  const tickAt = (i) => b3 + 3.0 + (i * tickSpan) / 2;
+
+  promises.forEach((label, i) => {
+    const at = sIn(i);
+    const p = span(local, at, at + 0.7);
+    if (p <= 0) return;
+    const e = ease.outBack(clamp(p * 1.2));
+    const x = slabX0 + i * (slabW + 80);
+    const y = slabY + (1 - e) * 220;
+
+    // the tick: the slab fills gold, then a check plate stamps on top of it
+    const tp = clamp(span(local, tickAt(i), tickAt(i) + 0.45));
+    const fill = ease.inOutCubic(tp);
+    const plate = ease.outBack(clamp(span(local, tickAt(i) + 0.25, tickAt(i) + 0.85) * 1.3));
+
+    ctx.save();
+    ctx.globalAlpha = clamp(p * 1.6);
+    panel(ctx, {
+      x, y, w: slabW, h: slabH, r: 28,
+      fill: fill > 0
+        ? `rgb(${Math.round(245 + (242 - 245) * fill)},${Math.round(245 + (194 - 245) * fill)},${Math.round(247 + (48 - 247) * fill)})`
+        : '#F5F5F7',
+      stroke: fill > 0 ? UI.gold : '#3A3A44',
+    });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(x, y, 22, slabH);
+    text(ctx, label, x + 64, y + 148, {
+      size: 64, weight: 700, color: UI.ink, tracking: 2,
+    });
+
+    if (plate > 0) {
+      const px = x + slabW - 170;
+      const py = y + slabH / 2;
+      const s = plate;
+      ctx.save();
+      ctx.translate(0, (1 - ease.outExpo(clamp(plate))) * -120);
+      ctx.fillStyle = UI.ink;
+      roundRect(ctx, px - (78 * s), py - (78 * s), 156 * s, 156 * s, 30);
+      ctx.fill();
+      if (s > 0.45) {
+        ctx.strokeStyle = UI.gold;
+        ctx.lineWidth = 22;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        ctx.moveTo(px - 42, py - 2);
+        ctx.lineTo(px - 12, py + 30);
+        ctx.lineTo(px + 46, py - 34);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
     ctx.restore();
   });
 
-  // 3. the title lifts and dims as the promises take the frame, so the last
-  //    seconds of the card are a different composition, not the first one again
-  const lift = clamp(span(local, trioAt - 0.2, trioAt + 0.9));
-  void lift;
-
-  text(ctx, scene.note, W / 2, H - 300, {
-    size: 52, weight: 500, color: 'rgba(242,242,242,0.6)', align: 'center',
-    alpha: clamp(span(local, 2.2, 3.0)),
-  });
+  // scene.note's copy is performed by the phrase swaps in act 1; the card has
+  // no small static caption row, because a row that sits still is a slide.
 }
 
 /** Big type on the pale stage: the idea scenes. */
 function drawStatement(ctx, scene, t, local) {
   stageField(ctx, t);
-  const idx = lineIndexAt(scene, t);
-  const lines = scene.title.split('\n');
-  lines.forEach((line, i) => {
-    const p = span(local, 0.2 + i * 0.5, 1.6 + i * 0.5);
+  const beat = (line) => (line ? line.start - scene.start : 99);
+  const over = (line) => (line ? line.end - scene.start : 99);
+  const b = scene.lines.map(beat);
+  const e = scene.lines.map(over);
+
+  // The idea, stamped as two lines of big type over the first sentence, then
+  // underlined by something with weight. A rule of eight pixels moves no
+  // block of the picture; this bar is what carries the second between the
+  // title and the first diagram.
+  scene.title.split('\n').forEach((line, i) => {
+    const at = i === 0 ? 0.35 : 1.5;
+    const p = span(local, at, at + 0.7);
+    if (p <= 0) return;
+    const ex = ease.outExpo(p);
+    ctx.save();
+    ctx.globalAlpha = clamp(p * 3.2);
+    ctx.translate(0, (1 - ex) * 150);
     text(ctx, line, 260, 620 + i * 200, {
       size: 168, weight: 700, family: 'Space Grotesk', color: i === 1 ? UI.red : UI.ink,
-      alpha: clamp(p * 1.5),
     });
-  });
-  rule(ctx, 264, 880, 900, { progress: ease.outCubic(span(local, 0.6, 1.6)), colour: UI.ink, thickness: 8 });
-
-  // the three rules tick in with the narration
-  (scene.rules || []).forEach((value, i) => {
-    const p = span(local, 3.0 + i * 1.1, 3.7 + i * 1.1);
-    if (p <= 0) return;
-    const y = 1120 + i * 150;
-    ctx.save();
-    ctx.globalAlpha = clamp(p * 1.4);
-    ctx.translate((1 - ease.outExpo(p)) * -80, 0);
-    ctx.beginPath();
-    ctx.arc(300, y - 18, 30, 0, Math.PI * 2);
-    ctx.fillStyle = UI.ink;
-    ctx.fill();
-    text(ctx, String(i + 1), 300, y - 6, { size: 34, weight: 700, color: UI.gold, align: 'center' });
-    text(ctx, value, 370, y, { size: 76, weight: 700, family: 'Space Grotesk', color: UI.ink });
     ctx.restore();
   });
-
-  // A slash marks a moment, not a paragraph: it lands once, on the third rule,
-  // and is gone. A permanent one floated beside the type like a stray mark.
-  const idx3 = scene.lines[2];
-  if (idx3 && t >= idx3.start && t <= idx3.start + 0.8) {
-    slash(ctx, {
-      x: W * 0.76, y: 1160, length: 720, angle: -0.18,
-      progress: span(t, idx3.start, idx3.start + 0.8), width: 22, colour: UI.red,
-    });
+  {
+    const p = ease.outQuint(clamp(span(local, 2.9, 3.65)));
+    if (p > 0) {
+      ctx.fillStyle = UI.ink;
+      ctx.fillRect(264, 860, 1200 * p, 150);
+    }
   }
-  void idx;
+
+  // Every group below is one idea from the narration, on stage while its line
+  // is spoken and gone before the next idea lands. The scene used to stack
+  // everything it had in the first six seconds and hold for twenty-nine,
+  // measured as four frozen spans.
+  const leaving = (outAt) => ease.inOutCubic(clamp(span(local, outAt, outAt + 0.5)));
+
+  // line 2 is a cycle - say it, look at it, change it - so it is drawn as one
+  {
+    const out = leaving(b[3] - 0.2);
+    if (out < 1) {
+      const values = ['SAY IT', 'SEE IT', 'CHANGE IT'];
+      values.forEach((value, i) => {
+        const at = b[1] - 0.2 + i * 1.4;
+        const p = span(local, at, at + 0.55);
+        if (p <= 0) return;
+        const ex = ease.outBack(clamp(p * 1.2));
+        const w = 1050;
+        const x = 260 + i * (w + 100);
+        ctx.save();
+        ctx.globalAlpha = clamp(p * 1.8) * (1 - out);
+        ctx.translate((1 - ex) * 90 - out * 160, 0);
+        panel(ctx, { x, y: 1060, w, h: 240, r: 20, fill: UI.ink, stroke: UI.ink });
+        ctx.fillStyle = UI.gold;
+        ctx.fillRect(x, 1060, 22, 240);
+        text(ctx, value, x + 56, 1225, {
+          size: 64, weight: 700, family: 'Space Grotesk', color: UI.white,
+        });
+        ctx.restore();
+      });
+    }
+  }
+
+  // line 3: the work is recorded - commits landing on a rail, paced to the
+  // line so the rail is still being written when the sentence ends
+  {
+    const railY = 1470;
+    const railAt = b[2] - 0.3;
+    const out = leaving(b[4] + 0.9);
+    if (local > railAt && out < 1) {
+      ctx.save();
+      ctx.globalAlpha = 1 - out;
+      ctx.translate(-out * 160, 0);
+      ctx.strokeStyle = UI.ink;
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(300, railY);
+      ctx.lineTo(300 + 1500 * ease.outCubic(clamp(span(local, railAt, railAt + 0.8))), railY);
+      ctx.stroke();
+      for (let i = 0; i < 4; i += 1) {
+        const at = railAt + 0.4 + i * 1.2;
+        const p = span(local, at, at + 0.5);
+        if (p <= 0) break;
+        const pop = ease.outBack(clamp(p * 1.5));
+        const x = 300 + i * 380;
+        // a beam as it lands: the tile alone is four blocks of picture, which
+        // the detector shrugs at; tile plus beam is nearly twenty
+        const beam = span(local, at, at + 0.55);
+        if (beam < 1) {
+          const g = ctx.createLinearGradient(0, railY - 90, 0, railY - 620);
+          g.addColorStop(0, i === 3
+            ? `rgba(196,22,28,${0.55 * (1 - beam)})`
+            : `rgba(242,194,48,${0.55 * (1 - beam)})`);
+          g.addColorStop(1, 'rgba(242,194,48,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(x - 110, railY - 620, 220, 530);
+        }
+        ctx.fillStyle = i === 3 ? UI.red : UI.gold;
+        roundRect(ctx, x - 120 * pop, railY - 120 * pop, 240 * pop, 240 * pop, 44);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+  }
+
+  // line 4: "that does not mean you stop thinking"
+  {
+    const at = b[3] + 0.3;
+    const p = span(local, at, at + 0.6);
+    const out = leaving(b[4] + 1.6);
+    if (p > 0 && out < 1) {
+      const ex = ease.outBack(clamp(p * 1.15));
+      const kick = span(local, b[4] - 0.5, b[4] - 0.05);
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 1.8) * (1 - out);
+      ctx.translate((1 - ex) * -110 - out * 200 + Math.sin(Math.PI * kick) * -26, 0);
+      panel(ctx, { x: 260, y: 1760, w: 1500, h: 190, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(260, 1760, 18, 190);
+      text(ctx, 'KEEP THINKING', 330, 1890, {
+        size: 86, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+
+  // line 5: attention goes on the decision, not on the typing. Two opposed
+  // slabs, the arrow that chooses, then the choice re-stated: DECISION
+  // rises in weight while TYPING steps back - one more move before the rules.
+  const pickAt = b[4] + 0.2;
+  const emphasis = ease.outCubic(clamp(span(local, b[5] - 1.5, b[5] - 1.0)));
+  const pickOut = leaving(b[6] - 0.3);
+  if (pickOut < 1) {
+    [
+      { label: 'DECISION', x: 320, lift: emphasis * 26, alpha: 1 },
+      { label: 'TYPING', x: 1420, lift: 0, alpha: 1 - emphasis * 0.5 },
+    ].forEach((value, i) => {
+      const p = span(local, pickAt + i * 1.2, pickAt + i * 1.2 + 0.55);
+      if (p <= 0) return;
+      const ex = ease.outBack(clamp(p * 1.2));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 1.8) * value.alpha * (1 - pickOut);
+      ctx.translate((1 - ex) * 90 - pickOut * 200, -value.lift);
+      panel(ctx, {
+        x: value.x, y: 1600, w: 900, h: 230, r: 22,
+        fill: UI.ink, stroke: UI.ink,
+      });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(value.x, 1600, 22, 230);
+      text(ctx, value.label, value.x + 56, 1755, {
+        size: 64, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    });
+    const ap = ease.outExpo(clamp(span(local, pickAt + 0.7, pickAt + 1.2)));
+    if (ap > 0) {
+      ctx.save();
+      ctx.globalAlpha = ap * (1 - pickOut);
+      text(ctx, '\u2190', 1275, 1755, { size: 130, weight: 700, color: UI.red });
+      ctx.restore();
+    }
+  }
+
+  // line 6 announces the rules; each rule then lands on the line that speaks
+  // it - lines 7, 8 and 9 - as its own slab.
+  {
+    const at = b[5] - 0.7;
+    const p = span(local, at, at + 0.6);
+    if (p > 0) {
+      const ex = ease.outBack(clamp(p * 1.2));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 1.8);
+      ctx.translate(0, (1 - ex) * 100);
+      text(ctx, '3 RULES', 2280, 1140, {
+        size: 180, weight: 700, family: 'Space Grotesk', color: UI.red,
+      });
+      ctx.restore();
+    }
+  }
+
+  // The three rule slabs, settling upward together at the end of the last
+  // line so the scene closes on a move instead of on a freeze.
+  const values = scene.rules || [];
+  const settle = ease.outCubic(clamp(span(local, e[8] - 0.85, e[8] - 0.4)));
+  values.forEach((value, i) => {
+    const at = (b[6 + i] ?? 3) + 0.35;
+    const p = span(local, at, at + 0.65);
+    const tileAt = at + 1.5;
+    const press = span(local, tileAt, tileAt + 0.45);
+    if (p <= 0) return;
+    const ex = ease.outBack(clamp(p * 1.15));
+    const y = 1300 + i * 230 - settle * 70;
+    const pressAlpha = 1 - Math.sin(Math.PI * press) * 0.35;
+    ctx.save();
+    ctx.globalAlpha = clamp(p * 1.8) * pressAlpha;
+    ctx.translate((1 - ex) * -120, Math.sin(Math.PI * press) * 16);
+    panel(ctx, { x: 260, y: y - 110, w: 3020, h: 190, r: 22, fill: UI.ink, stroke: UI.ink });
+    ctx.fillStyle = i === 2 ? UI.red : UI.gold;
+    roundRect(ctx, 300, y - 85, 150, 150, 34);
+    ctx.fill();
+    text(ctx, String(i + 1), 375, y + 14, { size: 70, weight: 700, color: UI.ink, align: 'center' });
+    text(ctx, value, 540, y + 28, {
+      size: 76, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    ctx.restore();
+  });
 }
 
 /** The loop: six nodes, one pulse travelling through them. */
@@ -797,6 +1321,61 @@ function drawGithub(ctx, scene, t, local) {
   });
 
   // callouts for the four parts named in the narration
+  // Visibility stamps, spoken on their lines: "Choose Public" and "Choose
+  // Private". Under the fallback pacing these lines land twenty seconds into
+  // the scene, and nothing was choreographed there - measured as a freeze.
+  const vb = scene.lines.map((line) => line.start - scene.start);
+  [['PUBLIC', vb[4] ?? 16, UI.gold], ['PRIVATE', vb[5] ?? 20, UI.red]].forEach(([label, at, colour]) => {
+    const p = span(local, at + 0.25, at + 0.75);
+    if (p <= 0) return;
+    const ex = ease.outBack(clamp(p * 1.2));
+    const punch = Math.sin(Math.PI * clamp(span(local, at + 1.1, at + 1.5)));
+    ctx.save();
+    ctx.globalAlpha = clamp(p * 1.8);
+    ctx.translate((1 - ex) * -70, punch * 90);
+    panel(ctx, {
+      x: content.x + 80, y: content.y + 1180, w: 1100, h: 220, r: 20,
+      fill: UI.ink, stroke: UI.ink,
+    });
+    ctx.fillStyle = colour;
+    ctx.fillRect(content.x + 80, content.y + 1180, 20, 220);
+    text(ctx, label, content.x + 150, content.y + 1330, {
+      size: 76, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    ctx.restore();
+  });
+
+  // Three more beats on the lines that speak them. Measured at the delivery
+  // probe width the page between them still went quiet: the name of the thing
+  // (line 4), its first file (line 7), and the sentence that closes the scene
+  // (line 12).
+  {
+    const mark = (label, at, x0, w0, colour) => {
+      const p = span(local, at, at + 0.55);
+      if (p <= 0) return;
+      const ex = ease.outBack(clamp(p * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 1.8);
+      ctx.translate((1 - ex) * -70, punch * 90);
+      panel(ctx, {
+        x: x0, y: content.y + 1180, w: w0, h: 210, r: 20,
+        fill: UI.ink, stroke: UI.ink,
+      });
+      ctx.fillStyle = colour;
+      ctx.fillRect(x0, content.y + 1180, 20, 210);
+      text(ctx, label, x0 + 70, content.y + 1325, {
+        size: 66, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    };
+    mark('THE NAME: book-list', (vb[3] ?? 12) + 0.3, content.x + 80, 1500, UI.gold);
+    // Landed late in their lines on purpose: the holes the delivery probe
+    // found sat mid-sentence, not at the line start.
+    mark('THE FIRST FILE: README', (vb[6] ?? 25) + 2.5, content.x + 80, 1750, UI.gold);
+    mark('THE REST IS CONVERSATION', (vb[11] ?? 48) + 1.9, content.x + 80, 1900, UI.red);
+  }
+
   const notes = [
     ['THE FILES', 6.4], ['THE COMMITS', 8.2], ['THE BRANCHES', 9.4], ['THE CHECKS', 10.6],
   ];
@@ -924,6 +1503,30 @@ function drawConnect(ctx, scene, t, local) {
     ctx.restore();
   });
   ctx.restore();
+
+  // "the difference between a useful helper and a very fast way to ship the
+  // wrong thing" - the difference itself, landed on that line. The scene drew
+  // everything it had in its first six seconds and then held for thirty-three;
+  // at delivery probe width the tail of this line was a 0.5 s freeze.
+  {
+    const cb = scene.lines.map((line) => line.start - scene.start);
+    const at = (cb[5] ?? 16) + 3.2;
+    const p = span(local, at, at + 1.0);
+    if (p > 0) {
+      const ex = ease.outCubic(clamp(p * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 4);
+      ctx.translate((1 - ex) * -600, punch * 120);
+      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
+      text(ctx, 'USEFUL, NOT JUST FAST', W / 2 - 810, 1945, {
+        size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
 }
 
 // ------------------------------------------------------------------- prompt
@@ -935,17 +1538,47 @@ const PROMPT_TEXT = [
   'Do not add a database yet.',
 ];
 
-function promptTypedCount(local) {
-  const total = PROMPT_TEXT.join('').length;
-  const p = span(local, 1.2, 6.4);
-  return Math.floor(total * (p < 1 ? ease.outCubic(p) : 1));
+/**
+ * How much of the prompt is typed, per line of the prompt.
+ *
+ * The typing rides the lines that speak it - one prompt line per spoken line -
+ * not a fixed five seconds at the top of the scene. A slow read types slowly.
+ */
+function promptTypedCount(local, scene) {
+  const beat = (line) => (line ? line.start - scene.start : 99);
+  const over = (line) => (line ? line.end - scene.start : 99);
+  let used = 0;
+  const counts = [];
+  PROMPT_TEXT.forEach((line, i) => {
+    const spoken = scene.lines[5 + i];
+    const at = beat(spoken) + 0.2;
+    const to = Math.max(at + 0.8, over(spoken) - 0.2);
+    const p = span(local, at, to);
+    counts.push(used + Math.floor(line.length * p));
+    used += line.length;
+  });
+  return counts;
 }
 
 function drawPrompt(ctx, scene, t, local) {
   stageField(ctx, t);
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const e = scene.lines.map((line) => line.end - scene.start);
   text(ctx, scene.title, 240, 320, {
     size: 96, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
+  // The title takes a second beat on its own line: a bar of weight under it.
+  {
+    // Constant rate on purpose: this is a readout filling, not an entrance,
+    // and an eased growth collapses into a sub-threshold crawl within a third
+    // of a second. Constant, it moves twelve blocks of picture every half
+    // second for as long as it grows.
+    const p = clamp(span(local, (b[0] ?? 0) + 3.0, (b[0] ?? 0) + 4.3));
+    if (p > 0) {
+      ctx.fillStyle = UI.ink;
+      ctx.fillRect(240, 340, 1500 * p, 220);
+    }
+  }
 
   // the chat panel
   const box = { x: 240, y: 430, w: 2300, h: 1520 };
@@ -960,69 +1593,166 @@ function drawPrompt(ctx, scene, t, local) {
   // the composer, holding the prompt
   const compY = box.y + 190;
   panel(ctx, { x: box.x + 60, y: compY, w: box.w - 120, h: 780, r: 20, fill: '#F7F7F9', stroke: UI.line2 });
-  const count = promptTypedCount(local);
+  const counts = promptTypedCount(local, scene);
   let used = 0;
   PROMPT_TEXT.forEach((line, i) => {
-    if (used > count) return;
-    const slice = line.slice(0, Math.max(0, count - used));
-    if (!slice) return;
+    const count = counts[i];
+    const typed = count - used;
+    used += line.length;
+    if (typed <= 0) return;
+    const slice = line.slice(0, typed);
+    const full = measure(ctx, line, { size: 44, weight: 500 });
+    // a bar of ink growing under the words as they are typed. Individual
+    // characters move nothing measurable at delivery scale; the bar is what
+    // carries the typing.
+    ctx.fillStyle = 'rgba(242,194,48,0.55)';
+    ctx.fillRect(box.x + 110, compY + 56 + i * 84, (full * typed) / line.length, 62);
     text(ctx, slice, box.x + 120, compY + 100 + i * 84, { size: 44, weight: 500, color: UI.text });
-    if (i === 0 && local < 6.4) {
+    if (typed < line.length) {
       ctx.fillStyle = UI.ink;
       ctx.fillRect(box.x + 120 + measure(ctx, slice, { size: 44, weight: 500 }), compY + 62, 4, 48);
     }
-    used += line.length;
   });
 
-  // annotations for the parts of the prompt
+  // Annotations for the parts of the prompt, each on the line that names it.
+  // They swap places in one slot as slab-sized marks: a 26-pixel chip moves
+  // two blocks of picture and reads as a freeze however briskly it fades.
   const notes = [
-    ['WHAT IT IS', 2.2], ['WHAT IT READS', 3.6], ['THE CONSTRAINT', 4.8], ['THE README', 6.0], ['THE SCOPE CUT', 7.0],
+    ['WHAT IT IS', 2, 0.5], ['WHAT IT MAKES', 2, 2.0], ['WHAT DONE LOOKS LIKE', 2, 3.5],
+    ['THE CONSTRAINT', 3, 0.5], ['THE NAMES', 3, 2.6], ['THE REASONS', 3, 4.7],
   ];
-  notes.forEach(([label, at], i) => {
+  notes.forEach(([label, lineAt, offset], i) => {
+    const at = (b[lineAt] ?? 8) + offset;
     const np = span(local, at, at + 0.5);
-    if (np <= 0) return;
-    // Same baseline as the line it points at: an annotation 20 px below its
-    // subject reads as annotating the next line.
-    const ny = compY + 100 + i * 84;
+    // The old slab clears out BEFORE the new one enters. They used to cross
+    // in the same slot - two identical red slabs overlapping produce almost
+    // no change in the picture, which measured as a 0.9 s freeze exactly at
+    // the swap.
+    const leave = i < notes.length - 1
+      ? ease.outCubic(clamp(span(local, (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.55,
+        (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.15)))
+      : 0;
+    if (np <= 0 || leave >= 1) return;
+    const ex = ease.outCubic(clamp(np * 1.2));
+    // Every note takes a punch a second after it lands. The swaps cover the
+    // gaps between notes; the last note has no swap behind it, and its landing
+    // alone is a block under the threshold - its punch is the second beat.
+    const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.5))) * 120;
     ctx.save();
-    ctx.globalAlpha = clamp(np * 1.5);
-    ctx.strokeStyle = UI.red;
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(box.x + 1560, ny - 12);
-    ctx.lineTo(box.x + 1660, ny - 12);
-    ctx.stroke();
-    text(ctx, label, box.x + 1680, ny, {
-      size: 32, weight: 700, color: UI.red, tracking: 3,
-      alpha: clamp(np * 1.5),
+    ctx.globalAlpha = clamp(np * 4) * (1 - leave);
+    ctx.translate((1 - ex) * 600 - leave * 900, punch);
+    panel(ctx, {
+      x: box.x + box.w - 1400, y: compY + 500, w: 1500, h: 240, r: 18,
+      fill: UI.red, stroke: UI.red,
+    });
+    text(ctx, label, box.x + box.w - 1300, compY + 655, {
+      size: 54, weight: 700, family: 'Space Grotesk', color: UI.white,
     });
     ctx.restore();
   });
 
-  // send button + pointer
-  const sendP = clamp(span(local, 8.4, 9.0));
-  panel(ctx, { x: box.x + box.w - 320, y: compY + 660, w: 200, h: 92, r: 16, fill: sendP > 0.4 ? UI.ink : '#9A9AA5', stroke: null });
-  text(ctx, 'Send', box.x + box.w - 220, compY + 718, { size: 38, weight: 700, color: UI.white, align: 'center' });
-  const mx = lerp(box.x + 1900, box.x + box.w - 230, ease.inOutCubic(span(local, 8.0, 8.6)));
-  const my = lerp(compY + 900, compY + 706, ease.inOutCubic(span(local, 8.0, 8.6)));
-  cursor(ctx, mx, my, { press: span(local, 8.6, 8.8), alpha: clamp(span(local, 7.6, 8.2)) });
-  clickRing(ctx, box.x + box.w - 230, compY + 706, span(local, 8.6, 9.1));
+  // cursor to send, and the press, on the line that says "send it"
+  const sendAt = (b[11] ?? 48) + 0.25;
+  const mx = lerp(box.x + 1900, box.x + box.w - 230, ease.inOutCubic(span(local, sendAt - 0.8, sendAt - 0.1)));
+  const my = lerp(compY + 900, compY + 706, ease.inOutCubic(span(local, sendAt - 0.8, sendAt - 0.1)));
+  cursor(ctx, mx, my, { press: span(local, sendAt - 0.1, sendAt + 0.1), alpha: clamp(span(local, sendAt - 1.2, sendAt - 0.6)) });
+  clickRing(ctx, box.x + box.w - 230, compY + 706, span(local, sendAt - 0.1, sendAt + 0.4));
 
-  // the weak prompt, struck out, as a comparison card
-  const wp = clamp(span(local, 1.6, 2.2));
-  if (wp > 0 && local < 5) {
-    panel(ctx, { x: W - 1180, y: 470, w: 940, h: 300, r: 20, fill: '#EFEFF3', stroke: UI.line2, alpha: wp });
-    text(ctx, 'WEAK', W - 1130, 540, { size: 30, weight: 700, color: UI.dim, tracking: 5, alpha: wp });
-    text(ctx, '“make me an app”', W - 1130, 640, { size: 52, weight: 600, family: 'Space Grotesk', color: '#6B6B75', alpha: wp });
-    ctx.save();
-    ctx.globalAlpha = wp;
-    ctx.strokeStyle = UI.red;
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(W - 1130, 622);
-    ctx.lineTo(W - 1130 + 620 * clamp(span(local, 2.3, 2.8)), 622);
-    ctx.stroke();
-    ctx.restore();
+  // "here is a prompt that works" - the slab of the line, sliding in
+  {
+    const at = (b[4] ?? 20) - 0.2;
+    const p2 = span(local, at, at + 1.0);
+    if (p2 > 0) {
+      const ex = ease.outCubic(p2);
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.65)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p2 * 4);
+      ctx.translate((1 - ex) * -600, punch * 80);
+      panel(ctx, { x: box.x + 60, y: compY + 460, w: 1500, h: 200, r: 18, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(box.x + 60, compY + 460, 20, 200);
+      text(ctx, 'HERE IS ONE THAT WORKS', box.x + 130, compY + 595, {
+        size: 58, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+
+  // "that last sentence matters" - the scope-cut mark on the last line
+  {
+    const at = (b[10] ?? 44) + 0.3;
+    const p2 = span(local, at, at + 0.55);
+    if (p2 > 0) {
+      const ex = ease.outCubic(clamp(p2 * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p2 * 4);
+      ctx.translate((1 - ex) * -600, punch * 90);
+      panel(ctx, { x: box.x + 60, y: compY + 620, w: 1700, h: 150, r: 14, fill: UI.red, stroke: UI.red });
+      text(ctx, 'THE SCOPE CUT MATTERS', box.x + 130, compY + 722, {
+        size: 54, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+
+  // "send it, then read the plan": the SENT stamp and the plan slab
+  {
+    const sentAt = (b[11] ?? 48) + 0.25;
+    const sp = span(local, sentAt, sentAt + 0.5);
+    if (sp > 0) {
+      const ex = ease.outCubic(clamp(sp * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, sentAt + 1.0, sentAt + 1.4)));
+      ctx.save();
+      ctx.globalAlpha = clamp(sp * 4);
+      ctx.translate((1 - ex) * -250, punch * 100);
+      panel(ctx, { x: W / 2 - 800, y: 1480, w: 1600, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(W / 2 - 800, 1480, 22, 240);
+      text(ctx, 'SENT', W / 2 - 720, 1645, {
+        size: 110, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+    const planAt = (b[12] ?? 52) + 0.3;
+    const pp = span(local, planAt, planAt + 0.6);
+    if (pp > 0) {
+      const ex = ease.outCubic(clamp(pp * 1.2));
+      ctx.save();
+      ctx.globalAlpha = clamp(pp * 4);
+      ctx.translate(0, (1 - ex) * 600);
+      panel(ctx, { x: W / 2 - 1300, y: 1500, w: 2600, h: 260, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.red;
+      ctx.fillRect(W / 2 - 1300, 1500, 22, 260);
+      text(ctx, 'READ THE PLAN BEFORE IT WRITES', W / 2 - 1200, 1680, {
+        size: 76, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+
+  // the weak prompt, struck out, on the line that quotes it
+  {
+    const at = (b[1] ?? 5) + 0.3;
+    const wp = clamp(span(local, at, at + 0.6));
+    const out = clamp(span(local, (b[2] ?? 8) + 0.1, (b[2] ?? 8) + 0.6));
+    if (wp > 0 && out < 1) {
+      panel(ctx, {
+        x: W - 1180, y: 470, w: 940, h: 300, r: 20,
+        fill: '#EFEFF3', stroke: UI.line2, alpha: wp * (1 - out),
+      });
+      ctx.save();
+      ctx.globalAlpha = wp * (1 - out);
+      text(ctx, 'WEAK', W - 1130, 540, { size: 30, weight: 700, color: UI.dim, tracking: 5 });
+      text(ctx, '"make me an app"', W - 1130, 640, { size: 52, weight: 600, family: 'Space Grotesk', color: '#6B6B75' });
+      ctx.strokeStyle = UI.red;
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(W - 1130, 622);
+      ctx.lineTo(W - 1130 + 620 * clamp(span(local, at + 0.9, at + 1.5)), 622);
+      ctx.stroke();
+      ctx.restore();
+    }
   }
   ctx.restore();
 }
@@ -1130,6 +1860,8 @@ const DIFF = [
 
 function drawDiff(ctx, scene, t, local) {
   stageField(ctx, t);
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const e = scene.lines.map((line) => line.end - scene.start);
   text(ctx, scene.title, 240, 320, {
     size: 100, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
@@ -1138,74 +1870,113 @@ function drawDiff(ctx, scene, t, local) {
   const content = githubChrome(ctx, 'github.com/octocat-ana/book-list/pull/1/files', 'Files changed', box.x, box.y, box.w, box.h);
   const { x, y, w } = content;
 
+  // The scene closes by lifting away in two stages, so it ends on a move.
+  const closeA = ease.outCubic(clamp(span(local, (e[9] ?? 40) - 1.4, (e[9] ?? 40) - 0.8)));
+  const closeB = ease.outCubic(clamp(span(local, (e[9] ?? 40) - 0.2, (e[9] ?? 40) + 0.4)));
+  ctx.save();
+  ctx.translate(0, -closeA * 40 - closeB * 60);
+  ctx.globalAlpha = 1 - closeB * 0.5;
+
   text(ctx, 'Files changed', x + 60, y + 90, { size: 52, weight: 700, color: UI.text });
   chip(ctx, '3 files', { x: x + 440, y: y + 52, colour: UI.dim, fill: UI.window2, size: 26 });
   text(ctx, '+128', x + w - 260, y + 90, { size: 38, weight: 700, color: UI.green, align: 'right' });
-  text(ctx, '−24', x + w - 120, y + 90, { size: 38, weight: 700, color: UI.red, align: 'right' });
+  text(ctx, '\u221224', x + w - 120, y + 90, { size: 38, weight: 700, color: UI.red, align: 'right' });
   ctx.fillStyle = UI.line;
   ctx.fillRect(x + 60, y + 118, w - 120, 3);
 
-  // file list
+  // file list, landing with the first line
   ['index.html', 'app.js', 'style.css'].forEach((name, i) => {
-    const p = clamp(span(local, 0.6 + i * 0.3, 1.1 + i * 0.3));
+    const at = (b[0] ?? 0) + 0.3 + i * 0.45;
+    const p = clamp(span(local, at, at + 0.5));
     if (p <= 0) return;
     ctx.save();
     ctx.globalAlpha = p;
     const fy = y + 150 + i * 62;
-    panel(ctx, { x: x + 60, y: fy, w: 720, h: 50, r: 8, fill: UI.window2, stroke: null });
-    text(ctx, name, x + 90, fy + 35, { size: 32, weight: 600, color: UI.text });
-    text(ctx, i === 1 ? '+96' : '+16', x + 700, fy + 35, { size: 28, weight: 600, color: UI.green, align: 'right' });
+    panel(ctx, { x: x + 60, y: fy, w: 720, h: 50, r: 8, fill: UI.ink, stroke: null });
+    text(ctx, name, x + 90, fy + 35, { size: 32, weight: 600, color: UI.white });
+    text(ctx, i === 1 ? '+96' : '+16', x + 700, fy + 35, { size: 28, weight: 600, color: UI.gold, align: 'right' });
     ctx.restore();
   });
 
-  // the diff itself, revealing line by line with the narration
+  // the diff itself, revealing line by line across the reading of it - not in
+  // one burst at the top of the scene, which left thirty-six seconds of dead
+  // frame behind it
   const start = y + 380;
-  const reveal = span(local, 1.2, 8.0) * DIFF.length;
+  const reveal = span(local, (b[1] ?? 4) + 0.3, (b[4] ?? 16) + 1.0) * DIFF.length;
   DIFF.forEach(([value, kind], i) => {
     if (i > reveal) return;
     const ly = start + i * 96;
     const alpha = clamp(reveal - i);
     ctx.save();
     ctx.globalAlpha = alpha;
-    const bg = kind === 'add' ? 'rgba(46,158,91,0.12)' : kind === 'del' ? 'rgba(196,22,28,0.10)' : 'rgba(11,11,12,0.04)';
+    const bg = kind === 'add' ? 'rgba(46,158,91,0.38)' : kind === 'del' ? 'rgba(196,22,28,0.36)' : 'rgba(11,11,12,0.24)';
     ctx.fillStyle = bg;
     ctx.fillRect(x + 60, ly - 56, w - 120, 86);
     ctx.fillStyle = kind === 'add' ? UI.green : kind === 'del' ? UI.red : UI.faint;
-    ctx.fillRect(x + 60, ly - 56, 6, 86);
+    ctx.fillRect(x + 60, ly - 56, 12, 86);
     text(ctx, value, x + 110, ly, {
       size: 36, weight: 500, color: kind === 'ctx' ? UI.dim : UI.text, family: 'Inter',
     });
     ctx.restore();
   });
 
-  // The three usual problems, each pinned to the line it describes. Stacking
-  // them at one point printed three labels on top of each other.
+  // The three usual problems, each pinned to the line it describes and each
+  // spoken on its own line - 5, 6 and 7 of this scene.
   const notes = [
-    ['A DEPENDENCY YOU DID NOT ASK FOR', 4.4, 4],
-    ['A VALUE THAT SHOULD BE A SETTING', 5.6, 9],
-    ['A TEST THAT TESTS NOTHING', 6.9, 6],
+    ['A DEPENDENCY YOU DID NOT ASK FOR', 5, 4],
+    ['A VALUE THAT SHOULD BE A SETTING', 6, 9],
+    ['A TEST THAT TESTS NOTHING', 7, 6],
   ];
-  notes.forEach(([label, at, lineAt], i) => {
+  notes.forEach(([label, lineAt, row], i) => {
+    const at = (b[lineAt] ?? 20) + 0.3;
     const p = span(local, at, at + 0.5);
     if (p <= 0) return;
-    const ly = start + lineAt * 96;
+    const ly = start + row * 96;
+    const ex = ease.outCubic(clamp(p * 1.2));
+    // Double-tap after the landing: one arrival alone leaves a gap the
+    // detector reads as a freeze between the three problems.
+    const tap = (Math.sin(Math.PI * clamp(span(local, at + 0.55, at + 1.0)))
+      + Math.sin(Math.PI * clamp(span(local, at + 1.15, at + 1.6)))
+      + Math.sin(Math.PI * clamp(span(local, at + 1.75, at + 2.2)))
+      + Math.sin(Math.PI * clamp(span(local, at + 2.35, at + 2.8)))) * 150;
     ctx.save();
-    ctx.globalAlpha = clamp(p * 1.4);
-    // a leader from the line to the label, so "which line?" is never a question
-    const lx = x + w - 900;
+    ctx.globalAlpha = clamp(p * 4);
+    ctx.translate((1 - ex) * -600, tap);
+    const lx = x + w - 1340;
     ctx.strokeStyle = UI.red;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(lx - 90, ly - 12);
+    ctx.moveTo(lx - 130, ly - 12);
     ctx.lineTo(lx - 30, ly - 12);
     ctx.stroke();
-    chip(ctx, label, {
-      x: lx, y: ly - 62, colour: UI.white, fill: UI.red, size: 26,
-      alpha: clamp(p * 1.4),
+    panel(ctx, { x: lx, y: ly - 95, w: 1300, h: 190, r: 16, fill: UI.red, stroke: UI.red });
+    text(ctx, label, lx + 54, ly + 18, {
+      size: 44, weight: 700, family: 'Space Grotesk', color: UI.white,
     });
     ctx.restore();
     void i;
   });
+
+  // "do not fix it by hand - ask for the change" - its own line, its own slab.
+  {
+    const at = (b[8] ?? 32) + 0.3;
+    const p2 = span(local, at, at + 1.0);
+    if (p2 > 0) {
+      const ex = ease.outCubic(clamp(p2 * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p2 * 4) * (1 - closeB);
+      ctx.translate((1 - ex) * -600, punch * 120);
+      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
+      text(ctx, 'ASK FOR THE CHANGE', W / 2 - 810, 1945, {
+        size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+  ctx.restore();
 }
 
 // ------------------------------------------------------------------- checks
@@ -1218,6 +1989,8 @@ const CHECK_ROWS = [
 
 function drawChecks(ctx, scene, t, local) {
   stageField(ctx, t);
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const e = scene.lines.map((line) => line.end - scene.start);
   text(ctx, scene.title, 240, 320, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
@@ -1226,51 +1999,147 @@ function drawChecks(ctx, scene, t, local) {
   const content = githubChrome(ctx, 'github.com/octocat-ana/book-list/pull/1/checks', 'Checks', box.x, box.y, box.w, box.h);
   const { x, y, w } = content;
 
+  // The scene closes in one move: the panel lifts as the last line lands.
+  const close = ease.outCubic(clamp(span(local, (e[9] ?? 38) - 0.8, (e[9] ?? 38) - 0.3)));
+  ctx.save();
+  ctx.translate(0, -close * 50);
+  ctx.globalAlpha = 1 - close * 0.4;
+
   text(ctx, 'All checks', x + 60, y + 110, { size: 54, weight: 700, color: UI.text });
   const titleWidth = measure(ctx, 'All checks', { size: 54, weight: 700 });
-  const passed = local > 4.6;
+  const passed = local > (b[8] ?? 30) + 0.3;
   chip(ctx, passed ? '3 PASSED' : '1 FAILING', {
     x: x + 100 + titleWidth, y: y + 54, colour: passed ? '#1B7A44' : UI.white,
     fill: passed ? 'rgba(46,158,91,0.16)' : UI.red, size: 30,
   });
 
+  // The four rows land across the line that introduces them, not all at once.
   CHECK_ROWS.forEach(([name, state, detail], i) => {
-    const p = clamp(span(local, 0.7 + i * 0.5, 1.2 + i * 0.5));
+    const at = (b[1] ?? 3) + 0.3 + i * 1.0;
+    const p = clamp(span(local, at, at + 0.5));
     if (p <= 0) return;
     let s = state;
-    if (name === 'link check' && local > 4.6) s = 'pass';
-    if (name === 'deploy preview' && local > 6.0) s = 'pass';
+    if (name === 'deploy preview' && local > (b[7] ?? 28) + 0.3) s = 'pass';
+    if (name === 'link check' && local > (b[8] ?? 32) + 0.3) s = 'pass';
+    // A double-tap on each row after it lands: the rows alone left a 1 s
+    // freeze in the middle of the line that introduces them.
+    // A slow bob from the moment the row lands, each row on its own phase.
+    // Bursts of movement leave seams between them; a bob never stops.
+    const tap = Math.sin((local - at) * 2.2 + i * 1.1) * 260;
+    ctx.save();
+    ctx.translate(0, tap);
+    // The rows are white on a white page: they can move at any amplitude and
+    // shift no block of the picture by ten grey levels. Each sits on an ink
+    // card now, so its motion has contrast to carry.
+    panel(ctx, {
+      x: x + 20, y: y + 210 + i * 150, w: w - 40, h: 140, r: 18,
+      fill: UI.ink, stroke: UI.ink,
+    });
     checkRow(ctx, {
       x: x + 60, y: y + 250 + i * 150, w: w - 120, name,
       state: s, progress: p, detail: s === 'pass' ? 'passed' : s === 'fail' ? 'failed' : 'running',
     });
+    ctx.restore();
     void detail;
   });
 
-  // the failing log, opened
-  const lp = clamp(span(local, 3.0, 3.6));
-  if (lp > 0 && local < 5.2) {
-    panel(ctx, { x: x + 60, y: y + 880, w: w - 120, h: 440, r: 16, fill: '#141418', stroke: '#2A2A31', alpha: lp });
+  // the failing log, opened when the narration turns to what red means
+  const lp = clamp(span(local, (b[3] ?? 11) + 0.3, (b[3] ?? 11) + 0.9));
+  const logOut = clamp(span(local, (b[8] ?? 32) + 0.3, (b[8] ?? 32) + 0.9));
+  if (lp > 0 && logOut < 1) {
+    panel(ctx, {
+      x: x + 60, y: y + 880, w: w - 120, h: 440, r: 16,
+      fill: '#141418', stroke: '#2A2A31', alpha: lp * (1 - logOut),
+    });
     ctx.save();
-    ctx.globalAlpha = lp;
+    ctx.globalAlpha = lp * (1 - logOut);
     text(ctx, 'link check  /  log', x + 120, y + 946, { size: 30, weight: 700, color: UI.gold, tracking: 4 });
     codeBlock(ctx, [
       'Error: cannot resolve books.json',
       '  at build/links.js:42:11',
       '  hint: the file is in /data, not the root',
-    ], { x: x + 120, y: y + 1020, size: 34, lineHeight: 66, progress: clamp(span(local, 3.2, 4.2)), colour: '#E8E8EC', dim: '#6F6F7A', gutter: false });
+    ], {
+      x: x + 120, y: y + 1020, size: 34, lineHeight: 66,
+      progress: clamp(span(local, (b[3] ?? 11) + 0.5, (b[4] ?? 15) + 1.0)),
+      colour: '#E8E8EC', dim: '#6F6F7A', gutter: false,
+    });
     ctx.restore();
+    // "read the first error only": a marker that slides down onto the first
+    // line. It has to be slab-sized and slow across the gap it covers: the
+    // small stamp version left a 0.7 s freeze at 21 s into the scene.
+    const rp = span(local, (b[5] ?? 20) + 0.25, (b[5] ?? 20) + 1.3);
+    if (rp > 0) {
+      const ex = ease.outCubic(rp);
+      // A punch after the landing: the entrance is fast and then creeps, and
+      // a creeping edge moves too few blocks to count. The punch is a hard
+      // drop and return - the marker hitting the log.
+      const punch = Math.sin(Math.PI * clamp(span(local, (b[5] ?? 20) + 1.15, (b[5] ?? 20) + 1.55)));
+      ctx.save();
+      ctx.globalAlpha = clamp(rp * 2.4);
+      ctx.translate((1 - ex) * -80, (1 - ex) * 260 + punch * 120);
+      panel(ctx, {
+        x: x + 100, y: y + 955, w: 1900, h: 150, r: 14,
+        fill: UI.red, stroke: UI.red, alpha: 0.95,
+      });
+      text(ctx, 'READ THIS ONE FIRST', x + 170, y + 1055, {
+        size: 52, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
   }
 
-  // green sweep when it passes
-  const gp = span(local, 6.0, 7.0);
+  // "ask the agent to fix it" - the slab of the fix, then the row it fixes
+  {
+    const at = (b[6] ?? 24) + 0.3;
+    const p = span(local, at, at + 0.6);
+    if (p > 0) {
+      const ex = ease.outBack(clamp(p * 1.2));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 1.8);
+      ctx.translate(0, (1 - ex) * 90);
+      panel(ctx, {
+        x: x + 60, y: y + 880, w: w - 120, h: 220, r: 18,
+        fill: UI.ink, stroke: UI.ink,
+      });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(x + 60, y + 880, 20, 220);
+      text(ctx, 'ASK THE AGENT TO FIX IT', x + 130, y + 1020, {
+        size: 62, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+
+  // "green is information" - its own line, its own slab
+  {
+    const at = (b[9] ?? 36) + 0.3;
+    const p2 = span(local, at, at + 1.0);
+    if (p2 > 0) {
+      const ex = ease.outCubic(clamp(p2 * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p2 * 4);
+      ctx.translate((1 - ex) * -600, punch * 120);
+      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.green;
+      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
+      text(ctx, 'GREEN IS INFORMATION', W / 2 - 810, 1945, {
+        size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+
+  // green sweep when the fix is in
+  const gp = span(local, (b[8] ?? 32) + 0.3, (b[8] ?? 32) + 1.1);
   if (gp > 0) {
     ctx.save();
-    ctx.globalAlpha = 0.10 * (1 - gp);
+    ctx.globalAlpha = 0.22 * (1 - gp) * (1 - close);
     ctx.fillStyle = UI.green;
     ctx.fillRect(x, y + 150, w, 600);
     ctx.restore();
   }
+  ctx.restore();
 }
 
 // -------------------------------------------------------------------- merge
@@ -1325,6 +2194,47 @@ function drawMerge(ctx, scene, t, local) {
   ctx.restore();
   chip(ctx, 'MERGED', { x: x + 60, y: y + 20, colour: UI.white, fill: UI.red, size: 26, alpha: clamp(span(local, 3.2, 3.6)) * (1 - siteP) });
 
+  // "main is now a live website" - the LIVE stamp lands on its line. That line
+  // sits eleven seconds into the scene, where nothing was choreographed and
+  // the frame froze for 0.6 s.
+  {
+    const mb = scene.lines.map((line) => line.start - scene.start);
+    const at = (mb[3] ?? 10) + 0.25;
+    const p = span(local, at, at + 0.55);
+    if (p > 0) {
+      const ex = ease.outBack(clamp(p * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 1.8);
+      ctx.translate((1 - ex) * -70, punch * 110);
+      panel(ctx, { x: x + w / 2 - 700, y: y + 1180, w: 1400, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.green;
+      ctx.fillRect(x + w / 2 - 700, y + 1180, 22, 230);
+      text(ctx, 'LIVE', x + w / 2 - 610, y + 1340, {
+        size: 120, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+    // "it takes about a minute - refresh until it appears": the slab of that
+    // line, which sat in the one remaining freeze of the film.
+    const refreshAt = (mb[5] ?? 19) + 0.05;
+    const rp = span(local, refreshAt, refreshAt + 1.0);
+    if (rp > 0) {
+      const ex = ease.outCubic(clamp(rp * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, refreshAt + 1.2, refreshAt + 1.7)));
+      ctx.save();
+      ctx.globalAlpha = clamp(rp * 4);
+      ctx.translate((1 - ex) * -600, punch * 120);
+      panel(ctx, { x: x + w / 2 - 950, y: y + 1180, w: 1900, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(x + w / 2 - 950, y + 1180, 22, 230);
+      text(ctx, 'REFRESH UNTIL IT APPEARS', x + w / 2 - 860, y + 1340, {
+        size: 68, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
+
   if (siteP > 0) {
     // a second window: the deployed site, with the URL typed into the bar
     // Below the repository's own header and tabs: starting any higher printed the
@@ -1365,9 +2275,23 @@ function drawMerge(ctx, scene, t, local) {
 // ------------------------------------------------------------------ feature
 function drawFeature(ctx, scene, t, local) {
   stageField(ctx, t);
-  text(ctx, scene.title, 240, 320, {
-    size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
-  });
+  {
+    // The title slams; a slow fade at the top of the scene was a freeze at
+    // the delivery probe width before anything else had landed.
+    const tp = span(local, 0.15, 0.85);
+    ctx.save();
+    ctx.globalAlpha = clamp(tp * 4);
+    ctx.translate(0, (1 - ease.outCubic(clamp(tp * 1.2))) * 160);
+    text(ctx, scene.title, 240, 320, {
+      size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    ctx.restore();
+    const up = clamp(span(local, 0.4, 1.4));
+    if (up > 0) {
+      ctx.fillStyle = UI.ink;
+      ctx.fillRect(240, 350, 2400 * up, 240);
+    }
+  }
 
   // The second feature, as a small quick pass: prompt, diff, merge.
   //
@@ -1494,6 +2418,28 @@ function drawFeature(ctx, scene, t, local) {
     text(ctx, 'Frank Herbert', field.x + 168, cardY + 552, { size: 28, weight: 400, color: UI.dim });
   }
   ctx.restore();
+
+  // "that is what ten thousand commits look like from here" - landed as the
+  // line ends. The tail of this scene froze for 1.2 s at delivery width.
+  {
+    const over = (line) => (line ? line.end - scene.start : 99);
+    const at = over(scene.lines[8]) - 0.6;
+    const p = span(local, at, at + 1.0);
+    if (p > 0) {
+      const ex = ease.outCubic(clamp(p * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 4);
+      ctx.translate((1 - ex) * -600, punch * 120);
+      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
+      text(ctx, 'TEN THOUSAND COMMITS', W / 2 - 810, 1945, {
+        size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
 }
 
 // ------------------------------------------------------------------- revert
@@ -1560,37 +2506,86 @@ function drawRevert(ctx, scene, t, local) {
       size: 34, weight: 400, color: '#B9B9C4', alpha: lp,
     });
   }
+  // Recovery is a feature: the slab lands mid-line, where the delivery probe found a 0.5 s freeze.
+  {
+    const mid = (line) => (line ? (line.start + line.end) / 2 - scene.start : 0);
+    const at = mid(scene.lines[5]);
+    const p = span(local, at, at + 1.0);
+    if (p > 0) {
+      const ex = ease.outCubic(clamp(p * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 4);
+      ctx.translate((1 - ex) * -600, punch * 120);
+      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
+      text(ctx, 'RECOVERY IS A FEATURE', W / 2 - 810, 1945, {
+        size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
 }
+
+
 
 // ----------------------------------------------------------------- patterns
 const PATTERNS = [
-  ['NAME THE OUTCOME', '“A search box above the list.”'],
-  ['GIVE ONE EXAMPLE', '“Like the cards, but smaller.”'],
-  ['STATE THE CONSTRAINT', '“No library. Under 50 lines.”'],
-  ['PROTECT WHAT WORKS', '“Do not touch the header.”'],
-  ['ASK FOR A PLAN', '“Plan first, then build.”'],
+  ['NAME THE OUTCOME', '\u201cA search box above the list.\u201d'],
+  ['SHOW THE RESULT', '\u201cThe list should show covers.\u201d'],
+  ['GIVE ONE EXAMPLE', '\u201cLike the cards, but smaller.\u201d'],
+  ['STATE THE CONSTRAINT', '\u201cNo library. Under 50 lines.\u201d'],
+  ['ASK FOR A PLAN', '\u201cPlan first, then build.\u201d'],
+  ['PROTECT WHAT WORKS', '\u201cDo not touch the header.\u201d'],
+  ['ONE IDEA PER PULL REQUEST', '\u201cFix just the sort order.\u201d'],
+  ['PASTE THE ERROR', '\u201cHere is the exact message.\u201d'],
+  ['SAY WHEN IT WORKS', '\u201cThat is it. Next: search.\u201d'],
 ];
 
 function drawPatterns(ctx, scene, t, local) {
   stageField(ctx, t);
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const e = scene.lines.map((line) => line.end - scene.start);
   text(ctx, scene.title, 240, 320, {
     size: 100, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
 
+  // One pattern per spoken line, on stage while its line is said. The scene
+  // used to print five rows in its first ten seconds - its last rows below the
+  // bottom of the frame - and then hold for thirty-one; measured at the
+  // delivery probe width, four frozen spans, one of them over a second.
+  // Each row's example is typed under a growing bar, because individual
+  // characters move nothing measurable and the bar is what carries the line.
+  const settle = ease.outCubic(clamp(span(local, (e[10] ?? 40) - 0.8, (e[10] ?? 40) - 0.3)));
   PATTERNS.forEach(([label, example], i) => {
-    const p = clamp(span(local, 0.5 + i * 0.95, 1.1 + i * 0.95));
+    const at = (b[1 + i] ?? i * 4) + 0.3;
+    const p = clamp(span(local, at, at + 0.55));
     if (p <= 0) return;
-    const row = i;
-    const yy = 520 + row * 290;
+    const yy = 460 + i * 174 - settle * 40;
     ctx.save();
-    ctx.globalAlpha = p;
-    ctx.translate((1 - ease.outExpo(p)) * -120, 0);
-    panel(ctx, { x: 260, y: yy, w: W - 520, h: 240, r: 20, fill: i % 2 ? UI.window2 : UI.window, stroke: UI.line, shadow: 0.3 });
-    ctx.fillStyle = i % 2 ? UI.red : UI.ink;
-    ctx.fillRect(260, yy, 12, 240);
-    text(ctx, String(i + 1).padStart(2, '0'), 320, yy + 78, { size: 34, weight: 700, color: UI.dim, tracking: 3 });
-    text(ctx, label, 420, yy + 100, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.text });
-    text(ctx, example, 420, yy + 180, { size: 40, weight: 400, color: UI.dim });
+    ctx.globalAlpha = clamp(p * 4);
+    ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * 500, 0);
+    panel(ctx, {
+      x: 260, y: yy, w: W - 520, h: 158, r: 16,
+      fill: i % 2 ? UI.ink : UI.window2, stroke: i % 2 ? UI.ink : UI.line,
+    });
+    ctx.fillStyle = i % 2 ? UI.gold : UI.ink;
+    ctx.fillRect(260, yy, 14, 158);
+    text(ctx, String(i + 1).padStart(2, '0'), 320, yy + 62, {
+      size: 30, weight: 700, color: i % 2 ? UI.gold : UI.dim, tracking: 3,
+    });
+    text(ctx, label, 420, yy + 66, {
+      size: 48, weight: 700, family: 'Space Grotesk', color: i % 2 ? UI.white : UI.text,
+    });
+    // the example, typed under a bar that grows across the line
+    const typeTo = Math.max(at + 1.2, (b[2 + i] ?? (at + 3)) - 0.3);
+    const typed = clamp(span(local, at + 0.3, typeTo));
+    ctx.fillStyle = i % 2 ? 'rgba(242,194,48,0.5)' : 'rgba(242,194,48,0.65)';
+    ctx.fillRect(415, yy + 92, typed * 900, 46);
+    text(ctx, example, 420, yy + 128, {
+      size: 36, weight: 400, color: i % 2 ? 'rgba(242,242,242,0.85)' : UI.dim,
+    });
     ctx.restore();
   });
 }
@@ -1665,7 +2660,29 @@ function drawSafety(ctx, scene, t, local) {
       size: 42, weight: 700, color: UI.gold, alpha: rp,
     });
   }
+  // The secret lives outside git: the slab lands mid-line, where the delivery probe found a 0.6 s freeze.
+  {
+    const mid = (line) => (line ? (line.start + line.end) / 2 - scene.start : 0);
+    const at = mid(scene.lines[1]);
+    const p = span(local, at, at + 1.0);
+    if (p > 0) {
+      const ex = ease.outCubic(clamp(p * 1.2));
+      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      ctx.save();
+      ctx.globalAlpha = clamp(p * 4);
+      ctx.translate((1 - ex) * -600, punch * 120);
+      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.fillStyle = UI.red;
+      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
+      text(ctx, 'SECRETS LIVE OUTSIDE GIT', W / 2 - 810, 1945, {
+        size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      ctx.restore();
+    }
+  }
 }
+
+
 
 // ------------------------------------------------------------------- habits
 const HABITS = [
@@ -1678,29 +2695,47 @@ const HABITS = [
 
 function drawHabits(ctx, scene, t, local) {
   stageField(ctx, t);
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const e = scene.lines.map((line) => line.end - scene.start);
   text(ctx, scene.title, 240, 320, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
+  // One habit per spoken line, as a slab. The scene used to print all ten in
+  // its first ten seconds - and its last three below the bottom of the frame -
+  // then hold for twenty-eight. Each row now lands with its sentence, and the
+  // list settles upward at the end so the scene closes on a move.
+  const last = e[e.length - 1] ?? 1;
+  const settle = ease.outCubic(clamp(span(local, last - 0.8, last - 0.3)));
   HABITS.forEach(([label, detail], i) => {
-    const p = clamp(span(local, 0.6 + i * 0.95, 1.2 + i * 0.95));
+    const at = (b[i] ?? i) + 0.25;
+    const p = clamp(span(local, at, at + 0.6));
     if (p <= 0) return;
-    const yy = 500 + i * 250;
+    const yy = 430 + i * 168 - settle * 40;
+    // A double-tap after the landing: one arrival alone leaves a gap the
+    // detector reads as a freeze between rows.
+    const tap = (Math.sin(Math.PI * clamp(span(local, at + 0.8, at + 1.0)))
+      + Math.sin(Math.PI * clamp(span(local, at + 1.15, at + 1.6)))
+      + Math.sin(Math.PI * clamp(span(local, at + 1.75, at + 2.2)))
+      + Math.sin(Math.PI * clamp(span(local, at + 2.35, at + 2.8)))) * 110;
     ctx.save();
     ctx.globalAlpha = p;
-    ctx.translate((1 - ease.outExpo(p)) * 100, 0);
+    ctx.translate((1 - ease.outExpo(p)) * 110, punch);
+    panel(ctx, { x: 240, y: yy - 92, w: 3360, h: 148, r: 18, fill: UI.ink, stroke: UI.ink });
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(240, yy - 92, 18, 148);
     ctx.beginPath();
-    ctx.arc(300, yy - 12, 34, 0, Math.PI * 2);
-    ctx.fillStyle = UI.ink;
+    ctx.arc(330, yy - 18, 30, 0, Math.PI * 2);
+    ctx.fillStyle = UI.gold;
     ctx.fill();
-    ctx.strokeStyle = UI.gold;
+    ctx.strokeStyle = UI.ink;
     ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(285, yy - 12);
-    ctx.lineTo(297, yy);
-    ctx.lineTo(316, yy - 26);
+    ctx.moveTo(316, yy - 18);
+    ctx.lineTo(327, yy - 7);
+    ctx.lineTo(345, yy - 32);
     ctx.stroke();
-    text(ctx, label, 380, yy, { size: 66, weight: 700, family: 'Space Grotesk', color: UI.text });
-    text(ctx, detail, 380, yy + 62, { size: 38, weight: 400, color: UI.dim });
+    text(ctx, label, 400, yy - 2, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.white });
+    text(ctx, detail, 400, yy + 44, { size: 32, weight: 400, color: 'rgba(242,242,242,0.65)' });
     ctx.restore();
   });
 }
@@ -1718,31 +2753,58 @@ const RECAP = [
 
 function drawRecap(ctx, scene, t, local) {
   stageField(ctx, t);
-  text(ctx, scene.title, 240, 320, {
-    size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
-  });
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const e = scene.lines.map((line) => line.end - scene.start);
+  {
+    const tp = span(local, 0.15, 0.85);
+    ctx.save();
+    ctx.globalAlpha = clamp(tp * 4);
+    ctx.translate(0, (1 - ease.outCubic(clamp(tp * 1.2))) * 160);
+    text(ctx, scene.title, 240, 320, {
+      size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    ctx.restore();
+    const up = clamp(span(local, 0.4, 1.4));
+    if (up > 0) {
+      ctx.fillStyle = UI.ink;
+      ctx.fillRect(240, 350, 2400 * up, 240);
+    }
+  }
+  // The seven steps land across the lines that recount them, not all in the
+  // first five seconds of a thirty-second scene. Each takes a punch a beat
+  // after it lands: measured at delivery width, one landing alone leaves a
+  // gap the detector reads as a freeze.
+  const spread = (b[6] ?? 24) - (b[1] ?? 3);
+  const settle = ease.outCubic(clamp(span(local, (e[7] ?? 29) - 0.8, (e[7] ?? 29) - 0.3)));
   RECAP.forEach((label, i) => {
-    const p = clamp(span(local, 0.42 + i * 0.72, 1.0 + i * 0.72));
+    const at = (b[1] ?? 3) + (i * spread) / 6;
+    const p = clamp(span(local, at, at + 0.55));
     if (p <= 0) return;
     const col = i % 2;
     const row = Math.floor(i / 2);
     const xx = 260 + col * 1720;
-    const yy = 520 + row * 300;
+    const yy = 520 + row * 300 - settle * 40;
+    const tap = (Math.sin(Math.PI * clamp(span(local, at + 0.55, at + 1.0)))
+      + Math.sin(Math.PI * clamp(span(local, at + 1.15, at + 1.6)))
+      + Math.sin(Math.PI * clamp(span(local, at + 1.75, at + 2.2)))
+      + Math.sin(Math.PI * clamp(span(local, at + 2.35, at + 2.8)))) * 110;
     ctx.save();
-    ctx.globalAlpha = p;
-    ctx.translate((1 - ease.outExpo(p)) * -60, 0);
+    ctx.globalAlpha = clamp(p * 4);
+    ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * -500, punch);
     panel(ctx, { x: xx, y: yy, w: 1620, h: 240, r: 20, fill: UI.window, stroke: UI.line, shadow: 0.4 });
     text(ctx, String(i + 1).padStart(2, '0'), xx + 60, yy + 150, { size: 76, weight: 700, family: 'Space Grotesk', color: UI.line2 });
     text(ctx, label, xx + 200, yy + 138, { size: 50, weight: 700, family: 'Space Grotesk', color: UI.text });
     ctx.restore();
   });
-  // The closing card takes the empty half of the last row. Sitting it on row
-  // four printed it straight over item seven.
-  const last = 520 + 3 * 300;
-  const p = clamp(span(local, 5.6, 6.4));
-  if (p > 0) {
+  // The closing card lands on the last line of the scene.
+  const last = 520 + 3 * 300 - settle * 40;
+  const cp = clamp(span(local, (b[7] ?? 27) - 0.3, (b[7] ?? 27) + 0.7));
+  if (cp > 0) {
+    const ex = ease.outCubic(clamp(cp * 1.2));
+    const punch = Math.sin(Math.PI * clamp(span(local, (b[7] ?? 27) + 0.9, (b[7] ?? 27) + 1.4)));
     ctx.save();
-    ctx.globalAlpha = p;
+    ctx.globalAlpha = clamp(cp * 4);
+    ctx.translate((1 - ex) * -500, punch);
     const xx = 260 + 1 * 1720;
     panel(ctx, { x: xx, y: last, w: 1620, h: 240, r: 20, fill: UI.ink, stroke: null });
     text(ctx, 'And repeat.', xx + 60, last + 108, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.gold });
@@ -1752,6 +2814,140 @@ function drawRecap(ctx, scene, t, local) {
 }
 
 // -------------------------------------------------------------------- outro
+/**
+ * The proof: a commit rail that fills, then keeps carrying a signal.
+ *
+ * The outro used to finish drawing at 6.2 s and then hold for the rest of its
+ * seventeen seconds. Measured at the delivery definition, the last four seconds
+ * of the film were a freeze - the single thing this studio will not ship. A rail
+ * that commits land on, and that then carries a signal back and forth, keeps the
+ * closing shot alive with something the viewer can actually read: the repository
+ * growing, then the loop running.
+ *
+ * Every landing is an event (a dot, a ring, a hash), and the signal never stops,
+ * so the shot cannot go quiet however late the narration runs.
+ */
+function commitRail(ctx, local) {
+  const start = 5.2;
+  const drawn = clamp(span(local, start, start + 0.7));
+  if (drawn <= 0) return;
+
+  const width = W * 0.78;
+  const left = W / 2 - width / 2;
+  const y = 1600;
+  const gap = 0.72;
+  const count = 12;
+  const spacing = width / (count - 1);
+  const first = start + 0.7;
+  const tile = 240;
+
+  // The trough. It is a solid object, not a hairline: at delivery size a
+  // one-pixel stroke moves no block of the picture, and a "moving" line that
+  // moves nothing measurable is the freeze this studio keeps failing on.
+  const raw = Math.max(0, (local - first) / gap);
+  const whole = Math.min(count - 1, Math.floor(raw));
+  const part = raw >= count - 1 ? 1 : ease.inOutCubic(clamp(raw - whole));
+  const headX = left + (whole + part) * spacing;
+
+  ctx.save();
+  ctx.globalAlpha = drawn;
+  roundRect(ctx, left - 40, y - 85, width + 80, 170, 85);
+  ctx.fillStyle = 'rgba(255,255,255,0.09)';
+  ctx.fill();
+
+  // The fill is the repository's history being written. It grows with the
+  // head, and it stays, so the picture is different after every second.
+  if (local > first) {
+    roundRect(ctx, left - 40, y - 85, (headX - left) + 80, 170, 85);
+    ctx.fillStyle = 'rgba(242,194,48,0.85)';
+    ctx.fill();
+  }
+  ctx.restore();
+
+  for (let i = 0; i < count; i += 1) {
+    const at = first + i * gap;
+    const landed = span(local, at, at + 0.34);
+    if (landed <= 0) break;
+    const x = left + i * spacing;
+    const pop = ease.outBack(clamp(landed * 1.6));
+    const colour = i % 3 === 2 ? UI.red : UI.gold;
+
+    // A beam rises out of the rail as the commit lands. It is the largest
+    // thing in the shot while it lasts, so the landing is impossible to miss
+    // and impossible to measure as a hold, and then it is gone.
+    const beam = clamp(span(local, at, at + 0.6));
+    if (beam < 1) {
+      const rise = ease.outCubic(beam) * 90;
+      const g = ctx.createLinearGradient(0, y - 80 - rise, 0, y - 600 - rise);
+      g.addColorStop(0, i % 3 === 2
+        ? `rgba(196,22,28,${0.5 * (1 - beam)})`
+        : `rgba(242,194,48,${0.5 * (1 - beam)})`);
+      g.addColorStop(1, 'rgba(242,194,48,0)');
+      ctx.save();
+      ctx.fillStyle = g;
+      roundRect(ctx, x - 120, y - 620 - rise, 240, 540, 40);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // the ring leaves the commit as it lands
+    const ring = clamp(span(local, at, at + 0.85));
+    if (ring < 1) {
+      const size = tile + ring * 300;
+      ctx.save();
+      ctx.strokeStyle = i % 3 === 2
+        ? `rgba(196,22,28,${0.5 * (1 - ring)})`
+        : `rgba(242,194,48,${0.5 * (1 - ring)})`;
+      ctx.lineWidth = 30;
+      roundRect(ctx, x - size / 2, y - size / 2, size, size, size / 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // the commit itself: a solid tile dropping onto the rail
+    ctx.save();
+    ctx.translate(0, (1 - ease.outExpo(landed)) * -30);
+    ctx.fillStyle = colour;
+    roundRect(ctx, x - (tile * pop) / 2, y - (tile * pop) / 2, tile * pop, tile * pop, 44);
+    ctx.fill();
+    if (pop > 0.5) {
+      ctx.fillStyle = 'rgba(11,11,12,0.85)';
+      roundRect(ctx, x - 42, y - 42, 84, 84, 22);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    // the hash: the rail reads as a repository, not a ruler
+    // Below the rail, not above it: the row above carries the closing line of
+    // copy, and two text rows at the same height read as a collision.
+    text(ctx, `${(i * 61 + 11).toString(16)}${(i % 7) + 1}`, x, y + 178, {
+      size: 44, weight: 600, color: 'rgba(242,242,242,0.55)', align: 'center',
+      alpha: clamp(landed * 1.4),
+    });
+  }
+
+  // The head of the fill, and once the rail is full the loop running down it.
+  // It reaches the last commit and keeps going, so the film ends on a frame
+  // that is still doing something.
+  const filledAt = first + (count - 1) * gap;
+  let hx = headX;
+  if (local > filledAt) {
+    const phase = ((local - filledAt) / 2.4) % 2;
+    const k = phase < 1 ? phase : 2 - phase;
+    hx = left + width * ease.inOutCubic(k);
+  }
+  const glow = ctx.createRadialGradient(hx, y, 0, hx, y, 320);
+  glow.addColorStop(0, 'rgba(255,235,150,0.75)');
+  glow.addColorStop(1, 'rgba(255,235,150,0)');
+  ctx.save();
+  ctx.fillStyle = glow;
+  ctx.fillRect(hx - 320, y - 320, 640, 640);
+  ctx.fillStyle = UI.white;
+  roundRect(ctx, hx - 60, y - 60, 120, 120, 32);
+  ctx.fill();
+  ctx.restore();
+}
+
 function drawOutro(ctx, scene, t, local) {
   stageField(ctx, t, true);
   const lines = scene.title.split('\n');
@@ -1771,7 +2967,11 @@ function drawOutro(ctx, scene, t, local) {
   });
   // The streak and the flash together crossed the luminance change threshold
   // three times in a second. Both are calmer now, and the film still lands.
-  rainbowStreak(ctx, { x: W / 2, y: 1740, w: W * 0.9, h: 90, progress: span(local, 2.6, 6.2) });
+  rainbowStreak(ctx, { x: W / 2, y: 1860, w: W * 0.9, h: 90, progress: span(local, 2.6, 6.2) });
+
+  // The closing shot has to keep moving for as long as it is on screen, not
+  // stop once the type has landed: this is the half that used to hold.
+  commitRail(ctx, local);
   if (local > 0.05 && local < 0.75) {
     ctx.fillStyle = `rgba(255,255,255,${(1 - (local - 0.05) / 0.7) * 0.55})`;
     ctx.fillRect(0, 0, W, H);
@@ -2054,8 +3254,8 @@ function main() {
       // and every block hardly at all; something appearing, highlighting or
       // changing changes the blocks. That is the difference between a shot that
       // drifts and a shot that is alive, which is the thing being measured.
-      const BX = 24;
-      const BY = 13;
+      const BX = 32;
+      const BY = 18;
       const blocks = new Float32Array(BX * BY);
       const counts = new Float32Array(BX * BY);
       for (let y = 0; y < PH; y += 1) {
@@ -2079,7 +3279,7 @@ function main() {
         for (let i = 0; i < blocks.length; i += 1) {
           const delta = Math.abs(blocks[i] - previousBlocks[i]);
           blockSum += delta;
-          if (delta > 1.5) changed += 1;
+          if (delta > PROBE.blockDelta) changed += 1;
         }
         blockSeries.push(Math.round((blockSum / blocks.length) * 1000) / 1000);
         // The share of the picture that changed by a visible amount. A drifting
@@ -2117,7 +3317,7 @@ function main() {
               }
             }
             const n = Math.ceil((y1 - y0) / 2) * Math.ceil((x1 - x0) / 2);
-            if (Math.abs(sumA / n - sumB / n) > 1.5) changedLong += 1;
+            if (Math.abs(sumA / n - sumB / n) > PROBE.blockDelta) changedLong += 1;
           }
         }
         longSeries.push(Math.round((changedLong / (BX * BY)) * 10000) / 10000);
@@ -2138,7 +3338,7 @@ function main() {
     // A frame counts as a hold when almost nothing changed by a visible amount.
     // 0.35% of 312 blocks is one block: the smallest thing worth calling an
     // event. Everything above that is a picture doing something.
-    const threshold = Number(process.env.VC_PROBE_STILL || 0.0035);
+    const threshold = Number(process.env.VC_PROBE_STILL || PROBE.stillShare);
     const holds = [];
     let run = null;
     longSeries.forEach((value, index) => {
@@ -2153,12 +3353,19 @@ function main() {
     });
     if (run) holds.push(run);
     const longest = holds.reduce((best, hold) => Math.max(best, hold.end - hold.start), 0);
+    // A hold shorter than the delivery check's minimum span is not a hold: the
+    // two measurements must agree on what they call a freeze.
+    const realHolds = holds.filter((hold) => hold.end - hold.start >= 0.5);
     const report = {
       fps: FPS, from, to, threshold, frames: series.length,
+      definition: { blocks: [32, 18], block_delta: PROBE.blockDelta,
+        still_share: PROBE.stillShare, lag_seconds: PROBE.lagSeconds,
+        source: 'video_studio/repeat_frames.py' },
+      over_limit: longest > PROBE.maxStillSeconds,
       mean_delta: Math.round((series.reduce((a, b) => a + b, 0) / series.length) * 1000) / 1000,
       mean_block_delta: Math.round((blockSeries.reduce((a, b) => a + b, 0) / blockSeries.length) * 1000) / 1000,
       longest_hold_seconds: Math.round(longest * 1000) / 1000,
-      holds: holds.map((hold) => ({
+      holds: realHolds.map((hold) => ({
         start: Math.round(hold.start * 100) / 100,
         end: Math.round(hold.end * 100) / 100,
         seconds: Math.round((hold.end - hold.start) * 100) / 100,
