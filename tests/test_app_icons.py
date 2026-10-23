@@ -95,8 +95,19 @@ class CommittedIconTests(unittest.TestCase):
         # somebody dropped in, they are the output of this script. The smallest
         # icon is enough to prove the pipeline, and costs a fraction of the 512
         # render, so the suite stays fast.
+        #
+        # It compares the decoded image, not the file's bytes. The PNG body is
+        # zlib output, and zlib is allowed to compress the same pixels
+        # differently on another platform or version - which is exactly what
+        # happened on Windows (Python 3.14). Comparing pixels still catches a
+        # changed drawing, a changed colour and a changed size; it stops
+        # catching which deflate implementation produced the bytes, which is not
+        # something this repository controls or cares about.
         reproduced = make_icons._png_bytes(make_icons.render(192), 192)
-        self.assertEqual(reproduced, (ROOT / "web" / "icons" / "icon-192.png").read_bytes())
+        committed = (ROOT / "web" / "icons" / "icon-192.png").read_bytes()
+        self.assertEqual(_decode(reproduced), _decode(committed))
+        self.assertEqual(_read_chunks(reproduced)[0], _read_chunks(committed)[0],
+                         "the committed icon has a different image header")
 
     def test_check_mode_reports_drift_rather_than_passing(self):
         tiny = {"icon-192.png": (2, bytearray(2 * 2 * 4))}

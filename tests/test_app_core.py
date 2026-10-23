@@ -64,31 +64,59 @@ class ErrorTests(unittest.TestCase):
 
 
 class PathTests(unittest.TestCase):
+    """Paths must behave the same for a Windows install and a Linux one.
+
+    Every fixture is a real temporary directory rather than a literal ``/tmp``
+    path: on Windows ``Path('/tmp/x')`` is drive-relative, so a literal would
+    test the drive mapping instead of the code.
+    """
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name).resolve()
+
     def test_every_location_is_derived_from_root(self):
-        paths = ProjectPaths(Path("/tmp/example"))
-        self.assertEqual(paths.tasks, Path("/tmp/example/tasks.json"))
-        self.assertEqual(paths.deck, Path("/tmp/example/web/deck.html"))
-        self.assertEqual(paths.task_progress("TASK-0001"),
-                         Path("/tmp/example/workspace/orchestration/task-TASK-0001/pipeline-progress.json"))
+        paths = ProjectPaths(self.root)
+        self.assertEqual(paths.tasks, self.root / "tasks.json")
+        self.assertEqual(paths.deck, self.root / "web" / "deck.html")
+        self.assertEqual(
+            paths.task_progress("TASK-0001"),
+            self.root / "workspace" / "orchestration" / "task-TASK-0001" / "pipeline-progress.json",
+        )
+
+    def test_every_location_stays_inside_root(self):
+        paths = ProjectPaths(self.root)
+        for location in (paths.tasks, paths.config, paths.workspace, paths.logs,
+                         paths.outputs, paths.deck, paths.roster, paths.pipeline_dir):
+            with self.subTest(location=location.name):
+                self.assertEqual(location.relative_to(self.root), location.relative_to(self.root))
+                self.assertTrue(str(location).startswith(str(self.root)))
 
     def test_the_root_can_come_from_the_environment(self):
-        paths = ProjectPaths.discover(environ={"AGENT_HQ_HOME": "/tmp/elsewhere"})
-        self.assertEqual(paths.root, Path("/tmp/elsewhere"))
+        paths = ProjectPaths.discover(environ={"AGENT_HQ_HOME": str(self.root)})
+        self.assertEqual(paths.root, self.root)
 
     def test_an_explicit_root_wins_over_the_environment(self):
-        paths = ProjectPaths.discover("/tmp/explicit", environ={"AGENT_HQ_HOME": "/tmp/env"})
-        self.assertEqual(paths.root, Path("/tmp/explicit"))
+        other = self.root / "other"
+        paths = ProjectPaths.discover(str(other), environ={"AGENT_HQ_HOME": str(self.root)})
+        self.assertEqual(paths.root, other.resolve())
 
     def test_relative_never_raises_for_an_outside_path(self):
-        paths = ProjectPaths(Path("/tmp/project"))
-        self.assertEqual(paths.relative("/etc/passwd"), "/etc/passwd")
+        outside = Path(tempfile.gettempdir()) / "definitely-outside-the-project.txt"
+        paths = ProjectPaths(self.root)
+        self.assertEqual(paths.relative(outside), str(outside))
+
+    def test_relative_reports_a_path_inside_the_project(self):
+        paths = ProjectPaths(self.root)
+        inside = self.root / "workspace" / "notes.md"
+        self.assertEqual(Path(paths.relative(inside)), Path("workspace") / "notes.md")
 
     def test_runtime_directories_are_created(self):
-        with tempfile.TemporaryDirectory() as directory:
-            paths = ProjectPaths(Path(directory))
-            paths.ensure_runtime_dirs()
-            for directory_name in ("logs", "outputs", "workspace"):
-                self.assertTrue((Path(directory) / directory_name).is_dir())
+        paths = ProjectPaths(self.root)
+        paths.ensure_runtime_dirs()
+        for directory_name in ("logs", "outputs", "workspace"):
+            self.assertTrue((self.root / directory_name).is_dir())
 
 
 class JsonIoTests(unittest.TestCase):
@@ -134,9 +162,10 @@ class FfmpegTests(unittest.TestCase):
     def test_find_returns_none_instead_of_raising(self):
         from app.infrastructure import ffmpeg
 
-        with patch("shutil.which", return_value=None), \
-             patch("app.infrastructure.ffmpeg.find_ffmpeg.__module__", "x", create=True):
-            # the imageio fallback may or may not exist; either way no exception
+        # With nothing on PATH the answer is the bundled binary or None - never
+        # an exception. Both are correct depending on whether the optional
+        # imageio-ffmpeg wheel is installed on this machine.
+        with patch("shutil.which", return_value=None):
             value = ffmpeg.find_ffmpeg()
         self.assertTrue(value is None or isinstance(value, str))
 

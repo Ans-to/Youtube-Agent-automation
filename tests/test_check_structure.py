@@ -43,6 +43,25 @@ class StructureRuleTests(unittest.TestCase):
     def test_a_clean_tree_has_no_findings(self):
         self.assertEqual(check_structure.run_checks(self.root), [])
 
+    def test_a_windows_style_path_is_still_checked(self):
+        # The layer rule used to compare with ``startswith("app/")``, so on
+        # Windows a real violation arrived as ``app\\services\\bad.py`` and
+        # passed. The rule must not depend on the separator it was handed.
+        import ast
+
+        tree = ast.parse("from ui.views.page import VALUE\n")
+        findings = check_structure.check_layer("app\\services\\bad.py", tree)
+        self.assertEqual([f.rule for f in findings], ["S1"])
+        self.assertEqual(findings[0].path, "app/services/bad.py")
+
+    def test_reported_paths_use_forward_slashes_on_every_platform(self):
+        write(self.root, "app/services/bad.py", "from ui.views.page import VALUE\n")
+        findings = check_structure.run_checks(self.root)
+        self.assertTrue(findings)
+        for finding in findings:
+            with self.subTest(path=finding.path):
+                self.assertNotIn("\\", finding.path)
+
     def test_layer_violation_app_importing_the_ui(self):
         write(self.root, "app/services/bad.py", "from ui.views.page import VALUE\n")
         findings = check_structure.run_checks(self.root)
@@ -68,7 +87,9 @@ class StructureRuleTests(unittest.TestCase):
         write(self.root, "tools/two.py", "def compute(a):\n" + body)
         findings = [f for f in check_structure.run_checks(self.root) if f.rule == "S3"]
         self.assertEqual(len(findings), 1)
-        self.assertIn("tools/two.py", findings[0].path)
+        # Reported with forward slashes on every platform, so the message can be
+        # pasted into a link or a review comment without translation.
+        self.assertEqual(findings[0].path, "tools/two.py")
         self.assertIn("tools/one.py", findings[0].message)
 
     def test_a_short_repeated_helper_is_not_reported(self):

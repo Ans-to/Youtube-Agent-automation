@@ -240,8 +240,11 @@ def main(argv=None):
             except OSError:
                 drift.append(f"{name}: missing")
                 continue
-            expected = _png_bytes(buffer, size)
-            if existing != expected:
+            # Compare the pixels, not the file. The PNG body is zlib output and
+            # zlib may compress identical pixels differently on another platform
+            # or version; comparing bytes would report drift that is invisible
+            # and would tempt someone to commit platform-specific binaries.
+            if _committed_rows(existing) != _png_rows(buffer, size):
                 drift.append(f"{name}: differs from the committed icon")
             continue
         write_png(path, buffer, size)
@@ -256,13 +259,45 @@ def main(argv=None):
     return 0
 
 
+def _png_rows(buffer, size):
+    """The uncompressed, filtered scanlines this generator writes for an icon."""
+    rows = bytearray()
+    for y in range(size):
+        rows.append(0)  # filter type 0 (none) on every row
+        rows.extend(buffer[y * size * 4:(y + 1) * size * 4])
+    return bytes(rows)
+
+
+def _committed_rows(data):
+    """Decode a committed PNG back to the same scanlines, or return None.
+
+    Returns ``None`` for a file that is not an 8-bit RGBA PNG this tool could
+    have written, so the caller reports drift instead of raising.
+    """
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
+        return None
+    position, idat = 8, bytearray()
+    while position + 8 <= len(data):
+        length = struct.unpack(">I", data[position:position + 4])[0]
+        tag = data[position + 4:position + 8]
+        payload = data[position + 8:position + 8 + length]
+        if tag == b"IDAT":
+            idat.extend(payload)
+        elif tag == b"IEND":
+            break
+        position += 12 + length
+    if not idat:
+        return None
+    try:
+        return zlib.decompress(bytes(idat))
+    except zlib.error:
+        return None
+
+
 def _png_bytes(buffer, size):
     import io
     temp = io.BytesIO()
-    rows = bytearray()
-    for y in range(size):
-        rows.append(0)
-        rows.extend(buffer[y * size * 4:(y + 1) * size * 4])
+    rows = _png_rows(buffer, size)
     def chunk(tag, payload):
         return (struct.pack(">I", len(payload)) + tag + payload
                 + struct.pack(">I", zlib.crc32(tag + payload) & 0xFFFFFFFF))
