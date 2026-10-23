@@ -91,7 +91,11 @@ export function text(ctx, value, x, y, opts = {}) {
     align = 'left', alpha = 1, tracking = 0, baseline = 'alphabetic', maxWidth = null,
   } = opts;
   ctx.save();
-  ctx.globalAlpha = alpha;
+  // Multiply into whatever the caller set rather than replacing it. Replacing
+  // it meant a block of `ctx.globalAlpha = p` around a group of labels faded the
+  // panels and left the type fully solid, which is how half the film's fades
+  // were quietly doing nothing.
+  ctx.globalAlpha = ctx.globalAlpha * alpha;
   ctx.font = `${weight} ${size}px "${family}"`;
   ctx.fillStyle = color;
   ctx.textBaseline = baseline;

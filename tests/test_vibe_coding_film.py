@@ -100,7 +100,10 @@ class VibeCodingFilmTests(unittest.TestCase):
             film = json.loads((Path(tmp) / "frames" / "film.json").read_text(encoding="utf-8"))
         # 151 lines, 4.2 s apart, starting at 2 s: the last one ends just under 634 s
         last_end = 2.0 + (LINE_COUNT - 1) * LINE_SECONDS + 3.6
-        self.assertAlmostEqual(film["scenes"][0]["start"], 2.0 - 0.55, places=2)
+        # The picture starts at frame zero even though the voice starts at 2 s.
+        # The 1.45 s lead-in of empty stage was cut: it measured as a two-second
+        # freeze at the start of the film, the worst place to lose a viewer.
+        self.assertAlmostEqual(film["scenes"][0]["start"], 0.0, places=2)
         self.assertGreater(film["duration_seconds"], last_end)
         self.assertLess(film["duration_seconds"], last_end + 4.0)
         self.assertEqual(film["scenes"][0]["narration_lines"], 4)

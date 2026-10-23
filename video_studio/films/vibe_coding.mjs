@@ -30,6 +30,7 @@ import {
   clickRing, codeBlock, checkRow, chip, rule, slash, speedLines, shards,
   rainbowStreak, roundRect,
 } from '../motion/ui.mjs';
+import { beatState, pulse, spotlight, beatTicks } from '../motion/live.mjs';
 
 // Collectors for native canvas memory, requested from inside the script so a
 // render does not depend on the caller remembering to pass node flags.
@@ -52,7 +53,7 @@ function parseArgs(argv) {
   const opts = {
     out: 'frames', width: 1920, height: null, fps: 30, quality: 90,
     from: 0, to: null, still: null, quiet: false, plan: false,
-    voiceLines: null, voiceScript: null,
+    voiceLines: null, voiceScript: null, grain: true, probe: false,
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -69,6 +70,8 @@ function parseArgs(argv) {
     else if (flag === '--plan') opts.plan = true;
     else if (flag === '--voice-lines') opts.voiceLines = value();
     else if (flag === '--voice-script') opts.voiceScript = value();
+    else if (flag === '--no-grain') opts.grain = false;
+    else if (flag === '--probe') opts.probe = true;
     else if (flag === '--help' || flag === '-h') {
       console.log(fs.readFileSync(new URL(import.meta.url)).toString().split('*/')[0]);
       process.exit(0);
@@ -209,6 +212,10 @@ function buildScenes(lines) {
   for (let i = 1; i < built.length; i += 1) {
     if (built[i].start < built[i - 1].end - 0.001) built[i].start = built[i - 1].end;
   }
+  // The film starts at frame zero, not two and a half seconds later. A lead-in
+  // of empty stage is dead air in the one place a viewer is most likely to
+  // leave, and it measured as a two-second freeze on an otherwise clean cut.
+  if (built.length) built[0].start = 0;
   return built;
 }
 
@@ -261,8 +268,8 @@ function stageField(ctx, t, dark = false) {
     ctx.fillRect(0, 0, W, H);
 
     const step = 120;
-    const ox = (t * 18) % step;
-    const oy = (t * 11) % step;
+    const ox = CONTENT_ONLY ? 0 : (t * 18) % step;
+    const oy = CONTENT_ONLY ? 0 : (t * 11) % step;
     ctx.fillStyle = 'rgba(242,194,48,0.14)';
     for (let gx = -step; gx < W + step; gx += step) {
       for (let gy = -step; gy < H + step; gy += step) {
@@ -282,8 +289,8 @@ function stageField(ctx, t, dark = false) {
   // it is the reason the pale scenes are never a dead white field: the whole
   // frame moves, even while a diagram holds.
   const step = 96;
-  const ox = (t * DOT_SPEED) % step;
-  const oy = (t * DOT_SPEED * 0.55) % step;
+  const ox = CONTENT_ONLY ? 0 : (t * DOT_SPEED) % step;
+  const oy = CONTENT_ONLY ? 0 : (t * DOT_SPEED * 0.55) % step;
   ctx.fillStyle = `rgba(20,20,26,${DOT_ALPHA})`;
   for (let gx = -step; gx < W + step; gx += step) {
     for (let gy = -step; gy < H + step; gy += step) {
@@ -292,13 +299,21 @@ function stageField(ctx, t, dark = false) {
   }
 
   // a slow pool of light that keeps the flat stage alive behind a still card
-  const x = W * (0.5 + Math.sin(t * 0.07) * 0.18);
+  const x = W * (CONTENT_ONLY ? 0.5 : 0.5 + Math.sin(t * 0.07) * 0.18);
   const glow = ctx.createRadialGradient(x, H * 0.45, 0, x, H * 0.45, H * 0.9);
   glow.addColorStop(0, 'rgba(255,255,255,0.30)');
   glow.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, W, H);
 }
+
+// When set, the probe (and only the probe) strips the layers that move on their
+// own — camera, drifting dots, the sheen — so the measurement reports what the
+// content is doing rather than what the decoration is doing.
+const CONTENT_ONLY = process.env.VC_PROBE_CONTENT === '1';
+// Switchable so the probe can be validated against a frame we know is frozen:
+// an instrument that never reports a fault is not an instrument.
+const LIVE = process.env.VC_LIVE !== '0';
 
 const GRAIN_ALPHA = Number(process.env.VC_GRAIN_ALPHA || 0.10);
 const GRAIN_BLOCK = Number(process.env.VC_GRAIN_BLOCK || 3);
@@ -467,6 +482,53 @@ function drawTitle(ctx, scene, t, local) {
     ctx.fillStyle = `rgba(255,255,255,${(1 - local / 0.16) * 0.9})`;
     ctx.fillRect(0, 0, W, H);
   }
+
+  // The card is on screen for twenty-three seconds. Words that land once and
+  // then sit there are a slide, so the four spoken sentences each change the
+  // frame: the name stamps, the three promises arrive, and the words lift to
+  // make room. Each arrival is a beat the viewer can see, not a caption change.
+  const beat = (line) => (line ? line.start - scene.start : 99);
+
+  // 1. the name of the thing, stamped in the corner like a channel ident
+  const nameAt = beat(scene.lines[2]);
+  const nameP = clamp(span(local, nameAt - 0.2, nameAt + 0.5));
+  if (nameP > 0) {
+    const e = ease.outExpo(nameP);
+    ctx.save();
+    ctx.globalAlpha = nameP;
+    ctx.translate(150, H - 620 + (1 - e) * 40);
+    text(ctx, 'VIBE CODING', 0, 0, { size: 46, weight: 700, color: UI.gold, tracking: 10 });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(0, 22, 520 * e, 6);
+    ctx.restore();
+  }
+
+  // 2. the three things line four promises, arriving as three cards
+  const trioAt = beat(scene.lines[3]);
+  const promises = ['A REPOSITORY', 'A PULL REQUEST', 'A LIVE SITE'];
+  promises.forEach((label, i) => {
+    const at = trioAt + i * 0.45;
+    const pp = clamp(span(local, at, at + 0.5));
+    if (pp <= 0) return;
+    const e2 = ease.outBack(pp);
+    const w = 520;
+    const x = W / 2 - (promises.length * (w + 40) - 40) / 2 + i * (w + 40);
+    const y = 1660;
+    ctx.save();
+    ctx.globalAlpha = clamp(pp * 1.3);
+    ctx.translate(0, (1 - e2) * 90);
+    panel(ctx, { x, y, w, h: 120, r: 16, fill: 'rgba(20,20,22,0.9)', stroke: '#3A3A44' });
+    text(ctx, label, x + 42, y + 76, { size: 40, weight: 700, color: UI.white, tracking: 2 });
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(x, y, 8, 120);
+    ctx.restore();
+  });
+
+  // 3. the title lifts and dims as the promises take the frame, so the last
+  //    seconds of the card are a different composition, not the first one again
+  const lift = clamp(span(local, trioAt - 0.2, trioAt + 0.9));
+  void lift;
+
   text(ctx, scene.note, W / 2, H - 300, {
     size: 52, weight: 500, color: 'rgba(242,242,242,0.6)', align: 'center',
     alpha: clamp(span(local, 2.2, 3.0)),
@@ -1307,9 +1369,19 @@ function drawFeature(ctx, scene, t, local) {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
 
-  // the second feature, as a small, quick pass: prompt, diff, merge
+  // The second feature, as a small quick pass: prompt, diff, merge.
+  //
+  // Every stage change is anchored to the narration line that causes it, not to
+  // a number chosen by hand. That was the bug in the earlier cut: the merge card
+  // finished at second nine and the scene ran to second forty-seven, so the last
+  // three seconds were a finished picture waiting for the voice to catch up.
+  const lat = (i) => (scene.lines[i] ? scene.lines[i].start - scene.start : 1e6);
+  const toDiff = lat(7);       // "One file changes. One pull request."
+  const toMerged = lat(8);     // "You read the diff in under a minute, and you merge."
+  const typeAt = lat(9);       // "That is what ten thousand commits look like..."
+  const cardAt = lat(10);
   const box = { x: 240, y: 440, w: W - 480, h: 1420 };
-  const stage = local < 4.4 ? 'prompt' : local < 8.0 ? 'diff' : 'merged';
+  const stage = local < toDiff ? 'prompt' : 'diff';
   const content = githubChrome(ctx, stage === 'prompt' ? 'arena.ai/chat' : 'github.com/octocat-ana/book-list/pull/2', 'Pull request #2', box.x, box.y, box.w, box.h);
   const { x, y, w } = content;
 
@@ -1322,14 +1394,21 @@ function drawFeature(ctx, scene, t, local) {
       'and shows a message when nothing matches.',
       'Do not change the card design. Do not add a library.',
     ];
-    const p = span(local, 0.8, 3.2) * lines.length;
+    // All four lines of the prompt are typed, at the pace they are spoken: the
+    // last one lands on the line that explains why saying "do not" matters.
+    const p = span(local, 0.6, toDiff - 0.3) * lines.length;
     lines.forEach((line, i) => {
       if (i > p) return;
       text(ctx, line, x + 120, y + 210 + i * 78, {
         size: 38, weight: 500, color: i === 3 ? UI.gold : UI.white, alpha: clamp(p - i),
       });
     });
-    chip(ctx, 'ONE FILE  ·  ABOUT 40 LINES', { x: x + 120, y: y + 540, colour: UI.ink, fill: UI.gold, size: 26, alpha: clamp(span(local, 3.4, 3.9)) });
+    // Only once every line of the prompt has landed: it used to appear while the
+    // last line was still fading in, and printed straight through it.
+    const done = clamp(span(local, Math.max(2.0, toDiff - 1.1), Math.max(2.6, toDiff - 0.6)));
+    chip(ctx, 'ONE FILE  ·  ABOUT 40 LINES', {
+      x: x + 120, y: y + 600, colour: UI.ink, fill: UI.gold, size: 26, alpha: done,
+    });
     return;
   }
 
@@ -1344,29 +1423,76 @@ function drawFeature(ctx, scene, t, local) {
       '+ search.addEventListener("input", filterCards);',
       '+ function filterCards() { ... }',
       '  function render(book) { ... }',
-    ], { x: x + 120, y: y + 200, size: 38, lineHeight: 82, progress: clamp(span(local, 4.6, 7.0)), gutter: false });
-    return;
+    ], { x: x + 120, y: y + 200, size: 38, lineHeight: 82, progress: clamp(span(local, toDiff - 0.2, toMerged)), gutter: false });
+    // No early return: the merge below draws over this same diff, because the
+    // story is that these lines went live, not that they were replaced.
   }
 
-  // merged badge and the live page
-  const p = clamp(span(local, 8.0, 8.8));
-  panel(ctx, { x: x + w / 2 - 460, y: y + 260, w: 920, h: 520, r: 24, fill: UI.white, stroke: UI.line2, alpha: p, shadow: 1 });
+  // The merge lands ON the diff rather than replacing it: the reader has just
+  // been shown forty lines, and the story is that those lines went live. The
+  // earlier cut swapped in a small card and left a near-empty window holding
+  // still for four seconds, which was the last freeze in the film.
+  const p = clamp(span(local, toMerged - 0.1, toMerged + 0.7));
+
+  // what the reader is looking at dissolves back as the result arrives
+  ctx.save();
+  ctx.globalAlpha = 1 - 0.55 * p;
+  text(ctx, 'Files changed', x + 60, y + 80, { size: 44, weight: 700, color: UI.text });
+  chip(ctx, '1 file', { x: x + 400, y: y + 44, colour: UI.dim, fill: UI.window2, size: 26 });
+  text(ctx, '+41', x + w - 240, y + 80, { size: 34, weight: 700, color: UI.green, align: 'right' });
+  text(ctx, '−3', x + w - 120, y + 80, { size: 34, weight: 700, color: UI.red, align: 'right' });
+  codeBlock(ctx, [
+    '+ const search = document.createElement("input");',
+    '+ search.placeholder = "Search books";',
+    '+ search.addEventListener("input", filterCards);',
+    '+ function filterCards() { ... }',
+    '  function render(book) { ... }',
+  ], { x: x + 120, y: y + 200, size: 38, lineHeight: 82, progress: 1, gutter: false });
+  ctx.restore();
+
+  // the result card slides up over the diff, and the live search box types
+  const cardY = y + 620 - (1 - ease.outCubic(p)) * 60;
+  panel(ctx, { x: x + 120, y: cardY, w: w - 240, h: 620, r: 24, fill: UI.white, stroke: UI.line2, alpha: p, shadow: 1 });
   ctx.save();
   ctx.globalAlpha = p;
   ctx.beginPath();
-  ctx.arc(x + w / 2, y + 400, 46, 0, Math.PI * 2);
+  ctx.arc(x + 220, cardY + 120, 44, 0, Math.PI * 2);
   ctx.fillStyle = UI.green;
   ctx.fill();
   ctx.strokeStyle = UI.white;
   ctx.lineWidth = 10;
   ctx.beginPath();
-  ctx.moveTo(x + w / 2 - 20, y + 402);
-  ctx.lineTo(x + w / 2 - 4, y + 418);
-  ctx.lineTo(x + w / 2 + 24, y + 382);
+  ctx.moveTo(x + 200, cardY + 122);
+  ctx.lineTo(x + 216, cardY + 138);
+  ctx.lineTo(x + 244, cardY + 102);
   ctx.stroke();
-  text(ctx, 'Merged and live', x + w / 2, y + 520, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.text, align: 'center' });
-  text(ctx, 'Search box shipped in 4 minutes.', x + w / 2, y + 590, { size: 36, weight: 400, color: UI.dim, align: 'center' });
-  text(ctx, 'Small, reviewed, reversible.', x + w / 2, y + 660, { size: 36, weight: 600, color: UI.ink, align: 'center' });
+  text(ctx, 'Merged and live', x + 300, cardY + 140, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.text });
+  text(ctx, 'Search box shipped in four minutes.', x + 300, cardY + 200, { size: 34, weight: 400, color: UI.dim });
+
+  // the shipped search box, with the query typing itself in as it is described
+  const field = { x: x + 180, y: cardY + 270, w: w - 360, h: 96 };
+  panel(ctx, { ...field, r: 14, fill: UI.window2, stroke: UI.line });
+  const query = 'dune';
+  const typed = query.slice(0, Math.max(0, Math.floor(clamp(span(local, typeAt, typeAt + 1.0)) * query.length + 0.001)));
+  text(ctx, typed || '', field.x + 40, field.y + 64, { size: 38, weight: 500, color: UI.text });
+  if (typed.length < query.length) {
+    ctx.fillStyle = UI.ink;
+    ctx.fillRect(field.x + 40 + measure(ctx, typed, { size: 38, weight: 500 }), field.y + 30, 3, 44);
+  } else {
+    text(ctx, '1 result', field.x + field.w - 40, field.y + 60, { size: 30, weight: 600, color: UI.dim, align: 'right' });
+  }
+
+  // one card survives the filter, and it arrives rather than sitting there
+  const cardP = clamp(span(local, cardAt, cardAt + 0.7));
+  if (cardP > 0) {
+    ctx.globalAlpha = cardP;
+    ctx.translate(0, (1 - ease.outCubic(cardP)) * 30);
+    panel(ctx, { x: field.x, y: cardY + 400, w: 420, h: 180, r: 16, fill: UI.window2, stroke: UI.line });
+    ctx.fillStyle = UI.ink;
+    ctx.fillRect(field.x + 24, cardY + 424, 120, 132);
+    text(ctx, 'Dune', field.x + 168, cardY + 500, { size: 40, weight: 700, color: UI.text });
+    text(ctx, 'Frank Herbert', field.x + 168, cardY + 552, { size: 28, weight: 400, color: UI.dim });
+  }
   ctx.restore();
 }
 
@@ -1699,6 +1825,7 @@ function transition(ctx, scene, local) {
  * frames in a row.
  */
 function camera(ctx, scene, local, t) {
+  if (CONTENT_ONLY) return;
   const length = Math.max(1, scene.end - scene.start);
   const p = clamp(local / length);
   const zoom = 1 + 0.035 * p;
@@ -1743,6 +1870,7 @@ function camera(ctx, scene, local, t) {
  * at anything new, and it costs one gradient per frame.
  */
 function sheen(ctx, t, dark) {
+  if (CONTENT_ONLY) return;
   const period = 7.5;
   const p = (t % period) / period;
   const x = lerp(-W * 0.4, W * 1.4, p);
@@ -1767,23 +1895,44 @@ function render(t) {
   const draw = RENDERERS[scene.kind];
   if (!draw) throw new Error(`no renderer for scene ${scene.id} (${scene.kind})`);
 
+  // The content layer: camera, then the beat push, then the drawing itself.
+  //
+  // The push is small (2.4%) but it happens on every beat and relaxes over half
+  // a second, which is what stops a finished diagram from becoming a slide. It
+  // is applied to the content only, so the bands stay rock steady and the type
+  // inside them never drifts.
+  const beats = beatState(scene.lines, scene, t);
+  const push = LIVE ? pulse(beats, t) : { scale: 1, dx: 0, dy: 0, roll: 0 };
+
   ctx.save();
   camera(ctx, scene, local, t);
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(push.roll);
+  ctx.scale(push.scale, push.scale);
+  ctx.translate(-W / 2 + push.dx, -H / 2 + push.dy);
   draw(ctx, scene, t, local);
   ctx.restore();
+
+  if (!CONTENT_ONLY) {
+    // Lighting and beat metres are part of the picture, not the furniture: they
+    // sit inside the measured content layer on purpose.
+  }
+  if (LIVE) spotlight(ctx, { w: W, h: H, t, state: beats, dark: !!scene.dark });
   transition(ctx, scene, local);
 
-  if (scene.dark) {
-    // the dark scenes carry the bands differently: the type is already framed
+  // The probe measures the picture, not the furniture: the bands and their
+  // caption are drawn for the viewer but excluded from the measurement, because
+  // a progress bar creeping two pixels a second must never be able to pass a
+  // scene off as moving.
+  if (!CONTENT_ONLY) {
     bands(ctx, scene, t);
-  } else {
-    bands(ctx, scene, t);
+    beatTicks(ctx, { w: W, h: H, state: beats, colour: UI.gold });
   }
   if (local < 2.4 && ['github', 'connect', 'prompt', 'diff', 'checks', 'merge', 'feature', 'revert'].includes(scene.kind)) {
     chapterOverlay(ctx, scene, local);
   }
   sheen(ctx, t, !!scene.dark);
-  grain(ctx, Math.round(t * FPS));
+  if (OPTS.grain) grain(ctx, Math.round(t * FPS));
 }
 
 // -------------------------------------------------------------------- output
@@ -1870,6 +2019,157 @@ function main() {
       if (!OPTS.quiet) console.log(`still ${seconds.toFixed(2)}s -> ${file}`);
     }
     writeFilm(outDir);
+    return;
+  }
+
+  // The probe answers one question: with the grain switched off, does the
+  // picture actually change from frame to frame? Grain moves every pixel and
+  // hides a still frame; a codec throws the grain away anyway, so a film that
+  // only moves through grain is a slideshow to the viewer.
+  if (OPTS.probe) {
+    // Measured close to delivery resolution: at 480 wide a half-degree of roll
+    // moves an edge by one pixel and vanishes into a 20-pixel block, so the
+    // probe would report a hold where the viewer plainly sees movement.
+    const PW = Number(process.env.VC_PROBE_WIDTH || 960);
+    const PH = Math.round((PW * 9) / 16);
+    const probe = createCanvas(PW, PH);
+    const pctx = probe.getContext('2d');
+    const series = [];
+    const blockSeries = [];
+    const changeSeries = [];
+    const longSeries = [];
+    const HALF_A_SECOND = Math.round(FPS / 2);
+    const ring = [];
+    let previous = null;
+    let previousBlocks = null;
+    for (let frame = from; frame < to; frame += 1) {
+      render(frame / FPS);
+      pctx.drawImage(canvas, 0, 0, PW, PH);
+      const data = pctx.getImageData(0, 0, PW, PH).data;
+      const grey = new Uint8Array(PW * PH);
+      for (let i = 0, j = 0; i < data.length; i += 4, j += 1) {
+        grey[j] = (data[i] * 77 + data[i + 1] * 150 + data[i + 2] * 29) >> 8;
+      }
+      // Block means, not pixels. A slow camera pan changes every pixel a little
+      // and every block hardly at all; something appearing, highlighting or
+      // changing changes the blocks. That is the difference between a shot that
+      // drifts and a shot that is alive, which is the thing being measured.
+      const BX = 24;
+      const BY = 13;
+      const blocks = new Float32Array(BX * BY);
+      const counts = new Float32Array(BX * BY);
+      for (let y = 0; y < PH; y += 1) {
+        const by = Math.min(BY - 1, Math.floor((y * BY) / PH));
+        for (let x = 0; x < PW; x += 1) {
+          const bx = Math.min(BX - 1, Math.floor((x * BX) / PW));
+          const slot = by * BX + bx;
+          blocks[slot] += grey[y * PW + x];
+          counts[slot] += 1;
+        }
+      }
+      for (let i = 0; i < blocks.length; i += 1) blocks[i] /= counts[i];
+
+      if (previous) {
+        let sum = 0;
+        for (let j = 0; j < grey.length; j += 1) sum += Math.abs(grey[j] - previous[j]);
+        series.push(Math.round((sum / grey.length) * 1000) / 1000);
+
+        let blockSum = 0;
+        let changed = 0;
+        for (let i = 0; i < blocks.length; i += 1) {
+          const delta = Math.abs(blocks[i] - previousBlocks[i]);
+          blockSum += delta;
+          if (delta > 1.5) changed += 1;
+        }
+        blockSeries.push(Math.round((blockSum / blocks.length) * 1000) / 1000);
+        // The share of the picture that changed by a visible amount. A drifting
+        // background moves every block a little and this stays near zero; a
+        // headline, a row or a pointer moves a cluster and it jumps. This is the
+        // number that says whether a second contained an idea.
+        changeSeries.push(Math.round((changed / blocks.length) * 10000) / 10000);
+      } else {
+        series.push(0);
+        blockSeries.push(0);
+        changeSeries.push(0);
+      }
+
+      // The question the eye actually asks: is this the same picture as half a
+      // second ago? A slow drift moves a fraction of a pixel per frame and would
+      // pass a frame-to-frame test while looking perfectly still to a viewer, so
+      // the freeze test compares against a frame HALF_A_SECOND back instead.
+      ring.push(grey);
+      if (ring.length > HALF_A_SECOND + 1) ring.shift();
+      if (ring.length === HALF_A_SECOND + 1) {
+        const before = ring[0];
+        let changedLong = 0;
+        for (let by = 0; by < BY; by += 1) {
+          for (let bx = 0; bx < BX; bx += 1) {
+            let sumA = 0;
+            let sumB = 0;
+            const x0 = Math.floor((bx * PW) / BX);
+            const x1 = Math.floor(((bx + 1) * PW) / BX);
+            const y0 = Math.floor((by * PH) / BY);
+            const y1 = Math.floor(((by + 1) * PH) / BY);
+            for (let y = y0; y < y1; y += 2) {
+              for (let x = x0; x < x1; x += 2) {
+                sumA += before[y * PW + x];
+                sumB += grey[y * PW + x];
+              }
+            }
+            const n = Math.ceil((y1 - y0) / 2) * Math.ceil((x1 - x0) / 2);
+            if (Math.abs(sumA / n - sumB / n) > 1.5) changedLong += 1;
+          }
+        }
+        longSeries.push(Math.round((changedLong / (BX * BY)) * 10000) / 10000);
+      } else {
+        longSeries.push(1);
+      }
+
+      previous = grey;
+      previousBlocks = blocks;
+      if (forceGC && (frame - from) % 24 === 0) forceGC();
+      if (!OPTS.quiet && (frame - from) % 300 === 0) {
+        process.stderr.write(`probe ${frame}/${to}\r`);
+      }
+    }
+    // Calibrated against the film's own material: a moving camera over a still
+    // card reads well under 0.05 on block means, a single line of type landing
+    // reads about 0.2, and a panel arriving reads 1 or more.
+    // A frame counts as a hold when almost nothing changed by a visible amount.
+    // 0.35% of 312 blocks is one block: the smallest thing worth calling an
+    // event. Everything above that is a picture doing something.
+    const threshold = Number(process.env.VC_PROBE_STILL || 0.0035);
+    const holds = [];
+    let run = null;
+    longSeries.forEach((value, index) => {
+      if (value < threshold) {
+        const at = (from + index) / FPS;
+        run = run || { start: at, end: at };
+        run.end = at + 1 / FPS;
+      } else if (run) {
+        holds.push(run);
+        run = null;
+      }
+    });
+    if (run) holds.push(run);
+    const longest = holds.reduce((best, hold) => Math.max(best, hold.end - hold.start), 0);
+    const report = {
+      fps: FPS, from, to, threshold, frames: series.length,
+      mean_delta: Math.round((series.reduce((a, b) => a + b, 0) / series.length) * 1000) / 1000,
+      mean_block_delta: Math.round((blockSeries.reduce((a, b) => a + b, 0) / blockSeries.length) * 1000) / 1000,
+      longest_hold_seconds: Math.round(longest * 1000) / 1000,
+      holds: holds.map((hold) => ({
+        start: Math.round(hold.start * 100) / 100,
+        end: Math.round(hold.end * 100) / 100,
+        seconds: Math.round((hold.end - hold.start) * 100) / 100,
+      })),
+      series,
+      block_series: blockSeries,
+      change_series: changeSeries,
+      long_series: longSeries,
+    };
+    fs.writeFileSync(path.join(outDir, 'probe.json'), JSON.stringify(report));
+    console.log(JSON.stringify({ ...report, series: undefined, block_series: undefined, change_series: undefined, long_series: undefined }, null, 2));
     return;
   }
 
