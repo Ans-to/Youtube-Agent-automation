@@ -53,11 +53,11 @@ MAX_PROMPT_CHARS = 12_000
 #: tests beside its code is diagnosed the same way as one that does not.
 TEST_FILE_PATTERNS = ("test_*.py", "*_test.py")
 
-_ENV_ALLOWLIST = (
-    "PATH", "HOME", "USERPROFILE", "SYSTEMROOT", "WINDIR", "TEMP", "TMP", "TMPDIR",
-    "PATHEXT", "COMSPEC", "NUMBER_OF_PROCESSORS", "APPDATA", "LOCALAPPDATA",
-    "LANG", "LC_ALL",
-)
+# Shared with tools/tool_runtime.py; see tools/process_env.py.
+try:
+    from tools.process_env import clean_environment
+except ImportError:  # script execution from tools/
+    from process_env import clean_environment
 
 
 class FixError(ValueError):
@@ -138,13 +138,7 @@ def detect_command(project: Path) -> tuple[list[str], str, str]:
 # ---------------------------------------------------------------------------
 
 def _clean_environment() -> dict[str, str]:
-    environment = {key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ}
-    environment.setdefault("LANG", "C.UTF-8")
-    environment.setdefault("LC_ALL", "C.UTF-8")
-    environment["PYTHONIOENCODING"] = "utf-8"
-    environment["PYTHONUNBUFFERED"] = "1"
-    environment["PYTHONDONTWRITEBYTECODE"] = "1"
-    return environment
+    return clean_environment()
 
 
 def run_suite(project: Path, argv: list[str], timeout: int = DEFAULT_TIMEOUT_SECONDS) -> dict:

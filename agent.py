@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Offline Agent HQ: local task queue with constrained specialist stages."""
-import argparse, json, time, urllib.request, urllib.error, urllib.parse, ipaddress, sys, os
+import argparse, time, sys, os
 from pathlib import Path
 from datetime import datetime
 from app_config import load_config
@@ -18,37 +18,14 @@ WORKSPACE = BASE / "workspace"
 OUTPUTS = BASE / "outputs"
 LOGS = BASE / "logs"
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, "Redirects are disabled for local model requests", headers, fp)
-
-def post_local_model(url, body, timeout):
-    parts = urllib.parse.urlsplit(url)
-    try:
-        address = ipaddress.ip_address(parts.hostname or "")
-        port = parts.port
-    except ValueError as exc:
-        raise ValueError("Use a literal loopback IP endpoint such as http://127.0.0.1:8080/v1/chat/completions.") from exc
-    if parts.scheme != "http" or not address.is_loopback or port is None or not 1 <= port <= 65535 or parts.username or parts.password or parts.query or parts.fragment:
-        raise ValueError("Only a plain HTTP endpoint on a literal loopback IP and explicit port is allowed.")
-    req = urllib.request.Request(url, data=json.dumps(body).encode("utf-8"), headers={"Content-Type":"application/json","Accept":"application/json"}, method="POST")
-    with urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect()).open(req, timeout=max(1,min(int(timeout),300))) as response:
-        data = json.loads(response.read(20*1024*1024+1).decode("utf-8"))
-    if not isinstance(data, dict):
-        raise ValueError("Local model response must be a JSON object.")
-    return data
+# The endpoint is validated and called in one place; see app/infrastructure/local_model.py.
+# Imported (not re-implemented) so tests that patch agent.post_local_model still work.
+# Re-exported on purpose: video_studio/production.py imports it from here, and
+# tests replace it on this module to simulate a model without a server.
+from app.infrastructure.local_model import post_local_model  # noqa: E402,F401
 
 def stamp():
     return datetime.now().astimezone().isoformat(timespec="seconds")
-
-def load(path, default):
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (FileNotFoundError, json.JSONDecodeError):
-        return default
-
-def save(path, data):
-    path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 def log(msg):
     LOGS.mkdir(exist_ok=True)
@@ -70,23 +47,6 @@ def workspace_text(cfg):
             except OSError:
                 pass
     return "\n".join(chunks)[:10000] or "(Workspace has no readable text files.)"
-
-def ask_local_model(prompt, cfg, kind=''):
-    m = cfg.get("model", {})
-    if not m.get("enabled"):
-        return None
-    url = m.get("base_url", "")
-    body = {
-        "model": m.get("model", "local-model"),
-        "messages": [
-            {"role": "system", "content": "You are Offline Agent HQ. Use only the supplied prompt, retrieved research report, and local context. Do not claim to access other apps or pages beyond the supplied report. Cite source URLs when supported by retrieved page text; distinguish evidence from inference and state uncertainty."},
-            {"role": "user", "content": prompt}
-        ],
-        "temperature": 0.25,
-        "max_tokens": min(max(int(m.get("max_output_tokens", 900)), 4500), 7000) if kind == "youtube_package" else int(m.get("max_output_tokens", 900))
-    }
-    data = post_local_model(url, body, m.get("timeout_seconds", 120))
-    return data["choices"][0]["message"]["content"].strip()
 
 def fallback(task, kind, context):
     title, user_input = task.get("title", "Untitled"), task.get("input", "")

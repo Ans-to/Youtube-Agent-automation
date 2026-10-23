@@ -15,7 +15,6 @@ import argparse
 import hashlib
 import json
 import re
-import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +26,18 @@ def file_sha256(path):
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def _resolve_tools():
+    """ffmpeg and ffprobe, from the shared adapter when it can be imported."""
+    try:
+        from app.infrastructure.ffmpeg import find_ffmpeg, find_ffprobe
+    except ImportError:  # run as a script from video_studio/
+        import sys
+
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+        from app.infrastructure.ffmpeg import find_ffmpeg, find_ffprobe  # type: ignore[no-redef]
+    return find_ffmpeg(), find_ffprobe()
 
 
 def repeat_frame_check(path, max_still_seconds):
@@ -97,7 +108,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     path = Path(path)
     if not path.is_file() or path.stat().st_size < 1024:
         raise ValueError("Video file missing or too small.")
-    ffmpeg, ffprobe = shutil.which("ffmpeg"), shutil.which("ffprobe")
+    ffmpeg, ffprobe = _resolve_tools()
     if not ffmpeg or not ffprobe:
         raise ValueError("Both ffmpeg and ffprobe must be installed.")
     probe = subprocess.run(

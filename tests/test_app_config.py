@@ -61,3 +61,61 @@ class AppConfigTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class EnvFileTests(unittest.TestCase):
+    """`.env` is configuration, not code: parsed, allowlisted, overridable."""
+
+    def setUp(self):
+        from app_config import load_env_file, parse_env_file
+        self.load_env_file = staticmethod(load_env_file).__func__
+        self.parse_env_file = staticmethod(parse_env_file).__func__
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.path = Path(self.temp.name) / ".env"
+
+    def test_comments_blank_lines_and_quotes_are_handled(self):
+        self.path.write_text(
+            "# comment\n\nAGENT_HQ_MODEL_NAME=quoted-name\n"
+            'AGENT_HQ_MODEL_BASE_URL="http://127.0.0.1:8080/v1"\n'
+            "export AGENT_HQ_MODEL_ENABLED=true\n",
+            encoding="utf-8",
+        )
+        values = self.parse_env_file(self.path.read_text(encoding="utf-8"))
+        self.assertEqual(values["AGENT_HQ_MODEL_NAME"], "quoted-name")
+        self.assertEqual(values["AGENT_HQ_MODEL_BASE_URL"], "http://127.0.0.1:8080/v1")
+        self.assertEqual(values["AGENT_HQ_MODEL_ENABLED"], "true")
+
+    def test_a_malformed_line_names_the_line_and_not_its_content(self):
+        from app_config import ConfigError
+        with self.assertRaises(ConfigError) as caught:
+            self.parse_env_file("GOOD=1\nthis-is-not-a-setting\n", source=".env")
+        self.assertIn("line 2", str(caught.exception))
+        self.assertNotIn("this-is-not-a-setting", str(caught.exception))
+
+    def test_a_missing_file_is_not_an_error(self):
+        from app_config import load_env_file
+        self.assertIn("PATH", load_env_file(Path(self.temp.name) / "nope.env"))
+
+    def test_the_real_environment_wins_over_the_file(self):
+        from app_config import load_env_file
+        self.path.write_text("AGENT_HQ_MODEL_NAME=from-file\n", encoding="utf-8")
+        merged = load_env_file(self.path, environ={})
+        self.assertEqual(merged["AGENT_HQ_MODEL_NAME"], "from-file")
+        merged = load_env_file(self.path, environ={"AGENT_HQ_MODEL_NAME": "from-shell"})
+        self.assertEqual(merged["AGENT_HQ_MODEL_NAME"], "from-shell")
+
+    def test_config_can_be_pointed_elsewhere_by_a_variable(self):
+        from unittest.mock import patch
+        alternate = Path(self.temp.name) / "other.json"
+        alternate.write_text(json.dumps({"dashboard": {"port": 9100}}), encoding="utf-8")
+        with patch("app_config.DEFAULT_CONFIG_PATH", Path(self.temp.name) / "config.json"):
+            result = load_config(environ={"AGENT_HQ_CONFIG": str(alternate)})
+        self.assertEqual(result["dashboard"]["port"], 9100)
+
+    def test_an_explicit_environment_is_not_merged_with_the_dotenv_file(self):
+        from unittest.mock import patch
+        from app_config import DEFAULT_CONFIG_PATH
+        self.path.write_text("AGENT_HQ_MODEL_ENABLED=true\n", encoding="utf-8")
+        with patch("app_config.DEFAULT_CONFIG_PATH", Path(self.temp.name) / "config.json"):
+            self.assertEqual(load_config(environ={}), {})

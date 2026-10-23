@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Upload an explicitly approved local MP4 to YouTube; OAuth and confirmation are required."""
-import argparse,hashlib,json,sys,os,tempfile
+import argparse,hashlib,json,sys,os
 from datetime import datetime,timezone
 from pathlib import Path
 
 BASE=Path(__file__).resolve().parent
+ROOT=BASE.parent
 if str(BASE) not in sys.path:sys.path.insert(0,str(BASE))
+if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
 from release_gate import validate_qc_report
 
 def sha256(path):
@@ -15,20 +17,13 @@ def sha256(path):
  return h.hexdigest()
 
 def write_json_atomic(path, value):
- """Persist approval state atomically so an interrupted write cannot corrupt the record."""
- path = Path(path).resolve()
- fd, temporary_name = tempfile.mkstemp(prefix=path.name + ".", suffix=".tmp", dir=str(path.parent))
- try:
-  with os.fdopen(fd, "w", encoding="utf-8") as stream:
-   json.dump(value, stream, ensure_ascii=False, indent=2)
-   stream.write("\n")
-  os.replace(temporary_name, path)
- except Exception:
-  try:
-   os.unlink(temporary_name)
-  except OSError:
-   pass
-  raise
+ """Persist approval state atomically so an interrupted write cannot corrupt the record.
+
+ The implementation is shared with the bridge (see app/infrastructure/jsonio.py),
+ which is where the Windows sharing-violation retry lives.
+ """
+ from app.infrastructure.jsonio import write_json_atomic as write
+ write(path, value)
 
 def validate_approval(approval, video, requested):
  if not isinstance(approval,dict) or approval.get("approved") is not True:

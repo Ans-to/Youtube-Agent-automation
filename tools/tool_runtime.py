@@ -52,11 +52,12 @@ MAX_TIMEOUT_SECONDS = 600
 # execute arbitrary code from files inside the sandbox.
 ALLOWED_PROGRAMS = ("python", "python3", "node")
 
-_ENV_ALLOWLIST = (
-    "PATH", "HOME", "USERPROFILE", "SYSTEMROOT", "WINDIR", "TEMP", "TMP",
-    "TMPDIR", "PATHEXT", "COMSPEC", "NUMBER_OF_PROCESSORS", "APPDATA",
-    "LOCALAPPDATA", "LANG", "LC_ALL",
-)
+# The child-process environment is shared with tools/test_fix.py so the two
+# allowlists cannot drift apart; see tools/process_env.py.
+try:
+    from tools.process_env import clean_environment
+except ImportError:  # script execution from tools/
+    from process_env import clean_environment
 
 
 class ToolError(ValueError):
@@ -446,13 +447,7 @@ class ToolRegistry:
         }
 
     def _clean_environment(self) -> dict:
-        environment = {key: os.environ[key] for key in _ENV_ALLOWLIST if key in os.environ}
-        environment.setdefault("LANG", "C.UTF-8")
-        environment.setdefault("LC_ALL", "C.UTF-8")
-        environment["PYTHONIOENCODING"] = "utf-8"
-        environment["PYTHONUNBUFFERED"] = "1"
-        environment["PYTHONDONTWRITEBYTECODE"] = "1"
-        return environment
+        return clean_environment()
 
 
 def task_sandbox(

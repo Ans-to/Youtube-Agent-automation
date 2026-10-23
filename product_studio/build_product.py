@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Build a local-first single-file digital-product prototype for human review."""
-import argparse, html, json, re, shutil, urllib.request, urllib.error, urllib.parse, ipaddress, zipfile, sys
+import argparse, html, json, re, shutil, zipfile, sys
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -8,22 +8,8 @@ BASE=Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "tools"))
 from path_utils import canonical_path, is_within
 
-class _NoRedirect(urllib.request.HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        raise urllib.error.HTTPError(req.full_url, code, "Redirects are disabled for local model requests", headers, fp)
-
-def post_local_model(url, body, timeout):
-    parts=urllib.parse.urlsplit(url)
-    try:
-        address=ipaddress.ip_address(parts.hostname or "");port=parts.port
-    except ValueError as exc:
-        raise ValueError("Use a literal loopback IP endpoint such as http://127.0.0.1:8080/v1/chat/completions.") from exc
-    if parts.scheme!="http" or not address.is_loopback or port is None or not 1<=port<=65535 or parts.username or parts.password or parts.query or parts.fragment:
-        raise ValueError("Only a plain HTTP endpoint on a literal loopback IP and explicit port is allowed.")
-    req=urllib.request.Request(url,data=json.dumps(body).encode("utf-8"),headers={"Content-Type":"application/json","Accept":"application/json"},method="POST")
-    with urllib.request.build_opener(urllib.request.ProxyHandler({}), _NoRedirect()).open(req,timeout=max(1,min(int(timeout),300))) as response:data=json.loads(response.read(20*1024*1024+1).decode("utf-8"))
-    if not isinstance(data,dict):raise ValueError("Local model response must be a JSON object.")
-    return data
+# Shared loopback-only model adapter; imported so tests can patch this name.
+from app.infrastructure.local_model import post_local_model  # noqa: E402
 
 def slugify(value):
     slug=re.sub(r"[^a-z0-9]+","-",value.lower()).strip("-")

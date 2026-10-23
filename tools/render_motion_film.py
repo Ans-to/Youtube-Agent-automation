@@ -68,18 +68,11 @@ def resolve_node() -> str:
 
 def resolve_ffmpeg() -> tuple[str, str | None]:
     """Return (ffmpeg, ffprobe), falling back to a bundled binary if present."""
-    ffmpeg = shutil.which("ffmpeg")
-    ffprobe = shutil.which("ffprobe")
-    if ffmpeg:
-        return ffmpeg, ffprobe
-    try:  # optional convenience for machines without a system FFmpeg
-        import imageio_ffmpeg
+    from app.infrastructure.ffmpeg import find_ffmpeg, find_ffprobe
 
-        bundled = imageio_ffmpeg.get_ffmpeg_exe()
-        if Path(bundled).is_file():
-            return bundled, ffprobe
-    except Exception:  # noqa: BLE001 - an absent optional dependency is not an error
-        pass
+    ffmpeg = find_ffmpeg()
+    if ffmpeg:
+        return ffmpeg, find_ffprobe()
     raise DependencyMissing(
         "FFmpeg is not installed. Install it (apt-get install ffmpeg) or pip install imageio-ffmpeg."
     )

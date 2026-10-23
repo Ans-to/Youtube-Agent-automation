@@ -5,33 +5,91 @@
       "label": "OfflineAgentHQ: Start dashboard",
       "type": "shell",
       "command": "python dashboard.py",
-      "windows": { "command": "python dashboard.py" },
-      "linux": { "command": "python3 dashboard.py" },
-      "osx": { "command": "python3 dashboard.py" },
-      "options": { "cwd": "${workspaceFolder}" },
-      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "windows": {
+        "command": "python dashboard.py"
+      },
+      "linux": {
+        "command": "python3 dashboard.py"
+      },
+      "osx": {
+        "command": "python3 dashboard.py"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
       "problemMatcher": []
     },
     {
       "label": "OfflineAgentHQ: Run local tests",
       "type": "shell",
       "command": "python -m unittest discover -s tests -v",
-      "windows": { "command": "python -m unittest discover -s tests -v" },
-      "linux": { "command": "python3 -m unittest discover -s tests -v" },
-      "osx": { "command": "python3 -m unittest discover -s tests -v" },
-      "options": { "cwd": "${workspaceFolder}" },
-      "group": { "kind": "test", "isDefault": true },
-      "presentation": { "reveal": "always", "panel": "dedicated", "clear": true },
+      "windows": {
+        "command": "python -m unittest discover -s tests -v"
+      },
+      "linux": {
+        "command": "python3 -m unittest discover -s tests -v"
+      },
+      "osx": {
+        "command": "python3 -m unittest discover -s tests -v"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "group": {
+        "kind": "test",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "OfflineAgentHQ: Check structure",
+      "type": "shell",
+      "command": "python tools/check_structure.py",
+      "windows": {
+        "command": "python tools/check_structure.py"
+      },
+      "linux": {
+        "command": "python3 tools/check_structure.py"
+      },
+      "osx": {
+        "command": "python3 tools/check_structure.py"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
       "problemMatcher": []
     },
     {
       "label": "OfflineAgentHQ: Syntax check",
       "type": "shell",
-      "command": "python -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py",
-      "windows": { "command": "python -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py" },
-      "linux": { "command": "python3 -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py" },
-      "osx": { "command": "python3 -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py" },
-      "options": { "cwd": "${workspaceFolder}" },
+      "command": "python -m compileall -q agent.py dashboard.py app ui bridge/bridge.py queue_store.py app_config.py",
+      "windows": {
+        "command": "python -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py"
+      },
+      "linux": {
+        "command": "python3 -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py"
+      },
+      "osx": {
+        "command": "python3 -m py_compile agent.py dashboard.py bridge/bridge.py queue_store.py app_config.py"
+      },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": []
     },
     {
@@ -45,7 +103,9 @@
         "-File",
         "${workspaceFolder}\\scripts\\sync-and-test.ps1"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": []
     },
     {
@@ -61,7 +121,9 @@
         "-SkipSync",
         "-RunTestsOnNoUpdate"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": []
     },
     {
@@ -75,7 +137,9 @@
         "-File",
         "${workspaceFolder}\\scripts\\install-auto-sync.ps1"
       ],
-      "options": { "cwd": "${workspaceFolder}" },
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
       "problemMatcher": []
     }
   ]
