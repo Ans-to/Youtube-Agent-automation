@@ -350,12 +350,22 @@ class FailureTests(unittest.TestCase):
         self.assertEqual(runner.calls, [], "nothing should run when the tools are missing")
 
     def test_a_missing_encoder_is_reported_clearly(self):
+        # FFmpeg must be *absent* for this test, not merely unset: with
+        # ``ffmpeg=None`` the renderer looks on PATH, so on a machine where
+        # FFmpeg is installed the render simply succeeds and the assertion about
+        # a failure never runs. Patching the lookup makes the test say what it
+        # means on every machine.
+        from unittest.mock import patch
+
         with tempfile.TemporaryDirectory() as directory:
             storyboard = _storyboard(Path(directory) / "sb.json", (10,))
-            with self.assertRaises(RuntimeError) as caught:
-                long_form.render(storyboard, Path(directory) / "out.mp4",
-                                 node="node", ffmpeg=None, run=FakeRunner())
+            runner = FakeRunner()
+            with patch.object(long_form.shutil, "which", return_value=None):
+                with self.assertRaises(RuntimeError) as caught:
+                    long_form.render(storyboard, Path(directory) / "out.mp4",
+                                     node="node", ffmpeg=None, run=runner)
         self.assertIn("FFmpeg", str(caught.exception))
+        self.assertEqual(runner.calls, [], "nothing should be encoded without FFmpeg")
 
 
 class CliTests(unittest.TestCase):

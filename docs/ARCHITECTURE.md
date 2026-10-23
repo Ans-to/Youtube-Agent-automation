@@ -306,6 +306,26 @@ docs/             # architecture, operations, ADRs and research
 - Duplication is a failing check, not a preference: two identical function bodies of eight or more statements must become one shared module. Deliberate exceptions go in `ALLOWED_DUPLICATES` in `tools/check_structure.py` with a reason.
 - Configuration is not code: `config.json` (private), `.env` (private, see `.env.example`), and an allowlist of environment variables. Never read a raw environment variable for a setting that is not on that list.
 
+## Platform assumptions (Windows is a first-class target)
+
+The project is developed on Windows by its owner, so a test that only passes on
+Linux is a failing test. Three conventions keep the suite honest:
+
+- **Never compare file bytes for generated images.** PNG bodies are zlib output,
+  and zlib may compress identical pixels differently across versions and
+  platforms. `tools/make_icons.py --check` and its test compare *decoded
+  scanlines*; a changed drawing still fails, a different deflate build does not.
+  The same rule applies to any artifact a codec or compressor produced.
+- **Never depend on a tool being absent.** FFmpeg, Node and ffprobe are present
+  on a working machine. A test that asserts "this fails without FFmpeg" must
+  patch the lookup (`patch.object(long_form.shutil, "which", return_value=None)`)
+  rather than pass `None` and hope the machine is bare.
+- **Never hardcode an absolute POSIX path** such as `/tmp/x` in a test or an
+  assertion. On Windows that is drive-relative, and it compares unequally after
+  `resolve()`. Use `tempfile.TemporaryDirectory()` and compare resolved paths.
+- Report paths with forward slashes (`tools/check_structure.py:as_posix`), so a
+  message can be pasted into a review comment or a URL unchanged.
+
 ## Refactoring checklist
 
 For each extraction: add characterization tests first; move one cohesive responsibility; preserve the old public entry point as a compatibility wrapper if external scripts call it; run the full unit suite and renderer checks; inspect the diff and workflow logs; then remove obsolete code only after a repository-wide reference audit.

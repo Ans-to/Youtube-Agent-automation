@@ -117,6 +117,18 @@ class Finding:
         return f"{self.rule} {self.path}:{self.line} {self.message}"
 
 
+def as_posix(path: Path | str) -> str:
+    """A path as ``tools/two.py`` on every platform.
+
+    ``str(Path(...))`` is ``tools\\two.py`` on Windows, and every rule here
+    compares or reports path strings. The backslash is replaced explicitly as
+    well: on POSIX a backslash is an ordinary filename character, so
+    ``Path(...).as_posix()`` alone would leave a Windows-style path untouched
+    when the tests run on Linux.
+    """
+    return Path(path).as_posix().replace("\\", "/")
+
+
 def iter_python_files(root: Path = ROOT) -> list[Path]:
     files: list[Path] = []
     for path in sorted(root.rglob("*.py")):
@@ -138,6 +150,7 @@ def parse(path: Path) -> ast.Module | None:
 
 # --------------------------------------------------------------------- rules
 def check_layer(relative: str, tree: ast.Module) -> list[Finding]:
+    relative = as_posix(relative)
     """S1 - app/ must not depend on the UI."""
     findings: list[Finding] = []
     if not relative.startswith("app/"):
@@ -159,6 +172,7 @@ def check_layer(relative: str, tree: ast.Module) -> list[Finding]:
 
 
 def check_state(relative: str, tree: ast.Module) -> list[Finding]:
+    relative = as_posix(relative)
     """S2 - no module-level mutable run flags."""
     findings: list[Finding] = []
     for node in tree.body:
@@ -210,7 +224,7 @@ def collect_function_fingerprints(
             if _statement_count(node) < DUPLICATE_MIN_STATEMENTS:
                 continue
             fingerprints.setdefault(_normalized(node), []).append(
-                (str(relative), node.lineno, node.name)
+                (as_posix(relative), node.lineno, node.name)
             )
     return fingerprints
 
@@ -235,6 +249,7 @@ def check_duplicates(files: list[Path], root: Path = ROOT) -> list[Finding]:
 
 
 def check_names(relative: str, tree: ast.Module) -> list[Finding]:
+    relative = as_posix(relative)
     """S4 - naming conventions."""
     findings: list[Finding] = []
     stem = Path(relative).stem
@@ -265,7 +280,7 @@ def check_root(files: list[Path], root: Path = ROOT) -> list[Finding]:
         path = Path(relative)
         if len(path.parts) != 1:
             continue
-        relative = str(relative)
+        relative = as_posix(relative)
         if relative not in ROOT_PYTHON_ALLOWED:
             findings.append(Finding(
                 "S5", relative, 1,
@@ -294,9 +309,10 @@ def run_checks(root: Path = ROOT) -> list[Finding]:
         tree = parse(root / relative)
         if tree is None:
             continue
-        findings.extend(check_layer(str(relative), tree))
-        findings.extend(check_state(str(relative), tree))
-        findings.extend(check_names(str(relative), tree))
+        name = as_posix(relative)
+        findings.extend(check_layer(name, tree))
+        findings.extend(check_state(name, tree))
+        findings.extend(check_names(name, tree))
     findings.extend(check_duplicates(files, root))
     findings.extend(check_root(files, root))
     return findings
