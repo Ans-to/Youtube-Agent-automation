@@ -47,6 +47,41 @@ The audit stays `INCOMPLETE` on purpose: thirteen rules need ASR, OCR, a vision
 model or a licensed-content reference that this machine does not have, and the
 report says so rather than passing them.
 
+### The hold check (a still picture is a failed film)
+
+A mean frame delta cannot see a held shot: one frozen second inside four
+thousand moving frames disappears into the average. Worse, the three freeze
+checks that already existed (`freezedetect`, `TQ-FREEZE`, the motion spec) all
+compare *adjacent* frames with a noise tolerance, so film grain, a drifting dot
+field, a creeping camera or a progress bar made a frozen composition look alive.
+That is how a twenty-second frozen title card shipped.
+
+`video_studio/repeat_frames.py` asks the question a viewer asks: **is this the
+same picture as half a second ago?**
+
+1. Frames are sampled at 10 fps and decoded to 192x108, which averages the grain
+   away before anything is compared.
+2. They are pooled into 32x18 blocks of 6x6 pixels, so a block has to move as a
+   shape to count.
+3. Each frame is compared with the frame 0.5 s earlier, not the one before it, so
+   a slow drift stays invisible - as it is to the eye.
+4. A block counts only if its mean moved by more than 10 grey levels. Decoration
+   sits at 6-8 levels, content at 20-180. A frame is *still* when fewer than 2 %
+   of the 576 blocks clear that bar.
+
+A still run longer than **1.0 s** fails the render. `tools/render_authored_film.py`
+runs it on the delivered file and exits non-zero; `video_studio/quality_audit.py`
+reports it as `checks.repeat_frames` (add `--fail-on-still` to make the audit
+itself fail); and `tools/check_repeat_frames.py` runs it on any file by hand.
+
+```bash
+python tools/check_repeat_frames.py workspace/generated/vibe-coding/film-1080p.mp4
+```
+
+Calibrated against two real files rather than guessed: the earlier cut
+(`docs/media/vibe-coding-preview.mp4`) reports 63 holds over a second, the
+longest 4.5 s, and the animated `docs/media/stickman-film.mp4` reports none.
+
 ## 0a. The earlier template-driven run (superseded)
 
 `workspace/generated/motion-film/superseded/` keeps the run produced by the

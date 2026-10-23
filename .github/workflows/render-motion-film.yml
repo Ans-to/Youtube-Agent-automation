@@ -43,7 +43,9 @@ on:
       - "video_studio/audit/**"
       - "video_studio/audit_video.py"
       - "video_studio/validate_frames.py"
+      - "video_studio/repeat_frames.py"
       - "tools/render_authored_film.py"
+      - "tools/check_repeat_frames.py"
       - "tools/assemble_voiceover.py"
       - "tools/check_invariants.py"
       - ".github/workflows/render-motion-film.yml"
@@ -91,6 +93,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends ffmpeg
           ffmpeg -version | head -1
           ffprobe -version | head -1
+          # The render driver refuses to ship a film whose picture sits still for
+          # more than a second; that check is written against numpy blocks.
+          python -m pip install numpy
           cd video_studio
           npm ci
           node -e "const c = require('@napi-rs/canvas'); console.log('canvas module', require('@napi-rs/canvas/package.json').version, typeof c.createCanvas)"

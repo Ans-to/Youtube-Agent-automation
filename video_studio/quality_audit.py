@@ -3,6 +3,13 @@
 
 This catches technical defects, not artistic quality, speech correctness, or true lip-sync.
 Use --strict for release candidates; tune thresholds for intentionally static/cinematic content.
+
+The ``repeat_frames`` check answers a question the other three cannot: was the
+*picture* still, not merely slightly noisy? ``freezedetect`` compares adjacent
+frames with a noise tolerance, so grain, a drifting dot field or a creeping
+camera makes a frozen composition look alive. See ``repeat_frames.py``. It is
+reported on every file; pass ``fail_on_still=True`` (CLI: ``--fail-on-still``)
+to make a hold fail the audit, which is what the film renderer does.
 """
 import argparse
 import hashlib
@@ -20,6 +27,34 @@ def file_sha256(path):
         for block in iter(lambda: stream.read(1024 * 1024), b""):
             digest.update(block)
     return digest.hexdigest()
+
+
+def repeat_frame_check(path, max_still_seconds):
+    """Measure frozen spans, or explain why the check could not run.
+
+    Imported here rather than at module scope so this audit keeps working on a
+    machine without numpy; a check that cannot run is reported as unavailable,
+    never as a pass.
+    """
+    try:
+        import importlib.util
+
+        try:
+            from video_studio import repeat_frames as module
+        except ImportError:
+            spec = importlib.util.spec_from_file_location(
+                "repeat_frames", Path(__file__).resolve().with_name("repeat_frames.py"))
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+        return module.analyse_video(path, max_still_seconds=max_still_seconds)
+    except ImportError as exc:
+        return {"passed": False, "status": "unavailable", "spans": [],
+                "longest_still_seconds": None,
+                "statement": "REPEAT CHECK: NOT RUN - %s" % exc}
+    except (OSError, RuntimeError, ValueError) as exc:
+        return {"passed": False, "status": "unavailable", "spans": [],
+                "longest_still_seconds": None,
+                "statement": "REPEAT CHECK: NOT RUN - %s" % exc}
 
 
 def run_filter(binary, path, video_filter=None, audio_filter=None, timeout=300):
@@ -58,7 +93,7 @@ def parse_silence_events(stderr, duration):
 
 
 def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
-          max_silence_seconds=1.5):
+          max_silence_seconds=1.5, max_still_seconds=1.0, fail_on_still=False):
     path = Path(path)
     if not path.is_file() or path.stat().st_size < 1024:
         raise ValueError("Video file missing or too small.")
@@ -110,6 +145,19 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         report["warnings"].append("Long static intervals found; may be intentional slides or visual dead air.")
         if strict:
             report["passed"] = False
+    still = repeat_frame_check(path, max_still_seconds)
+    report["checks"]["repeat_frames"] = still
+    if still.get("status") == "failed":
+        # Reported on every file. Only fatal when asked for: a slideshow or a
+        # title-card product is legitimately static, and this audit is shared
+        # with pipelines that render those. The film renderer asks for it.
+        if fail_on_still:
+            report["passed"] = False
+        report["warnings"].append(still["statement"])
+        report["warnings"].append("A held picture is a defect in a moving-graphics film: "
+                                  "move the content on every spoken beat.")
+    elif still.get("status") == "unavailable" and strict:
+        report["warnings"].append(still["statement"])
     if audios:
         code, log = run_filter(ffmpeg, path, audio_filter="silencedetect=noise=-45dB:d=" + str(max_silence_seconds))
         if code:
@@ -141,13 +189,21 @@ def main():
     p.add_argument("--max-black-seconds", type=float, default=0.20)
     p.add_argument("--max-freeze-seconds", type=float, default=3.0)
     p.add_argument("--max-silence-seconds", type=float, default=1.5)
+    p.add_argument("--max-still-seconds", type=float, default=1.0,
+                   help="longest acceptable hold in the picture (repeat_frames check)")
+    p.add_argument("--fail-on-still", action="store_true",
+                   help="a hold longer than --max-still-seconds fails the audit")
     p.add_argument("--report", help="Optional JSON report output path.")
     args = p.parse_args()
     try:
         report = audit(args.video, args.strict, args.max_black_seconds,
-                       args.max_freeze_seconds, args.max_silence_seconds)
+                       args.max_freeze_seconds, args.max_silence_seconds,
+                       args.max_still_seconds, args.fail_on_still)
         rendered = json.dumps(report, ensure_ascii=False, indent=2)
         print(rendered)
+        still = report["checks"].get("repeat_frames") or {}
+        if still.get("statement"):
+            print(still["statement"], file=sys.stderr)
         if args.report:
             Path(args.report).write_text(rendered + "\n", encoding="utf-8")
         if not report["passed"]:

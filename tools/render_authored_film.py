@@ -14,6 +14,9 @@ explicit timeline), not a storyboard template. This driver only wraps it:
 4. encode    - H.264 + AAC 4K master and a delivery copy with FFmpeg;
 5. motion    - measure real frame-to-frame change on the encoded delivery copy
                 and fail if the film drifts back into static slides;
+5b. holds    - ask the delivered file whether the *picture* ever stopped moving
+                for more than a second, ignoring grain and drifting decoration;
+                a film that holds is a failed film, so this fails the render;
 6. audit     - run the studio's content/brand/legal/technical auditor.
 
 Everything runs locally: no cloud renderer, no API key, no third-party assets.
@@ -51,6 +54,12 @@ MAX_STATIC_SHARE = 0.15
 # film.json and override these; the summary always records which gate was used.
 DEFAULT_GATE = {"min_mean": MIN_MEAN_DELTA, "max_static": MAX_STATIC_SHARE}
 STATIC_BELOW = 0.5
+
+# Longest a picture may sit still. Grain, a drifting dot field, a progress bar or
+# a creeping camera do not buy a shot any extra time: the check removes all four
+# before it decides. One second is already long enough for a viewer to think the
+# video has stalled.
+MAX_STILL_SECONDS = 1.0
 
 # The contact sheet is a 5x2 tile: this many frames spans the whole film.
 CONTACT_TILES = 10
@@ -127,6 +136,77 @@ def step_frames(
     if not manifest_path.is_file():
         raise RuntimeError("the film script did not write manifest.json")
     return json.loads(manifest_path.read_text(encoding="utf-8"))
+
+
+# The loudness a published film should arrive at. YouTube normalises playback to
+# about -14 LUFS, and a film that arrives at -21 is turned up by the viewer and
+# then sounds thin beside everything else in the feed. Measured, then corrected:
+# never a guess, and never a second encode of the picture.
+TARGET_LUFS = -14.0
+LOUDNESS_CEILING_DB = 18.0
+
+
+def measure_loudness(path: Path, ffmpeg: str) -> float | None:
+    """Integrated loudness of a file in LUFS, or None if it cannot be measured."""
+    result = base.run([
+        ffmpeg, "-hide_banner", "-nostats", "-i", str(path),
+        "-af", "loudnorm=print_format=json", "-f", "null", "-",
+    ], timeout=1800)
+    text = (result.stderr or "") + (result.stdout or "")
+    match = re.search(r'"input_i"\s*:\s*"?(-?[0-9.]+)"?', text)
+    if not match:
+        return None
+    try:
+        value = float(match.group(1))
+    except ValueError:
+        return None
+    return value if -70.0 < value < 0.0 else None
+
+
+def normalise_loudness(path: Path, ffmpeg: str, target: float = TARGET_LUFS) -> dict:
+    """Bring a mix to the delivery loudness, limiting rather than clipping.
+
+    The gain is applied once, from a measurement of the real file, and the limiter
+    is what stops the peaks from folding over when a mix is pushed up by several
+    dB. Both numbers are reported so the artifact can be checked afterwards.
+    """
+    before = measure_loudness(path, ffmpeg)
+    if before is None:
+        return {"status": "unmeasured", "target": target}
+
+    # The limiter takes back some of what the gain adds, so one pass overshoots
+    # low: -20.9 arrived at -15.3 when asked for -14. Measure, correct, repeat
+    # until it is within half a dB, and stop rather than chase it for ever.
+    total_gain = 0.0
+    current = before
+    for _ in range(3):
+        gain = target - current
+        if abs(gain) < 0.4:
+            break
+        gain = max(-12.0, min(LOUDNESS_CEILING_DB, gain))
+        temporary = path.with_name(path.stem + ".normalised.wav")
+        result = base.run([
+            ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(path),
+            "-af", f"volume={gain:.2f}dB,alimiter=limit=0.95:level=false",
+            str(temporary),
+        ], timeout=1800)
+        if result.returncode != 0 or not temporary.is_file():
+            temporary.unlink(missing_ok=True)
+            break
+        temporary.replace(path)
+        total_gain += gain
+        measured = measure_loudness(path, ffmpeg)
+        if measured is None:
+            break
+        current = measured
+
+    return {
+        "status": "normalised" if abs(total_gain) > 0.05 else "already",
+        "lufs_before": round(before, 1),
+        "gain_db": round(total_gain, 1),
+        "lufs_after": round(current, 1),
+        "target": target,
+    }
 
 
 def step_soundtrack(film_json: Path, output: Path) -> dict:
@@ -307,6 +387,27 @@ def measure_motion(video: Path, ffmpeg: str, work_dir: Path, gate: dict | None =
     return metrics
 
 
+def mmss(seconds: float) -> str:
+    """m:ss for the hold log lines."""
+    total = max(0, int(seconds))
+    return "%d:%02d" % (total // 60, total % 60)
+
+
+def measure_repeat_frames(video: Path, limit: float = MAX_STILL_SECONDS) -> dict:
+    """Frozen-span check on the encoded file. See ``video_studio/repeat_frames.py``.
+
+    ``measure_motion`` above averages the whole film, so a one-second hold inside
+    four thousand moving frames disappears into its mean. This one looks for the
+    hold itself, and fails closed if it cannot run.
+    """
+    try:
+        import repeat_frames
+    except ImportError as exc:  # numpy missing
+        raise RuntimeError(
+            "the repeat-frame check needs numpy (python -m pip install numpy): %s" % exc)
+    return repeat_frames.analyse_video(video, max_still_seconds=limit)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--script", default=DEFAULT_SCRIPT, help="film script to render")
@@ -368,7 +469,7 @@ def main(argv: list[str] | None = None) -> int:
         return 3
 
     voice_dir = Path(args.voice_dir).resolve() if args.voice_dir else out_dir / "voice"
-    step_count = 8 if (args.voice_script or (voice_dir / "voiceover.wav").is_file()) else 6
+    step_count = 9 if (args.voice_script or (voice_dir / "voiceover.wav").is_file()) else 7
     step_no = 0
 
     def step(label: str) -> str:
@@ -446,6 +547,16 @@ def main(argv: list[str] | None = None) -> int:
             audio_track = mixed
             log("   duck %.1f dB, voice %.1f dB above the bed, peak %.2f"
                 % (mix_info["duck_depth_db"], mix_info["voice_to_bed_db"], mix_info["peak"]))
+            log(step("loudness"))
+            ffmpeg_for_audio = base.resolve_ffmpeg()[0]
+            loudness = normalise_loudness(audio_track, ffmpeg_for_audio)
+            if loudness.get("lufs_after") is not None:
+                log("   %.1f LUFS -> %.1f LUFS (gain %+.1f dB, target %.1f)"
+                    % (loudness["lufs_before"], loudness["lufs_after"],
+                       loudness.get("gain_db", 0.0), loudness["target"]))
+            else:
+                log("   loudness not measured (%s)" % loudness.get("status"))
+
             if voice_info.get("path") and Path(voice_info["path"]).is_file():
                 # keep a copy next to the film so the mix is auditable after the fact
                 target = out_dir / "voiceover.wav"
@@ -509,6 +620,14 @@ def main(argv: list[str] | None = None) -> int:
         motion = measure_motion(delivery, ffmpeg, out_dir / "build", gate)
         log("   " + motion["statement"])
 
+        log(step("measure holds"))
+        holds = measure_repeat_frames(delivery, MAX_STILL_SECONDS)
+        log("   " + holds["statement"])
+        for span in holds.get("spans", [])[:5]:
+            log("   hold %s -> %s  %.1f s" % (
+                mmss(span["start"]), mmss(span["end"]),
+                span["seconds"]))
+
         probed = base.probe(delivery, ffprobe)
         film_duration = float(probed.get("duration_seconds") or 0) or float(
             manifest["frame_count"] / args.fps)
@@ -540,6 +659,10 @@ def main(argv: list[str] | None = None) -> int:
             "frames": {"count": manifest["frame_count"]},
             "elapsed_seconds": round(time.time() - started, 1),
             "motion_spec": motion,
+            "holds": {key: holds[key] for key in
+                      ("status", "statement", "limit_seconds", "longest_still_seconds",
+                       "still_share_of_frames", "spans", "fix_hint")
+                      if key in holds},
             "audit": {key: audit[key] for key in ("status", "statement", "summary") if key in audit},
             "soundtrack": {key: audio_info[key] for key in ("duration_seconds", "sfx_cue_count", "sample_rate") if key in audio_info},
             "voice": ({key: voice_info[key] for key in ("backend", "voice", "duration_seconds", "line_count", "path", "reused") if key in voice_info}
@@ -565,7 +688,8 @@ def main(argv: list[str] | None = None) -> int:
             if source.is_file() and source.resolve() != (out_dir / name).resolve():
                 source.replace(out_dir / name)
 
-        ok = motion["status"] == "passed" and audit.get("status") != "flagged"
+        ok = (motion["status"] == "passed" and audit.get("status") != "flagged"
+              and holds.get("status") == "passed")
         if args.json:
             print(json.dumps(summary, indent=2))
         else:
@@ -573,6 +697,7 @@ def main(argv: list[str] | None = None) -> int:
             print("FILM:", summary["title"], "|", summary["frames"]["count"], "frames |",
                   summary["elapsed_seconds"], "s")
             print(motion["statement"])
+            print(holds["statement"])
             print(audit["statement"])
             for item in summary["outputs"]:
                 print("OUTPUT:", Path(item["path"]).name, "%.1f MB" % (item["bytes"] / 1048576))
