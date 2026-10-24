@@ -543,7 +543,31 @@ def main():
             research_markdown = render_research_markdown(research_metadata, research_results)
             source_notes = (source_notes + "\n\n" + research_markdown).strip()
         except (ValueError, RuntimeError, OSError, urllib.error.URLError) as exc:
-            raise SystemExit("Web research failed; no model-generated package was finalized: " + str(exc))
+            # Research is a hard requirement for model-written content: with no
+            # fetched sources a model invents them, so that path still stops here.
+            # With no model there is nothing to invent — the package is a labelled
+            # deterministic template — and blocking it made every offline machine,
+            # and every machine behind a failed search, unable to finish a run.
+            # The failure is recorded in the evidence summary and written into the
+            # script, so the package cannot be mistaken for researched content.
+            if model_enabled:
+                raise SystemExit("Web research failed; no model-generated package was finalized: " + str(exc))
+            research_evidence_summary = {
+                "status": "unavailable_offline_template",
+                "error_type": type(exc).__name__,
+                "error": str(exc)[:250],
+                "fetched_page_count": 0,
+                "independent_domain_count": 0,
+                "domains": [],
+                "page_text_sha256": [],
+                "independently_verified": False,
+            }
+            research_markdown = (
+                "## Research unavailable\n\n"
+                "Web research could not run (" + type(exc).__name__ + "). This package is a deterministic "
+                "template with no researched claims. Do not publish it as an explainer until sources are "
+                "supplied or research succeeds.\n"
+            )
     if args.render and not model_enabled and not args.render_template:
         raise SystemExit("No local model is enabled. This produces only a 20-second template, not the requested full video. Use --render-template only for a demo.")
     if args.render_template and model_enabled:

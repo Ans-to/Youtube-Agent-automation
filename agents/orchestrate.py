@@ -368,7 +368,7 @@ def run_builtin_tools(task, destination, cfg, source_context="", route_sink=None
     for request in route.requests:
         if request.pipeline == "video_production":
             results.extend(_run_video_pipeline(request, destination, model_enabled,
-                                               template_demo, source_path, video_plan))
+                                               template_demo, source_path, video_plan, cfg))
         elif request.pipeline in {"web_build", "document_deliverable", "cli_tool", "data_deliverable"}:
             results.append(_run_tool_loop(request, intent_text, destination, cfg))
         elif request.pipeline == "test_fix":
@@ -378,8 +378,24 @@ def run_builtin_tools(task, destination, cfg, source_context="", route_sink=None
     return results
 
 
+def _resolved_narration_language(request, instructions, cfg):
+    """One answer to "which language is this film in", read in the same order the tool reads it.
+
+    The orchestrator used to pass nothing when neither the route nor the intent
+    named a language, so production.py fell back to config and the two could
+    disagree without either knowing.
+    """
+    explicit = request.args.get("language") or instructions.get("language")
+    if explicit:
+        value = str(explicit).strip().lower()
+        return "en" if value in {"en", "english"} else "ur-en"
+    video = (cfg or {}).get("video_studio") if isinstance(cfg, dict) else None
+    value = str((video or {}).get("narration_language", "ur-en") or "ur-en").strip().lower()
+    return "en" if value in {"en", "english"} else "ur-en"
+
+
 def _run_video_pipeline(request, destination, model_enabled, template_demo, source_path,
-                        instructions):
+                        instructions, cfg=None):
     """Build a video package, and only render when the guards allow it.
 
     Creative arguments come from the route; execution instructions (render,
@@ -395,9 +411,23 @@ def _run_video_pipeline(request, destination, model_enabled, template_demo, sour
                "--topic", topic[:500],
                "--format", "shorts" if (request.args.get("format") or instructions.get("format")) == "shorts" else "long",
                "--out", relative_out]
-    language = request.args.get("language") or instructions.get("language")
-    if language:
-        command.extend(["--language", language])
+    language = _resolved_narration_language(request, instructions, cfg)
+    if not model_enabled and language == "ur-en":
+        # A policy refusal is not a crash. Without the local model this build
+        # cannot produce Urdu-English narration, and substituting an English
+        # scaffold would be the silent substitution the project forbids. Report it
+        # as blocked, with the way forward, and let the rest of the run stand.
+        return [{
+            "tool": "video_studio", "status": "blocked", "artifact_dir": relative_out,
+            "language": language, "selected_by": "video_production",
+            "reason": (
+                "Urdu-English narration requires the configured local language model, which is "
+                "disabled, so no video package was built and no English scaffold was substituted "
+                "for it. Enable the model, or ask for the film in English "
+                "(narration language: English), to get a labelled English template without a model."
+            ),
+        }]
+    command.extend(["--language", language])
     if source_path is not None:
         command.extend(["--source-file", str(source_path)])
     else:

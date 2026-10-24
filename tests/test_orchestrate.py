@@ -416,7 +416,7 @@ class CEODelegationTests(unittest.TestCase):
                 results = orchestrate.run_builtin_tools(
                     "Create and render a full YouTube video about AI agents to MP4",
                     destination,
-                    {"model": {"enabled": False}},
+                    {"model": {"enabled": False}, "video_studio": {"narration_language": "en"}},
                 )
             self.assertEqual(results[0]["tool"], "video_render")
             self.assertEqual(results[0]["status"], "blocked")
@@ -425,6 +425,31 @@ class CEODelegationTests(unittest.TestCase):
             self.assertIn("production.py", command[1])
             self.assertNotIn("--render", command)
             self.assertIn("--research", command)
+            self.assertEqual(command[command.index("--language") + 1], "en")
+
+    def test_urdu_video_without_a_model_is_blocked_rather_than_failed(self):
+        """A vanished render is not the same as a crashed builder.
+
+        Before this, the Urdu refusal came back as a failed tool, which made the
+        whole run "failed" and exited 2 even though every specialist stage had
+        finished.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            destination = root / "workspace" / "run-1"
+            destination.mkdir(parents=True)
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "_run_fixed_tool") as run_tool:
+                results = orchestrate.run_builtin_tools(
+                    "Create a video about AI agents",
+                    destination,
+                    {"model": {"enabled": False}},
+                )
+            self.assertEqual([item["status"] for item in results], ["blocked"])
+            self.assertEqual(results[0]["tool"], "video_studio")
+            self.assertEqual(results[0]["language"], "ur-en")
+            self.assertIn("no English scaffold was substituted", results[0]["reason"])
+            run_tool.assert_not_called()
 
     def test_orchestrator_accepts_script_text_over_6000_characters(self):
         with tempfile.TemporaryDirectory() as directory:
