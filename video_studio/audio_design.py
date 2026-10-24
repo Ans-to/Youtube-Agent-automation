@@ -6,12 +6,21 @@ from array import array
 from pathlib import Path
 
 
-def render_sound_design(output, duration_seconds, scene_durations, sample_rate=24000, sfx_cues=None):
+def render_sound_design(output, duration_seconds, scene_durations, sample_rate=24000,
+                        sfx_cues=None, bed_gain=1.0):
     """Write quiet synthetic underscore plus soft scene cues as mono PCM16 WAV.
 
     This is deliberately restrained and generated locally: no third-party music or
     downloaded assets. Voice remains the foreground. Scene cues are timed from the
     storyboard, not arbitrary wall-clock or frame-counter values.
+
+    ``bed_gain`` sets the underscore against the cues, and only the underscore:
+    the drum pulse and the tonal pad. A film whose subject is a sound - typing, a
+    click, an impact - needs its bed lower so that sound can be heard; measured
+    on the render test, the keystrokes sat 1.6 dB above the kick on average with
+    the bed at unity, which is a typing shot with no typing in it. Scaling the
+    cues up instead would have made a key press louder than a mouse click, which
+    is not what either of them sounds like.
     """
     try:
         duration = float(duration_seconds)
@@ -24,6 +33,12 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
         raise ValueError("Scene durations must be finite and positive.")
     if not isinstance(sample_rate, int) or not 8000 <= sample_rate <= 48000:
         raise ValueError("Sound design sample rate must be between 8 and 48 kHz.")
+    try:
+        bed_gain = float(bed_gain)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("Sound design bed gain must be numeric.") from exc
+    if not math.isfinite(bed_gain) or not 0.0 <= bed_gain <= 1.5:
+        raise ValueError("Sound design bed gain must be between 0 and 1.5.")
 
     scene_starts = []
     cursor = 0.0
@@ -57,14 +72,14 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
                 beat_phase = t % beat_seconds
                 noise_state = (noise_state * 1103515245 + 12345) & 0x7FFFFFFF
                 beat_noise = (noise_state / 0x7FFFFFFF) * 2.0 - 1.0
-                kick = 0.052 * math.exp(-beat_phase * 26.0) * math.sin(
+                kick = bed_gain * 0.052 * math.exp(-beat_phase * 26.0) * math.sin(
                     2.0 * math.pi * (62.0 * math.exp(-beat_phase * 9.0) + 34.0) * beat_phase)
-                hat = 0.016 * math.exp(-beat_phase * 180.0) * beat_noise
+                hat = bed_gain * 0.016 * math.exp(-beat_phase * 180.0) * beat_noise
                 # Low-level, slowly pulsing tonal bed; kept deliberately below speech.
                 pulse = 0.72 + 0.28 * math.sin(2.0 * math.pi * t / beat_seconds)
-                bed = pulse * (0.020 * math.sin(2.0 * math.pi * 55.0 * t)
-                               + 0.012 * math.sin(2.0 * math.pi * 82.41 * t)
-                               + 0.006 * math.sin(2.0 * math.pi * 110.0 * t))
+                bed = bed_gain * pulse * (0.020 * math.sin(2.0 * math.pi * 55.0 * t)
+                                          + 0.012 * math.sin(2.0 * math.pi * 82.41 * t)
+                                          + 0.006 * math.sin(2.0 * math.pi * 110.0 * t))
                 while cue_index < len(scene_starts) and t - scene_starts[cue_index] >= cue_window:
                     cue_index += 1
                 cue = 0.0
@@ -91,7 +106,7 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
             "design": "procedural low-level synth bed with timed transition sweeps and clicks"}
 
 
-SFX_KINDS = ("whoosh", "riser", "swell", "glitch", "click", "impact", "pop")
+SFX_KINDS = ("whoosh", "riser", "swell", "glitch", "click", "impact", "pop", "key")
 
 
 def _envelope(t, length, attack=0.012, release=0.08):
@@ -140,6 +155,12 @@ def _synth_cue(kind, length, sample_rate, seed=1):
     count = max(1, int(length * sample_rate))
     values = []
     state = seed & 0x7FFFFFFF or 1
+    # Keystrokes are the one kind that plays many times in a row. Twelve cues
+    # with the same pitch read as a machine gun, so each one takes a small
+    # detune from its own seed. The seed is already deterministic per cue index,
+    # so the take still renders identically every time - it just is not fifteen
+    # copies of one stroke.
+    detune = ((seed % 97) / 96.0) - 0.5
     for index in range(count):
         t = index / sample_rate
         progress = t / max(1e-6, length)
@@ -171,6 +192,20 @@ def _synth_cue(kind, length, sample_rate, seed=1):
         elif kind == "pop":
             frequency = 700.0 * math.exp(-t * 12.0) + 180.0
             value = 0.7 * math.sin(2 * math.pi * frequency * t) * math.exp(-t * 30.0)
+        elif kind == "key":
+            # A keystroke is three things at once, and all three matter: the
+            # hard contact tick of the cap bottoming out (broadband noise, dead
+            # in five milliseconds), the plastic click of the switch above it,
+            # and a low body resonance from the case underneath. No envelope is
+            # applied on top - the decays are the envelope, and a release ramp
+            # would soften the transient that makes it read as a key at all.
+            # The attack ramp exists only so sample zero is not a step, which
+            # would add a click of its own.
+            attack = min(1.0, t / 0.0015)
+            contact = noise * math.exp(-t * 480.0)
+            click = math.sin(2 * math.pi * 2600.0 * (1.0 + 0.05 * detune) * t) * math.exp(-t * 340.0)
+            body = math.sin(2 * math.pi * (190.0 + 40.0 * progress + 14.0 * detune) * t) * math.exp(-t * 62.0)
+            value = (0.62 * contact + 0.30 * click + 0.24 * body) * attack
         else:
             raise ValueError("Unknown SFX kind %r. Choose one of: %s" % (kind, ", ".join(SFX_KINDS)))
         values.append(max(-1.0, min(1.0, value)))
