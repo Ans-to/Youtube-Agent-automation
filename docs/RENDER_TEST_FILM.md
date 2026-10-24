@@ -52,8 +52,19 @@ Everything is arithmetic. `video_studio/audio_design.py` gained one cue kind,
   sits at 0.85 and the strokes at 0.52, and the strokes measure 12.4 dB above the
   bed in the mix.
 
-Delivery: −20 LUFS integrated, −1.8 dBTP true peak. The long film's −14 LUFS is
-the right target for a film with a voice in it; this one has no voice, and its
+Two cues were rebuilt because they were notes rather than sounds, and the owner
+heard one of them as an irritating "veeee". The whoosh was noise mixed with a
+sine sweeping to 1.6 kHz — and its phase was not integrated, so it burbled as
+well as whistled. The swell was a pair of pure sines at 140–200 Hz held for a
+second and a quarter. Both are now noise through a moving bandpass: a tone has
+one frequency at a time, air has a band. Measured across 80 ms windows, the old
+swell put 25.7 percent of a window's energy in a single bin; the new one puts 7.3
+percent, against a test threshold of 10. The impact also used to sweep down to
+about ten hertz, under the bottom of hearing, where it cost headroom and added
+nothing.
+
+Delivery: −20 LUFS, −2.6 dBTP. The long film's −14 LUFS
+is the right target for a film with a voice in it; this one has no voice, and its
 energy is sparse transients. Reaching −14 would have taken about 10 dB of limiter
 on every click. `--lufs` still forces any target, and the report writes down how
 much limiting it cost.

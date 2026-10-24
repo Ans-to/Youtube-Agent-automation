@@ -161,6 +161,10 @@ def _synth_cue(kind, length, sample_rate, seed=1):
     # so the take still renders identically every time - it just is not fifteen
     # copies of one stroke.
     detune = ((seed % 97) / 96.0) - 0.5
+    # Filter state for the noise-based cues. It lives outside the sample loop
+    # because a filter is the one sound here that remembers where it was.
+    filter_low = 0.0
+    filter_band = 0.0
     for index in range(count):
         t = index / sample_rate
         progress = t / max(1e-6, length)
@@ -168,25 +172,65 @@ def _synth_cue(kind, length, sample_rate, seed=1):
         state = (1103515245 * state + 12345) & 0x7FFFFFFF
         noise = (state / 0x7FFFFFFF) * 2.0 - 1.0
         if kind == "whoosh":
-            # Band-limited noise with a fast sweep: air moving past a microphone.
-            sweep = math.sin(2 * math.pi * (220.0 + 1600.0 * progress) * t)
-            value = (0.55 * noise + 0.45 * sweep) * envelope * (1.0 - 0.4 * progress)
+            # Air, not a tone.
+            #
+            # This used to be noise mixed with a sine sweeping from 220 Hz to
+            # 1.6 kHz, and that sine is the "veeee" the owner heard: one pure
+            # frequency sitting under the noise for the whole half second. The
+            # phase was not integrated either, so it did not even glide cleanly -
+            # it was a whistle. A tone has one frequency at a time; air has a
+            # band. The sweep is now the *centre of a bandpass over the noise*, so
+            # what moves is the noise itself and there is no pitch to hear.
+            #
+            # Chamberlin state-variable filter, chosen because it is four lines,
+            # stable at these coefficients, and a pure function of the sample
+            # index - no filter state survives the call, so the take is still
+            # deterministic and identical every render.
+            centre = 260.0 + 1900.0 * progress
+            coefficient = 2.0 * math.sin(math.pi * min(centre, sample_rate * 0.09) / sample_rate)
+            coefficient = min(0.55, coefficient)
+            high = noise - filter_low - 0.85 * filter_band
+            filter_band += coefficient * high
+            filter_low += coefficient * filter_band
+            bell = min(1.0, progress * 7.0) * (1.0 - 0.45 * progress)
+            # Level set from the raw filter output, not by ear: at unity the
+            # bandpass peaks near 0.7, so 1.3 puts a whoosh at 0.92 peak and
+            # about the loudness the old noise-plus-whistle had, without the
+            # whistle.
+            value = (1.3 * filter_band + 0.18 * filter_low) * bell
         elif kind == "riser":
             frequency = 90.0 * (2.0 ** (3.2 * progress))
             value = (0.62 * math.sin(2 * math.pi * frequency * t)
                      + 0.20 * noise) * envelope * (0.35 + 0.65 * progress)
         elif kind == "swell":
-            frequency = 140.0 + 60.0 * progress
-            value = (0.55 * math.sin(2 * math.pi * frequency * t)
-                     + 0.25 * math.sin(2 * math.pi * frequency * 2.01 * t)
-                     + 0.10 * noise) * envelope * math.sin(math.pi * progress)
+            # The second thing the owner could hear as a "veeee": a pair of pure
+            # sines at 140-200 Hz held for up to a second and a quarter. It was
+            # the most tonal event in the mix - 12 percent of one window's energy
+            # in a single bin, against 3 percent for everything else - and a held
+            # note is a note, whatever it is called. A swell is air arriving, so
+            # it is now noise through a band that opens slowly and closes: the
+            # same filter as the whoosh, wider and slower, with a low sine left
+            # in at a level that adds weight without adding a pitch.
+            centre = 300.0 + 820.0 * progress
+            coefficient = 2.0 * math.sin(math.pi * min(centre, sample_rate * 0.09) / sample_rate)
+            coefficient = min(0.5, coefficient)
+            high = noise - filter_low - 0.6 * filter_band
+            filter_band += coefficient * high
+            filter_low += coefficient * filter_band
+            shape = math.sin(math.pi * progress)
+            value = ((1.05 * filter_band + 0.22 * filter_low) * shape
+                     + 0.10 * math.sin(2 * math.pi * 55.0 * t) * shape)
         elif kind == "glitch":
             gate = 1.0 if (int(t * 90) % 3) else 0.15
             value = (0.5 * noise + 0.3 * math.sin(2 * math.pi * (600 + 900 * ((int(t * 60) % 4))) * t)) * envelope * gate
         elif kind == "click":
             value = (0.7 * noise + 0.5 * math.sin(2 * math.pi * 2100.0 * t)) * math.exp(-t * 90.0)
         elif kind == "impact":
-            frequency = 58.0 * math.exp(-t * 3.0)
+            # It sweeps down to 38 Hz and no lower. The old curve fell to about
+            # ten hertz inside its own length, which is under the bottom of what
+            # anyone hears: it cost headroom, showed up in the meter as energy at
+            # 9 Hz, and added nothing to the hit.
+            frequency = 90.0 * math.exp(-t * 2.2) + 38.0
             value = (0.85 * math.sin(2 * math.pi * frequency * t)
                      + 0.35 * noise * math.exp(-t * 22.0)) * envelope
         elif kind == "pop":

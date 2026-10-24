@@ -88,3 +88,76 @@ class MotionAudioTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoCueIsAHeldNote(unittest.TestCase):
+    """A cue may be loud, sharp, or long. It may not be a note.
+
+    The owner heard a "veeee" in the render test and could not say where it came
+    from, which is what a tone under a noise sounds like: the ears find the pitch
+    and the brain cannot place it. Two cues were doing it. The whoosh mixed noise
+    with a sine sweeping to 1.6 kHz - and its phase was not integrated, so it
+    burbled as well as whistled - and the swell was a pair of pure sines at
+    140-200 Hz held for a second and a quarter.
+
+    Both are now noise through a moving bandpass. These tests hold them there: a
+    tone puts most of a window's energy in one bin, and air does not.
+    """
+
+    RATE = 24000
+    WINDOW = 0.08
+
+    def _share_of_one_bin(self, kind, length, limit):
+        import math
+
+        import numpy as np
+
+        samples = np.array(audio_design._synth_cue(kind, length, self.RATE, seed=7919))
+        size = int(self.WINDOW * self.RATE)
+        worst, at = 0.0, 0.0
+        for start in range(0, max(1, len(samples) - size), size // 2):
+            segment = samples[start:start + size] * np.hanning(size)
+            energy = np.abs(np.fft.rfft(segment, 4096)) ** 2
+            share = float(energy.max() / energy.sum())
+            if share > worst:
+                worst, at = share, start / self.RATE
+        self.assertLess(worst, limit,
+                        msg="%s is %.0f%% one bin at %.2fs - that is a note, not air"
+                            % (kind, worst * 100, at))
+        return worst
+
+    def test_whoosh_is_air_and_not_a_whistle(self):
+        self._share_of_one_bin("whoosh", 0.7, 0.10)
+        self._share_of_one_bin("whoosh", 0.45, 0.10)
+
+    def test_swell_is_air_and_not_a_held_note(self):
+        self._share_of_one_bin("swell", 1.2, 0.10)
+        self._share_of_one_bin("swell", 0.9, 0.10)
+
+    def test_the_band_actually_moves(self):
+        """A bandpass that never sweeps is just a quieter hiss."""
+        import numpy as np
+
+        samples = np.array(audio_design._synth_cue("whoosh", 0.7, self.RATE, seed=7919))
+
+        def centroid(segment):
+            spectrum = np.abs(np.fft.rfft(segment * np.hanning(len(segment))))
+            freqs = np.fft.rfftfreq(len(segment), 1 / self.RATE)
+            return float((spectrum * freqs).sum() / max(spectrum.sum(), 1e-9))
+
+        size = int(0.08 * self.RATE)
+        early = centroid(samples[:size])
+        late = centroid(samples[-size:])
+        self.assertGreater(late, early * 1.5,
+                           "the whoosh opens from %.0f Hz to %.0f Hz only" % (early, late))
+
+    def test_impact_stays_in_hearing(self):
+        """It used to sweep to about ten hertz, which nobody can hear."""
+        import numpy as np
+
+        samples = np.array(audio_design._synth_cue("impact", 0.5, self.RATE, seed=7919))
+        segment = samples[-int(0.2 * self.RATE):]
+        spectrum = np.abs(np.fft.rfft(segment * np.hanning(len(segment))))
+        freqs = np.fft.rfftfreq(len(segment), 1 / self.RATE)
+        peak = float(freqs[int(np.argmax(spectrum[3:])) + 3])
+        self.assertGreater(peak, 35.0, "the hit ends at %.0f Hz" % peak)
