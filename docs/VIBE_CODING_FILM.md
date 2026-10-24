@@ -97,6 +97,42 @@ holds of about three seconds each, all of them a sentence being read on a screen
 that is otherwise being re-framed; there are no strobe, black-frame or dead-air
 findings.
 
+## The voice
+
+The narration is the first thing a viewer meets and the only thing they cannot
+skip, so it has its own gate:
+
+```bash
+python3 tools/check_narration.py --wav build/voice/voiceover.wav \
+  --lines build/voice/lines.json
+```
+
+It measures what a listener reacts to and refuses the rest:
+
+| What | Bar | Why |
+| --- | --- | --- |
+| speed | 115-180 words per minute | above 180 a viewer stops following and starts skipping |
+| median pause | at least 0.30 s | below that the sentences run together |
+| longest pause | at least 0.90 s | somewhere has to let the ear rest |
+| audible rests | 4-32 per minute | the ear needs a landing place every few sentences |
+| loudness (after the mix) | -14 LUFS +/- 1.5 | YouTube plays everything at about -14 |
+| true peak | at or below -1 dBFS | so nothing clips on headphones |
+
+Two rules keep a bad read from shipping:
+
+- **A formant voice is never a fallback.** If Piper is missing, the film build
+  stops and says what to install; `--voice-backend espeak` (or `--allow-formant`)
+  is the only way to get the synthesizer, and it is for previewing timing.
+- **The finished file is measured, not assumed.** After the encode the delivery
+  is measured again, and if the muxed level is more than 1 dB from target the
+  audio is re-encoded and the video stream is copied. A level fix never costs a
+  second picture render.
+
+The narration that shipped with the first cut of this film failed the gate on
+four counts: 214 words per minute, a 0.24 s median pause, a 0.78 s longest
+pause, and 2.7 audible rests per minute. It was a formant read that nobody had
+chosen, and nothing in the build said so.
+
 ## File sizes
 
 The film compresses badly, and that is expected: per-frame grain is exactly what
@@ -117,11 +153,17 @@ python3 video_studio/voiceover.py --script video_studio/films/vibe_coding.voice.
 the other films in this repository use, measured on the delivered file. It passes
 at 1.71 / 0.1%.
 
-That number is worth reading honestly: most of it comes from the grain, not from
-the diagrams. Structure alone — a panel held while a sentence is read — measures
-0.16 to 0.24 on this material. The grain is what keeps a screen-teaching film
-from being a slideshow, which is why it is a deliberate part of the look and why
-it is described above rather than hidden in an encoder flag.
+That number is not worth trusting, and this is the honest reading of it: most of
+it comes from grain. Structure alone — a panel held while a sentence is read —
+measures 0.16 to 0.24 on this material, far below the gate. So the gate passes a
+film whose composition does not change. Measured on the delivered file: 30
+distinct layouts across 11.5 minutes, seven held longer than 40 seconds, and 57%
+of the running time inside one of them. Grain keeps the *pixels* moving while the
+*picture* stands still, and a viewer sees the picture.
+
+The replacement check measures composition instead: how much of the frame is in
+a new place, not how much of it twinkles. Until that exists and passes, this film
+is a slideshow with a moving background, and it is not ready to publish.
 
 ## Publishing it
 

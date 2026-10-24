@@ -145,8 +145,12 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
         pieces = []
         timeline = []
         cursor = 0.0
+        previous_scene = ""
         for index, (line, audio) in enumerate(rendered):
-            gap_before = max(0.0, line.gap_before)
+            # The same pause model the built-in path uses: a human read gets the
+            # same air at a full stop and the same break between sections.
+            gap_before = voiceover.scene_gap_for(line, previous_scene)
+            pause_after = voiceover.pause_after_for(line)
             start = cursor + gap_before
             clip = voiceover.fade_edges(audio, rate)
             end = start + clip.size / rate
@@ -157,15 +161,19 @@ def assemble(script: Path, clips: Path, out_dir: Path, *, fps: int = 30,
                     max(1e-9, float(np.sqrt(np.mean(clip.astype(np.float64) ** 2)))))), 1),
                 "text": line.text,
                 "spoken": voiceover.spoken_text(line.text),
+                "scene": line.scene,
                 "start": round(start, 3),
                 "end": round(end, 3),
                 "duration": round(end - start, 3),
+                "gap_before": round(gap_before, 3),
+                "pause_after": round(pause_after, 3),
                 "prosody": voiceover.prosody_note(line),
                 "emphasis": voiceover.emphasis_words(line.text),
             })
             cursor = end
-            pieces.append(np.zeros(int(rate * line.pause_after), dtype=np.float32))
-            cursor += line.pause_after
+            pieces.append(np.zeros(int(rate * pause_after), dtype=np.float32))
+            cursor += pause_after
+            previous_scene = line.scene or previous_scene
 
     full = np.concatenate(pieces) if pieces else np.zeros(1, dtype=np.float32)
     full = voiceover.polish(full, rate)

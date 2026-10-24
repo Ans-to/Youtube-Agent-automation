@@ -306,6 +306,20 @@ docs/             # architecture, operations, ADRs and research
 - Duplication is a failing check, not a preference: two identical function bodies of eight or more statements must become one shared module. Deliberate exceptions go in `ALLOWED_DUPLICATES` in `tools/check_structure.py` with a reason.
 - Configuration is not code: `config.json` (private), `.env` (private, see `.env.example`), and an allowlist of environment variables. Never read a raw environment variable for a setting that is not on that list.
 
+## What a film has to pass
+
+Two gates stand between a render and a publish, and both exist because a film
+shipped past every check while being unwatchable:
+
+- **Narration** (`tools/check_narration.py`) - speed, pauses, audible rests,
+  delivery loudness and true peak, measured on the audio that will be uploaded.
+  A formant voice is refused unless it is asked for by name, so a machine without
+  Piper fails loudly instead of narrating a film in espeak-ng.
+- **Motion** - mean frame delta and still frames today. This one is known to be
+  weak: grain moves every pixel, so it passes a film whose composition never
+  changes. The replacement measures composition change, and until it is in place
+  a green motion number says nothing about whether the picture moves.
+
 ## Platform assumptions (Windows is a first-class target)
 
 The project is developed on Windows by its owner, so a test that only passes on

@@ -126,6 +126,14 @@ def main() -> int:
          "product_studio", "tools"],
         timeout=180,
     ))
+    # A film can pass every picture check and still be unwatchable because of its
+    # narration. That check lives with the film build; this one proves the
+    # narration gate itself still works.
+    results.append(run_step(
+        "Narration gate (speed, air, delivery level)",
+        [sys.executable, "-m", "unittest", "tests.test_check_narration", "tests.test_voiceover"],
+        timeout=300,
+    ))
     results.append(run_step(
         "North Star invariants (free, local, confined)",
         [sys.executable, "tools/check_invariants.py"],

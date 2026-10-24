@@ -66,6 +66,21 @@ VOICE_DIR = ROOT / "video_studio" / "voices"
 DEFAULT_VOICE = "en_US-lessac-medium"
 SAMPLE_RATE = 24000
 
+# How long the read rests after a line. The script may ask for more; it cannot
+# ask for less. A flat table of short pauses is what makes synthetic narration
+# exhausting: an instruction film needs air at every full stop, and a real break
+# where one section ends and the next begins.
+PAUSE_BY_ENDING = {
+    ".": 0.55,
+    "?": 0.60,
+    "!": 0.60,
+    ":": 0.45,
+    ";": 0.45,
+    ",": 0.35,
+}
+MIN_PAUSE = 0.30
+SECTION_BREAK_SECONDS = 1.0
+
 # piper's own knobs, tuned for a narrated read rather than the default
 LENGTH_SCALE = 1.06          # slightly slower than default: clearer, calmer
 NOISE_SCALE = 0.60           # 0.667 is piper's default; a touch less wobble
@@ -100,6 +115,7 @@ class Line:
     rate: float = 1.0
     gap_before: float = 0.0
     id: str = ""
+    scene: str = ""
     start: float = 0.0
     end: float = 0.0
     emphasis: list[str] = field(default_factory=list)
@@ -124,6 +140,7 @@ def load_script(path: Path) -> list[Line]:
             gap_before=float(item.get("gap_before", 0.0)),
             rate=float(item.get("rate", 1.0)),
             id=str(item.get("id") or f"L{index + 1}"),
+            scene=str(item.get("scene") or ""),
         ))
     return lines
 
@@ -132,6 +149,26 @@ def spoken_text(text: str) -> str:
     """Strip markup that only exists for the writer, keep everything speakable."""
     value = re.sub(r"[*_]{1,2}([^*_]+)[*_]{1,2}", r"\1", text)
     return value.strip()
+
+
+def pause_after_for(line: Line) -> float:
+    """The silence after a line: what the writer asked for, or what the
+    punctuation demands, whichever is longer.
+
+    A script that asks for 0.25 s after a full stop gets 0.55 s: the reader needs
+    the full stop more than the writer needs the tighter cut.
+    """
+    text = spoken_text(line.text).rstrip("\"')")
+    floor = PAUSE_BY_ENDING.get(text[-1:], MIN_PAUSE) if text else MIN_PAUSE
+    return max(float(line.pause_after), floor)
+
+
+def scene_gap_for(line: Line, previous_scene: str) -> float:
+    """Silence before a line, including the break between two sections."""
+    gap = max(0.0, float(line.gap_before))
+    if line.scene and previous_scene and line.scene != previous_scene:
+        gap = max(gap, SECTION_BREAK_SECONDS)
+    return gap
 
 
 def emphasis_words(text: str) -> list[str]:
@@ -542,7 +579,8 @@ def openness_envelope(signal: np.ndarray, rate: int, fps: int = 30) -> list[floa
 
 
 def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
-          allow_download: bool = False, backend: str = "auto", fps: int = 30) -> dict:
+          allow_download: bool = False, backend: str = "auto", fps: int = 30,
+          allow_formant: bool = False) -> dict:
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     lines = load_script(script)
@@ -562,6 +600,23 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
             raise VoiceBackendMissing("piper is not installed (pip install piper-tts)")
     if chosen == "auto":
         chosen = "espeak" if espeak_available() else "none"
+    if chosen == "espeak" and not allow_formant and backend != "espeak":
+        # Reaching this branch means Piper was not usable, so the fallback would
+        # silently narrate the film in a formant synthesiser: intelligible, and
+        # unpleasant to listen to for eleven minutes. It used to happen without a
+        # word, and the film that resulted sounded like a machine reading a
+        # spreadsheet. A formant read is allowed for a timing preview, never by
+        # accident.
+        raise VoiceBackendMissing(
+            "this build would fall back to espeak-ng, a formant synthesiser. "
+            "That is fine for checking timing and wrong for a published film.\n"
+            "Install the neural voice once (free, offline afterwards):\n"
+            "  pip install piper-tts\n"
+            "  python -m piper.download_voices en_US-amy-medium\n"
+            "then render with --voice en_US-amy-medium --allow-download\n"
+            "To preview in the formant voice anyway, ask for it explicitly:\n"
+            "  --voice-backend espeak    (or voiceover.py --allow-formant)"
+        )
     if chosen in ("none", "auto"):
         raise VoiceBackendMissing(
             "no local speech backend. Install one free option and rerun:\n"
@@ -585,27 +640,35 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
     cursor = 0.0
     pieces: list[np.ndarray] = []
     timeline = []
+    previous_scene = ""
     for index, (line, audio) in enumerate(rendered):
-        gap_before = max(0.0, line.gap_before)
+        gap_before = scene_gap_for(line, previous_scene)
+        pause_after = pause_after_for(line)
         lead = np.zeros(int(SAMPLE_RATE * gap_before), dtype=np.float32)
         text_for_silence = fade_edges(audio, SAMPLE_RATE)
         start = cursor + gap_before
         end = start + text_for_silence.size / SAMPLE_RATE
         pieces.extend([lead, text_for_silence])
+        words = len(spoken_text(line.text).split())
         timeline.append({
             "id": line.id,
             "text": line.text,
             "spoken": spoken_text(line.text),
+            "scene": line.scene,
             "start": round(start, 3),
             "end": round(end, 3),
             "duration": round(end - start, 3),
+            "words": words,
+            "words_per_minute": round(words / max(end - start, 1e-6) * 60.0, 1),
+            "gap_before": round(gap_before, 3),
+            "pause_after": round(pause_after, 3),
             "prosody": prosody_note(line),
             "emphasis": emphasis_words(line.text),
         })
         cursor = end
-        tail = np.zeros(int(SAMPLE_RATE * line.pause_after), dtype=np.float32)
-        pieces.append(tail)
-        cursor += line.pause_after
+        pieces.append(np.zeros(int(SAMPLE_RATE * pause_after), dtype=np.float32))
+        cursor += pause_after
+        previous_scene = line.scene or previous_scene
 
     full = np.concatenate(pieces) if pieces else np.zeros(1, dtype=np.float32)
     full = polish(full, SAMPLE_RATE)
@@ -642,8 +705,13 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
     (out_dir / "envelope.json").write_text(
         json.dumps({"fps": fps, "lines": envelope}, indent=2) + "\n", encoding="utf-8")
 
+    total_words = sum(item["words"] for item in timeline)
+    speech_seconds = sum(item["duration"] for item in timeline)
     report = {
         "backend": chosen,
+        "formant": chosen == "espeak",
+        "publishable_voice": chosen != "espeak",
+        "words_per_minute": round(total_words / max(speech_seconds, 1e-6) * 60.0, 1),
         "fps": fps,
         "voice": voice if chosen == "piper" else "espeak-ng formant",
         "model": str(model) if model else None,
@@ -671,12 +739,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--allow-download", action="store_true",
                         help="download the Piper weights once if they are missing")
     parser.add_argument("--fps", type=int, default=30, help="frame rate for the lip-sync envelope")
+    parser.add_argument("--allow-formant", action="store_true",
+                        help="allow the espeak-ng fallback (for timing previews, not for a film)")
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args(argv)
     try:
         report = build(Path(args.script), Path(args.out), voice=args.voice,
                        allow_download=args.allow_download, backend=args.backend,
-                       fps=args.fps)
+                       fps=args.fps, allow_formant=args.allow_formant)
     except VoiceBackendMissing as exc:
         print(str(exc), file=sys.stderr)
         return 3
@@ -686,9 +756,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.json:
         print(json.dumps(report, indent=2))
     else:
-        print("VOICE: %s (%s) %.2fs, %d lines -> %s"
+        print("VOICE: %s (%s) %.2fs, %d lines, %.0f wpm -> %s"
               % (report["backend"], report["voice"], report["duration_seconds"],
-                 report["line_count"], report["path"]))
+                 report["line_count"], report["words_per_minute"], report["path"]))
     return 0
 
 

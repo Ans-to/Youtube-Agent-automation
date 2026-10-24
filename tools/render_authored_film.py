@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import statistics
 import sys
 import time
@@ -226,14 +227,47 @@ def step_soundtrack(film_json: Path, output: Path) -> dict:
 
 def step_voice(script: Path, out_dir: Path, *, voice: str, allow_download: bool,
                backend: str, fps: int) -> dict:
-    """Narrate the script locally; writes voiceover.wav, lines.json, envelope.json."""
+    """Narrate the script locally; writes voiceover.wav, lines.json, envelope.json.
+
+    A formant read is only allowed when it was asked for by name. Left on
+    "auto", a machine without Piper would otherwise narrate an eleven-minute film
+    in espeak-ng without saying so, which is how the first cut of the long film
+    came to exist.
+    """
     import voiceover
 
     out_dir.mkdir(parents=True, exist_ok=True)
     return voiceover.build(
         script, out_dir, voice=voice, allow_download=allow_download,
-        backend=backend, fps=fps,
+        backend=backend, fps=fps, allow_formant=(backend == "espeak"),
     )
+
+
+def judge_narration(wav: Path, lines: Path | None, *, stage: str) -> dict:
+    """Run the listening gate; returns its findings, raises nothing.
+
+    The caller decides whether a failure stops the render, so a preview render
+    can still be inspected while a master cannot be shipped past it.
+    """
+    import check_narration
+
+    samples, rate = check_narration.read_wav(wav)
+    words = check_narration.count_words(lines) if lines and lines.is_file() else 0
+    result = check_narration.analyse(samples, rate, words)
+    result.lufs, result.true_peak_db = check_narration.measure_loudness(wav)
+    result = check_narration.verdict(result, stage)
+    return {
+        "listenable": result.listenable,
+        "stage": stage,
+        "words_per_minute": result.words_per_minute,
+        "median_pause": result.median_pause,
+        "longest_pause": result.longest_pause,
+        "breaths_per_minute": result.breaths_per_minute,
+        "lufs": result.lufs,
+        "true_peak_db": result.true_peak_db,
+        "failures": result.failures,
+        "statement": check_narration.report(result, stage),
+    }
 
 
 def step_mix(score: Path, voice_path: Path, output: Path, depth_db: float) -> dict:
@@ -341,6 +375,48 @@ def step_validate(frames_dir: Path) -> dict:
         return {"raw": result.stdout.strip()}
 
 
+def verify_delivery_loudness(delivery: Path, audio_track: Path, ffmpeg: str,
+                             log=print, target: float = TARGET_LUFS) -> dict:
+    """Measure the finished file, and correct it if the encoder changed the level.
+
+    Every earlier step in this tool works on audio that has not been muxed yet.
+    The file a viewer downloads is the only one that matters, so its level is
+    measured here rather than assumed to have survived. When it is wrong, the
+    audio is re-encoded and the video stream is copied: a level fix never costs a
+    second picture encode.
+    """
+    measured = measure_loudness(delivery, ffmpeg)
+    if measured is None:
+        log("   delivery level could not be measured")
+        return {"status": "unmeasured", "target": target}
+    if abs(measured - target) <= 1.0:
+        log("   delivery %.1f LUFS (target %.1f)" % (measured, target))
+        return {"status": "ok", "lufs": measured, "target": target}
+
+    corrected = audio_track.with_name(audio_track.stem + ".delivery.wav")
+    shutil.copy2(audio_track, corrected)
+    fixed = normalise_loudness(corrected, ffmpeg, target=target)
+    temporary = delivery.with_name(delivery.stem + ".remux" + delivery.suffix)
+    result = base.run([
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(delivery), "-i", str(corrected),
+        "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
+        "-c:a", "aac", "-b:a", "192k", "-shortest",
+        "-movflags", "+faststart", str(temporary),
+    ], timeout=3600)
+    corrected.unlink(missing_ok=True)
+    if result.returncode != 0 or not temporary.is_file():
+        temporary.unlink(missing_ok=True)
+        log("   delivery is %.1f LUFS and the correction failed" % measured)
+        return {"status": "failed", "lufs": measured, "target": target}
+    temporary.replace(delivery)
+    after = measure_loudness(delivery, ffmpeg)
+    log("   delivery was %.1f LUFS; corrected to %.1f (target %.1f, audio re-encoded,"
+        " picture copied)" % (measured, after if after is not None else float("nan"), target))
+    return {"status": "corrected", "lufs_before": measured,
+            "lufs": after, "target": target, "gain_db": fixed.get("gain_db")}
+
+
 def measure_motion(video: Path, ffmpeg: str, work_dir: Path, gate: dict | None = None) -> dict:
     """Frame-to-frame luma difference, the same measure the critique was based on."""
     stats_file = work_dir / ".motion-stats.txt"
@@ -431,6 +507,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--voice-backend", default="auto", choices=["auto", "piper", "espeak"])
     parser.add_argument("--voice-offline", action="store_true",
                         help="never download voice weights (fail instead)")
+    parser.add_argument("--allow-voice-warnings", action="store_true",
+                        help="render even if the narration fails the listening gate")
     parser.add_argument("--duck-db", type=float, default=8.5,
                         help="how far the score drops under speech")
     parser.add_argument("--encode-segments", type=int, default=0,
@@ -480,6 +558,9 @@ def main(argv: list[str] | None = None) -> int:
     try:
         voice_info = None
         mixed = None
+        narration = None
+        mix_narration = None
+        delivery_level = None
         voice_wav = voice_dir / "voiceover.wav"
         voice_lines = voice_dir / "lines.json"
         if args.voice_script:
@@ -513,6 +594,22 @@ def main(argv: list[str] | None = None) -> int:
                 if voice_info.get("duration_seconds") and voice_info.get("line_count") else ""))
         if voice_info is not None and not voice_lines.is_file():
             raise RuntimeError("a voice track exists without lines.json; the picture cannot sync to it")
+
+        narration = None
+        if voice_info is not None and voice_wav.is_file():
+            log(step("listen to the narration"))
+            narration = judge_narration(voice_wav, voice_lines, stage="voice")
+            log("   " + narration["statement"].replace("\n", "\n   "))
+            if not narration["listenable"]:
+                if args.allow_voice_warnings:
+                    log("   rendering anyway (--allow-voice-warnings)")
+                else:
+                    raise RuntimeError(
+                        "the narration is not listenable, so this render is stopped "
+                        "before it spends an hour on frames.\n"
+                        + "\n".join("  - " + item for item in narration["failures"])
+                        + "\nFix the voice or the pauses, then run again. "
+                          "To render a rough cut anyway: --allow-voice-warnings")
 
         if args.frames:
             frames_dir = Path(args.frames).resolve()
@@ -557,6 +654,9 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 log("   loudness not measured (%s)" % loudness.get("status"))
 
+            mix_narration = judge_narration(audio_track, voice_lines, stage="mix")
+            if not mix_narration["listenable"]:
+                log("   delivery level: " + "; ".join(mix_narration["failures"]))
             if voice_info.get("path") and Path(voice_info["path"]).is_file():
                 # keep a copy next to the film so the mix is auditable after the fact
                 target = out_dir / "voiceover.wav"
@@ -613,6 +713,7 @@ def main(argv: list[str] | None = None) -> int:
                         scale="scale=-2:%d:flags=lanczos" % args.delivery_height)
         )
         log("   delivery %s (%.1f MB)" % (delivery.name, delivery.stat().st_size / 1048576))
+        delivery_level = verify_delivery_loudness(delivery, audio_track, ffmpeg, log=log)
 
         log(step("measure motion"))
         film_meta = json.loads(film_json.read_text(encoding="utf-8"))
@@ -668,6 +769,11 @@ def main(argv: list[str] | None = None) -> int:
             "voice": ({key: voice_info[key] for key in ("backend", "voice", "duration_seconds", "line_count", "path", "reused") if key in voice_info}
                       if voice_info else None),
             "mix": mix_info,
+            "narration": ({key: narration[key] for key in
+                           ("listenable", "words_per_minute", "median_pause",
+                            "longest_pause", "breaths_per_minute", "failures")}
+                          if narration else None),
+            "delivery_level": delivery_level,
             "validation": validation,
             "outputs": [
                 {
