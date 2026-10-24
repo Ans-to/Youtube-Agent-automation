@@ -56,19 +56,21 @@ const STAGES = {
   // 0-1 "build a real app" / "you describe it" - the page assembles.
   title: [
     { app: true, bare: true },
-    // The card beat's own arrivals, timed from the line, not from a clock: this
-    // beat lasts a whole sentence, and one arrival at the top of it leaves four
-    // seconds of still frame.
-    { card: true, app: true, title: 'BOOKS I HAVE READ', rows: BOOKS.slice(0, 1), typingRow: 0,
-      // Arrivals every 1.1 s across a 5.6 s line, which is the reference's own
-      // cadence. The first version spaced them 1.3 s apart from the wrong start
-      // and two seconds in the middle of the line measured empty.
+    // "You describe what you want in plain English. An agent writes it, on
+    // GitHub, while you watch."
+    //
+    // This showed a finished book-list app with a search box, and the owner was
+    // right that it was unrelated: the sentence is about an agent writing files
+    // into a repository. It now shows exactly that - an empty GitHub repository,
+    // then the agent's files arriving one at a time, then the commit it records.
+    // Every item on screen is a noun the sentence says out loud.
+    { card: true, repo: true, branch: 'main', files: [],
+      message: 'this repository is empty',
       late: [
-        { at: 1.6, row: 'Piranesi', slot: 1, write: true },
-        { at: 2.6, field: true },
-        { at: 3.5, address: 'github.com/you/book-list' },
-        { at: 4.5, focusRow: 1 },
-        { at: 5.2, row: 'The Overstory', slot: 2, write: true },
+        { at: 1.2, file: 'index.html' },
+        { at: 2.6, file: 'styles.css', slot: 1 },
+        { at: 4.0, file: 'books.json', slot: 2 },
+        { at: 5.2, commit: 'agent: build the first page' },
       ] },
     { app: true, title: 'BOOKS I HAVE READ', rows: BOOKS.slice(0, 2), search: true },
     // The press lands on the field, the letters type, and the list filters
@@ -241,7 +243,10 @@ function drawRow(ctx, { x, y, w, h, label, p, focus, glyph, tone = 'light', sub 
     maxWidth: w - 300,
   });
   if (sub) {
-    text(ctx, sub, x + w - 58, y + h * 0.5 + 32, {
+    // Right-aligned to the edge of the row's own text column, not to the row's
+    // right edge: with a glyph button on the row the tag ran underneath it and
+    // was clipped to "ad(" on every line.
+    text(ctx, sub, x + w - (glyph ? 220 : 58), y + h * 0.5 + 32, {
       size: T.small, weight: 600, family: 'Inter', color: UI.dim, align: 'right',
     });
   }
@@ -260,6 +265,11 @@ function drawRow(ctx, { x, y, w, h, label, p, focus, glyph, tone = 'light', sub 
       ctx.moveTo(g.x + 36, g.y + 62);
       ctx.lineTo(g.x + 54, g.y + 82);
       ctx.lineTo(g.x + 86, g.y + 40);
+    } else if (glyph === 'plus') {
+      ctx.moveTo(g.x + 36, g.y + 60);
+      ctx.lineTo(g.x + 84, g.y + 60);
+      ctx.moveTo(g.x + 60, g.y + 36);
+      ctx.lineTo(g.x + 60, g.y + 84);
     } else if (glyph === 'search') {
       ctx.arc(g.x + 54, g.y + 52, 24, 0, Math.PI * 2);
       ctx.moveTo(g.x + 72, g.y + 72);
@@ -359,6 +369,127 @@ function drawTrack(ctx, { items, t }) {
   });
 }
 
+/**
+ * What lands after the card has opened.
+ *
+ * A card beat lasts a whole narration line - five or six seconds - and one
+ * arrival at the top of it leaves four seconds of still frame. Everything here
+ * is timed from the line, never from a clock, and every item is a noun the
+ * sentence actually says: a file the agent writes, the commit it records, the
+ * address it happens at, the result the viewer asked for.
+ */
+function drawLate(ctx, { stage, lineLocal, L }) {
+  // Slots already drawn by the stage itself, or by an earlier arrival. Without
+  // this a second "Piranesi" appeared under the first one whenever a focused row
+  // was also an arriving row - the duplicate-row fault, seen at 0:12.
+  const taken = new Set();
+  const base = stage.rows || stage.files || [];
+  for (let i = 0; i < Math.min(ROWS, base.length); i += 1) taken.add(i);
+
+  (stage.late || []).forEach((step) => {
+    const p2 = span(lineLocal, step.at, step.at + 0.4);
+    if (p2 <= 0) return;
+
+    // A file the agent writes: it types itself into the repository's list, which
+    // is the sentence "an agent writes it, on GitHub" made literal.
+    if (step.file) {
+      const slot = Math.min(ROWS - 1, (stage.files || []).length + (step.slot || 0));
+      if (taken.has(slot)) return;
+      taken.add(slot);
+      const r2 = L.rows[slot] || {
+        x: L.body.x, y: L.body.y + FIRST_ROW + slot * (ROW_H + ROW_GAP), w: L.body.w, h: ROW_H,
+      };
+      const typed = step.file.slice(0, Math.max(0, Math.ceil(
+        span(lineLocal, step.at, step.at + step.file.length * 0.06) * step.file.length)));
+      if (typed) drawRow(ctx, { ...r2, label: typed, p: 1, sub: 'added', glyph: 'plus' });
+    }
+
+    if (step.row) {
+      const slot = Math.min(ROWS - 1, (stage.rows || []).length + (step.slot || 0));
+      if (taken.has(slot)) return;
+      taken.add(slot);
+      const r2 = L.rows[slot] || {
+        x: L.body.x, y: L.body.y + FIRST_ROW + slot * (ROW_H + ROW_GAP), w: L.body.w, h: ROW_H,
+      };
+      const written = step.write
+        ? step.row.slice(0, Math.max(0, Math.ceil(
+          span(lineLocal, step.at, step.at + step.row.length * 0.075) * step.row.length)))
+        : step.row;
+      if (written) drawRow(ctx, { ...r2, label: written, p: step.write ? 1 : p2 });
+    }
+
+    if (step.field && !stage.search) {
+      const s2 = {
+        x: L.body.x, y: L.body.y + FIRST_ROW + ROWS * (ROW_H + ROW_GAP) + 24,
+        w: L.body.w, h: SEARCH_H,
+      };
+      ctx.save();
+      ctx.globalAlpha = ctx.globalAlpha * clamp(p2 * 2);
+      roundRect(ctx, s2.x, s2.y + (1 - ease.outCubic(p2)) * 40, s2.w, s2.h, 28);
+      ctx.fillStyle = UI.white; ctx.fill();
+      ctx.strokeStyle = '#DDDDE3'; ctx.lineWidth = 3; ctx.stroke();
+      text(ctx, 'Search your books', s2.x + 150, s2.y + s2.h * 0.5 + 38, {
+        size: T.row, weight: 600, family: 'Inter', color: '#A6A6B0', maxWidth: s2.w - 300,
+      });
+      ctx.restore();
+    }
+
+    // The commit the agent records. It arrives as a plate across the foot of the
+    // card, so a five-second repository beat has a third event in it.
+    if (step.commit) {
+      const b = L.body;
+      const w2 = measure(ctx, step.commit, { size: T.small, weight: 600, family: 'Inter' }) + 150;
+      const y2 = CARD.y + CARD.h - PAD - 96;
+      ctx.save();
+      ctx.globalAlpha = ctx.globalAlpha * clamp(p2 * 2.2);
+      roundRect(ctx, b.x, y2 + (1 - ease.outCubic(p2)) * 26, w2, 96, 48);
+      ctx.fillStyle = '#EEF6F1';
+      ctx.fill();
+      ctx.fillStyle = UI.green;
+      ctx.beginPath();
+      ctx.arc(b.x + 48, y2 + 48, 10, 0, Math.PI * 2);
+      ctx.fill();
+      text(ctx, step.commit, b.x + 78, y2 + 62, {
+        size: T.small, weight: 600, family: 'Inter', color: '#186B3C', maxWidth: w2 - 100,
+      });
+      ctx.restore();
+    }
+
+    if (step.focusRow !== undefined) {
+      // The press answers on the row that is already there: a ring and a tick
+      // drawn over it, never a second copy of the same word underneath.
+      const slot = Math.min(ROWS - 1, (stage.rows || []).length + step.focusRow - 1);
+      const r2 = L.rows[slot] || {
+        x: L.body.x, y: L.body.y + FIRST_ROW + slot * (ROW_H + ROW_GAP), w: L.body.w, h: ROW_H,
+      };
+      ctx.save();
+      ctx.globalAlpha = ctx.globalAlpha * clamp((p2 - 0.4) * 4);
+      roundRect(ctx, r2.x, r2.y, r2.w, r2.h, 28);
+      ctx.fillStyle = UI.white;
+      ctx.fill();
+      ctx.lineWidth = 7;
+      ctx.strokeStyle = UI.green;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    if (step.address) {
+      const wipe = ease.outCubic(p2);
+      const w2 = measure(ctx, step.address, { size: T.small, weight: 600, family: 'Inter' }) + 64;
+      const right = CARD.x + CARD.w - PAD;
+      ctx.save();
+      roundRect(ctx, right - w2 * wipe, CARD.y + 44, w2 * wipe, 72, 36);
+      ctx.fillStyle = '#E6F3EA';
+      ctx.fill();
+      ctx.globalAlpha = ctx.globalAlpha * clamp(p2 * 2);
+      text(ctx, step.address, right, CARD.y + 100, {
+        size: T.small, weight: 600, family: 'Inter', color: '#186B3C', align: 'right',
+      });
+      ctx.restore();
+    }
+  });
+}
+
 // --------------------------------------------------------------------- cards
 function drawApp(ctx, { stage, lineLocal, prev, t }) {
   drawBar(ctx, { address: 'localhost:3000', alpha: 1 });
@@ -453,66 +584,7 @@ function drawApp(ctx, { stage, lineLocal, prev, t }) {
 
   if (stage.track) drawTrack(ctx, { items: stage.track, t });
 
-  // A card beat lasts a whole narration line, which is five or six seconds, and
-  // one arrival at the start of it leaves four seconds of still frame. The
-  // reference never does that: its cards keep adding a row, a field, a result
-  // while they are on screen. ``late`` is that schedule - the things that land
-  // after the first one, at times measured from the line, not from a clock.
-  if (stage.card && stage.late) {
-    stage.late.forEach((step) => {
-      const p2 = span(lineLocal, step.at, step.at + 0.4);
-      if (p2 <= 0) return;
-      if (step.field && !stage.search) {
-        const s2 = { x: L.body.x, y: L.body.y + FIRST_ROW + ROWS * (ROW_H + ROW_GAP) + 24, w: L.body.w, h: SEARCH_H };
-        ctx.save();
-        ctx.globalAlpha = ctx.globalAlpha * clamp(p2 * 2);
-        roundRect(ctx, s2.x, s2.y + (1 - ease.outCubic(p2)) * 40, s2.w, s2.h, 28);
-        ctx.fillStyle = UI.white; ctx.fill();
-        ctx.strokeStyle = '#DDDDE3'; ctx.lineWidth = 3; ctx.stroke();
-        text(ctx, 'Search your books', s2.x + 150, s2.y + s2.h * 0.5 + 38, {
-          size: T.row, weight: 600, family: 'Inter', color: '#A6A6B0', maxWidth: s2.w - 300,
-        });
-        ctx.restore();
-      }
-      if (step.row) {
-        const slot = Math.min(ROWS - 1, (stage.rows || []).length + (step.slot || 0));
-        const r2 = L.rows[slot] || { x: L.body.x, y: L.body.y + FIRST_ROW + slot * (ROW_H + ROW_GAP), w: L.body.w, h: ROW_H };
-        const written = step.write
-          ? step.row.slice(0, Math.max(0, Math.ceil(
-            span(lineLocal, step.at, step.at + step.row.length * 0.075) * step.row.length)))
-          : step.row;
-        if (written) drawRow(ctx, { ...r2, label: written, p: step.write ? 1 : p2 });
-      }
-      if (step.focusRow !== undefined) {
-        // The pointer's press lands, and the row answers: ring, tick, and the
-        // row's own plate goes white. That is the reference's green outline,
-        // caused by the press rather than appearing on a timer.
-        const slot = Math.min(ROWS - 1, (stage.rows || []).length + (step.focusRow - 1));
-        const r2 = L.rows[slot] || { x: L.body.x, y: L.body.y + FIRST_ROW + slot * (ROW_H + ROW_GAP), w: L.body.w, h: ROW_H };
-        drawRow(ctx, { ...r2, label: step.row || (stage.late.find((x) => x.row) || {}).row || 'Piranesi',
-          p: 1, focus: true, glyph: 'tick' });
-      }
-      if (step.address) {
-        // "on GitHub": the address bar changes to the repository, wiped left to
-        // right, so the sentence's own noun is the thing that arrives.
-        // A pill grows leftwards behind the new address and the address fades in
-        // on it. A five-character text swap alone is not a visible event at this
-        // size; a plate arriving across the width of the bar is.
-        const wipe = ease.outCubic(p2);
-        const w2 = measure(ctx, step.address, { size: T.small, weight: 600, family: 'Inter' }) + 64;
-        const right = CARD.x + CARD.w - PAD;
-        ctx.save();
-        roundRect(ctx, right - w2 * wipe, CARD.y + 44, w2 * wipe, 72, 36);
-        ctx.fillStyle = '#E6F3EA';
-        ctx.fill();
-        ctx.globalAlpha = ctx.globalAlpha * clamp(p2 * 2);
-        text(ctx, step.address, right, CARD.y + 100, {
-          size: T.small, weight: 600, family: 'Inter', color: '#186B3C', align: 'right',
-        });
-        ctx.restore();
-      }
-    });
-  }
+  drawLate(ctx, { stage, lineLocal, L });
   if (stage.prompt) {
     const r = L.rows[0] || { x: L.body.x, y: L.body.y + FIRST_ROW, w: L.body.w, h: ROW_H };
     drawRow(ctx, { ...r, label: '\u201c' + stage.prompt + '\u201d', p: 1, focus: true, glyph: 'arrow' });
@@ -552,9 +624,12 @@ function drawRepo(ctx, { stage, lineLocal, prev }) {
   if (!files.length) {
     const b = body();
     text(ctx, stage.message || 'no commits yet', b.x, b.y + 300 + ROW_H * 0.62, {
-      size: T.row, weight: 500, family: 'Inter', color: UI.faint,
+      size: T.row, weight: 500, family: 'Inter', color: UI.faint, maxWidth: b.w,
     });
   }
+  // Files the agent writes land after the card opens, on the sentence that says
+  // it is writing them.
+  drawLate(ctx, { stage, lineLocal, L });
 }
 
 function drawDiff(ctx, { stage, lineLocal, prev }) {

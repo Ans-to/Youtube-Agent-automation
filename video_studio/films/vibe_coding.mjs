@@ -32,6 +32,7 @@ import {
 } from '../motion/ui.mjs';
 import { beatState, spotlight, beatTicks } from '../motion/live.mjs';
 import { PALETTES, drawField, drawPhrase, beatAt } from '../motion/wordstage.mjs';
+import { chooseTransition, reveal } from '../motion/transitions.mjs';
 import { secondUnit } from '../motion/second_unit.mjs';
 import { kineticWords } from '../motion/kinetic.mjs';
 import { drawTemplate } from '../motion/library.mjs';
@@ -137,6 +138,13 @@ const CONTENT_MID = CONTENT_W / 2;
 const canvas = createCanvas(OPTS.width, OPTS.height);
 const ctx = canvas.getContext('2d');
 const SCALE = OPTS.width / W;
+
+// Two offscreen frames, reused: the shot that is leaving and the shot that is
+// arriving. Only a cut uses them, and a cut is under half a second.
+const canvasA = createCanvas(OPTS.width, OPTS.height);
+const canvasB = createCanvas(OPTS.width, OPTS.height);
+const ctxA = canvasA.getContext('2d');
+const ctxB = canvasB.getContext('2d');
 
 // -------------------------------------------------------------------- fonts
 const FACES = [
@@ -3684,6 +3692,24 @@ const WORD_BEATS = {
   ],
 };
 
+/**
+ * Which transition each cut of the staged opening uses, and why.
+ *
+ * Read as a sentence: the opening gives way to the product with an iris (the
+ * card is the same place, closer); the card hands back with a hard cut (the
+ * words are a different place entirely); the second scene announces itself with
+ * a wipe (a new chapter, further along); its card takes the frame with an iris
+ * again but from the other side, and the last cut of the chunk is the only flash
+ * in the film.
+ *
+ * One device per cut, never the same twice in a row, and the flash used once so
+ * it still reads as punctuation rather than as the film's only idea.
+ */
+const STAGED_TRANSITIONS = {
+  open: { 0: 'cut', 1: 'iris', 2: 'cut', 3: 'wipe' },
+  define: { 0: 'cut', 1: 'iris', 2: 'cut', 3: 'push', 4: 'cut', 5: 'push', 6: 'cut', 7: 'push', 8: 'cut' },
+};
+
 /** The narration lines that are product lines, derived from the phrase table. */
 function cardLinesFor(scene) {
   const spec = WORD_BEATS[scene.kind];
@@ -3938,23 +3964,65 @@ function render(t) {
   if (staged) {
     // The typographic stage: field, one phrase, one hairline. It draws its own
     // ground, so nothing of the old scene leaks into it.
-    drawWordScene(ctx, { scene, t, local, palette });
+    //
+    // A cut is the one place this film needs two pictures at once: the shot
+    // leaving and the shot arriving. They are painted into two offscreen
+    // canvases and composited with a mask, because a transition that draws a
+    // band over the incoming frame is decoration, not a transition - the old
+    // shot is already gone by the time it is painted.
     const index = Math.max(0, scene.lines.reduce((n, l) => (l.start <= t ? n + 1 : n), 0) - 1);
     const cards = cardLinesFor(scene);
-    if (!CONTENT_ONLY) {
-      secondUnit(ctx, {
-        scene, t, local, h: H, rail: false, palette: LOOK,
-        card: cards ? cards.has(index) : false,
+    const kind = (STAGED_TRANSITIONS[scene.kind] || {})[index] || 'cut';
+    const cutAt = index === 0 ? scene.start : (scene.lines[index] || {}).start;
+    const tp = span(t, cutAt, cutAt + 0.42);
+
+    const paint = (target, at, lineIndex, withCard) => {
+      target.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+      target.clearRect(0, 0, W, H);
+      drawWordScene(target, { scene, t: at, local: at - scene.start, palette });
+      if (CONTENT_ONLY) return;
+      secondUnit(target, {
+        scene, t: at, local: at - scene.start, h: H, rail: false, palette: LOOK,
+        card: withCard,
       });
-      // One clock, drawn last, at one height whether the card is up or not: the
-      // step number and the filling rule are the second live region on every
-      // beat of this stage.
-      const wb = wordBeatsFor(scene);
-      const bat = wb ? beatAt(wb, local, 0.26) : null;
-      if (bat) drawBeatClock(ctx, { scene, at: bat, local, palette, y: H * 0.045 });
+    };
+
+    if (tp < 1 && kind !== 'cut' && index > 0) {
+      // The shot that is leaving: the frame just before the cut.
+      paint(ctxA, cutAt - 0.02, index - 1, cards ? cards.has(index - 1) : false);
+      paint(ctxB, t, index, cards ? cards.has(index) : false);
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(canvasA, 0, 0);
+      ctx.restore();
+      reveal(ctx, { kind, p: tp, a: canvasA, b: canvasB, w: OPTS.width, h: OPTS.height, accent: palette.accent });
+      // The clock belongs to the incoming shot, so it is redrawn on top of the
+      // reveal rather than being masked with the outgoing picture.
+      if (!CONTENT_ONLY) {
+        const wb = wordBeatsFor(scene);
+        const bat = wb ? beatAt(wb, local, 0.26) : null;
+        if (bat) {
+          ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+          drawBeatClock(ctx, { scene, at: bat, local, palette, y: H * 0.045 });
+        }
+      }
+    } else {
+      ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+      drawWordScene(ctx, { scene, t, local, palette });
+      if (!CONTENT_ONLY) {
+        secondUnit(ctx, {
+          scene, t, local, h: H, rail: false, palette: LOOK,
+          card: cards ? cards.has(index) : false,
+        });
+        const wb = wordBeatsFor(scene);
+        const bat = wb ? beatAt(wb, local, 0.26) : null;
+        if (bat) drawBeatClock(ctx, { scene, at: bat, local, palette, y: H * 0.045 });
+      }
     }
-    // Captions stay: they are the film's transcript, not decoration. Nothing
-    // else of the old furniture is drawn - no chapter band, no clock, no ticks.
+
+    // Captions are the transcript, not part of the shot, so they are never
+    // wiped, cut or pushed by a transition.
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
     if (!CONTENT_ONLY) captions(ctx, scene, t, palette);
     if (OPTS.grain) grain(ctx, Math.round(t * FPS));
     return;
