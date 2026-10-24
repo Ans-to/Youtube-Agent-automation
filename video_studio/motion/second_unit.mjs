@@ -24,7 +24,7 @@ import { UI, clamp, span, ease, text, panel, roundRect } from './ui.mjs';
 
 // Design units. The canvas is 3840x2160 and everything is drawn in those units.
 const RAIL = { x: 2500, y: 140, w: 1140, h: 190 };
-const CONSOLE = { x: 2820, y: 1420, w: 900, h: 600 };
+const CONSOLE = { x: 2820, y: 1400, w: 900, h: 470 };
 
 /** What the console types, per kind of scene. Real lines from the story. */
 const SNIPPETS = {
@@ -132,8 +132,8 @@ export function liveConsole(ctx, { scene, t, local }) {
   const snippet = SNIPPETS[scene.kind] ?? SNIPPETS.title;
   const beat = beatOf(t);
   const phase = ease.outCubic(beatPhase(t));
-  const ROWS = 5;
-  const rowH = 96;
+  const ROWS = 4;
+  const rowH = 84;
 
   roundRect(ctx, CONSOLE.x, CONSOLE.y, CONSOLE.w, CONSOLE.h, 18);
   ctx.fillStyle = '#101014';
