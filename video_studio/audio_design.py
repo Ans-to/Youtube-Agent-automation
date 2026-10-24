@@ -62,6 +62,10 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
         wav.setframerate(sample_rate)
         chunk_frames = sample_rate
         cue_index = 0
+        # State for the noise pad. It has to outlive the chunk loop: a filter is
+        # the one thing here that remembers where it was.
+        pad_low = 0.0
+        pad_band = 0.0
         for start in range(0, frame_count, chunk_frames):
             end = min(frame_count, start + chunk_frames)
             samples = array("h")
@@ -75,11 +79,22 @@ def render_sound_design(output, duration_seconds, scene_durations, sample_rate=2
                 kick = bed_gain * 0.052 * math.exp(-beat_phase * 26.0) * math.sin(
                     2.0 * math.pi * (62.0 * math.exp(-beat_phase * 9.0) + 34.0) * beat_phase)
                 hat = bed_gain * 0.016 * math.exp(-beat_phase * 180.0) * beat_noise
-                # Low-level, slowly pulsing tonal bed; kept deliberately below speech.
-                pulse = 0.72 + 0.28 * math.sin(2.0 * math.pi * t / beat_seconds)
-                bed = bed_gain * pulse * (0.020 * math.sin(2.0 * math.pi * 55.0 * t)
-                                          + 0.012 * math.sin(2.0 * math.pi * 82.41 * t)
-                                          + 0.006 * math.sin(2.0 * math.pi * 110.0 * t))
+                # The bed used to be three sine tones - 55, 82.41 and 110 Hz -
+                # held from the first frame to the last. That is a drone, and a
+                # drone is the "veeee": the ear locks onto a pitch that never
+                # changes, and no level is quiet enough to hide it. Measured on the
+                # delivered mix, 63 percent of one 80 ms window sat in a single
+                # frequency. The pad is now noise through a band that drifts
+                # slowly, so it has weight and movement without a note to fix on.
+                # The movement is the band centre, not a pitch.
+                drift = 0.5 + 0.5 * math.sin(2.0 * math.pi * t / 7.0)
+                pad_centre = 170.0 + 620.0 * drift
+                pad_coefficient = 2.0 * math.sin(math.pi * min(pad_centre, sample_rate * 0.16) / sample_rate)
+                pad_high = beat_noise - pad_low - 1.15 * pad_band
+                pad_band += pad_coefficient * pad_high
+                pad_low += pad_coefficient * pad_band
+                pulse = 0.75 + 0.25 * math.sin(2.0 * math.pi * t / (beat_seconds * 4.0))
+                bed = bed_gain * pulse * (0.85 * pad_band + 0.30 * pad_high) * 0.055
                 while cue_index < len(scene_starts) and t - scene_starts[cue_index] >= cue_window:
                     cue_index += 1
                 cue = 0.0
@@ -218,8 +233,11 @@ def _synth_cue(kind, length, sample_rate, seed=1):
             filter_band += coefficient * high
             filter_low += coefficient * filter_band
             shape = math.sin(math.pi * progress)
-            value = ((1.05 * filter_band + 0.22 * filter_low) * shape
-                     + 0.10 * math.sin(2 * math.pi * 55.0 * t) * shape)
+            # The 55 Hz sine that used to sit in here for weight was the last
+            # pure tone left in a cue longer than a quarter of a second. Weight
+            # now comes from the low band of the same noise, which has no pitch
+            # to hold on to.
+            value = (1.05 * filter_band + 0.55 * filter_low) * shape
         elif kind == "glitch":
             gate = 1.0 if (int(t * 90) % 3) else 0.15
             value = (0.5 * noise + 0.3 * math.sin(2 * math.pi * (600 + 900 * ((int(t * 60) % 4))) * t)) * envelope * gate
@@ -230,9 +248,14 @@ def _synth_cue(kind, length, sample_rate, seed=1):
             # ten hertz inside its own length, which is under the bottom of what
             # anyone hears: it cost headroom, showed up in the meter as energy at
             # 9 Hz, and added nothing to the hit.
-            frequency = 90.0 * math.exp(-t * 2.2) + 38.0
-            value = (0.85 * math.sin(2 * math.pi * frequency * t)
-                     + 0.35 * noise * math.exp(-t * 22.0)) * envelope
+            # A hit, not a note. The body used to be a pure sine sweeping 90 to
+            # 38 Hz across the whole cue, which is a held tone at the loudest
+            # moment in the film. It is now a fixed 62 Hz thud that dies in about
+            # a tenth of a second, with noise on top so it reads as contact
+            # rather than pitch.
+            body = math.sin(2 * math.pi * 62.0 * t) * math.exp(-t * 18.0)
+            thud = noise * math.exp(-t * 30.0)
+            value = (0.55 * body + 0.75 * thud) * envelope
         elif kind == "pop":
             frequency = 700.0 * math.exp(-t * 12.0) + 180.0
             value = 0.7 * math.sin(2 * math.pi * frequency * t) * math.exp(-t * 30.0)

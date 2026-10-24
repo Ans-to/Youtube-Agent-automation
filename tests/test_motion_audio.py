@@ -86,6 +86,73 @@ class MotionAudioTests(unittest.TestCase):
                 audio_design.render_motion_sfx(Path(tmp) / "x.wav", 1.0, {"at": 0})
 
 
+class TheBedIsNotADrone(unittest.TestCase):
+    """The other half of the "veeee" - and the half I missed the first time.
+
+    The first fix took the tones out of the cues. The underscore underneath them
+    was still three sine tones (55, 82.41, 110 Hz) held from the first frame to
+    the last, which is a drone, and a drone is exactly what an ear hears as
+    "veeee". On the delivered mix, 63 percent of one 80 ms window sat in a single
+    frequency, and the loudest windows in the whole film were that drone.
+
+    A drone is measurable: if one frequency is held for the length of the film,
+    its bin holds most of the file's energy. Air does not.
+    """
+
+    RATE = 24000
+
+    def _strongest_frequency_share(self, samples):
+        import numpy as np
+
+        spectrum = np.abs(np.fft.rfft(np.asarray(samples, dtype=float))) ** 2
+        return float(spectrum.max() / spectrum.sum())
+
+    def test_no_single_frequency_holds_the_bed(self):
+        import tempfile
+        from pathlib import Path
+        import wave
+
+        import numpy as np
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bed.wav"
+            audio_design.render_sound_design(str(path), 6.0, [3.0, 3.0], sample_rate=self.RATE)
+            reader = wave.open(str(path))
+            samples = np.frombuffer(reader.readframes(reader.getnframes()), dtype="<i2")
+        share = self._strongest_frequency_share(samples.astype(float) / 32768.0)
+        self.assertLess(share, 0.05,
+                        msg="one frequency holds %.1f%% of the bed - that is a drone" % (share * 100))
+
+    def test_a_held_sine_bed_would_fail_that_check(self):
+        """The check has to fail the code it replaced, or it proves nothing."""
+        import math
+
+        import numpy as np
+
+        length = 6 * self.RATE
+        old = np.zeros(length)
+        for index in range(length):
+            moment = index / self.RATE
+            pulse = 0.72 + 0.28 * math.sin(2.0 * math.pi * moment / 0.5)
+            old[index] = pulse * (0.020 * math.sin(2.0 * math.pi * 55.0 * moment)
+                                  + 0.012 * math.sin(2.0 * math.pi * 82.41 * moment)
+                                  + 0.006 * math.sin(2.0 * math.pi * 110.0 * moment))
+        self.assertGreater(self._strongest_frequency_share(old), 0.5)
+
+    def test_an_impact_is_a_hit_and_not_a_held_note(self):
+        import numpy as np
+
+        samples = np.array(audio_design._synth_cue("impact", 0.5, self.RATE, seed=7919))
+        size = int(0.08 * self.RATE)
+        worst = 0.0
+        for start in range(0, len(samples) - size, size // 2):
+            segment = samples[start:start + size] * np.hanning(size)
+            energy = np.abs(np.fft.rfft(segment, 4096)) ** 2
+            worst = max(worst, float(energy.max() / energy.sum()))
+        self.assertLess(worst, 0.35,
+                        msg="the impact holds %.0f%% of a window in one bin for too long" % (worst * 100))
+
+
 if __name__ == "__main__":
     unittest.main()
 
