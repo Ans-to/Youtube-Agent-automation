@@ -33,6 +33,7 @@ import {
 import { beatState, pulse, spotlight, beatTicks } from '../motion/live.mjs';
 import { secondUnit } from '../motion/second_unit.mjs';
 import { kineticWords } from '../motion/kinetic.mjs';
+import { drawTemplate } from '../motion/library.mjs';
 
 // Collectors for native canvas memory, requested from inside the script so a
 // render does not depend on the caller remembering to pass node flags.
@@ -612,21 +613,29 @@ function drawTitle(ctx, scene, t, local) {
     // "PLAIN ENGLISH" for the whole of that beat.
     ctx.globalAlpha = (1 - lift) * (1 - gone);
     const rise = (1 - e) * slamTravel - compact * 220 - lift * 200 - gone * 340;
-    // Kinetic type, not a caption: each word is masked to its own box and rises
-    // into it, one after another, so the line performs instead of appearing.
-    kineticWords(ctx, {
+    // Drawn through the motion library, not through the primitive.
+    //
+    // The library owns the title card's region: it knows a headline belongs in
+    // `title`, that it needs a beat between 0.35 and 3.2 seconds, and that its
+    // words are masked so a line can never print through the line above it. If
+    // this call ever asks for the wrong region or a beat the template cannot
+    // carry, it throws at render time rather than quietly drawing something
+    // wrong - which is what the two rejected reviews were.
+    //
+    // The beat handed over is the *gesture* length, not the line length: a
+    // headline arrives in under two seconds and then holds while the rest of the
+    // frame carries the beat. Stretching it to a six-second line would make it
+    // crawl.
+    drawTemplate(ctx, 'kinetic-headline', {
+      w: W, h: H,
+      region: 'title',
+      seconds: Math.min(Math.max(0.4, e0), 3.2),
+      local: local - at,
       text: entry.text,
-      x: W / 2,
-      y: (i === 0 ? 960 : 1150) + rise,
       size: 230,
-      align: 'center',
       colour: i === 0 ? UI.white : UI.gold,
       emphasis: i === 0 ? {} : { 2: UI.white },
-      local: local - at,
-      start: 0,
-      stagger: 0.09,
-      duration: 0.55,
-      tracking: -4,
+      dy: (i === 0 ? -150 : 40) + rise,
     });
     ctx.restore();
   });
