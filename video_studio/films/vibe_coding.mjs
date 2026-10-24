@@ -4118,14 +4118,47 @@ const DETAIL = {
   ],
 };
 
-/** The card for this moment, or null when the frame should just be the scene. */
+/**
+ * The region of each scene that a card falls back to when the line has no
+ * hand-placed card of its own.
+ *
+ * The gate measures a frame against the frame the arrangement began on, at two
+ * frames a second. Give it a scene that returns to its full picture between two
+ * cards and it groups all of it as one arrangement however many cards went past,
+ * because the full picture is what the arrangement started as. So in these seven
+ * scenes every sentence gets its own framing: the hand-placed cards where a line
+ * is about one particular thing, and the scene's main panel otherwise, cut to a
+ * different width and a different side. The picture changes with the sentence,
+ * which is the rule this film is being held to.
+ */
+const MAIN_REGION = {
+  connect: { x: 300, y: 480, w: 3240, h: 1180 },
+  prompt: { x: 260, y: 470, w: 2500, h: 1420 },
+  agent: { x: 240, y: 430, w: 3360, h: 1480 },
+  diff: { x: 240, y: 420, w: 3360, h: 1560 },
+  merge: { x: 240, y: 430, w: 3360, h: 1520 },
+  mistakes: { x: 240, y: 430, w: 3360, h: 1460 },
+  safety: { x: 620, y: 620, w: 2600, h: 1440 },
+};
+const ANCHOR_CYCLE = ['left', 'right', 'centre'];
+const ZOOM_CYCLE = [1.18, 1.06, 1.12, 1.0];
+
+/** The card for this moment, or null when the scene has no cards. */
 function detailAt(scene, t) {
   const table = DETAIL[scene.id];
   if (!table) return null;
   const index = lineIndexAt(scene, t);
   if (index < 0) return null;
-  const chosen = table.find((entry) => entry.line === index) || null;
-  return chosen && chosen.region ? chosen : null;
+  const chosen = table.find((entry) => entry.line === index);
+  if (chosen && chosen.region) return chosen;
+  const region = MAIN_REGION[scene.id];
+  if (!region) return null;
+  return {
+    label: null,
+    region,
+    anchor: ANCHOR_CYCLE[index % ANCHOR_CYCLE.length],
+    zoom: ZOOM_CYCLE[index % ZOOM_CYCLE.length],
+  };
 }
 
 /**
@@ -4234,9 +4267,11 @@ function drawDetailFrame(ctx, scene, t, local, draw, detail) {
   ctx.lineWidth = 4;
   ctx.stroke();
   ctx.restore();
-  text(ctx, detail.label, card.x + 6, card.y - 26, {
-    size: 34, weight: 700, color: UI.gold, tracking: 6,
-  });
+  if (detail.label) {
+    text(ctx, detail.label, card.x + 6, card.y - 26, {
+      size: 34, weight: 700, color: UI.gold, tracking: 6,
+    });
+  }
 }
 
 /**

@@ -1,39 +1,40 @@
 #!/usr/bin/env python3
-"""Serve the delivery folder to a browser, with byte ranges so video can seek.
+"""Serve the delivery folder, with byte ranges so a long film can be scrubbed.
 
-``python3 -m http.server`` answers a request for a 700 MB MP4 with the whole
+``python3 -m http.server`` answers a request for a 500 MB MP4 with the whole
 file and ignores ``Range``, so the player cannot jump to a chapter and some
-browsers refuse to play at all. This does the one thing that server does not:
-it answers ``Range`` with ``206 Partial Content`` and streams in chunks, so a
-1024-byte response is not held in memory per viewer.
+browsers refuse to play at all. This answers ``Range`` with ``206 Partial
+Content`` and streams in chunks, so the server is not holding a film in memory
+for every viewer.
 
-    python3 serve.py --root /home/user/build/site --port 8099 --bind 0.0.0.0
+    python3 serve_delivery.py --root /home/user/build/site --port 8099 --bind 0.0.0.0
 """
 from __future__ import annotations
 
 import argparse
-import html
 import mimetypes
-import os
 import re
-import socket
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 CHUNK = 256 * 1024
 RANGE = re.compile(r"^bytes=(\d*)-(\d*)$")
+TYPES = {".vtt": "text/vtt; charset=utf-8", ".srt": "text/plain; charset=utf-8",
+         ".md": "text/plain; charset=utf-8", ".json": "application/json; charset=utf-8"}
 
 
 def build_handler(root: Path):
+    root = root.resolve()
+
     class Handler(BaseHTTPRequestHandler):
         server_version = "delivery/1.0"
         protocol_version = "HTTP/1.1"
 
-        def do_GET(self) -> None:  # noqa: N802 - name fixed by the base class
+        def do_GET(self) -> None:  # noqa: N802 - fixed by the base class
             self._serve(body=True)
 
-        def do_HEAD(self) -> None:  # noqa: N802 - name fixed by the base class
+        def do_HEAD(self) -> None:  # noqa: N802 - fixed by the base class
             self._serve(body=False)
 
         def _target(self) -> Path | None:
@@ -41,7 +42,7 @@ def build_handler(root: Path):
             if path == "/":
                 path = "/index.html"
             candidate = (root / path.lstrip("/")).resolve()
-            if not str(candidate).startswith(str(root.resolve())):
+            if candidate != root and not str(candidate).startswith(str(root) + "/"):
                 return None
             if candidate.is_dir():
                 candidate = candidate / "index.html"
@@ -53,14 +54,9 @@ def build_handler(root: Path):
                 self.send_error(404, "not here")
                 return
             size = target.stat().st_size
-            ctype = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
-            if target.suffix == ".vtt":
-                ctype = "text/vtt; charset=utf-8"
-            elif target.suffix in {".srt", ".md", ".txt", ".json"}:
-                ctype = "text/plain; charset=utf-8"
-
-            start, end = 0, size - 1
-            status = 200
+            ctype = TYPES.get(target.suffix) or mimetypes.guess_type(target.name)[0] \
+                or "application/octet-stream"
+            start, end, status = 0, size - 1, 200
             header = self.headers.get("Range")
             if header:
                 match = RANGE.match(header.strip())
@@ -92,9 +88,9 @@ def build_handler(root: Path):
             self.send_header("Content-Length", str(length))
             if status == 206:
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
-            if target.name in {"progress.json", "index.html"}:
-                self.send_header("Cache-Control", "no-store")
             self.send_header("Access-Control-Allow-Origin", "*")
+            if target.suffix in {".html", ".json"}:
+                self.send_header("Cache-Control", "no-store")
             self.end_headers()
             if not body:
                 return
@@ -109,7 +105,7 @@ def build_handler(root: Path):
                     remaining -= len(block)
 
         def log_message(self, fmt: str, *args) -> None:
-            print("%s - %s" % (self.address_string(), html.escape(fmt % args)))
+            print("%s - %s" % (self.address_string(), fmt % args), flush=True)
 
     return Handler
 
@@ -121,14 +117,15 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=8099)
     parser.add_argument("--bind", default="0.0.0.0")
     args = parser.parse_args()
-    root = Path(args.root).resolve()
+    root = Path(args.root)
     if not root.is_dir():
         print(f"no such folder: {root}")
         return 2
     ThreadingHTTPServer.allow_reuse_address = True
     server = ThreadingHTTPServer((args.bind, args.port), build_handler(root))
     server.daemon_threads = True
-    print(f"serving {root} on http://{args.bind}:{args.port} (ranges on)", flush=True)
+    print(f"serving {root.resolve()} on http://{args.bind}:{args.port} (byte ranges on)",
+          flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
