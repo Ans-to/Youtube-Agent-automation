@@ -4140,8 +4140,30 @@ const MAIN_REGION = {
   mistakes: { x: 240, y: 430, w: 3360, h: 1460 },
   safety: { x: 620, y: 620, w: 2600, h: 1440 },
 };
-const ANCHOR_CYCLE = ['left', 'right', 'centre'];
-const ZOOM_CYCLE = [1.18, 1.06, 1.12, 1.0];
+/**
+ * The crops a scene falls back to when a line has no hand-placed card.
+ *
+ * A card that shows 97% of the panel at 97% scale is the same picture with a
+ * border on it, and the gate says so. These are real crops - a little over half
+ * the panel, taken from a different corner each time - so each sentence is a
+ * different part of the drawing, enlarged, in a different place.
+ */
+const CROPS = [
+  { part: [0.00, 0.00, 0.58, 0.52], anchor: 'left', zoom: 1.75, label: null },
+  { part: [0.42, 0.44, 0.58, 0.52], anchor: 'right', zoom: 1.75, label: null },
+  { part: [0.21, 0.00, 0.58, 0.95], anchor: 'centre', zoom: 1.35, label: null },
+  { part: [0.00, 0.40, 0.62, 0.55], anchor: 'right', zoom: 1.6, label: null },
+  { part: [0.38, 0.00, 0.62, 0.55], anchor: 'left', zoom: 1.6, label: null },
+];
+
+function cropOf(region, [fx, fy, fw, fh]) {
+  return {
+    x: region.x + region.w * fx,
+    y: region.y + region.h * fy,
+    w: region.w * fw,
+    h: region.h * fh,
+  };
+}
 
 /** The card for this moment, or null when the scene has no cards. */
 function detailAt(scene, t) {
@@ -4153,11 +4175,12 @@ function detailAt(scene, t) {
   if (chosen && chosen.region) return chosen;
   const region = MAIN_REGION[scene.id];
   if (!region) return null;
+  const crop = CROPS[index % CROPS.length];
   return {
-    label: null,
-    region,
-    anchor: ANCHOR_CYCLE[index % ANCHOR_CYCLE.length],
-    zoom: ZOOM_CYCLE[index % ZOOM_CYCLE.length],
+    label: crop.label,
+    region: cropOf(region, crop.part),
+    anchor: crop.anchor,
+    zoom: crop.zoom,
   };
 }
 

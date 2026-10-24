@@ -57,26 +57,28 @@ engineering, ai tools, cursor alternative, claude code, ai for beginners`
 web player) hold the same 155 cues. They are written from `voice/lines.json` by
 `tools/film_subtitles.py`, so a cue cannot drift away from the read it describes.
 
+## What the film's own gates say about this cut
+
+Measured on the delivered file, not on the plan:
+
+- **Motion** — passed. Mean frame delta 2.23 against a 0.82 baseline; 2.1% of
+  frames near-static against a 50% limit.
+- **Composition** — passed. 321 arrangements, the longest 10.0 s against a 12 s
+  limit. Before this round one arrangement held for 37 s.
+- **Freeze** — passed. No span longer than 1.0 s anywhere in the twelve minutes.
+- **Loudness** — −14.6 LUFS, inside the −14.0 ± 1.5 dB target.
+- **Content audit** — no violations detected. 13 rules could not be checked on
+  this machine because there is no vision model or language model here; they are
+  listed at the end of the audit, and they are not passes.
+
 ## Honest notes for the uploader
 
 - The narration in this render is the **espeak-ng preview voice**. It is correct
   in timing and content and wrong in tone. Re-render with
   `--voice en_US-amy-medium` (Piper, free, offline after one download) before
   publishing; the picture, captions and score need no other change.
-- The rendered cut is **12:02, 1280×720, 30 fps, −14.6 LUFS**, 21,662 frames.
-  The sandbox that drew it has 3.9 GB of RAM and the 1080p frame render is
-  killed by the kernel at about 3.6 GB, so the pixels are 720p. On a machine with
-  more memory the same command at `--width 1920 --height 1080` gives a true 1080p
-  master with no other change.
-- Two of the film's own gates fail on this cut and are not hidden:
-  - **composition** — one arrangement stays on screen for 37.0 s at 4:35, and
-    eight stretches pass the 12 s limit, covering 26% of the film;
-  - **repeat frames** — sixteen stretches hold an identical picture for up to
-    1.4 s against a 1.0 s limit.
-  The motion gate passes (mean frame delta 1.77 against a 0.82 baseline, 2.4%
-  near-static frames against a 50% limit). Fixing the two failures means scene
-  edits in `video_studio/films/vibe_coding.mjs` and a re-render of those sections.
-- The content audit reports **no violations** and 13 rules it could not check
-  without a vision model (profanity, violence, weapons, self-harm, hate speech,
-  adult content, sentiment, children, music, clips, lip-sync).
+- The cut is **12:02, 1280×720, 30 fps, 530 MB**. The sandbox that drew it has
+  3.9 GB of memory and the 1080p frame render is killed by the kernel at about
+  3.6 GB, so the pixels are 720p. On a machine with more memory the same command
+  at `--width 1920 --height 1080` gives a true 1080p master with no other change.
 - Every claim in the description appears in the narration; none was added.
