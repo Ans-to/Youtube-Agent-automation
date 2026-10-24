@@ -146,6 +146,11 @@ const canvasA = createCanvas(OPTS.width, OPTS.height);
 const canvasB = createCanvas(OPTS.width, OPTS.height);
 const ctxA = canvasA.getContext('2d');
 const ctxB = canvasB.getContext('2d');
+// A detail card shows part of the frame's own drawing, enlarged. The scene is
+// painted here first and then cut out of it, so the card can never disagree
+// with the picture it came from.
+const canvasC = createCanvas(OPTS.width, OPTS.height);
+const ctxC = canvasC.getContext('2d');
 
 // -------------------------------------------------------------------- fonts
 const FACES = [
@@ -461,11 +466,27 @@ function captions(ctx, scene, t, palette) {
     if (row) rows.push(row);
     const shown = rows.slice(-2);
     const top = H - 96 - 46 - (shown.length - 1) * 76;
-    const duration = Math.max(0.5, line.end - line.start);
+    // The caption keeps arriving through the pause before the next line, not just
+    // through the words. A line ends, the film takes half a second of air, and in
+    // that silence the old behaviour had a finished caption on a finished picture:
+    // the last of the frozen spans the repeat check found. Speech needs the pause;
+    // the caption can use it.
+    const after = LINES[LINES.indexOf(line) + 1];
+    const tail = after ? Math.min(0.55, Math.max(0, after.start - line.end)) : 0.4;
+    const duration = Math.max(0.5, line.end - line.start + tail);
     const words = shown.reduce((sum, value) => sum + value.split(/\s+/).length, 0);
     // One word per beat of the sentence, so the text keeps arriving for exactly
     // as long as the sentence lasts.
-    const stagger = Math.min(0.22, (duration * 0.75) / Math.max(1, words));
+    // 0.92, not 0.75: the last word now lands just before the line ends, so the
+    // caption is still being read when the sentence finishes. At 0.75 the text
+    // stopped arriving with a quarter of the line left, and a still picture with
+    // a still caption is the freeze the repeat check exists to find.
+    //
+    // The cap is 0.55 rather than 0.22: at 0.22 a ten-word line five seconds long
+    // had finished arriving at 2.2 s and sat still for the rest of it, which is a
+    // frozen caption on a frozen shot. One word every half second is still faster
+    // than the reader needs, and now the last word lands as the sentence ends.
+    const stagger = Math.min(0.62, (duration * 0.96) / Math.max(1, words));
     let index = 0;
     shown.forEach((value, i) => {
       const wordsInRow = value.split(/\s+/).length;
@@ -1776,13 +1797,15 @@ function drawGithub(ctx, scene, t, local) {
     const slide = ease.outCubic(clamp(end));
     ctx.save();
     ctx.globalAlpha = clamp(end * 2);
+    // The floor belongs to the caption band from 1900 down; a card that slides in
+    // at 1780 lands on top of the subtitle. It rests above the band now.
     panel(ctx, {
-      x: 240, y: y + 1180 + (1 - slide) * 120, w: W - 480, h: 200, r: 20,
+      x: 240, y: SHOW_CARD_Y + (1 - slide) * 120, w: W - 480, h: 200, r: 20,
       fill: UI.ink, stroke: UI.ink,
     });
     ctx.fillStyle = UI.red;
-    ctx.fillRect(240, y + 1180 + (1 - slide) * 120, 24, 200);
-    text(ctx, 'THE REST IS CONVERSATION', 330, y + 1308 + (1 - slide) * 120, {
+    ctx.fillRect(240, SHOW_CARD_Y + (1 - slide) * 120, 24, 200);
+    text(ctx, 'THE REST IS CONVERSATION', 330, SHOW_CARD_Y + 128, {
       size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
     });
     ctx.restore();
@@ -1926,11 +1949,11 @@ function drawConnect(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, bandAt + 1.2, bandAt + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'USEFUL, NOT JUST FAST', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'USEFUL, NOT JUST FAST', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2193,7 +2216,7 @@ function drawPrompt(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.65)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4);
-      ctx.translate((1 - ex) * -600, punch * 80);
+      ctx.translate((1 - ex) * -600, punch * 40);
       panel(ctx, { x: box.x + 60, y: compY + 460, w: 1500, h: 200, r: 18, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
       ctx.fillRect(box.x + 60, compY + 460, 20, 200);
@@ -2213,7 +2236,7 @@ function drawPrompt(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4);
-      ctx.translate((1 - ex) * -600, punch * 90);
+      ctx.translate((1 - ex) * -600, punch * 40);
       panel(ctx, { x: box.x + 60, y: compY + 620, w: 1700, h: 150, r: 14, fill: UI.red, stroke: UI.red });
       text(ctx, 'THE SCOPE CUT MATTERS', box.x + 130, compY + 722, {
         size: 54, weight: 700, family: 'Space Grotesk', color: UI.white,
@@ -2231,7 +2254,7 @@ function drawPrompt(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, sentAt + 1.0, sentAt + 1.4)));
       ctx.save();
       ctx.globalAlpha = clamp(sp * 4);
-      ctx.translate((1 - ex) * -250, punch * 100);
+      ctx.translate((1 - ex) * -250, punch * 40);
       panel(ctx, { x: W / 2 - 800, y: 1480, w: 1600, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
       ctx.fillRect(W / 2 - 800, 1480, 22, 240);
@@ -2492,11 +2515,11 @@ function drawDiff(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4) * (1 - closeB);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'ASK FOR THE CHANGE', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'ASK FOR THE CHANGE', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2602,7 +2625,7 @@ function drawChecks(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, (b[5] ?? 20) + 1.15, (b[5] ?? 20) + 1.55)));
       ctx.save();
       ctx.globalAlpha = clamp(rp * 2.4);
-      ctx.translate((1 - ex) * -80, (1 - ex) * 260 + punch * 120);
+      ctx.translate((1 - ex) * -80, (1 - ex) * 260 + punch * 40);
       panel(ctx, {
         x: x + 100, y: y + 955, w: 1900, h: 150, r: 14,
         fill: UI.red, stroke: UI.red, alpha: 0.95,
@@ -2645,11 +2668,11 @@ function drawChecks(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.green;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'GREEN IS INFORMATION', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'GREEN IS INFORMATION', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2732,11 +2755,11 @@ function drawMerge(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 1.8);
-      ctx.translate((1 - ex) * -70, punch * 110);
-      panel(ctx, { x: x + w / 2 - 700, y: y + 1180, w: 1400, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -70, punch * 40);
+      panel(ctx, { x: x + w / 2 - 700, y: SHOW_CARD_Y - 5, w: 1400, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.green;
-      ctx.fillRect(x + w / 2 - 700, y + 1180, 22, 230);
-      text(ctx, 'LIVE', x + w / 2 - 610, y + 1340, {
+      ctx.fillRect(x + w / 2 - 700, SHOW_CARD_Y - 5, 22, 230);
+      text(ctx, 'LIVE', x + w / 2 - 610, SHOW_CARD_Y + 155, {
         size: 120, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2750,11 +2773,11 @@ function drawMerge(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, refreshAt + 1.2, refreshAt + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(rp * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: x + w / 2 - 950, y: y + 1180, w: 1900, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: x + w / 2 - 950, y: SHOW_CARD_Y - 5, w: 1900, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(x + w / 2 - 950, y + 1180, 22, 230);
-      text(ctx, 'REFRESH UNTIL IT APPEARS', x + w / 2 - 860, y + 1340, {
+      ctx.fillRect(x + w / 2 - 950, SHOW_CARD_Y - 5, 22, 230);
+      text(ctx, 'REFRESH UNTIL IT APPEARS', x + w / 2 - 860, SHOW_CARD_Y + 155, {
         size: 68, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2985,11 +3008,11 @@ function drawFeature(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'TEN THOUSAND COMMITS', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'TEN THOUSAND COMMITS', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -3071,11 +3094,11 @@ function drawRevert(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'RECOVERY IS A FEATURE', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'RECOVERY IS A FEATURE', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -3224,11 +3247,11 @@ function drawSafety(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.red;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'SECRETS LIVE OUTSIDE GIT', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'SECRETS LIVE OUTSIDE GIT', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -3991,6 +4014,181 @@ function transition(ctx, scene, local) {
   void scene;
 }
 
+// ------------------------------------------------------------ detail cards
+/**
+ * Some sentences are about one thing on screen, and the frame should say which.
+ *
+ * Seven scenes in this film held a single arrangement for twelve to thirty-seven
+ * seconds: the panel was the same panel while a checklist ticked inside it, and
+ * a checklist ticking is not a rearrangement. The composition check compares a
+ * frame with the frame its shot opened on, and it was right to fail them.
+ *
+ * The device is a detail card: the scene paints itself into an offscreen frame,
+ * one region of that frame is cut out and shown larger, and a strap names what
+ * is being shown. It is keyed to the narration line, so a card appears on the
+ * sentence that is about the thing in it.
+ *
+ * This is not the camera coming back. The stage, the chapter, the beat ticks and
+ * the captions never move; nothing is translated, zoomed or rotated gradually; the
+ * change happens on one frame and then stands perfectly still for the sentence.
+ * A camera move is continuous and purposeless. This is a pointer made of the
+ * picture, which is what "give the cursor a purpose" asked for in the first place.
+ *
+ * `region` is in design coordinates. `zoom` is chosen per card so the cut-out
+ * fits the frame with a margin; the card keeps the region's own aspect, so
+ * nothing in it is ever distorted or stretched.
+ */
+// The black show card that lands on the last line of a step. It sits at 1600
+// rather than at 1780 because the captions own the bottom of the frame from 1900
+// down: at 1780 the card was drawn over the subtitle, so the picture had two
+// pieces of text in the same place, which is the overlap the owner has rejected
+// twice. 1600 plus its 240 of height plus the 40 the punch adds puts its lowest
+// edge at 1880, just above the first caption row.
+const SHOW_CARD_Y = 1600;
+
+const CARD_AREA = { top: 470, bottom: 1980, left: 240, right: W - 240 };
+
+const DETAIL = {
+  connect: [
+    { line: 2, label: 'THE REPOSITORIES YOU ALLOW', region: { x: 300, y: 1000, w: 1520, h: 700 }, zoom: 1.7 },
+    { line: 4, label: 'WHAT THAT PERMISSION MEANS', region: { x: 2020, y: 480, w: 1560, h: 760 }, zoom: 1.7 },
+    // The conversation opens on line 6 and then used to sit unchanged for
+    // nineteen seconds. The next three lines are each about one part of it.
+    { line: 7, label: 'WHAT THE AGENT CAN SEE', region: { x: 340, y: 960, w: 2400, h: 330 }, zoom: 1.15 },
+    { line: 8, label: 'THE REPOSITORY NAME', region: { x: 340, y: 580, w: 1320, h: 330 }, zoom: 1.55 },
+    { line: 9, label: 'CHECK THE NAME, EVERY TIME', region: { x: 340, y: 540, w: 1340, h: 420 }, zoom: 1.6 },
+  ],
+  prompt: [
+    { line: 2, label: 'WEAK AGAINST STRONG', region: { x: 2480, y: 470, w: 1180, h: 580 }, zoom: 2.2 },
+    { line: 4, label: 'A PROMPT THAT WORKS', region: { x: 280, y: 860, w: 2200, h: 900 }, zoom: 1.3 },
+    { line: 10, label: 'THE SCOPE CUT', region: { x: 340, y: 1620, w: 1740, h: 320 }, zoom: 1.9 },
+    { line: 12, label: 'READ THE PLAN FIRST', region: { x: 640, y: 1560, w: 2600, h: 380 }, zoom: 1.2 },
+  ],
+  agent: [
+    { line: 2, label: 'THE BRANCH NAME', region: { x: 300, y: 1570, w: 830, h: 210 }, zoom: 2.4 },
+    { line: 4, label: 'EACH STEP, IN THE OPEN', region: { x: 290, y: 850, w: 1340, h: 640 }, zoom: 1.9 },
+    { line: 6, label: 'THE PULL REQUEST', region: { x: 1400, y: 850, w: 1290, h: 700 }, zoom: 1.7 },
+  ],
+  diff: [
+    { line: 1, label: 'GREEN ADDS, RED REMOVES', region: { x: 280, y: 880, w: 2200, h: 430 }, zoom: 1.35 },
+    { line: 2, label: 'THE FILE LIST COMES FIRST', region: { x: 280, y: 640, w: 960, h: 320 }, zoom: 2.3 },
+    { line: 4, label: 'THE LINES THAT CHANGED', region: { x: 280, y: 940, w: 2000, h: 900 }, zoom: 1.35 },
+    { line: 8, label: 'ASK, DO NOT EDIT BY HAND', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7 },
+  ],
+  merge: [
+    { line: 1, label: 'THE CONFIRM', region: { x: 1960, y: 930, w: 880, h: 380 }, zoom: 2.6 },
+    { line: 3, label: 'THE LIVE SITE', region: { x: 700, y: 900, w: 2440, h: 760 }, zoom: 1.25 },
+    // The last four lines were one picture for the rest of the scene.
+    { line: 5, label: 'ABOUT A MINUTE, THEN LIVE', region: { x: 700, y: 700, w: 2500, h: 700 }, zoom: 1.3 },
+    { line: 7, label: 'THE WHOLE JOB', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7 },
+  ],
+  mistakes: [
+    { line: 2, label: 'REVERT, BEFORE ANYTHING ELSE', region: { x: 2460, y: 450, w: 1120, h: 520 }, zoom: 2.2 },
+    { line: 4, label: 'THE HISTORY STILL HAS IT', region: { x: 300, y: 880, w: 1700, h: 780 }, zoom: 1.6 },
+    { line: 6, label: 'NOTHING IS LOST', region: { x: 340, y: 1560, w: 1740, h: 300 }, zoom: 1.9 },
+    { line: 8, label: 'RECOVERY IS A SKILL', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7 },
+  ],
+  safety: [
+    { line: 2, label: 'SECRETS LIVE IN SETTINGS', region: { x: 600, y: 600, w: 2640, h: 920 }, zoom: 1.2 },
+    { line: 5, label: 'REVOKE FIRST, THEN CLEAN', region: { x: 620, y: 1360, w: 2600, h: 700 }, zoom: 1.2 },
+    { line: 6, label: 'TEN SECONDS, NOT AN AFTERNOON', region: { x: 620, y: 1320, w: 2600, h: 760 }, zoom: 1.2 },
+  ],
+};
+
+/** The card for this moment, or null when the frame should just be the scene. */
+function detailAt(scene, t) {
+  const table = DETAIL[scene.id];
+  if (!table) return null;
+  const index = lineIndexAt(scene, t);
+  if (index < 0) return null;
+  let chosen = null;
+  for (const entry of table) {
+    if (entry.line <= index) chosen = entry;
+  }
+  return chosen && chosen.region ? chosen : null;
+}
+
+/** Fit a region inside the frame's content area without distorting it. */
+function cardRect(region, zoom) {
+  const maxWidth = CARD_AREA.right - CARD_AREA.left;
+  const maxHeight = CARD_AREA.bottom - CARD_AREA.top;
+  const scale = Math.min(zoom, maxWidth / region.w, maxHeight / region.h);
+  const w = region.w * scale;
+  const h = region.h * scale;
+  return {
+    x: CARD_AREA.left + (maxWidth - w) / 2,
+    y: CARD_AREA.top + (maxHeight - h) / 2,
+    w, h, scale,
+  };
+}
+
+function drawDetailFrame(ctx, scene, t, local, draw, detail) {
+  // The frame's ground, then the scene's own drawing in the offscreen frame.
+  stageField(ctx, t, !!scene.dark);
+  ctxC.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  ctxC.clearRect(0, 0, W, H);
+  draw(ctxC, scene, t, local);
+
+  const { region } = detail;
+  const card = cardRect(region, detail.zoom || 1);
+  // A hard change of what the frame is showing: no easing, no drift. The card is
+  // already in place on the first frame of the sentence and does not move while
+  // it is read.
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, card.x, card.y, card.w, card.h, 28);
+  ctx.clip();
+  ctx.drawImage(
+    canvasC,
+    region.x * SCALE, region.y * SCALE, region.w * SCALE, region.h * SCALE,
+    card.x, card.y, card.w, card.h,
+  );
+  ctx.restore();
+
+  // A card holds one picture for the length of a sentence, and a picture that is
+  // perfectly still for five seconds reads as a slide. This band is the sentence,
+  // drawn: it crosses the card once per line, top to bottom, at the speed the
+  // line is spoken. It is the same rule as the caption - the text performs the
+  // read - and it is the only motion the card adds.
+  const line = scene.lines.find((l) => t >= l.start && t <= l.end + 0.4) || null;
+  // The band keeps travelling until the line has been off the screen for half a
+  // second, so the card is never parked while it is still the picture.
+  const spanSeconds = line ? Math.max(0.5, line.end - line.start + 0.5) : 1;
+  const progress = line ? clamp((t - line.start) / spanSeconds) : 0;
+  const bandHeight = Math.max(90, card.h * 0.16);
+  // It stays inside the card for the whole line; a band that runs off the bottom
+  // half way through stops being motion and starts being a parked picture.
+  const bandY = card.y + (card.h - bandHeight) * progress;
+  const gradient = ctx.createLinearGradient(0, bandY, 0, bandY + bandHeight);
+  gradient.addColorStop(0, 'rgba(242,194,48,0)');
+  gradient.addColorStop(0.5, 'rgba(242,194,48,0.30)');
+  gradient.addColorStop(1, 'rgba(242,194,48,0)');
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, card.x, card.y, card.w, card.h, 28);
+  ctx.clip();
+  ctx.fillStyle = gradient;
+  ctx.fillRect(card.x, bandY, card.w, bandHeight);
+  // A soft band alone is under the repeat check's threshold on a pale card, so
+  // the band carries a rule at its leading edge. It is the same object - the
+  // thing being read - not a second effect.
+  ctx.fillStyle = 'rgba(242,194,48,0.65)';
+  ctx.fillRect(card.x, bandY + bandHeight * 0.5 - 3, card.w, 6);
+  ctx.restore();
+
+  // The card's edge, then the strap that names it. The strap sits above the card
+  // so the card keeps the whole content area; both are static for the sentence.
+  ctx.save();
+  roundRect(ctx, card.x, card.y, card.w, card.h, 28);
+  ctx.strokeStyle = scene.dark ? 'rgba(255,255,255,0.22)' : 'rgba(11,11,12,0.28)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.restore();
+  text(ctx, detail.label, card.x + 6, card.y - 26, {
+    size: 34, weight: 700, color: UI.gold, tracking: 6,
+  });
+}
+
 /**
  * The camera is locked. There is no scene camera, and there will not be one.
  *
@@ -4140,10 +4338,16 @@ function render(t) {
   }
 
   // The content layer. The camera is locked: the drawing is laid out in design
-  // coordinates and nothing above it moves, scales or rotates the frame.
-  ctx.save();
-  draw(ctx, scene, t, local);
-  ctx.restore();
+  // coordinates and nothing above it moves, scales or rotates the frame. A detail
+  // card changes which part of the drawing is shown, on a cut, and then holds.
+  const detail = detailAt(scene, t);
+  if (detail) {
+    drawDetailFrame(ctx, scene, t, local, draw, detail);
+  } else {
+    ctx.save();
+    draw(ctx, scene, t, local);
+    ctx.restore();
+  }
 
   if (LIVE) spotlight(ctx, { w: W, h: H, t, state: beats, dark: !!scene.dark });
   transition(ctx, scene, local);

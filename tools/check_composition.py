@@ -22,6 +22,7 @@ sys.path.insert(0, str(ROOT))
 
 from video_studio.composition import (  # noqa: E402 - path set up above
     MAX_HOLD_SECONDS,
+    SAMPLE_FPS,
     analyse_video,
     format_report,
 )
@@ -35,6 +36,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="longest a single arrangement may stay (default %.0f s)"
                              % MAX_HOLD_SECONDS)
     parser.add_argument("--ffmpeg", default=None, help="FFmpeg binary to use")
+    parser.add_argument("--sample-fps", type=float, default=None,
+                        help="frames a second to judge (default %.1f). Probing one scene "
+                             "wants a finer rate than the whole film; the verdict was "
+                             "checked to be the same at 1, 2 and 4 frames a second"
+                             % SAMPLE_FPS)
     parser.add_argument("--json", action="store_true", help="print the verdict as JSON")
     parser.add_argument("--quiet", action="store_true", help="say nothing when it passes")
     args = parser.parse_args(argv)
@@ -44,7 +50,11 @@ def main(argv: list[str] | None = None) -> int:
         print("no such video: %s" % path, file=sys.stderr)
         return 2
     try:
-        verdict = analyse_video(path, max_hold_seconds=args.max_hold, ffmpeg=args.ffmpeg)
+        kwargs = {}
+        if args.sample_fps:
+            kwargs["sample_fps"] = args.sample_fps
+        verdict = analyse_video(path, max_hold_seconds=args.max_hold,
+                                ffmpeg=args.ffmpeg, **kwargs)
     except RuntimeError as exc:
         print("composition check could not run: %s" % exc, file=sys.stderr)
         return 2
