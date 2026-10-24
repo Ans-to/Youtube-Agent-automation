@@ -359,6 +359,33 @@ def encode_segmented(frames_dir: Path, audio: Path, output: Path, ffmpeg: str, *
     }
 
 
+def write_subtitles(lines_path: Path, out_dir: Path) -> dict:
+    """Write the SRT and WebVTT a viewer needs, from the lines the voice used.
+
+    A film is not uploadable without a subtitle track, and typing one by hand is
+    how a cue drifts half a second away from the read. The cues come from
+    ``lines.json`` - the same file the voice stage timed - so the track cannot
+    disagree with what is heard.
+    """
+    if str(Path(__file__).resolve().parent) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import film_subtitles  # noqa: PLC0415 - sibling tool, imported on use
+
+    hacks = film_subtitles.caption_hacks(lines_path)
+    if hacks:
+        raise RuntimeError(
+            "the narration text still spells for a synthesiser: "
+            + ", ".join("%s %r" % (hack["id"], hack["text"]) for hack in hacks))
+    cues = film_subtitles.build_cues(film_subtitles.load_lines(lines_path))
+    srt, vtt = film_subtitles.to_srt(cues), film_subtitles.to_vtt(cues)
+    film_subtitles.validate_subtitle_text(srt, vtt)
+    srt_path, vtt_path = out_dir / "film.srt", out_dir / "film.vtt"
+    srt_path.write_text(srt, encoding="utf-8")
+    vtt_path.write_text(vtt, encoding="utf-8")
+    return {"srt": str(srt_path), "vtt": str(vtt_path), "cues": len(cues),
+            "longest_cue_characters": max(len(text) for _, _, text in cues)}
+
+
 def step_validate(frames_dir: Path) -> dict:
     result = base.run(
         [
@@ -564,13 +591,15 @@ def main(argv: list[str] | None = None) -> int:
         return 3
 
     voice_dir = Path(args.voice_dir).resolve() if args.voice_dir else out_dir / "voice"
-    step_count = 9 if (args.voice_script or (voice_dir / "voiceover.wav").is_file()) else 7
     step_no = 0
 
     def step(label: str) -> str:
+        # No denominator: the number of steps depends on whether a voice exists,
+        # whether subtitles can be written and whether a render is resumed, and a
+        # guessed total printed "9/9 measure motion" for four more steps.
         nonlocal step_no
         step_no += 1
-        return "== %d/%d %s" % (step_no, step_count, label)
+        return "== %d %s" % (step_no, label)
 
     try:
         voice_info = None
@@ -732,6 +761,14 @@ def main(argv: list[str] | None = None) -> int:
         log("   delivery %s (%.1f MB)" % (delivery.name, delivery.stat().st_size / 1048576))
         delivery_level = verify_delivery_loudness(delivery, audio_track, ffmpeg, log=log)
 
+        subtitles = None
+        if voice_lines.is_file():
+            log(step("subtitles"))
+            subtitles = write_subtitles(voice_lines, out_dir)
+            log("   %d cues, longest %d characters -> %s"
+                % (subtitles["cues"], subtitles["longest_cue_characters"],
+                   Path(subtitles["srt"]).name))
+
         log(step("measure motion"))
         film_meta = json.loads(film_json.read_text(encoding="utf-8"))
         gate = film_meta.get("motion_gate") or DEFAULT_GATE
@@ -801,6 +838,7 @@ def main(argv: list[str] | None = None) -> int:
                             "longest_pause", "breaths_per_minute", "failures")}
                           if narration else None),
             "delivery_level": delivery_level,
+            "subtitles": subtitles,
             "validation": validation,
             "outputs": [
                 {
