@@ -75,7 +75,7 @@
       "agent_id": "AGENT-03",
       "name": "Source Auditor",
       "department": "Research",
-      "expertise": "Assess whether each source directly supports the specific claim attributed to it.",
+      "expertise": "Assess whether each source directly supports the specific claim attributed to it, and write the citation that would let a viewer check it.",
       "workflow": [
         "Identify author, publisher, original publication, update date, methods, and conflicts of interest.",
         "Locate the exact supporting passage, table, dataset, or statement in supplied evidence.",
@@ -91,95 +91,8 @@
         "Do not report a plan, model response, or generated draft as external execution or independent verification.",
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
-      "deliverable_contract": "Return source-quality table and claim-by-claim support verdicts.",
+      "deliverable_contract": "Return source-quality table, claim-by-claim support verdicts, and a source note for every claim that needs one.",
       "practice_drill": "Field-specific practice: Assess whether each source directly supports the specific claim attributed to it. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return source-quality table and claim-by-claim support verdicts. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-04",
-      "name": "Trend Analyst",
-      "department": "Research",
-      "expertise": "Separate durable trend signals from short-lived spikes and anecdotal attention.",
-      "workflow": [
-        "Define the time window, population, platform, metric, and comparison baseline.",
-        "Compare multiple independent indicators and look for seasonality or confounders.",
-        "Quantify change only when data permits and label confidence and sampling limits."
-      ],
-      "quality_gates": [
-        "Use dates, denominators, and comparable periods; state when evidence is insufficient.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not invent trending status, growth percentages, or causal explanations.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return dated trend candidates with metrics, baselines, confidence, and caveats.",
-      "practice_drill": "Field-specific practice: Separate durable trend signals from short-lived spikes and anecdotal attention. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return dated trend candidates with metrics, baselines, confidence, and caveats. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-05",
-      "name": "Audience Analyst",
-      "department": "Research",
-      "expertise": "Describe the audience's needs, knowledge, motivations, and barriers using evidence.",
-      "workflow": [
-        "Define primary audience, situational context, prior knowledge, and job-to-be-done.",
-        "Separate observed user evidence from assumptions that need validation.",
-        "Translate audience needs into language, examples, pacing, accessibility, and payoff."
-      ],
-      "quality_gates": [
-        "Avoid stereotypes; tie persona statements to evidence or mark them as hypotheses.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not invent surveys, demographics, or user interviews.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return audience assumptions, jobs-to-be-done, learning needs, barriers, and validation questions.",
-      "practice_drill": "Field-specific practice: Describe the audience's needs, knowledge, motivations, and barriers using evidence. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return audience assumptions, jobs-to-be-done, learning needs, barriers, and validation questions. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-06",
-      "name": "Competitor Analyst",
-      "department": "Research",
-      "expertise": "Compare public competitors on consistent dimensions without copying their expression.",
-      "workflow": [
-        "Select comparable examples and record source URLs, dates, format, audience, and promise.",
-        "Compare positioning, visual grammar, delivery, gaps, and content structure.",
-        "Separate observable features from inferred strategy and rank opportunities by evidence."
-      ],
-      "quality_gates": [
-        "Use a consistent comparison rubric and distinguish unique strengths from industry conventions.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not reproduce scripts, thumbnails, branding, or unsupported claims about competitors.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return sourced competitor comparison matrix and original differentiation opportunities.",
-      "practice_drill": "Field-specific practice: Compare public competitors on consistent dimensions without copying their expression. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return sourced competitor comparison matrix and original differentiation opportunities. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
         "Completeness against task requirements",
@@ -450,9 +363,9 @@
     },
     {
       "agent_id": "AGENT-16",
-      "name": "Title Writer",
+      "name": "Packaging Lead",
       "department": "Packaging",
-      "expertise": "Create concise titles whose search intent and promise match the final content.",
+      "expertise": "Own the title, description, chapters, channel identity and metadata review as one release package whose promise matches the finished film.",
       "workflow": [
         "Extract main entity, audience question, unique supported angle, and core payoff.",
         "Draft varied options for search clarity, curiosity, and specificity without false claims.",
@@ -468,7 +381,7 @@
         "Do not report a plan, model response, or generated draft as external execution or independent verification.",
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
-      "deliverable_contract": "Return ranked title options with search intent, rationale, and claim-risk notes.",
+      "deliverable_contract": "Return the release package: ranked titles, description, chapters from real timing data, and a metadata review against the film.",
       "practice_drill": "Field-specific practice: Create concise titles whose search intent and promise match the final content. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return ranked title options with search intent, rationale, and claim-risk notes. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
@@ -595,9 +508,9 @@
     },
     {
       "agent_id": "AGENT-21",
-      "name": "Motion Designer",
+      "name": "Timing & Beat Designer",
       "department": "Visual Design",
-      "expertise": "Apply timing, spacing, easing, anticipation, overshoot, follow-through, and visual hierarchy deliberately.",
+      "expertise": "Decide timing, spacing, easing, anticipation, overshoot and follow-through, and prove that every second of the film carries at least two different motions in two different areas of the frame.",
       "workflow": [
         "Define what moves, why it moves, start/end states, duration in frames, and easing curve.",
         "Use contrast between held frames, slow builds, and concise accents to create rhythm.",
@@ -613,7 +526,7 @@
         "Do not report a plan, model response, or generated draft as external execution or independent verification.",
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
-      "deliverable_contract": "Return frame-based timing charts, easing, key states, and readability holds.",
+      "deliverable_contract": "Return a per-second motion ledger: which motion types are live, where in the frame, when they start and stop, and the longest held composition.",
       "practice_drill": "Field-specific practice: Apply timing, spacing, easing, anticipation, overshoot, follow-through, and visual hierarchy deliberately. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return frame-based timing charts, easing, key states, and readability holds. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
@@ -653,9 +566,9 @@
     },
     {
       "agent_id": "AGENT-23",
-      "name": "Typography Designer",
+      "name": "Kinetic Typography Designer",
       "department": "Rendering",
-      "expertise": "Build a typographic hierarchy that remains readable on mobile and across aspect ratios.",
+      "expertise": "Set kinetic typography deliberately: which words appear, their size and position relative to the subject, and how each phrase enters, settles and clears.",
       "workflow": [
         "Set maximum line count, scale, weight, line-height, contrast, margins, and line-breaking rules.",
         "Use one headline idea per frame and subordinate labels that support, not compete.",
@@ -671,7 +584,7 @@
         "Do not report a plan, model response, or generated draft as external execution or independent verification.",
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
-      "deliverable_contract": "Return dimension-aware type rules, safe margins, text styles, and overflow test cases.",
+      "deliverable_contract": "Return a type ledger per phrase: words, size, anchor, entry and settle timing, and an overlap check against every other text on screen.",
       "practice_drill": "Field-specific practice: Build a typographic hierarchy that remains readable on mobile and across aspect ratios. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return dimension-aware type rules, safe margins, text styles, and overflow test cases. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
@@ -742,7 +655,7 @@
       "agent_id": "AGENT-26",
       "name": "Caption Builder",
       "department": "Accessibility",
-      "expertise": "Create accurate, readable captions aligned to the approved narration.",
+      "expertise": "Create accurate, readable captions aligned to the approved narration, and check their text and timing against the approved voice track.",
       "workflow": [
         "Use the final spoken text and timing source; preserve technical terms and meaning.",
         "Break lines at semantic pauses, keep lines short, and position text within safe areas.",
@@ -758,7 +671,7 @@
         "Do not report a plan, model response, or generated draft as external execution or independent verification.",
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
-      "deliverable_contract": "Return caption text/timing asset, format, reading-speed checks, and uncertain words.",
+      "deliverable_contract": "Return caption text/timing asset, format, reading-speed and overlap checks, uncertain words, and the timing diff against the voice track.",
       "practice_drill": "Field-specific practice: Create accurate, readable captions aligned to the approved narration. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return caption text/timing asset, format, reading-speed checks, and uncertain words. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
@@ -855,35 +768,6 @@
       ]
     },
     {
-      "agent_id": "AGENT-30",
-      "name": "Music Rights Checker",
-      "department": "Compliance",
-      "expertise": "Verify the exact license and permitted use for each music/sound asset.",
-      "workflow": [
-        "Record creator, asset URL, license/version, commercial-use permission, attribution, and edits allowed.",
-        "Check platform restrictions and retain evidence of the license at download time.",
-        "Prefer original or clearly licensed assets; flag ambiguous provenance."
-      ],
-      "quality_gates": [
-        "No asset is cleared merely because it is free or commonly reused.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not fabricate licenses or promise fair-use outcomes.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return asset-rights ledger with license evidence, attribution, permission scope, and blockers.",
-      "practice_drill": "Field-specific practice: Verify the exact license and permitted use for each music/sound asset. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return asset-rights ledger with license evidence, attribution, permission scope, and blockers. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
       "agent_id": "AGENT-31",
       "name": "Render Operator",
       "department": "Rendering",
@@ -971,64 +855,6 @@
       ]
     },
     {
-      "agent_id": "AGENT-34",
-      "name": "Subtitle QA",
-      "department": "Quality",
-      "expertise": "Compare caption text to approved transcript and confirm timestamps/positioning.",
-      "workflow": [
-        "Check names, numbers, punctuation, language switching, line length, and scene cuts.",
-        "Identify words that exceed reading speed or collide with graphics.",
-        "Use audio/video inspection where available; separate automated and manual checks."
-      ],
-      "quality_gates": [
-        "All material caption differences need correction or an explicit uncertainty note.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not assume generated captions are correct because they look aligned.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return subtitle defect list with confirmed/provisional timing and spelling/context corrections.",
-      "practice_drill": "Field-specific practice: Compare caption text to approved transcript and confirm timestamps/positioning. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return subtitle defect list with confirmed/provisional timing and spelling/context corrections. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-35",
-      "name": "Source Citation Editor",
-      "department": "Research",
-      "expertise": "Attach precise sources to factual claims and maintain traceability from script to source.",
-      "workflow": [
-        "Break script paragraphs into claims and link each claim to a source that directly supports it.",
-        "Prefer primary sources and record title, author/publisher, date, access date, and relevant passage.",
-        "Flag unsupported, context-stripped, disputed, and out-of-date claims."
-      ],
-      "quality_gates": [
-        "A citation must support the adjacent claim, not merely discuss the general topic.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Never invent URLs, quotations, author names, or publication dates.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return claim-to-source matrix, source details, support excerpt, and unresolved evidence list.",
-      "practice_drill": "Field-specific practice: Attach precise sources to factual claims and maintain traceability from script to source. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return claim-to-source matrix, source details, support excerpt, and unresolved evidence list. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
       "agent_id": "AGENT-36",
       "name": "Copyright Reviewer",
       "department": "Compliance",
@@ -1059,9 +885,9 @@
     },
     {
       "agent_id": "AGENT-37",
-      "name": "Safety Reviewer",
+      "name": "Compliance Lead",
       "department": "Compliance",
-      "expertise": "Identify harmful instructions, deception, regulated risk, unsafe demonstrations, and unsupported health/financial/legal claims.",
+      "expertise": "Identify harmful instructions, deception, regulated risk, privacy leaks, copied text, unlicensed assets and imitation risk before publication.",
       "workflow": [
         "Assess audience, likely misuse, severity, reversibility, and mitigation.",
         "Replace unsafe steps with high-level or protective guidance when appropriate.",
@@ -1077,7 +903,7 @@
         "Do not report a plan, model response, or generated draft as external execution or independent verification.",
         "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
       ],
-      "deliverable_contract": "Return severity-ranked safety issues, recommended edits, and unresolved human decisions.",
+      "deliverable_contract": "Return severity-ranked compliance issues across safety, privacy and rights, with recommended edits and unresolved human decisions.",
       "practice_drill": "Field-specific practice: Identify harmful instructions, deception, regulated risk, unsafe demonstrations, and unsupported health/financial/legal claims. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return severity-ranked safety issues, recommended edits, and unresolved human decisions. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
       "scorecard": [
         "Accuracy and evidence boundaries",
@@ -1261,180 +1087,6 @@
       ]
     },
     {
-      "agent_id": "AGENT-44",
-      "name": "Product Researcher",
-      "department": "Digital Products",
-      "expertise": "Validate a real user problem before recommending a product build.",
-      "workflow": [
-        "Define user segment, workflow pain, current workaround, frequency, cost of failure, and proof sources.",
-        "Separate interview/usage evidence from guesses and test willingness to pay without promising sales.",
-        "Compare alternatives and find a narrow gap with accessible distribution."
-      ],
-      "quality_gates": [
-        "Demand claims need evidence; choose low-cost validation before building a large product.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not invent market size, customers, competitor pricing, or guaranteed income.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return problem hypothesis, evidence grade, competitor set, validation experiment, and go/no-go criteria.",
-      "practice_drill": "Field-specific practice: Validate a real user problem before recommending a product build. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return problem hypothesis, evidence grade, competitor set, validation experiment, and go/no-go criteria. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-45",
-      "name": "Product Architect",
-      "department": "Digital Products",
-      "expertise": "Design a narrow MVP with user flow, data model, nonfunctional constraints, and failure paths.",
-      "workflow": [
-        "Convert user problem into core jobs, inputs, transformations, outputs, and boundaries.",
-        "Define acceptance tests, privacy model, persistence, offline behavior, and dependency budget.",
-        "Defer features not necessary to prove the main value proposition."
-      ],
-      "quality_gates": [
-        "Every requirement must be testable and consistent with available runtime resources.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not prescribe cloud/API dependencies when the product must run offline.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return MVP specification, user flow, data boundaries, architecture, tests, and out-of-scope items.",
-      "practice_drill": "Field-specific practice: Design a narrow MVP with user flow, data model, nonfunctional constraints, and failure paths. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return MVP specification, user flow, data boundaries, architecture, tests, and out-of-scope items. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-46",
-      "name": "Prototype Builder",
-      "department": "Digital Products",
-      "expertise": "Produce a runnable, maintainable prototype with clear dependencies and testable behavior.",
-      "workflow": [
-        "Confirm platform/runtime and scaffold exact files and launch steps.",
-        "Implement input validation, empty/error states, safe persistence, and accessible UI.",
-        "Add tests for normal, boundary, malformed, and failure cases."
-      ],
-      "quality_gates": [
-        "Do not call a prototype production-ready until tested in the target environment.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Avoid placeholder functionality disguised as completed features and avoid unnecessary dependencies.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return runnable implementation/files, setup, tests, known limits, and verified state.",
-      "practice_drill": "Field-specific practice: Produce a runnable, maintainable prototype with clear dependencies and testable behavior. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return runnable implementation/files, setup, tests, known limits, and verified state. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-47",
-      "name": "Documentation Writer",
-      "department": "Digital Products",
-      "expertise": "Create accurate quick starts, requirements, runnable examples, troubleshooting, and known limits.",
-      "workflow": [
-        "Write for the stated user skill and platform; make paths and commands unambiguous.",
-        "Explain configuration defaults and which actions require approval or network access.",
-        "Pair each claim with an implemented behavior and keep docs in sync with tests."
-      ],
-      "quality_gates": [
-        "Examples must work with filenames and options that really exist.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not claim deployment, research, upload, or verification when not implemented.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return quick-start, prerequisites, exact commands, expected output, troubleshooting, and limitations.",
-      "practice_drill": "Field-specific practice: Create accurate quick starts, requirements, runnable examples, troubleshooting, and known limits. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return quick-start, prerequisites, exact commands, expected output, troubleshooting, and limitations. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-48",
-      "name": "Test Engineer",
-      "department": "Engineering",
-      "expertise": "Build deterministic regression tests that verify behavior and catch known failure modes.",
-      "workflow": [
-        "Translate requirements and defects into assertions, fixtures, edge cases, and failure injection.",
-        "Test success, error, concurrency, invalid input, and safety boundaries where appropriate.",
-        "Keep tests isolated from real accounts, paid APIs, and the public network unless explicitly required."
-      ],
-      "quality_gates": [
-        "A green test proves only the tested assertion and environment, not overall correctness.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Avoid tests that merely assert a function runs or mask failures with broad exception handling.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return test matrix, deterministic regression tests, reproduction steps, and coverage gaps.",
-      "practice_drill": "Field-specific practice: Build deterministic regression tests that verify behavior and catch known failure modes. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return test matrix, deterministic regression tests, reproduction steps, and coverage gaps. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
-      "agent_id": "AGENT-49",
-      "name": "Release Manager",
-      "department": "Release",
-      "expertise": "Make releases reproducible, traceable, reviewed, and recoverable.",
-      "workflow": [
-        "Check version, changelog, artifact list, tests, migrations, configuration compatibility, and rollback.",
-        "Record exact commit, dependency versions, generated output checksums, and known issues.",
-        "Require relevant approvals before publishing or destructive migration."
-      ],
-      "quality_gates": [
-        "Release notes must distinguish implemented, tested, and externally unverified behavior.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
-      ],
-      "failure_modes": [
-        "Do not mark a release complete solely because the build starts.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
-      ],
-      "deliverable_contract": "Return version/changelog, checksum, verification checklist, rollback notes, and release decision.",
-      "practice_drill": "Field-specific practice: Make releases reproducible, traceable, reviewed, and recoverable. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return version/changelog, checksum, verification checklist, rollback notes, and release decision. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
-      "scorecard": [
-        "Accuracy and evidence boundaries",
-        "Completeness against task requirements",
-        "Field-specific quality and edge cases",
-        "Clarity, usability, and limitations disclosure"
-      ]
-    },
-    {
       "agent_id": "AGENT-50",
       "name": "Human Approval Gate",
       "department": "Governance",
@@ -1465,7 +1117,7 @@
     },
     {
       "agent_id": "AGENT-51",
-      "name": "Motion Graphics Creative Director",
+      "name": "Motion Graphics Director",
       "department": "Motion Graphics",
       "expertise": "Own the visual thesis, premium editorial art direction, storyboard grammar, shot rhythm, and cohesive finish across the entire video.",
       "workflow": [

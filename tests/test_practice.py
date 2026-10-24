@@ -150,7 +150,9 @@ class PracticeLoopTests(unittest.TestCase):
 
     def test_batch_practice_lists_all_specialists_but_no_approval_roles(self):
         roles = practice.executable_roles()
-        self.assertEqual(len(roles), 51)
+        roster = practice.dispatch.roster_roles()
+        self.assertEqual(len(roles), len(roster) - 1)
+        self.assertEqual(len(roles), 39)
         self.assertTrue(all(not role.get("approval_required") for role in roles))
         self.assertNotIn("AGENT-50", {role["id"] for role in roles})
         self.assertIn("AGENT-51", {role["id"] for role in roles})

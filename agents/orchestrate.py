@@ -27,8 +27,8 @@ import dispatch
 import routing
 
 DEFAULT_PIPELINE = [
-    "AGENT-02", "AGENT-03", "AGENT-09", "AGENT-20",
-    "AGENT-51", "AGENT-52", "AGENT-26", "AGENT-32", "AGENT-33", "AGENT-37", "AGENT-49",
+    "AGENT-02", "AGENT-09", "AGENT-51", "AGENT-31",
+    "AGENT-26", "AGENT-08", "AGENT-37",
 ]
 
 
@@ -136,7 +136,13 @@ def read_context(path):
 
 
 def heuristic_assignments(task):
-    """Transparent no-model routing: a small role set matched to task intent."""
+    """Transparent no-model routing: parent roles are assigned, and each parent directs its children.
+
+    Ten parents own the deliverables; the sub-agents under them own one craft
+    each and receive their brief from the parent, not from this function. Keeping
+    the assignment list this short is the point: the fallback used to name eleven
+    roles directly and could not say why any of them was there.
+    """
     text = task.lower()
     explicit_video = bool(re.search(r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b", text))
     # Creative screenplay/fight requests often do not say "video" or "YouTube".
@@ -146,29 +152,20 @@ def heuristic_assignments(task):
         and re.search(r"\b(script|screenplay|scene|sequence|storyboard|create|write|draft)\b", text)
     )
     video = explicit_video or creative_scene_request
-    software = any(word in text for word in ("build", "code", "software", "app", "website", "tool", "program", "automation", "debug", "feature", "repository", "system"))
-    product = any(word in text for word in ("product", "sell", "customer", "market", "business", "monetize", "revenue", "launch"))
     assignments = [{"agent_id": "AGENT-02", "task": "Research the task requirements, authoritative sources, current constraints, and viable approaches. Return source-linked evidence and uncertainties."}]
     if video:
         assignments.extend([
-            {"agent_id": "AGENT-09", "task": "Create the core narrative/script or structured content deliverable for the requested video."},
-            {"agent_id": "AGENT-20", "task": "Turn the approved narrative into a concrete scene-by-scene storyboard and production directions."},
-            {"agent_id": "AGENT-51", "task": "Define premium visual art direction, visual motifs, pacing, and scene transitions appropriate to the content."},
-            {"agent_id": "AGENT-52", "task": "Specify implementable motion systems, compositing, kinetic typography, and technical production details."},
-            {"agent_id": "AGENT-26", "task": "Prepare accessibility captions or a caption plan aligned to the narration and timing information available."},
+            {"agent_id": "AGENT-09", "task": "Own the words: the narrative arc, the hook, the outline and the retention pass, directing its sub-agents and returning the narration-ready script."},
+            {"agent_id": "AGENT-51", "task": "Own the picture: art direction, shot rhythm, and the timing, kinetic typography, transitions, palette and diagrams its sub-agents produce."},
+            {"agent_id": "AGENT-31", "task": "Own the file: the local render and encode, with its animator, validator and visual QA sub-agents reporting against it."},
+            {"agent_id": "AGENT-26", "task": "Prepare accessibility captions aligned to the narration and timing information available."},
         ])
         # Language is an explicit production profile; do not silently replace Urdu-English with English.
         # Country/topic mentions must never silently switch a video into another language.
-    elif software or product:
-        if product:
-            assignments.append({"agent_id": "AGENT-44", "task": "Research the product opportunity, customer pain points, and evidence for demand."})
-            assignments.append({"agent_id": "AGENT-45", "task": "Design a scoped, usable product architecture with explicit acceptance criteria."})
-        assignments.extend([
-            {"agent_id": "AGENT-46", "task": "Produce an implementation deliverable or concrete starter code/files appropriate to this task and repository."},
-            {"agent_id": "AGENT-47", "task": "Document setup, operation, configuration, troubleshooting, and known limitations."},
-            {"agent_id": "AGENT-48", "task": "Define relevant repeatable quality checks, edge cases, and failure handling."},
-        ])
     else:
+        # A request to build software is software. routing.py sends it to the tool
+        # pipelines, which write the files themselves; no specialist's prose
+        # changes that outcome, so the fallback no longer invents a software team.
         assignments.extend([
             {"agent_id": "AGENT-03", "task": "Audit the evidence, source quality, dates, and whether citations support the key claims."},
             {"agent_id": "AGENT-12", "task": "Synthesize the research into the requested practical deliverable, clearly separating facts from assumptions."},
@@ -248,13 +245,16 @@ def plan_delegation(task, context, cfg, roles_by_id):
             roster.append({
                 "id": agent_id,
                 "name": role.get("name"),
-                "department": role.get("department"),
+                "division": role.get("division"),
+                "parent": role.get("parent"),
+                "directs": [str(child.get("id")) + " " + str(child.get("name")) for child in dispatch.children_of(agent_id)],
                 "mission": str(role.get("mission", ""))[:180],
                 "expertise": str(skill.get("expertise", ""))[:140],
                 "deliverable": str(skill.get("deliverable_contract", ""))[:120],
             })
         ceo_task = (
             "Act as the CEO of Agent HQ and the single point of task intake. The user supplies the goal; you alone decide which specialists receive work, their distinct responsibilities, dependencies, and execution order. Never require the user to choose agent IDs, and do not treat user-suggested agent IDs as binding routing instructions. "
+            "The specialists form a tree: a role with a null parent owns a deliverable and directs the sub-agents listed in its directs field; a role with a parent owns one craft inside that parent's deliverable. Assign work to parent roles. Name a sub-agent directly only when the task needs that one craft and nothing else, and never assign a sub-agent to direct other sub-agents. "
             "Delegate to the smallest sufficient set of specialists. Choose 1-7 specialist assignments, in dependency order; one specialist plus the required reviewer is valid for a narrow task. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
@@ -1489,9 +1489,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
             preferred = (
                 ["AGENT-52", "AGENT-51", "AGENT-20", "AGENT-09"]
                 if re.search(r"\b(video|youtube|shorts|motion graphics|storyboard|animation)\b", task_lower)
-                else (["AGENT-46", "AGENT-48", "AGENT-47"] if re.search(
-                    r"\b(build|code|software|app|website|tool|program|automation|repository|system)\b", task_lower
-                ) else ["AGENT-12", "AGENT-09", "AGENT-20"])
+                else ["AGENT-12", "AGENT-09", "AGENT-03"]
             )
             repair_assignment = next(
                 (item for agent_id in preferred for item in assignments
