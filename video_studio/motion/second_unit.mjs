@@ -23,8 +23,28 @@
 import { UI, clamp, span, ease, text, panel, roundRect } from './ui.mjs';
 
 // Design units. The canvas is 3840x2160 and everything is drawn in those units.
-const RAIL = { x: 2500, y: 140, w: 1140, h: 190 };
-const CONSOLE = { x: 2820, y: 1400, w: 900, h: 470 };
+const RAIL = { x: 2560, y: 130, w: 1240, h: 400 };
+const CONSOLE = { x: 2800, y: 1240, w: 940, h: 650 };
+
+/**
+ * Where the console sits, per kind of scene.
+ *
+ * It has to be in a different cell from the rail, and it must not land on the
+ * picture it is annotating. Those two rules conflict in the full-bleed title
+ * cards, whose type is centred and wide enough to reach the right edge - seen on
+ * a still of 0:12, where the console covered the word "GITHUB". So the cards
+ * that fill the frame get the console on the left, where they keep a margin, and
+ * everything else keeps it on the right.
+ */
+// The four cards that use the whole frame get a narrow vertical ticker in the
+// right margin, 560 units wide, where their centred type never reaches.
+// Four rows of 240 fit inside 1300 once the header is allowed for; five
+// overflowed the panel, seen on a still of 0:12.
+// Below the rail: 420 put the ticker's first row on top of the rail's bar.
+const TICKER = { x: 3240, y: 600, w: 560, h: 900, rows: 4, rowH: 190, size: 44, compact: true };
+const CONSOLE_AT = {
+  title: TICKER, statement: TICKER, outro: TICKER, loop: TICKER,
+};
 
 /** What the console types, per kind of scene. Real lines from the story. */
 const SNIPPETS = {
@@ -92,31 +112,33 @@ export function stepRail(ctx, { scene, t }) {
   ctx.fillStyle = UI.gold;
   ctx.fillRect(RAIL.x, RAIL.y, 12, RAIL.h);
 
-  text(ctx, label, RAIL.x + 48, RAIL.y + 74, {
-    size: 48, weight: 700, family: 'Space Grotesk', color: UI.white, tracking: 5,
+  text(ctx, label, RAIL.x + 56, RAIL.y + 96, {
+    size: 62, weight: 700, family: 'Space Grotesk', color: UI.white, tracking: 5,
   });
-  // The number of the step, counting up, so the rail says where in the film you
-  // are rather than only which step.
   const step = ((beat % 12) + 1);
-  text(ctx, String(step).padStart(2, '0'), RAIL.x + RAIL.w - 48, RAIL.y + 78, {
-    size: 62, weight: 700, color: UI.gold, align: 'right', tracking: 2,
+  text(ctx, String(step).padStart(2, '0'), RAIL.x + RAIL.w - 56, RAIL.y + 104, {
+    size: 86, weight: 700, color: UI.gold, align: 'right', tracking: 2,
   });
 
-  // The bar: twelve segments, filled to the current beat, and a block at the
-  // head that lands on every beat.
-  const x0 = RAIL.x + 48;
-  const width = RAIL.w - 96;
-  const segW = width / segments;
-  for (let i = 0; i < segments; i += 1) {
-    ctx.fillStyle = i < filled * segments ? UI.red : 'rgba(255,255,255,0.16)';
-    ctx.fillRect(x0 + i * segW + 3, RAIL.y + 112, segW - 6, 44);
+  // The bar: twelve segments, and a solid head that steps along it. Everything
+  // here is sized against the measurement, not against taste. The rail fills a
+  // large share of its cell on purpose: measured, a small head stepping 74 units
+  // inside a 256-unit cell moved the pooled average by under six grey levels,
+  // and a beat the measurement cannot see is a beat the viewer may not either.
+  const x0 = RAIL.x + 56;
+  const width = RAIL.w - 112;
+  const segW = width / 12;
+  for (let i = 0; i < 12; i += 1) {
+    ctx.fillStyle = i < Math.ceil(filled * 12) ? UI.red : 'rgba(255,255,255,0.16)';
+    ctx.fillRect(x0 + i * segW + 4, RAIL.y + 200, segW - 8, 150);
   }
-  const headX = x0 + Math.min(segments - 1, Math.floor(filled * segments) - 0) * segW;
-  ctx.save();
-  ctx.globalAlpha = 1 - phase;
+  // The head travels the whole rail, one step per beat: a 190-unit block
+  // crossing a quarter of a cell's width every 0.75 seconds.
+  const headX = x0 + clamp(filled) * (width - 190);
   ctx.fillStyle = UI.white;
-  ctx.fillRect(headX - 20 + phase * 40, RAIL.y + 100, 90, 68);
-  ctx.restore();
+  ctx.fillRect(headX, RAIL.y + 176, 190, 198);
+  ctx.fillStyle = UI.ink;
+  ctx.fillRect(headX + 28, RAIL.y + 224, 134, 102);
 }
 
 /**
@@ -132,50 +154,62 @@ export function liveConsole(ctx, { scene, t, local }) {
   const snippet = SNIPPETS[scene.kind] ?? SNIPPETS.title;
   const beat = beatOf(t);
   const phase = ease.outCubic(beatPhase(t));
-  const ROWS = 4;
-  const rowH = 84;
 
-  roundRect(ctx, CONSOLE.x, CONSOLE.y, CONSOLE.w, CONSOLE.h, 18);
+  const box = { ...CONSOLE, ...(CONSOLE_AT[scene.kind] ?? {}) };
+  const rows = box.rows ?? 4;
+  const rowH = box.rowH ?? 120;
+  const size = box.size ?? 52;
+  roundRect(ctx, box.x, box.y, box.w, box.h, 18);
   ctx.fillStyle = '#101014';
   ctx.fill();
   ctx.strokeStyle = '#2E2E36';
   ctx.lineWidth = 4;
   ctx.stroke();
 
-  ['#FF5F57', '#FEBC2E', '#28C840'].forEach((colour, i) => {
-    ctx.beginPath();
-    ctx.arc(CONSOLE.x + 46 + i * 34, CONSOLE.y + 52, 11, 0, Math.PI * 2);
-    ctx.fillStyle = colour;
-    ctx.fill();
-  });
-  text(ctx, 'book-list  -  bash', CONSOLE.x + 168, CONSOLE.y + 64, {
-    size: 28, weight: 600, color: '#8A8A96', tracking: 2,
-  });
+  // A narrow ticker has no room for a window bar; a wide console does.
+  const header = box.compact ? 60 : 150;
+  if (!box.compact) {
+    ['#FF5F57', '#FEBC2E', '#28C840'].forEach((colour, i) => {
+      ctx.beginPath();
+      ctx.arc(box.x + 46 + i * 34, box.y + 52, 11, 0, Math.PI * 2);
+      ctx.fillStyle = colour;
+      ctx.fill();
+    });
+    text(ctx, 'book-list  -  bash', box.x + 168, box.y + 64, {
+      size: 28, weight: 600, color: '#8A8A96', tracking: 2,
+    });
+  }
 
   // The panel is a window onto an endless list of lines: each beat the window
-  // moves down by one row, and the new row slides in from the bottom.
-  const top = CONSOLE.y + 118;
-  for (let row = 0; row < ROWS; row += 1) {
+  // moves down by one row, and the newest row slides in from the bottom carrying
+  // a solid gold plate. Big type and a big plate, for the same reason as the
+  // rail's head: a 30 px line moving 84 units inside a sixth of the frame changes
+  // a pooled cell by less than a grey level.
+  const top = box.y + header;
+  for (let row = 0; row < rows; row += 1) {
     const index = beat + row;
     const value = snippet[index % snippet.length];
     const y = top + row * rowH + (1 - phase) * rowH;
-    const fresh = row === ROWS - 1;
+    const fresh = row === rows - 1;
     if (fresh) {
       ctx.save();
-      ctx.globalAlpha = phase;
-      ctx.fillStyle = 'rgba(242,194,48,0.14)';
-      ctx.fillRect(CONSOLE.x + 24, y - 46, CONSOLE.w - 48, rowH - 8);
+      ctx.globalAlpha = 0.55 + 0.45 * phase;
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(box.x + 20, y - rowH * 0.62, box.w - 40, rowH * 0.82);
       ctx.restore();
     }
-    text(ctx, '>', CONSOLE.x + 46, y, { size: 34, weight: 700, color: UI.gold });
-    text(ctx, value, CONSOLE.x + 92, y, {
-      size: 34, weight: 500, color: fresh ? UI.white : '#C9C9D2',
+    text(ctx, '>', box.x + 26, y, {
+      size, weight: 700, color: fresh ? UI.ink : UI.gold,
+    });
+    text(ctx, value, box.x + 26 + size * 0.75, y, {
+      size, weight: fresh ? 700 : 500, color: fresh ? UI.ink : '#D6D6DE',
+      maxWidth: box.w - 80,
     });
   }
   // the cursor: a solid block, blinking on the half beat
   if (Math.floor(t / 0.375) % 2 === 0) {
     ctx.fillStyle = UI.gold;
-    ctx.fillRect(CONSOLE.x + 24, top + ROWS * rowH - 46, CONSOLE.w - 48, 26);
+    ctx.fillRect(box.x + 20, top + rows * rowH + 10, box.w - 40, 34);
   }
 }
 

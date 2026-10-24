@@ -101,6 +101,53 @@ the frame edge. On a sparse stage no camera move works at all - a camera cannot
 reframe an empty room into a new room, which is why the habits and loop scenes
 needed content rather than optics.
 
+## The per-second rule
+
+The owner's bar, in his words: in any one second, two different things should be
+happening in the picture - his example is a subtitle and code being typed in the
+same second, so the eye always has somewhere to go. A scene with one thing in it
+is the "playing in a loop" failure even when the composition check is satisfied.
+
+`video_studio/second_layers.py` measures it. The furniture bands (chapter label,
+timecode, progress rule, captions) are cut away, the picture is divided into six
+regions, and a second passes only when two of them change by at least six grey
+levels.
+
+It took three attempts to get that number right, and each wrong version is worth
+knowing about:
+
+1. **Normalised correlation, borrowed from the composition check.** Wrong: most
+   of this film is a dark stage where a region's standard deviation is under one
+   grey level, and normalising noise is confident nonsense. An empty corner
+   scored 0.266 against itself.
+2. **Dividing each region by the median of all six, to stop a camera counting as
+   six things.** Wrong in the other direction: one large element lifts the median,
+   so the rule threw away the visibly busy seconds.
+3. **Absolute grey levels.** Correct, and measurable: an idle region moves 0.5
+   levels, a gentle push stays under 4, a designed element lands between 8 and
+   130. The floor is 6.
+
+### The second unit
+
+The floor under every scene is `video_studio/motion/second_unit.mjs`: a step rail
+in the top right and a typing console in the bottom right, in two different cells
+of the measurement grid, moving on a 0.75-second metronome rather than on the
+narration, so nothing waits for a sentence to end.
+
+Both were designed against the measurement, not against taste. The first version
+had an 8-unit rule and 30 px text, which moved a pooled cell by half a grey level
+while appearing to tick. What registers is a block of mass: the rail steps a
+twelve-segment bar with a white head that lands every beat, and the console
+scrolls a whole row in per beat with a solid cursor.
+
+Measured on the whole film, 640 wide:
+
+| build | seconds with fewer than two live regions |
+| --- | --- |
+| before the second unit | 42% |
+| after it | 25% |
+| after the chapter card stopped hiding it | work in progress |
+
 ## Rendering it
 
 ```bash

@@ -633,10 +633,9 @@ function drawTitle(ctx, scene, t, local) {
     const leave = i > 0 ? ease.inCubic(span(local, inAt, inAt + 0.2)) : 0;
     ctx.save();
     ctx.globalAlpha = clamp(swap * 2.4) * (1 - noteOut);
-    if (i > 0) {
+    if (i > 0 && leave < 1) {
       // the previous phrase crosses out to the left as this one comes in
       const prev = noteBits[i - 1];
-      if (leave >= 1) return;
       text(ctx, prev, W / 2 - leave * 700, 1860, {
         size: 150, weight: 700, family: 'Space Grotesk',
         color: 'rgba(242,242,242,0.5)', align: 'center',
@@ -685,7 +684,12 @@ function drawTitle(ctx, scene, t, local) {
     const scoot = i < keyPhrases.length - 1
       ? ease.outCubic(clamp(span(local, at + step2 - 0.7, at + step2))) * 120
       : 0;
-    const y = 1220 + i * 300 + (1 - e) * 260 - scoot - settleA * 90 - settleB * 90;
+    // Raised from 1220: at the old height the last slab ran into the caption
+    // band, and "ON GITHUB" was printed underneath the subtitle.
+    // The stack has to fit between three things: the title above it (which
+    // is still on screen at 50% while the slabs land), the caption band below
+    // it at 1900, and its own three slabs. 1180 + 2*220 + 260 = 1880.
+    const y = 1180 + i * 220 + (1 - e) * 260 - scoot - settleA * 70 - settleB * 70;
     const x = W / 2 - keyW / 2;
 
     ctx.save();
@@ -3691,14 +3695,21 @@ function render(t) {
     // Lighting and beat metres are part of the picture, not the furniture: they
     // sit inside the measured content layer on purpose.
   }
-  // The second unit: the two elements that are always alive, in two different
-  // cells of the picture. Drawn outside the camera transform so a push cannot
-  // crop them and the furniture cannot move them, but inside the measured
-  // picture so the check sees them.
-  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local });
-
   if (LIVE) spotlight(ctx, { w: W, h: H, t, state: beats, dark: !!scene.dark });
   transition(ctx, scene, local);
+
+  // The second unit: the two elements that are always alive, in two different
+  // cells of the picture. Drawn last of the picture layers, outside both the
+  // camera transform and the transition, for reasons each measured:
+  //   * outside the camera, so a push cannot crop them out of their cells;
+  //   * after the chapter card, which covered them for the first 2.4 seconds of
+  //     every step (a black sheet over two finished elements);
+  //   * after the transition, which fades the picture to black at every cut and
+  //     took the rail and console with it - measured, the two seconds around
+  //     every cut scored one live region or none.
+  // It is a lower-third: it belongs to the film, not to the shot, so a cut
+  // happens underneath it.
+  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local });
 
   // The probe measures the picture, not the furniture: the bands and their
   // caption are drawn for the viewer but excluded from the measurement, because
@@ -3711,6 +3722,7 @@ function render(t) {
   if (local < 2.4 && ['github', 'connect', 'prompt', 'diff', 'checks', 'merge', 'feature', 'revert'].includes(scene.kind)) {
     chapterOverlay(ctx, scene, local);
   }
+
   sheen(ctx, t, !!scene.dark);
   if (OPTS.grain) grain(ctx, Math.round(t * FPS));
 }
