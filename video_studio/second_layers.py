@@ -199,10 +199,13 @@ def analyse_stream(streams: list[dict[str, np.ndarray]], *, samples_per_second: 
         window = streams[second * samples_per_second:(second + 1) * samples_per_second]
         verdict = SecondVerdict(index=second)
         for name in window[0]:
-            samples = [frame[name] for frame in window]
-            if not any(float(np.std(sample)) >= MIN_CONTRAST for sample in samples):
-                # A flat region says nothing either way; do not count it as
-                # still, and do not count it as live.
+            # Only samples with an arrangement in them can be compared. A flat
+            # region normalises to noise: measured on this film, an empty corner
+            # scored 0.266 against itself and would have been counted as a live
+            # region on a second where nothing happened at all. This is the same
+            # trap the composition check documents, in a smaller box.
+            samples = [frame[name] for frame in window if float(np.std(frame[name])) >= MIN_CONTRAST]
+            if len(samples) < 2:
                 verdict.unjudged.append(name)
                 continue
             first = samples[0]

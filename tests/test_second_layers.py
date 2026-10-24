@@ -133,6 +133,33 @@ class TheRuleTests(unittest.TestCase):
         report = second_layers.analyse_stream(self.stream(frames), samples_per_second=4)
         self.assertIn("r1c2", report.seconds[0].live)
 
+    def test_flat_regions_cannot_produce_a_live_region(self):
+        """An empty corner must never be scored as activity.
+
+        Normalising a flat patch produces noise, and noise compares to anything.
+        Measured on the film, an empty corner scored 0.266 against itself - well
+        under the break - on a second where nothing happened at all. So samples
+        without an arrangement are dropped before anything is compared.
+        """
+        base = blank_frame()
+        frames = []
+        for index in range(4):
+            frame = draw_block(base, second_layers.REGIONS[1], column=index)
+            # A hard edge sweeping through an empty region, in and out again, is
+            # the worst case: real structure for part of the second and none for
+            # the rest.
+            if index == 1:
+                frame = frame.copy()
+                frame[:, :10] = 250
+            frames.append(frame)
+        report = second_layers.analyse_stream(self.stream(frames), samples_per_second=4)
+        second = report.seconds[0]
+        # The empty regions of the frame stay out of it, whatever the edge did.
+        for name in second.live:
+            if name != "r1c2":
+                self.assertNotIn(name, ("r1c1", "r1c3", "r2c1", "r2c3"))
+        self.assertFalse(second.passed)
+
     def test_a_partial_second_is_not_judged(self):
         frames = [blank_frame() for _ in range(5)]
         report = second_layers.analyse_stream(self.stream(frames), samples_per_second=4)
