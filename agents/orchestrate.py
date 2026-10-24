@@ -26,9 +26,14 @@ sys.path.insert(0, str(BASE))
 import dispatch
 import routing
 
+# Parents only. Every one of these owns a deliverable, and each carries its
+# sub-agents in its own brief. Packaging and narration are in here because they
+# produce two things a finished upload needs - the title, description and
+# chapters, and the voice the captions are timed to - and for a while neither was
+# reachable from any code path at all.
 DEFAULT_PIPELINE = [
-    "AGENT-02", "AGENT-03", "AGENT-09", "AGENT-20",
-    "AGENT-51", "AGENT-52", "AGENT-26", "AGENT-32", "AGENT-33", "AGENT-37", "AGENT-49",
+    "AGENT-02", "AGENT-09", "AGENT-51", "AGENT-31",
+    "AGENT-27", "AGENT-16", "AGENT-26", "AGENT-08", "AGENT-37",
 ]
 
 
@@ -136,7 +141,13 @@ def read_context(path):
 
 
 def heuristic_assignments(task):
-    """Transparent no-model routing: a small role set matched to task intent."""
+    """Transparent no-model routing: parent roles are assigned, and each parent directs its children.
+
+    Ten parents own the deliverables; the sub-agents under them own one craft
+    each and receive their brief from the parent, not from this function. Keeping
+    the assignment list this short is the point: the fallback used to name eleven
+    roles directly and could not say why any of them was there.
+    """
     text = task.lower()
     explicit_video = bool(re.search(r"\b(video|shorts|short-form|storyboard|motion graphics|video production|youtube script|video script|youtube content package|faceless channel video)\b", text))
     # Creative screenplay/fight requests often do not say "video" or "YouTube".
@@ -146,29 +157,29 @@ def heuristic_assignments(task):
         and re.search(r"\b(script|screenplay|scene|sequence|storyboard|create|write|draft)\b", text)
     )
     video = explicit_video or creative_scene_request
-    software = any(word in text for word in ("build", "code", "software", "app", "website", "tool", "program", "automation", "debug", "feature", "repository", "system"))
-    product = any(word in text for word in ("product", "sell", "customer", "market", "business", "monetize", "revenue", "launch"))
     assignments = [{"agent_id": "AGENT-02", "task": "Research the task requirements, authoritative sources, current constraints, and viable approaches. Return source-linked evidence and uncertainties."}]
     if video:
         assignments.extend([
-            {"agent_id": "AGENT-09", "task": "Create the core narrative/script or structured content deliverable for the requested video."},
-            {"agent_id": "AGENT-20", "task": "Turn the approved narrative into a concrete scene-by-scene storyboard and production directions."},
-            {"agent_id": "AGENT-51", "task": "Define premium visual art direction, visual motifs, pacing, and scene transitions appropriate to the content."},
-            {"agent_id": "AGENT-52", "task": "Specify implementable motion systems, compositing, kinetic typography, and technical production details."},
-            {"agent_id": "AGENT-26", "task": "Prepare accessibility captions or a caption plan aligned to the narration and timing information available."},
+            {"agent_id": "AGENT-09", "task": "Own the words: the narrative arc, the hook, the outline and the retention pass, directing its sub-agents and returning the narration-ready script."},
+            {"agent_id": "AGENT-51", "task": "Own the picture: art direction, shot rhythm, and the timing, kinetic typography, transitions, palette and diagrams its sub-agents produce."},
+            {"agent_id": "AGENT-31", "task": "Own the file: the local render and encode, with its animator, validator and visual QA sub-agents reporting against it."},
+        ])
+        # A repurposing request replaces packaging at the tail of the list rather
+        # than being appended to it: the assignment cap keeps seven, and a request
+        # that asks for a vertical cut needs the clip team more than a title page.
+        if re.search(r"\b(shorts?|short-form|vertical|clips?|repurpos\w*)\b", text):
+            assignments.append({"agent_id": "AGENT-41", "task": "Own the vertical cut: select the strongest passage, check that it survives being cut down, and hand back a short that stands on its own."})
+        assignments.extend([
+            {"agent_id": "AGENT-27", "task": "Own the voice: mark emphasis, pauses and pronunciation, and run the local voice backend so the picture can be timed to the narration that actually exists."},
+            {"agent_id": "AGENT-16", "task": "Own the release package: accurate title, description, chapters built from real timings, and the metadata review that each of them matches the film."},
+            {"agent_id": "AGENT-26", "task": "Prepare accessibility captions aligned to the narration and timing information available."},
         ])
         # Language is an explicit production profile; do not silently replace Urdu-English with English.
         # Country/topic mentions must never silently switch a video into another language.
-    elif software or product:
-        if product:
-            assignments.append({"agent_id": "AGENT-44", "task": "Research the product opportunity, customer pain points, and evidence for demand."})
-            assignments.append({"agent_id": "AGENT-45", "task": "Design a scoped, usable product architecture with explicit acceptance criteria."})
-        assignments.extend([
-            {"agent_id": "AGENT-46", "task": "Produce an implementation deliverable or concrete starter code/files appropriate to this task and repository."},
-            {"agent_id": "AGENT-47", "task": "Document setup, operation, configuration, troubleshooting, and known limitations."},
-            {"agent_id": "AGENT-48", "task": "Define relevant repeatable quality checks, edge cases, and failure handling."},
-        ])
     else:
+        # A request to build software is software. routing.py sends it to the tool
+        # pipelines, which write the files themselves; no specialist's prose
+        # changes that outcome, so the fallback no longer invents a software team.
         assignments.extend([
             {"agent_id": "AGENT-03", "task": "Audit the evidence, source quality, dates, and whether citations support the key claims."},
             {"agent_id": "AGENT-12", "task": "Synthesize the research into the requested practical deliverable, clearly separating facts from assumptions."},
@@ -248,13 +259,16 @@ def plan_delegation(task, context, cfg, roles_by_id):
             roster.append({
                 "id": agent_id,
                 "name": role.get("name"),
-                "department": role.get("department"),
+                "division": role.get("division"),
+                "parent": role.get("parent"),
+                "directs": [str(child.get("id")) + " " + str(child.get("name")) for child in dispatch.children_of(agent_id)],
                 "mission": str(role.get("mission", ""))[:180],
                 "expertise": str(skill.get("expertise", ""))[:140],
                 "deliverable": str(skill.get("deliverable_contract", ""))[:120],
             })
         ceo_task = (
             "Act as the CEO of Agent HQ and the single point of task intake. The user supplies the goal; you alone decide which specialists receive work, their distinct responsibilities, dependencies, and execution order. Never require the user to choose agent IDs, and do not treat user-suggested agent IDs as binding routing instructions. "
+            "The specialists form a tree: a role with a null parent owns a deliverable and directs the sub-agents listed in its directs field; a role with a parent owns one craft inside that parent's deliverable. Assign work to parent roles. Name a sub-agent directly only when the task needs that one craft and nothing else, and never assign a sub-agent to direct other sub-agents. "
             "Delegate to the smallest sufficient set of specialists. Choose 1-7 specialist assignments, in dependency order; one specialist plus the required reviewer is valid for a narrow task. Include one factual quality-review role "
             "(prefer AGENT-08) unless inappropriate. Never select AGENT-01 or AGENT-50 as a worker. "
             "Give each role a concrete, distinct subtask with an observable deliverable. Do not select roles merely to fill a quota. "
@@ -368,7 +382,7 @@ def run_builtin_tools(task, destination, cfg, source_context="", route_sink=None
     for request in route.requests:
         if request.pipeline == "video_production":
             results.extend(_run_video_pipeline(request, destination, model_enabled,
-                                               template_demo, source_path, video_plan))
+                                               template_demo, source_path, video_plan, cfg))
         elif request.pipeline in {"web_build", "document_deliverable", "cli_tool", "data_deliverable"}:
             results.append(_run_tool_loop(request, intent_text, destination, cfg))
         elif request.pipeline == "test_fix":
@@ -378,8 +392,24 @@ def run_builtin_tools(task, destination, cfg, source_context="", route_sink=None
     return results
 
 
+def _resolved_narration_language(request, instructions, cfg):
+    """One answer to "which language is this film in", read in the same order the tool reads it.
+
+    The orchestrator used to pass nothing when neither the route nor the intent
+    named a language, so production.py fell back to config and the two could
+    disagree without either knowing.
+    """
+    explicit = request.args.get("language") or instructions.get("language")
+    if explicit:
+        value = str(explicit).strip().lower()
+        return "en" if value in {"en", "english"} else "ur-en"
+    video = (cfg or {}).get("video_studio") if isinstance(cfg, dict) else None
+    value = str((video or {}).get("narration_language", "ur-en") or "ur-en").strip().lower()
+    return "en" if value in {"en", "english"} else "ur-en"
+
+
 def _run_video_pipeline(request, destination, model_enabled, template_demo, source_path,
-                        instructions):
+                        instructions, cfg=None):
     """Build a video package, and only render when the guards allow it.
 
     Creative arguments come from the route; execution instructions (render,
@@ -395,9 +425,23 @@ def _run_video_pipeline(request, destination, model_enabled, template_demo, sour
                "--topic", topic[:500],
                "--format", "shorts" if (request.args.get("format") or instructions.get("format")) == "shorts" else "long",
                "--out", relative_out]
-    language = request.args.get("language") or instructions.get("language")
-    if language:
-        command.extend(["--language", language])
+    language = _resolved_narration_language(request, instructions, cfg)
+    if not model_enabled and language == "ur-en":
+        # A policy refusal is not a crash. Without the local model this build
+        # cannot produce Urdu-English narration, and substituting an English
+        # scaffold would be the silent substitution the project forbids. Report it
+        # as blocked, with the way forward, and let the rest of the run stand.
+        return [{
+            "tool": "video_studio", "status": "blocked", "artifact_dir": relative_out,
+            "language": language, "selected_by": "video_production",
+            "reason": (
+                "Urdu-English narration requires the configured local language model, which is "
+                "disabled, so no video package was built and no English scaffold was substituted "
+                "for it. Enable the model, or ask for the film in English "
+                "(narration language: English), to get a labelled English template without a model."
+            ),
+        }]
+    command.extend(["--language", language])
     if source_path is not None:
         command.extend(["--source-file", str(source_path)])
     else:
@@ -1489,9 +1533,7 @@ def run_pipeline(task, context="", agent_ids=None, output_dir=None, config=None,
             preferred = (
                 ["AGENT-52", "AGENT-51", "AGENT-20", "AGENT-09"]
                 if re.search(r"\b(video|youtube|shorts|motion graphics|storyboard|animation)\b", task_lower)
-                else (["AGENT-46", "AGENT-48", "AGENT-47"] if re.search(
-                    r"\b(build|code|software|app|website|tool|program|automation|repository|system)\b", task_lower
-                ) else ["AGENT-12", "AGENT-09", "AGENT-20"])
+                else ["AGENT-12", "AGENT-09", "AGENT-03"]
             )
             repair_assignment = next(
                 (item for agent_id in preferred for item in assignments

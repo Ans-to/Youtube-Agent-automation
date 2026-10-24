@@ -25,7 +25,6 @@ if str(ROOT / "tools") not in sys.path:
 from path_utils import safe_relative_path
 ROSTER=BASE/"roster.json"
 SKILLBOOK=BASE/"skillbooks.json"
-MOTION_ROLES={"AGENT-19","AGENT-20","AGENT-21","AGENT-22","AGENT-23","AGENT-24","AGENT-25","AGENT-31","AGENT-32","AGENT-33","AGENT-41","AGENT-42","AGENT-51","AGENT-52"}
 FEEDBACK_DIR=ROOT/"workspace"/"training"/"feedback"
 
 # The loopback check and the request live in one shared adapter.
@@ -42,6 +41,50 @@ def find_role(agent_id):
 def find_skill(agent_id):
     profiles=load_json(SKILLBOOK,{}).get("profiles",[])
     return next((profile for profile in profiles if profile.get("agent_id")==agent_id),None)
+
+# The roster is a tree, not a list. Ten parent roles each own a deliverable and
+# direct the sub-agents under them; AGENT-50 is a human gate and directs nobody.
+# Everything below is derived from `parent` on each role, so the tree in the data
+# and the tree the code walks cannot disagree.
+def roster_roles():
+    return load_json(ROSTER,{}).get("agents",[])
+
+def children_of(agent_id):
+    return [role for role in roster_roles() if role.get("parent")==agent_id]
+
+def is_child(agent_id):
+    role=find_role(agent_id)
+    return bool(role and role.get("parent"))
+
+def subtree(roots):
+    """A root plus every descendant, from the roster alone."""
+    ids=set(roots)
+    changed=True
+    while changed:
+        changed=False
+        for role in roster_roles():
+            if role.get("parent") in ids and role.get("id") not in ids:
+                ids.add(role["id"])
+                changed=True
+    return frozenset(ids)
+
+def sub_agent_brief(agent_id):
+    """The child roles a parent must direct, as prompt text it can act on."""
+    kids=children_of(agent_id)
+    if not kids:
+        return ""
+    lines=["YOUR SUB-AGENTS (you direct them; name which ones you used and what each returned)"]
+    for role in kids:
+        lines.append("- "+str(role.get("id"))+" "+str(role.get("name"))+": "+str(role.get("mission",""))[:200])
+    return "\n".join(lines)
+
+# The motion reference document is attached to the picture tree and the render
+# tree — the director, the render lead, and everything under them. This used to be
+# a hand-written set of fourteen ids in which nine roles existed for no other
+# reason; deriving it means a role joins the tree by having a parent, not by being
+# remembered here.
+MOTION_PARENTS=("AGENT-51","AGENT-31")
+MOTION_ROLES=subtree(MOTION_PARENTS)
 
 def ensure_executable_role(role):
     if not isinstance(role, dict):
@@ -215,6 +258,9 @@ def run_role(role,task,context,cfg,perform_research=True):
       "\n\nDELIVERABLE CONTRACT\n"+str(skill.get("deliverable_contract",""))+
       "\n\nPRACTICE DRILL (use when asked to practice)\n"+str(skill.get("practice_drill",""))
     )
+    brief=sub_agent_brief(role["id"])
+    if brief:
+        playbook += "\n\n"+brief
     lessons=load_human_lessons(role["id"])
     if lessons:
         playbook += "\n\nHUMAN-REVIEWED IMPROVEMENT NOTES (follow when applicable; do not repeat sensitive data)\n"+json.dumps(lessons,ensure_ascii=False)[:2500]
@@ -234,7 +280,7 @@ def run_role(role,task,context,cfg,perform_research=True):
     role_budgets = {
         "AGENT-01": 500, "AGENT-02": 700, "AGENT-08": 800,
         "AGENT-09": 1700, "AGENT-20": 1300, "AGENT-26": 650,
-        "AGENT-46": 1600, "AGENT-51": 1200, "AGENT-52": 1400,
+        "AGENT-21": 1200, "AGENT-51": 1400, "AGENT-52": 1400,
     }
     configured_tokens = int(model.get("max_output_tokens", 900))
     # Treat configured output tokens as a ceiling, not a minimum. Older setup files

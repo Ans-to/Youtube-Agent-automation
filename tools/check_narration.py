@@ -293,6 +293,38 @@ def count_words(lines_path: Path) -> int:
     return total
 
 
+#: Spellings a synthesiser needs and a caption must never show. The film draws
+#: ``line.text``; ``line.spoken`` is free to carry phonetics for the voice. When
+#: both carried "github dot com", the baked caption said it too, which is the
+#: owner's "captions must not leak spelling hacks" failing on screen.
+TTS_SPELLINGS = (
+    (r"\bdot\s+com\b", ".com"),
+    (r"\bdot\s+org\b", ".org"),
+    (r"\bdot\s+net\b", ".net"),
+    (r"\bdot\s+io\b", ".io"),
+    (r"\bunderscore\b", "_"),
+    (r"\bdash\b", "-"),
+)
+
+
+def caption_hacks(lines_path: Path) -> list[dict]:
+    """Lines whose on-screen text is spelled for a synthesiser instead of a reader."""
+    data = json.loads(lines_path.read_text(encoding="utf-8"))
+    lines = data.get("lines") if isinstance(data, dict) else data
+    if not isinstance(lines, list):
+        raise ValueError("lines.json has no 'lines' array")
+    found = []
+    for line in lines:
+        if not isinstance(line, dict):
+            continue
+        text = str(line.get("text") or "")
+        for pattern, should_be in TTS_SPELLINGS:
+            if re.search(pattern, text, re.IGNORECASE):
+                found.append({"id": line.get("id"), "text": text, "should_be": should_be})
+                break
+    return found
+
+
 def report(result: Narration, stage: str = STAGE_VOICE) -> str:
     """The verdict as a block of text a person can act on."""
     lines = []
@@ -345,6 +377,14 @@ def main(argv: list[str] | None = None) -> int:
     words = args.words
     if args.lines:
         try:
+            hacks = caption_hacks(Path(args.lines))
+            if hacks:
+                print("CAPTIONS: FAIL - %d line(s) spell for a synthesiser and will be drawn that way"
+                      % len(hacks), file=sys.stderr)
+                for item in hacks[:5]:
+                    print("  %s: %s  (write %s)" % (item["id"], item["text"][:90], item["should_be"]),
+                          file=sys.stderr)
+                return 1
             words = count_words(Path(args.lines))
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             print("cannot read %s: %s" % (args.lines, exc), file=sys.stderr)

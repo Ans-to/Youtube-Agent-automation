@@ -1,0 +1,411 @@
+{
+  "version": 1,
+  "generated_by": "video_studio/motion/library_cli.mjs --write-agent-map",
+  "notice": "Generated from the code. Do not edit by hand: edit the templates or the situations and regenerate.",
+  "rules": {
+    "pick_by_situation": "Choose the template from the situation the beat is for, never from habit or from what the last beat used.",
+    "one_region_each": "A template owns one region. Two templates may not share a region on the same frame.",
+    "type_never_overlaps_type": "Every word is masked to its own box; the self-check measures this.",
+    "no_shake": "No template translates or rotates the camera. Motion is one direction, eased, then still.",
+    "beat_length": "A template refuses a beat outside its band; pick another template rather than stretching it."
+  },
+  "reserved": {
+    "caption": {
+      "x": 0,
+      "y": 0.865,
+      "w": 1,
+      "h": 0.135
+    }
+  },
+  "regions": {
+    "title": {
+      "x": 0.1,
+      "y": 0.34,
+      "w": 0.64,
+      "h": 0.3
+    },
+    "hero": {
+      "x": 0.08,
+      "y": 0.1,
+      "w": 0.66,
+      "h": 0.24
+    },
+    "stage": {
+      "x": 0.08,
+      "y": 0.36,
+      "w": 0.66,
+      "h": 0.26
+    },
+    "floor": {
+      "x": 0.08,
+      "y": 0.64,
+      "w": 0.66,
+      "h": 0.16
+    },
+    "band": {
+      "x": 0.06,
+      "y": 0.46,
+      "w": 0.7,
+      "h": 0.1
+    },
+    "split": {
+      "x": 0.06,
+      "y": 0.22,
+      "w": 0.7,
+      "h": 0.42
+    },
+    "ledger": {
+      "x": 0.08,
+      "y": 0.12,
+      "w": 0.44,
+      "h": 0.52
+    }
+  },
+  "situations": {
+    "opening-claim": {
+      "says": "Open the film by stating the premise in one sentence.",
+      "wants": [
+        "kinetic-headline",
+        "stack-push"
+      ]
+    },
+    "name-the-thing": {
+      "says": "Put a name or a key figure on the frame so it can be remembered.",
+      "wants": [
+        "kinetic-headline",
+        "count-up"
+      ]
+    },
+    "state-the-thesis": {
+      "says": "State the idea the rest of the section argues for.",
+      "wants": [
+        "kinetic-headline",
+        "compare-pair"
+      ]
+    },
+    "punchline": {
+      "says": "Land a short line at the end of an argument, with nothing else on screen.",
+      "wants": [
+        "kinetic-headline"
+      ]
+    },
+    "explain-a-number": {
+      "says": "Show a figure the script claims, so it can be read rather than guessed.",
+      "wants": [
+        "count-up",
+        "bar-compare"
+      ]
+    },
+    "show-a-sequence": {
+      "says": "Walk through steps in the order the narration reads them.",
+      "wants": [
+        "list-build",
+        "stack-push"
+      ]
+    },
+    "show-criteria": {
+      "says": "List the conditions something has to meet, one at a time.",
+      "wants": [
+        "list-build"
+      ]
+    },
+    "make-a-comparison": {
+      "says": "Put two options or two states against each other.",
+      "wants": [
+        "compare-pair",
+        "bar-compare"
+      ]
+    },
+    "before-and-after": {
+      "says": "Show what the same thing looked like before, and what it looks like now.",
+      "wants": [
+        "compare-pair"
+      ]
+    },
+    "show-the-mechanism": {
+      "says": "Reveal how something works by showing the actual commands or code.",
+      "wants": [
+        "code-typing"
+      ]
+    },
+    "show-the-command": {
+      "says": "Put one command on the frame and let it type.",
+      "wants": [
+        "code-typing"
+      ]
+    },
+    "build-an-argument": {
+      "says": "Add one more reason to a stack, so each one is felt as an addition.",
+      "wants": [
+        "stack-push",
+        "list-build"
+      ]
+    },
+    "recap": {
+      "says": "Bring a section back to a short list of what it said.",
+      "wants": [
+        "list-build",
+        "stack-push"
+      ]
+    },
+    "hold-a-beat": {
+      "says": "Fill a short pause between two big beats with real motion.",
+      "wants": [
+        "sweep-rule",
+        "kinetic-headline"
+      ]
+    },
+    "punctuation": {
+      "says": "Mark a change of section with something small and deliberate.",
+      "wants": [
+        "sweep-rule"
+      ]
+    }
+  },
+  "templates": [
+    {
+      "id": "kinetic-headline",
+      "name": "Kinetic headline",
+      "purpose": "Sets one spoken sentence as type that performs itself, word by word, with an optional second row.",
+      "when": [
+        "opening-claim",
+        "name-the-thing",
+        "state-the-thesis",
+        "punchline"
+      ],
+      "avoid": [
+        "More than twelve words: at that length the arrival outlasts the line.",
+        "A beat that also needs a diagram or a list: this template owns its whole region."
+      ],
+      "minSeconds": 0.35,
+      "maxSeconds": 3.2,
+      "needs": [
+        "text"
+      ],
+      "regions": [
+        "title",
+        "hero"
+      ],
+      "cost": "low",
+      "sample": {
+        "text": "BUILD IT",
+        "subtext": "BY DESCRIBING IT",
+        "subEmphasis": {
+          "2": "#FFFFFF"
+        }
+      }
+    },
+    {
+      "id": "count-up",
+      "name": "Count up",
+      "purpose": "Counts a number the script actually claims, with its label and a rule under it.",
+      "when": [
+        "explain-a-number",
+        "name-the-thing"
+      ],
+      "avoid": [
+        "Any figure the script does not state: a counted number is a factual claim.",
+        "A beat under a second: the count is unreadable below that."
+      ],
+      "minSeconds": 1,
+      "maxSeconds": 4,
+      "needs": [
+        "value"
+      ],
+      "regions": [
+        "stage",
+        "hero"
+      ],
+      "cost": "low",
+      "sample": {
+        "value": 40,
+        "prefix": "",
+        "suffix": "",
+        "label": "LINES OF CODE"
+      }
+    },
+    {
+      "id": "list-build",
+      "name": "List build",
+      "purpose": "Builds a list one row at a time, in the order the narration reads it.",
+      "when": [
+        "show-a-sequence",
+        "show-criteria",
+        "recap"
+      ],
+      "avoid": [
+        "More than four items in a short beat: the rows arrive too fast to read.",
+        "A single item: that is a headline, not a list."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 7,
+      "needs": [
+        "items"
+      ],
+      "regions": [
+        "ledger",
+        "stage"
+      ],
+      "cost": "low",
+      "sample": {
+        "items": [
+          "Read the issue",
+          "Ask one question",
+          "Open the pull request"
+        ]
+      }
+    },
+    {
+      "id": "compare-pair",
+      "name": "Compare pair",
+      "purpose": "Puts two things side by side and draws a divider between them.",
+      "when": [
+        "make-a-comparison",
+        "before-and-after"
+      ],
+      "avoid": [
+        "Two long paragraphs: each half fits three short lines at most.",
+        "A comparison the script does not make: don't stage an argument nobody said."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 5,
+      "needs": [
+        "left",
+        "right"
+      ],
+      "regions": [
+        "split"
+      ],
+      "cost": "medium",
+      "sample": {
+        "left": "TYPING",
+        "right": "DESCRIBING",
+        "leftItems": [
+          "Syntax",
+          "Line by line"
+        ],
+        "rightItems": [
+          "Intent",
+          "Whole feature"
+        ]
+      }
+    },
+    {
+      "id": "code-typing",
+      "name": "Code typing",
+      "purpose": "Types code or commands onto the frame, with a caret.",
+      "when": [
+        "show-the-mechanism",
+        "show-the-command"
+      ],
+      "avoid": [
+        "Code the film does not show elsewhere: it dates the piece.",
+        "Long lines: they are clipped, not wrapped, by design."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 6,
+      "needs": [
+        "lines"
+      ],
+      "regions": [
+        "stage",
+        "ledger"
+      ],
+      "cost": "low",
+      "sample": {
+        "lines": [
+          "git add .",
+          "git commit -m \"first\""
+        ]
+      }
+    },
+    {
+      "id": "bar-compare",
+      "name": "Bar compare",
+      "purpose": "Grows bars to their values, so two or three numbers can be read at a glance.",
+      "when": [
+        "explain-a-number",
+        "make-a-comparison"
+      ],
+      "avoid": [
+        "More than five bars: the labels stop fitting.",
+        "Invented data. Every value must come from the script."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 6,
+      "needs": [
+        "labels",
+        "values"
+      ],
+      "regions": [
+        "stage"
+      ],
+      "cost": "medium",
+      "sample": {
+        "labels": [
+          "Before",
+          "After"
+        ],
+        "values": [
+          20,
+          40
+        ]
+      }
+    },
+    {
+      "id": "sweep-rule",
+      "name": "Sweep rule",
+      "purpose": "A rule crosses the region with a small label at its head; the beat-filler that is still motion.",
+      "when": [
+        "hold-a-beat",
+        "punctuation"
+      ],
+      "avoid": [
+        "Anything over 1.2 seconds: below that length it is a transition, above it it is a held frame with a line on it.",
+        "A beat that carries information: this template says nothing."
+      ],
+      "minSeconds": 0.3,
+      "maxSeconds": 1.2,
+      "needs": [],
+      "regions": [
+        "band",
+        "floor"
+      ],
+      "cost": "low",
+      "sample": {
+        "label": "NEXT"
+      }
+    },
+    {
+      "id": "stack-push",
+      "name": "Stack push",
+      "purpose": "Stacks labelled slabs, each arrival pushing everything already on screen.",
+      "when": [
+        "show-a-sequence",
+        "build-an-argument"
+      ],
+      "avoid": [
+        "More than four slabs: the stack runs out of region.",
+        "A beat whose items are not parallel in kind."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 5.5,
+      "needs": [
+        "items"
+      ],
+      "regions": [
+        "stage",
+        "floor"
+      ],
+      "cost": "medium",
+      "sample": {
+        "items": [
+          "PLAIN ENGLISH",
+          "THE AGENT WRITES",
+          "ON GITHUB"
+        ],
+        "highlight": 1
+      }
+    }
+  ]
+}

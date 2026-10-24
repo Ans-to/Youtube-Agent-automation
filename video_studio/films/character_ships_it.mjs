@@ -1177,20 +1177,19 @@ function render(t) {
     gesture,
   });
 
-  // camera: framing comes from the chapter's shot, movement from a dolly, a
-  // push and a handheld layer, so no frame is ever identical to the last
+  // camera: framing comes from the chapter's shot, movement from the dolly and
+  // the push. The frame itself never shakes.
   const outro = 1 - outroFade(t);
   const dolly = (progress - 0.5) * 2 * shot.pan - outro * 120;
   // A chapter that holds for five seconds with a locked camera reads as a still
   // image. The push never stops, and it is applied to the *set* as well, so even
   // a static panel has the whole frame creeping toward the viewer.
   const creep = 1 + 0.055 * ease.inOutCubic(clamp(progress));
-  const push = (1 + shot.push * ease.inOutCubic(progress) + 0.012 * Math.sin(t * 0.9)) * creep * (1 - 0.14 * outro);
-  // low-frequency drift: even a quiet second has the camera breathing
-  const driftX = Math.sin(t * 0.31) * 26 + Math.sin(t * 0.17 + 1.2) * 18;
-  const driftY = Math.sin(t * 0.27 + 0.6) * 16;
-  const shakeX = driftX + noise1(t * 0.9) * 12 + noise1(t * 3.1 + 11) * 4;
-  const shakeY = driftY + noise1(t * 1.1 + 5) * 9 + noise1(t * 2.7 + 23) * 3;
+  const push = (1 + shot.push * ease.inOutCubic(progress)) * creep * (1 - 0.14 * outro);
+  // No handheld layer and no drift. This block used to add up to 44 units of
+  // sine wander plus 16 units of noise on every frame, on top of the dolly. The
+  // owner named that as shake, and it is: the camera is a machine on a tripod
+  // here, and every bit of life in the frame comes from the figure and the set.
 
   // The shot's zoom is a wish; the character's real bounds clamp it so the
   // subject is never cropped. Those bounds are sampled over a window and merged:
@@ -1203,7 +1202,7 @@ function render(t) {
   const anchorX = frame.solved.hips.origin[0];
   const anchorY = GROUND_Y;
   ctx.save();
-  ctx.translate(W * shot.anchor + dolly + shakeX, GROUND_Y + shakeY);
+  ctx.translate(W * shot.anchor + dolly, GROUND_Y);
   ctx.scale(zoom, zoom);
   ctx.translate(-anchorX, -anchorY);
   // Separation is handled by the artwork now (a lit rim on the shoulders and a

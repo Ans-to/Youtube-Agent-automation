@@ -129,5 +129,54 @@ class ResearchPolicyTests(unittest.TestCase):
                     run_strict_quality_audit(Path(directory))
 
 
+class OfflineDegradationTests(unittest.TestCase):
+    """No internet must not mean no run — but it must never mean invented facts."""
+
+    def _run_offline(self, directory):
+        import sys as sys_module
+        import urllib.error
+        from video_studio import production
+
+        root = Path(directory)
+        (root / "workspace").mkdir()
+        argv = [
+            "production.py", "--topic", "Local models beat paid APIs",
+            "--out", "workspace/offline", "--scenes", "4",
+            "--target-minutes", "1", "--language", "en",
+        ]
+        with (
+            patch.object(production, "ROOT", root),
+            patch.object(production, "load_config", return_value={}),
+            patch.object(production, "collect_research",
+                         side_effect=urllib.error.URLError("network is down")),
+            patch.object(sys_module, "argv", argv),
+        ):
+            production.main()
+        out = root / "workspace" / "offline"
+        return out
+
+    def test_research_failure_without_a_model_writes_a_labelled_template(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = self._run_offline(directory)
+            script = (out / "script.md").read_text(encoding="utf-8")
+            status = json.loads((out / "package-status.json").read_text(encoding="utf-8"))
+
+        self.assertIn("Research unavailable", script)
+        self.assertIn("Do not publish it as an explainer", script)
+        self.assertEqual(status["status"], "template_demo")
+        self.assertEqual(status["research_evidence"]["status"], "unavailable_offline_template")
+        self.assertEqual(status["research_evidence"]["error_type"], "URLError")
+        self.assertFalse(status["web_research_performed"])
+        self.assertTrue(status["human_review_required"])
+
+    def test_the_offline_package_states_no_sources_were_checked(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = self._run_offline(directory)
+            status = json.loads((out / "package-status.json").read_text(encoding="utf-8"))
+        self.assertFalse(status["research_evidence"]["independently_verified"])
+        self.assertEqual(status["research_evidence"]["fetched_page_count"], 0)
+        self.assertEqual(status["scenes_with_source_refs"], 0)
+
+
 if __name__ == "__main__":
     unittest.main()

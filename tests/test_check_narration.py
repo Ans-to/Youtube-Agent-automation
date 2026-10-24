@@ -191,5 +191,45 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(result.stdout.strip(), "")
 
 
+class CaptionSpellingTests(unittest.TestCase):
+    """A caption is read, not spoken to a synthesiser.
+
+    "Go to github dot com" was authored into the voice script, and the film
+    draws `line.text`, so the baked caption said it too. The guard fails the
+    narration stage instead of letting it reach a frame.
+    """
+
+    def test_the_shipped_film_scripts_have_no_spelling_hacks(self):
+        import sys
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        sys.path.insert(0, str(root / "tools"))
+        import check_narration
+
+        for script in sorted((root / "video_studio" / "films").glob("*.voice.json")):
+            with self.subTest(script=script.name):
+                self.assertEqual(check_narration.caption_hacks(script), [])
+
+    def test_a_synthesiser_spelling_is_caught(self):
+        import json
+        import sys
+        import tempfile
+        from pathlib import Path
+
+        root = Path(__file__).resolve().parents[1]
+        sys.path.insert(0, str(root / "tools"))
+        import check_narration
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "lines.json"
+            path.write_text(json.dumps({"lines": [
+                {"id": "L001", "text": "Go to github dot com", "spoken": "Go to github dot com"},
+                {"id": "L002", "text": "github.com is the address"},
+            ]}))
+            found = check_narration.caption_hacks(path)
+        self.assertEqual([item["id"] for item in found], ["L001"])
+
+
 if __name__ == "__main__":
     unittest.main()

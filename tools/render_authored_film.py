@@ -61,6 +61,10 @@ STATIC_BELOW = 0.5
 # before it decides. One second is already long enough for a viewer to think the
 # video has stalled.
 MAX_STILL_SECONDS = 1.0
+# The bar for a picture that actually changes. See ``video_studio/composition.py``:
+# measured on this repository's films, the character film's longest arrangement
+# is 10.5 s and this tutorial film's is 79.5 s. Twelve seconds is generous.
+MAX_COMPOSITION_HOLD_SECONDS = 12.0
 
 # The contact sheet is a 5x2 tile: this many frames spans the whole film.
 CONTACT_TILES = 10
@@ -355,6 +359,33 @@ def encode_segmented(frames_dir: Path, audio: Path, output: Path, ffmpeg: str, *
     }
 
 
+def write_subtitles(lines_path: Path, out_dir: Path) -> dict:
+    """Write the SRT and WebVTT a viewer needs, from the lines the voice used.
+
+    A film is not uploadable without a subtitle track, and typing one by hand is
+    how a cue drifts half a second away from the read. The cues come from
+    ``lines.json`` - the same file the voice stage timed - so the track cannot
+    disagree with what is heard.
+    """
+    if str(Path(__file__).resolve().parent) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import film_subtitles  # noqa: PLC0415 - sibling tool, imported on use
+
+    hacks = film_subtitles.caption_hacks(lines_path)
+    if hacks:
+        raise RuntimeError(
+            "the narration text still spells for a synthesiser: "
+            + ", ".join("%s %r" % (hack["id"], hack["text"]) for hack in hacks))
+    cues = film_subtitles.build_cues(film_subtitles.load_lines(lines_path))
+    srt, vtt = film_subtitles.to_srt(cues), film_subtitles.to_vtt(cues)
+    film_subtitles.validate_subtitle_text(srt, vtt)
+    srt_path, vtt_path = out_dir / "film.srt", out_dir / "film.vtt"
+    srt_path.write_text(srt, encoding="utf-8")
+    vtt_path.write_text(vtt, encoding="utf-8")
+    return {"srt": str(srt_path), "vtt": str(vtt_path), "cues": len(cues),
+            "longest_cue_characters": max(len(text) for _, _, text in cues)}
+
+
 def step_validate(frames_dir: Path) -> dict:
     result = base.run(
         [
@@ -469,6 +500,19 @@ def mmss(seconds: float) -> str:
     return "%d:%02d" % (total // 60, total % 60)
 
 
+def measure_composition(video: Path, limit: float = MAX_COMPOSITION_HOLD_SECONDS) -> dict:
+    """How often the arrangement on screen changes. See ``video_studio/composition.py``.
+
+    ``measure_motion`` above is satisfied by grain, and the repeat-frame check is
+    satisfied by a ticking caption. This one is not satisfied by either, because
+    it compares thumbnails of the layout rather than pixels: decoration moves
+    every pixel and rearranges nothing.
+    """
+    import composition as composition_module
+
+    return composition_module.analyse_video(video, max_hold_seconds=limit)
+
+
 def measure_repeat_frames(video: Path, limit: float = MAX_STILL_SECONDS) -> dict:
     """Frozen-span check on the encoded file. See ``video_studio/repeat_frames.py``.
 
@@ -547,13 +591,15 @@ def main(argv: list[str] | None = None) -> int:
         return 3
 
     voice_dir = Path(args.voice_dir).resolve() if args.voice_dir else out_dir / "voice"
-    step_count = 9 if (args.voice_script or (voice_dir / "voiceover.wav").is_file()) else 7
     step_no = 0
 
     def step(label: str) -> str:
+        # No denominator: the number of steps depends on whether a voice exists,
+        # whether subtitles can be written and whether a render is resumed, and a
+        # guessed total printed "9/9 measure motion" for four more steps.
         nonlocal step_no
         step_no += 1
-        return "== %d/%d %s" % (step_no, step_count, label)
+        return "== %d %s" % (step_no, label)
 
     try:
         voice_info = None
@@ -715,11 +761,25 @@ def main(argv: list[str] | None = None) -> int:
         log("   delivery %s (%.1f MB)" % (delivery.name, delivery.stat().st_size / 1048576))
         delivery_level = verify_delivery_loudness(delivery, audio_track, ffmpeg, log=log)
 
+        subtitles = None
+        if voice_lines.is_file():
+            log(step("subtitles"))
+            subtitles = write_subtitles(voice_lines, out_dir)
+            log("   %d cues, longest %d characters -> %s"
+                % (subtitles["cues"], subtitles["longest_cue_characters"],
+                   Path(subtitles["srt"]).name))
+
         log(step("measure motion"))
         film_meta = json.loads(film_json.read_text(encoding="utf-8"))
         gate = film_meta.get("motion_gate") or DEFAULT_GATE
         motion = measure_motion(delivery, ffmpeg, out_dir / "build", gate)
         log("   " + motion["statement"])
+
+        log(step("measure composition"))
+        composition_report = measure_composition(delivery, MAX_COMPOSITION_HOLD_SECONDS)
+        log("   " + composition_report["statement"].splitlines()[0])
+        for span in composition_report.get("spans", [])[:5]:
+            log("   hold %s  %.1f s" % (span["start"], span["seconds"]))
 
         log(step("measure holds"))
         holds = measure_repeat_frames(delivery, MAX_STILL_SECONDS)
@@ -760,6 +820,10 @@ def main(argv: list[str] | None = None) -> int:
             "frames": {"count": manifest["frame_count"]},
             "elapsed_seconds": round(time.time() - started, 1),
             "motion_spec": motion,
+            "composition": {key: composition_report[key] for key in
+                            ("status", "statement", "compositions", "longest_hold_seconds",
+                             "longest_hold_at", "share_over_limit", "spans")
+                            if key in composition_report},
             "holds": {key: holds[key] for key in
                       ("status", "statement", "limit_seconds", "longest_still_seconds",
                        "still_share_of_frames", "spans", "fix_hint")
@@ -774,6 +838,7 @@ def main(argv: list[str] | None = None) -> int:
                             "longest_pause", "breaths_per_minute", "failures")}
                           if narration else None),
             "delivery_level": delivery_level,
+            "subtitles": subtitles,
             "validation": validation,
             "outputs": [
                 {
@@ -795,7 +860,8 @@ def main(argv: list[str] | None = None) -> int:
                 source.replace(out_dir / name)
 
         ok = (motion["status"] == "passed" and audit.get("status") != "flagged"
-              and holds.get("status") == "passed")
+              and holds.get("status") == "passed"
+              and composition_report.get("status") == "passed")
         if args.json:
             print(json.dumps(summary, indent=2))
         else:
@@ -803,6 +869,7 @@ def main(argv: list[str] | None = None) -> int:
             print("FILM:", summary["title"], "|", summary["frames"]["count"], "frames |",
                   summary["elapsed_seconds"], "s")
             print(motion["statement"])
+            print(composition_report["statement"])
             print(holds["statement"])
             print(audit["statement"])
             for item in summary["outputs"]:

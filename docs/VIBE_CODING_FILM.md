@@ -58,6 +58,96 @@ film refuses to render if a line is left unclaimed or claimed twice
 (`buildScenes()` throws). Timings are read from the synthesised audio, so the
 picture, the highlights and the captions follow the voice.
 
+## Where the motion work stands
+
+Measured with the composition check on a render of the current source with the
+real narration timings:
+
+| build | arrangements | longest hold | time inside holds over 12 s |
+| --- | --- | --- | --- |
+| delivered cut | 87 | 59.5 s | 86% |
+| current source | 354 | 11.5 s | 0% |
+
+It passes, with half a second to spare on the worst scene, and getting there was
+one job repeated: **every spoken line has to bring something into the frame.**
+A scene that finishes its picture before it finishes its sentence is a held
+frame, however much grain is moving over it.
+
+What that meant, scene by scene, and what it cost to find out:
+
+| scene | hold | fix |
+| --- | --- | --- |
+| github | 46.0 s | three screens in the order the words ask for, and a callout that travels to the part being named |
+| prompt | 34.0 s | one card per sentence of the prompt; the last annotation slab stopped being stuck under the next one |
+| feature | 34.5 s | one card per spoken line in alternating slots, instead of four thin typed lines |
+| habits | 23.5 s | a second column for the five sentences that do not name a habit |
+| loop | 22.5 s | one pipeline step lit per sentence, and a card that moves across the frame |
+| recap | 13.0 s | rows inverted: a light card on light paper is not an arrival |
+| connect | 11.5 s | the last four sentences get the conversation window; the permission dialog became a light modal |
+| patterns | 11.0 s | every row dark; half of them had been landing invisibly |
+
+Three of those are the same lesson, and it is not about taste. An outlined target
+moves too few blocks of a 16x9 thumbnail to count. A dark panel with new words on
+it scores 0.94-0.99 against the last one - nine of those are one picture with a
+ticking label. A light panel on light paper is barely a change at all. What
+registers is a **block of mass arriving somewhere it was not**: dark on light,
+large enough to be a fifth of the frame, in a different place each time.
+
+The camera does the same job at a coarser grain. Reframing at 1.06 still reads
+as the same picture (0.96 similarity), 1.09 reads as a new shot (0.72), and it
+crops 159 of the design's 240-unit type margin. 1.11 registered harder and was
+rejected for a different reason: it moved the headline to within fifteen units of
+the frame edge. On a sparse stage no camera move works at all - a camera cannot
+reframe an empty room into a new room, which is why the habits and loop scenes
+needed content rather than optics.
+
+## The per-second rule
+
+The owner's bar, in his words: in any one second, two different things should be
+happening in the picture - his example is a subtitle and code being typed in the
+same second, so the eye always has somewhere to go. A scene with one thing in it
+is the "playing in a loop" failure even when the composition check is satisfied.
+
+`video_studio/second_layers.py` measures it. The furniture bands (chapter label,
+timecode, progress rule, captions) are cut away, the picture is divided into six
+regions, and a second passes only when two of them change by at least six grey
+levels.
+
+It took three attempts to get that number right, and each wrong version is worth
+knowing about:
+
+1. **Normalised correlation, borrowed from the composition check.** Wrong: most
+   of this film is a dark stage where a region's standard deviation is under one
+   grey level, and normalising noise is confident nonsense. An empty corner
+   scored 0.266 against itself.
+2. **Dividing each region by the median of all six, to stop a camera counting as
+   six things.** Wrong in the other direction: one large element lifts the median,
+   so the rule threw away the visibly busy seconds.
+3. **Absolute grey levels.** Correct, and measurable: an idle region moves 0.5
+   levels, a gentle push stays under 4, a designed element lands between 8 and
+   130. The floor is 6.
+
+### The second unit
+
+The floor under every scene is `video_studio/motion/second_unit.mjs`: a step rail
+in the top right and a typing console in the bottom right, in two different cells
+of the measurement grid, moving on a 0.75-second metronome rather than on the
+narration, so nothing waits for a sentence to end.
+
+Both were designed against the measurement, not against taste. The first version
+had an 8-unit rule and 30 px text, which moved a pooled cell by half a grey level
+while appearing to tick. What registers is a block of mass: the rail steps a
+twelve-segment bar with a white head that lands every beat, and the console
+scrolls a whole row in per beat with a solid cursor.
+
+Measured on the whole film, 640 wide:
+
+| build | seconds with fewer than two live regions |
+| --- | --- |
+| before the second unit | 42% |
+| after it, with the chapter card and the cut fading it out | 25% |
+| now, with the unit drawn above both, and placed clear of each scene | **0% - 625 of 625 seconds pass**, mean 5.2 live regions |
+
 ## Rendering it
 
 ```bash
@@ -161,9 +251,13 @@ distinct layouts across 11.5 minutes, seven held longer than 40 seconds, and 57%
 of the running time inside one of them. Grain keeps the *pixels* moving while the
 *picture* stands still, and a viewer sees the picture.
 
-The replacement check measures composition instead: how much of the frame is in
-a new place, not how much of it twinkles. Until that exists and passes, this film
-is a slideshow with a moving background, and it is not ready to publish.
+The replacement check exists now: `video_studio/composition.py`, run as
+`python tools/check_composition.py <file>`. It asks whether the arrangement on
+screen is the one that was there when the shot began, and it fails any film with
+an arrangement held longer than twelve seconds. On the delivered cut it reports
+87 arrangements and a longest hold of 59.5 s, with 86% of the running time inside
+holds that break the rule. That verdict is the honest one, and until the film
+passes it, it is a slideshow with a moving background and is not ready to publish.
 
 ## Publishing it
 

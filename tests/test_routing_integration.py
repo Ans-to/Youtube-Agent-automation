@@ -19,6 +19,10 @@ sys.path.insert(0, str(ROOT / "agents"))
 import orchestrate  # noqa: E402
 
 NO_MODEL = {"model": {"enabled": False}}
+# A machine whose configured narration language is English. The render-refusal
+# tests below are about rendering, not about language, so they state the
+# language instead of inheriting the Urdu-English default.
+NO_MODEL_EN = {"model": {"enabled": False}, "video_studio": {"narration_language": "en"}}
 WITH_MODEL = {"model": {"enabled": True, "base_url": "http://127.0.0.1:9/v1/chat/completions"}}
 
 
@@ -127,7 +131,7 @@ class RunBuiltinToolsTest(unittest.TestCase):
                           return_value={"tool": "video_studio", "status": "completed"}) as fixed_tool:
             runs, route = self.run_tools(
                 "Build a video about AI agents and render it to MP4",
-                NO_MODEL, model=route_model("video_production"))
+                NO_MODEL_EN, model=route_model("video_production"))
         self.assertEqual(route.requests[0].args, {})
         self.assertEqual(runs[0]["status"], "blocked")
         self.assertNotIn("--render", fixed_tool.call_args.args[1])
@@ -142,13 +146,29 @@ class RunBuiltinToolsTest(unittest.TestCase):
         with patch.object(orchestrate, "_run_fixed_tool",
                           return_value={"tool": "video_studio", "status": "completed"}) as fixed_tool:
             runs, route = self.run_tools(
-                "Create and render a full YouTube video about AI agents to MP4")
+                "Create and render a full YouTube video about AI agents to MP4",
+                NO_MODEL_EN)
         self.assertEqual(route.pipelines, ["video_production"])
         self.assertEqual([item["status"] for item in runs], ["blocked", "completed"])
         self.assertEqual(runs[0]["tool"], "video_render")
         command = fixed_tool.call_args.args[1]
         self.assertNotIn("--render", command)
         self.assertIn("production.py", command[1])
+        # The language the orchestrator resolved is stated, not left to the tool
+        # to re-derive from config.
+        self.assertEqual(command[command.index("--language") + 1], "en")
+
+    def test_urdu_without_a_model_is_blocked_and_no_english_scaffold_is_built(self):
+        with patch.object(orchestrate, "_run_fixed_tool") as fixed_tool:
+            runs, route = self.run_tools(
+                "Create a video about AI agents with narration language: Urdu", NO_MODEL)
+        self.assertEqual(route.pipelines, ["video_production"])
+        self.assertEqual(len(runs), 1)
+        self.assertEqual(runs[0]["tool"], "video_studio")
+        self.assertEqual(runs[0]["status"], "blocked")
+        self.assertEqual(runs[0]["language"], "ur-en")
+        self.assertIn("local language model", runs[0]["reason"])
+        fixed_tool.assert_not_called()
 
 
 class ArtifactContractTest(unittest.TestCase):

@@ -593,8 +593,25 @@ def heuristic_route(task: str, cfg: Mapping[str, Any] | None = None) -> Route:
 
     if video_requested:
         instructions = video_instructions(intent)
-        topic_match = re.search(r"(?i)\b(?:about|on|topic\s*[:=])\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", intent)
+        # "on" used to be a topic preposition on its own, which turned "an AI model
+        # on your own laptop" into the topic "your own laptop". A preposition only
+        # introduces a topic when it follows the video noun it belongs to.
+        topic_match = (
+            re.search(r"(?i)\btopic\s*[:=]\s*(.+?)(?:[.;\n]|$)", intent)
+            or re.search(
+                r"(?i)\b(?:video|clip|short|episode|explainer|story|piece)s?\s+"
+                r"(?:about|on|covering|explaining)\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)",
+                intent,
+            )
+            or re.search(r"(?i)\babout\s+(.+?)(?:[.;\n]|,\s*(?:include|with|and also)\b|$)", intent)
+        )
         topic = (topic_match.group(1).strip() if topic_match else intent[:220]).strip(" \t\r\n.,;:")
+        topic = re.sub(r"(?i)\s+(?:to|into|as)\s+(?:an?\s+)?(?:mp4|video|file)s?$", "", topic).strip()
+        # A language instruction is an argument, not part of what the film is about.
+        topic = re.sub(
+            r"(?i)[,;]?\s*(?:narration|voice[\s-]?over|subtitles?|captions?|language)\s*(?:language\s*)?[:=].*$",
+            "", topic,
+        ).strip(" \t\r\n.,;:")
         args: dict[str, Any] = {
             "topic": (topic[:500] or "Technology explainer"),
             "format": instructions["format"],

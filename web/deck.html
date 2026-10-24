@@ -1237,7 +1237,7 @@ select{appearance:none;cursor:pointer;
   function deptCounts() {
     var counts = {}, order = [];
     ROSTER.forEach(function (a) {
-      var d = a.department || "Other";
+      var d = a.division || a.department || "Other";
       if (!counts[d]) { counts[d] = 0; order.push(d); }
       counts[d]++;
     });
@@ -1265,13 +1265,14 @@ select{appearance:none;cursor:pointer;
     if (!rGrid) return;
     var q = ((rSearch && rSearch.value) || "").trim().toLowerCase();
     var list = ROSTER.filter(function (a) {
-      if (activeDept !== "All" && (a.department || "Other") !== activeDept) return false;
+      if (activeDept !== "All" && (a.division || a.department || "Other") !== activeDept) return false;
       if (!q) return true;
-      return (String(a.id) + " " + a.name + " " + a.department + " " + a.mission).toLowerCase().indexOf(q) !== -1;
+      return (String(a.id) + " " + a.name + " " + (a.division || "") + " " + (a.parent || "") + " " + a.mission).toLowerCase().indexOf(q) !== -1;
     });
     rGrid.innerHTML = list.map(function (a) {
       return '<article class="role"><div class="top"><span class="id">' + esc(a.id) + '</span>' +
-        '<span class="dept">' + esc(a.department) + '</span>' +
+        '<span class="dept">' + esc(a.division || a.department) + '</span>' +
+        (a.parent ? '<span class="dept">under ' + esc(a.parent) + '</span>' : "") +
         (a.approval_required ? '<span class="apv">Approval</span>' : "") +
         '</div><h4>' + esc(a.name) + '</h4><p>' + esc(a.mission) + '</p></article>';
     }).join("");
