@@ -32,7 +32,8 @@ import {
 } from '../motion/ui.mjs';
 import { beatState, spotlight, beatTicks } from '../motion/live.mjs';
 import { PALETTES, STAGE_MARGIN, SETTLE_MAX, drawField, drawPhrase, beatAt } from '../motion/wordstage.mjs';
-import { chooseTransition, reveal } from '../motion/transitions.mjs';
+import { TRANSITIONS, chooseTransition, reveal } from '../motion/transitions.mjs';
+import { seconds as houseSeconds } from '../motion/timings.mjs';
 import { secondUnit } from '../motion/second_unit.mjs';
 import { kineticWords } from '../motion/kinetic.mjs';
 import { drawTemplate } from '../motion/library.mjs';
@@ -3706,9 +3707,45 @@ const WORD_BEATS = {
  * it still reads as punctuation rather than as the film's only idea.
  */
 const STAGED_TRANSITIONS = {
-  open: { 0: 'cut', 1: 'iris', 2: 'cut', 3: 'wipe' },
-  define: { 0: 'cut', 1: 'iris', 2: 'cut', 3: 'push', 4: 'cut', 5: 'push', 6: 'cut', 7: 'push', 8: 'cut' },
+  // Index is the narration line whose beat the cut starts. A card beat is a
+  // detail of the same subject, so the cut *into* it is an iris and the cut
+  // *out* of it is a focus: an iris says "closer", a defocus says "back out".
+  // Using a hard cut for both was the one place the film could not tell a
+  // viewer which direction it was travelling.
+  open: { 0: 'cut', 1: 'iris', 2: 'focus', 3: 'wipe' },
+  define: { 0: 'cut', 1: 'iris', 2: 'focus', 3: 'push', 4: 'cut', 5: 'push', 6: 'cut', 7: 'push', 8: 'cut' },
 };
+
+/**
+ * A transition plan that does not match a scene is a bug, not a default.
+ *
+ * The table above is keyed by scene id. When it was read by scene kind every
+ * entry missed, every cut became a hard cut, and nothing anywhere reported it -
+ * the film simply had no transitions in it for two review rounds. This turns
+ * that class of mistake into a crash at load: a key that names no scene cannot
+ * quietly do nothing.
+ */
+function checkTransitionPlan() {
+  const ids = new Set(SCENES.map((scene) => scene.id));
+  const unknown = Object.keys(STAGED_TRANSITIONS).filter((id) => !ids.has(id));
+  if (unknown.length) {
+    throw new Error(`STAGED_TRANSITIONS names no scene: ${unknown.join(', ')}`);
+  }
+  for (const [id, plan] of Object.entries(STAGED_TRANSITIONS)) {
+    const scene = SCENES.find((s) => s.id === id);
+    for (const [line, device] of Object.entries(plan)) {
+      if (!TRANSITIONS.includes(device)) {
+        throw new Error(`${id} line ${line}: unknown transition ${device}`);
+      }
+      // Scene lines are attached later in the script, so this check waits for
+      // them rather than failing at load on an undefined.
+      if (scene.lines && Number(line) >= scene.lines.length) {
+        throw new Error(`${id} line ${line}: the scene has ${scene.lines.length} lines`);
+      }
+    }
+  }
+}
+checkTransitionPlan();
 
 /** The narration lines that are product lines, derived from the phrase table. */
 function cardLinesFor(scene) {
@@ -3774,7 +3811,7 @@ function wordBeatsFor(scene) {
  * nothing else and every mark we add is one more thing competing with the words
  * the viewer is meant to read.
  */
-function drawWordScene(ctx, { scene, t, local, palette }) {
+function drawWordScene(ctx, { scene, t, local, palette, hold = false }) {
   drawField(ctx, { w: W, h: H, t, palette });
 
   const beats = wordBeatsFor(scene);
@@ -3836,7 +3873,21 @@ function drawWordScene(ctx, { scene, t, local, palette }) {
   // rejected twice, and a 50/50 blend of two different words is unreadable even
   // where it is not formally an overlap. The reference does the same thing - its
   // word blurs out, the field is empty for a moment, the next word blurs in.
-  const overrun = span(local, beat.until - 0.2, beat.until);
+  //
+  // ...unless a transition is going to take this phrase away. A phrase that
+  // fades itself out before the cut leaves the transition compositing an empty
+  // field: the iris was opening onto nothing and the wipe crossed a blank, which
+  // is why four devices looked like one fade. When the next cut is a real
+  // transition the phrase stays up and the transition removes it, which is what
+  // a transition is for. On a plain cut the old fade still applies, because
+  // there is no composite to carry the old picture and two phrases must not be
+  // in the same place at once.
+  // ...and only the last phrase of a line may hold, because a line boundary is
+  // the only place a transition exists. Holding every beat let two phrases of
+  // the same line share the frame - "INTENTION," still solid underneath "NOT
+  // SYNTAX" - which is the overlapping text the owner has rejected twice.
+  const lastOfLine = !beats.some((other) => other.line === beat.line && other.at > beat.at + 1e-6);
+  const overrun = (hold && lastOfLine) ? 0 : span(local, beat.until - 0.2, beat.until);
 
   drawPhrase(ctx, {
     lines: beat.lines, w: W, h: H, p: at.p, palette, size: fitted,
@@ -3971,7 +4022,7 @@ function transition(ctx, scene, local) {
  */
 function sheen(ctx, t, dark) {
   if (CONTENT_ONLY) return;
-  const period = 7.5;
+  const period = houseSeconds('sheen');
   const p = (t % period) / period;
   const x = lerp(-W * 0.4, W * 1.4, p);
   const g = ctx.createLinearGradient(x - W * 0.35, 0, x + W * 0.35, 0);
@@ -4010,14 +4061,25 @@ function render(t) {
     // shot is already gone by the time it is painted.
     const index = Math.max(0, scene.lines.reduce((n, l) => (l.start <= t ? n + 1 : n), 0) - 1);
     const cards = cardLinesFor(scene);
-    const kind = (STAGED_TRANSITIONS[scene.kind] || {})[index] || 'cut';
+    // By scene ID, not by scene kind. The table is keyed `open` and `define`,
+    // which are ids; the kinds are `title` and `statement`. Looking this up by
+    // kind meant every entry missed and every cut fell through to 'cut', so the
+    // film shipped with five transition devices defined and none of them drawn -
+    // and the card's own entrance crossfade at the top of a beat read enough like
+    // a dissolve that it passed for one. A silent fallback is how that survives
+    // review; see the plan check below.
+    const kind = (STAGED_TRANSITIONS[scene.id] || {})[index] || 'cut';
     const cutAt = index === 0 ? scene.start : (scene.lines[index] || {}).start;
-    const tp = span(t, cutAt, cutAt + 0.42);
+    // A defocus needs longer than a mask: softness reads slower than an edge.
+    // Written as two calls rather than a ternary so the timing table can be read
+    // statically: a check that every entry is used has to be able to see it.
+    const cutSeconds = kind === 'focus' ? houseSeconds('focus') : houseSeconds('transition');
+    const tp = span(t, cutAt, cutAt + cutSeconds);
 
-    const paint = (target, at, lineIndex, withCard) => {
+    const paint = (target, at, lineIndex, withCard, hold = false) => {
       target.setTransform(SCALE, 0, 0, SCALE, 0, 0);
       target.clearRect(0, 0, W, H);
-      drawWordScene(target, { scene, t: at, local: at - scene.start, palette });
+      drawWordScene(target, { scene, t: at, local: at - scene.start, palette, hold });
       if (CONTENT_ONLY) return;
       secondUnit(target, {
         scene, t: at, local: at - scene.start, h: H, rail: false, palette: LOOK,
@@ -4026,8 +4088,15 @@ function render(t) {
     };
 
     if (tp < 1 && kind !== 'cut' && index > 0) {
-      // The shot that is leaving: the frame just before the cut.
-      paint(ctxA, cutAt - 0.02, index - 1, cards ? cards.has(index - 1) : false);
+      // The shot that is leaving.
+      //
+      // Not "one frame before the cut": a beat hands over 0.04 s before the next
+      // one starts, so at cutAt - 0.02 the previous beat has already withdrawn
+      // and this painted a bare field. Every card-to-words handover therefore
+      // composited an empty outgoing frame - the iris and the defocus were both
+      // revealing nothing but the background, which is why that cut read as a
+      // plain fade. This is one frame inside the beat that is still on screen.
+      paint(ctxA, cutAt - 0.05, index - 1, cards ? cards.has(index - 1) : false, true);
       paint(ctxB, t, index, cards ? cards.has(index) : false);
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -4046,7 +4115,11 @@ function render(t) {
       }
     } else {
       ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
-      drawWordScene(ctx, { scene, t, local, palette });
+      // Does the beat being drawn get taken away by a transition, or by its own
+      // fade? Only the film knows, because the plan is here.
+      const plan = STAGED_TRANSITIONS[scene.id] || {};
+      const held = (plan[index + 1] || 'cut') !== 'cut';
+      drawWordScene(ctx, { scene, t, local, palette, hold: held });
       if (!CONTENT_ONLY) {
         secondUnit(ctx, {
           scene, t, local, h: H, rail: false, palette: LOOK,

@@ -26,6 +26,7 @@
  */
 import { UI, clamp, span, ease, text, roundRect, cursor, clickRing } from './ui.mjs';
 import { buildView, CARD } from './buildview.mjs';
+import { seconds as houseSeconds } from './timings.mjs';
 
 // Design units. The canvas is 3840x2160 and everything is drawn in those units.
 const RAIL = { x: 2560, y: 130, w: 1240, h: 400 };
@@ -127,7 +128,7 @@ function purposefulPointer(ctx, { lineLocal, from, to }) {
   const alpha = clamp(travel * 3) * (1 - span(lineLocal, 1.6, 1.9));
   if (alpha <= 0) return;
   if (lineLocal >= press && lineLocal <= press + 0.5) {
-    clickRing(ctx, to.x, to.y, span(lineLocal, press, press + 0.5), {
+    clickRing(ctx, to.x, to.y, span(lineLocal, press, press + houseSeconds('ripple')), {
       colour: UI.green, radius: 110,
     });
   }

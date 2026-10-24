@@ -30,6 +30,7 @@
  * Design units: the canvas is 3840x2160 and the caller has already scaled it.
  */
 import { UI, clamp, span, ease, text, measure, roundRect } from './ui.mjs';
+import { seconds as houseSeconds } from './timings.mjs';
 
 /** The card, centred. 73 % of the width, which at a 1080p delivery is 1400 px. */
 export const CARD = { x: 520, y: 300, w: 2800, h: 1520 };
@@ -452,6 +453,26 @@ function drawLate(ctx, { stage, lineLocal, L }) {
       text(ctx, step.commit, b.x + 78, y2 + 62, {
         size: T.small, weight: 600, family: 'Inter', color: '#186B3C', maxWidth: w2 - 100,
       });
+      // One pass of light along the plate as it lands.
+      //
+      // This is the moment the sentence is about - the agent recording the work -
+      // and a plate that arrives and then stops is the only event in a five-second
+      // beat. The sweep is inside the pill's own clip, so it cannot spill onto the
+      // card, and it runs once: a second pass would read as a loading animation.
+      const sheenP = span(lineLocal, step.at + 0.45, step.at + 0.45 + houseSeconds('sweep'));
+      if (sheenP > 0 && sheenP < 1) {
+        ctx.save();
+        roundRect(ctx, b.x, y2, w2, 96, 48);
+        ctx.clip();
+        const sx = b.x - 180 + (w2 + 360) * ease.inOutCubic(sheenP);
+        const sheen = ctx.createLinearGradient(sx - 150, 0, sx + 150, 0);
+        sheen.addColorStop(0, 'rgba(24,107,60,0)');
+        sheen.addColorStop(0.5, 'rgba(24,107,60,0.20)');
+        sheen.addColorStop(1, 'rgba(24,107,60,0)');
+        ctx.fillStyle = sheen;
+        ctx.fillRect(b.x, y2, w2, 96);
+        ctx.restore();
+      }
       ctx.restore();
     }
 

@@ -51,6 +51,31 @@ Named so nobody proposes them again as though they were free:
 - **Its recorder.** Playwright and four browsers to solve a browser problem we
   do not have.
 
+## What was adopted, and what it exposed
+
+Four things came across, each reimplemented here rather than copied - the ideas
+are general, the code is ours, and the licence question never arises:
+
+| Taken | What it changed | What it exposed |
+|---|---|---|
+| `DEFAULT_DUR` | `motion/timings.mjs`: one table of durations with the 700 ms arrival ceiling enforced by a test | nothing - it is new |
+| `blurin` | a sixth transition, `focus`: the outgoing shot defocuses away instead of being masked | the transition table was keyed by scene id but read by scene kind, so **no transition had ever been drawn** |
+| `chars` | per-letter arrival inside each word, opaque, revealed by its own mask | a letter that fades across its travel makes a ten-letter word look like a grey gradient |
+| `sweep` | one pass of light along the commit plate as it lands | - |
+
+Two further faults surfaced only because the transitions started running for the
+first time. `reveal()` composited device-sized canvases while the caller's
+context still carried the design scale, so the outgoing shot was drawn at a
+quarter size in the corner; and the wipe masked the outgoing picture instead of
+revealing the incoming one, so it ended on the old shot and then snapped. Neither
+had ever been visible, because the branch that calls them was unreachable.
+
+The lesson worth keeping is the one about silent fallbacks:
+``(STAGED_TRANSITIONS[scene.kind] || {})[index] || 'cut'`` is three fallbacks deep
+and produced a film with no transitions in it while looking like a film with
+transitions configured. The plan is now validated at load - a key that names no
+scene is an error.
+
 ## The one practice worth taking immediately
 
 The lab renders **every frame twice, in two different browsers, and compares

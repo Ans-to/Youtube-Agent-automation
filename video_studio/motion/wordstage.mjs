@@ -188,12 +188,46 @@ export function drawPhrase(ctx, {
       const ww = measure(ctx, word, { size, weight, family: 'Space Grotesk' });
       if (wp > 0) {
         ctx.save();
-        ctx.globalAlpha = ctx.globalAlpha * ease.outCubic(wp) * (1 - exit);
+        // The word rises as a group, but each letter rises *within* it on its own
+        // short stagger, which is the difference between type arriving and a
+        // label appearing. Taken from the character-choreography primitive in
+        // howardc38/motion-fx-lab, slowed down: their letters overshoot and the
+        // owner has rejected bounce twice, so these decelerate into place and
+        // stop.
+        //
+        // The letters are laid out individually, which would normally change the
+        // word's width - per-glyph widths sum to less than the kerned word. The
+        // difference is measured and spread evenly between the letters, so the
+        // word occupies exactly the same box it did when it was drawn in one
+        // call and no phrase's line breaks move.
         ctx.beginPath();
         ctx.rect(x - 8, first + i * step - size * 1.05, ww + 16, size * 1.35);
         ctx.clip();
-        text(ctx, word, x, first + i * step + (1 - ease.outCubic(wp)) * size * 0.5, {
-          size, weight, family: 'Space Grotesk', color: colour,
+        ctx.globalAlpha = ctx.globalAlpha * (1 - exit);
+        const chars = [...word];
+        const widths = chars.map((c) => measure(ctx, c, { size, weight, family: 'Space Grotesk' }));
+        const glyphs = widths.reduce((a, c) => a + c, 0);
+        const kern = chars.length > 1 ? (ww - glyphs) / (chars.length - 1) : 0;
+        const stagger = chars.length > 1 ? 0.32 / (chars.length - 1) : 0;
+        let lx = x;
+        chars.forEach((c, k) => {
+          const lp = clamp((wp - k * stagger) / (1 - 0.32));
+          if (lp > 0) {
+            const up = (1 - ease.outCubic(lp)) * size * 0.45;
+            ctx.save();
+            // No alpha ramp at all: the letter is opaque and the mask does the
+            // revealing as it rises past the edge. Any fade at letter level turns
+            // a ten-letter word into a grey gradient sweeping across the type -
+            // measured at 0:25, "IN" was black while "ON," was still invisible in
+            // the same frame, which reads as a printing fault rather than as type
+            // arriving.
+            
+            text(ctx, c, lx, first + i * step + up, {
+              size, weight, family: 'Space Grotesk', color: colour,
+            });
+            ctx.restore();
+          }
+          lx += widths[k] + kern;
         });
         ctx.restore();
       }
