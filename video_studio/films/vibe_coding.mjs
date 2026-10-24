@@ -580,7 +580,10 @@ function drawTitle(ctx, scene, t, local) {
     if (p <= 0) return;
     const e = ease.outExpo(p);
     ctx.save();
-    ctx.globalAlpha = clamp(p * 3.2) * (1 - lift * 0.5) * (1 - gone);
+    // Fully out, not half-lit: at 50% the title printed behind the phrase
+    // slabs that arrive next, so "BY DESCRIBING IT" was legible through
+    // "PLAIN ENGLISH" for the whole of that beat.
+    ctx.globalAlpha = clamp(p * 3.2) * (1 - lift) * (1 - gone);
     ctx.translate(0, (1 - e) * slamTravel - compact * 220 - lift * 200 - gone * 340);
     text(ctx, entry.text, entry.x, (i === 0 ? 960 : 1150), {
       size: 230, weight: 700, family: 'Space Grotesk',
@@ -602,17 +605,30 @@ function drawTitle(ctx, scene, t, local) {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
     }
-    // the slash leaves by travelling out of frame, not by fading: a fade
-    // moves almost nothing measurable, a 46-pixel bar crossing the picture
-    // moves half of it
-    ctx.save();
-    ctx.translate(slashOff * 900, slashOff * 420);
-    slash(ctx, {
-      x: W / 2, y: H / 2 + 40, length: W * 0.95, angle: -0.06,
-      progress: span(local, hitAt, slashEnd), width: 46, colour: UI.red,
-    });
-    ctx.restore();
-    shards(ctx, { x: W / 2, y: H / 2, progress: span(local, hitAt, hitAt + 0.9), count: 14, radius: 900, colour: UI.gold });
+    // An underline, not a slash. `slash()` draws a curved stroke across the
+    // middle of the frame, and here the middle of the frame is the title: the
+    // owner's first two notes on this cut were "text is overlapping" and "what is
+    // that red arc in the first three seconds", and they were the same object - a
+    // 46-unit red arc cutting through both lines of type.
+    //
+    // A rule that draws on beneath the second line does the same job (a hard
+    // accent on the beat, in the film's red) without ever crossing a word, and it
+    // still moves: it grows from 0 to full width in half a second, then swipes out
+    // to the left, which is a block of mass travelling.
+    {
+      const entry = lineEntries[1];
+      const yLine = 1150 - compact * 220 - lift * 200 - gone * 340;
+      const grow = ease.outQuint(clamp(span(local, hitAt, hitAt + 0.5)));
+      const width = entry.w * grow;
+      const left = entry.x + (entry.w - width) / 2 - slashOff * 900;
+      if (width > 2) {
+        rule(ctx, left, yLine + 46 + slashOff * 420, width, {
+          progress: 1, colour: UI.red, thickness: 26, alpha: 1 - slashOff,
+        });
+      }
+    }
+    // A burst of shards reads as debris over the type; the underline is the hit.
+    void shards;
   }
 
   // The card's own closing line performs itself: three phrases swapping places
@@ -870,8 +886,16 @@ function drawTitle(ctx, scene, t, local) {
     });
     ctx.fillStyle = UI.red;
     ctx.fillRect(x, y, 22, slabH);
+    // Fit the label to the slab instead of trusting it to fit. The tick plate
+    // takes the last 270 units, and "A PULL REQUEST" at 64 px ran underneath it:
+    // seen on a still of 0:24, the plate sat on the final T.
+    const room = slabW - 64 - 300;
+    let labelSize = 64;
+    while (labelSize > 34 && measure(ctx, label, { size: labelSize, weight: 700 }) > room) {
+      labelSize -= 2;
+    }
     text(ctx, label, x + 64, y + 148, {
-      size: 64, weight: 700, color: UI.ink, tracking: 2,
+      size: labelSize, weight: 700, color: UI.ink, tracking: 2,
     });
 
     if (plate > 0) {
