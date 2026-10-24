@@ -113,6 +113,65 @@ in the window.** Whatever the window is for, it currently ranks below the captio
 5. **Dwell follows the words.** A stage's hold is `max(1 s, characters/13)`, capped by
    the line, so short lines do not get furniture and long lines do not get flicker.
 
-Items 1–5 are a rewrite of `buildview.mjs` and the two call sites in
-`second_unit.mjs`. They do not touch the rest of the film. After approval I would do
-chunk 0–30 s first, gate it, show it, and only then re-fit the later scenes.
+Items 1–5 were a rewrite of `buildview.mjs` and the two call sites in
+`second_unit.mjs`. Chunk 0–30 s was rebuilt against them and passed the gate.
+
+---
+
+# Part 2 — the reference film the owner supplied
+
+`UI Demo Animation, Product Promo` (36 s, 960x540, 30 fps). Watched frame by
+frame; beat sheet at `docs/media/reference-beats.jpg`, scale comparison at
+`docs/media/ui-scale-compare.jpg`.
+
+## What it does
+
+| Seconds | What is on screen | How it moves |
+|---|---|---|
+| 0–2 | `UI Demo` on a soft blue-white field | type scales up from blurred, settles, holds |
+| 2–5 | `Process Visual`, `Visual Layout` | words swap in place, blurred in, sharp, blurred out |
+| 5–7 | `Smart Workflow` | an ellipse draws itself around `Workflow` |
+| 7–8.5 | `Clean` then `Clean ready interface` | one word at 25 % of frame height, then a sentence |
+| 8.5–11 | `Stage 1` filling the frame, then small above the line | scale from 300 % to 7 % - a size jump, not a fade |
+| 11–13.5 | **a chat card**: "How can i help?", one field, one round send button, a big pointer | card rises 2.5 %; letters type; pointer travels, presses, button depresses |
+| 13.5–17.5 | `Stage 2`, then `Select Options` with the ellipse again | same word machine |
+| 17.5–19.5 | **a preferences card**: title, subtitle, three rows, blue glyph buttons, green outline on the row just pressed, Continue / Cancel | card scales 6 % and drifts; pointer presses rows in order |
+| 19.5–21 | `Analyzing` → `Analyzing input` | word swap |
+| 21–22 | `UI Ready` | word swap |
+| 22–26.5 | `Stage 3`, `Final`, `Final Output`, then **a message card** whose field fills with typed text | type writes itself into the card |
+| 26.5–30 | a progress bar filling on a curve, `87/100` → `100/100` | bar fills, number counts |
+| 30–31.5 | `Done` with a tick drawn inside a circle | stroke-on tick |
+| 31.5–36 | `UI Demo` title card | holds |
+
+## The numbers, measured off its own frames
+
+- **The card is 82 % of frame width** (787 of 960 px), with a 90 px shadow and a
+  44 px corner radius, on a background that recedes to a soft wash.
+- **Row text is 58 px on a 540 px frame** = 116 px at 1080p. Card title 33 px
+  cap height = 66 px at 1080p. Subtitle 24 px = 48 px.
+- **Three rows visible**, one outlined green after the press.
+- **Type-only beats go to 25–50 % of frame height** (`Clean` at 5.9 s is 141 px
+  cap on a 540 px frame). A title card is a *size event*, not a layout.
+- **The pointer is 42 px on a 540 px frame** = 84 px at 1080p, about 4.5 % of
+  frame width - five times the size a real cursor would be.
+- **Every beat lasts 1.5–3 s**, and the card is on screen for 2–4 s at a time.
+- **Nothing runs on a clock.** Each state change is caused by the pointer's press
+  on the frame before it, or by a word being finished.
+- Cut structure alternates **type card → UI card → type card**, never two of the
+  same in a row.
+
+## What that changed in ours
+
+| Rule | Before | Now |
+|---|---|---|
+| Card width | sidebar, 540 px of 1920 (28 %) | 1400 px of 1920 (73 %) |
+| Row text at 1080p | 23 px | 58 px |
+| Card title at 1080p | 29 px | 66 px |
+| Chrome | address bar, status strip, command pill, added/changed column | three dots and the address, nothing else |
+| Change | stages swapped on a line boundary | rows arrive, text types, list filters, ring lands - each caused by the press before it |
+| Pointer | 1.1× and only where a field existed | 2.2× on every card beat, travel → hover → press → ring |
+| Rhythm | the card was always on screen | the card takes the frame on the lines about the product and is absent on the others, so type and UI alternate as in the reference |
+
+The sidebar is gone, which also removes the reason scenes were narrowed to a
+2656-wide column: they own the frame again, and no scene can collide with the
+card because the two never share a frame.

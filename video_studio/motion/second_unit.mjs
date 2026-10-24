@@ -25,7 +25,7 @@
  * left.
  */
 import { UI, clamp, span, ease, text, roundRect, cursor, clickRing } from './ui.mjs';
-import { buildView, WINDOW } from './buildview.mjs';
+import { buildView, CARD } from './buildview.mjs';
 
 // Design units. The canvas is 3840x2160 and everything is drawn in those units.
 const RAIL = { x: 2560, y: 130, w: 1240, h: 400 };
@@ -116,45 +116,67 @@ export function stepRail(ctx, { scene, t }) {
  */
 function purposefulPointer(ctx, { lineLocal, from, to }) {
   if (!to) return;
-  const travel = span(lineLocal, 0.0, 0.5);
-  const press = 0.5;
-  const inWindow = lineLocal >= -0.05 && lineLocal <= 1.7;
-  if (!inWindow) return;
+  // Slower than the old sidebar pointer: on a card this size the eye has to
+  // follow the travel, so it gets 0.55 s and a visible hover before the press.
+  const travel = span(lineLocal, 0.05, 0.6);
+  const press = 0.6;
+  if (lineLocal > 1.9) return;
   const e = ease.inOutCubic(travel);
   const x = from.x + (to.x - from.x) * e;
   const y = from.y + (to.y - from.y) * e;
-  const alpha = clamp(travel * 3) * (1 - span(lineLocal, 1.35, 1.65));
+  const alpha = clamp(travel * 3) * (1 - span(lineLocal, 1.6, 1.9));
   if (alpha <= 0) return;
   if (lineLocal >= press && lineLocal <= press + 0.5) {
     clickRing(ctx, to.x, to.y, span(lineLocal, press, press + 0.5), {
-      colour: UI.gold, radius: 80,
+      colour: UI.green, radius: 110,
     });
   }
+  // 2x the old size. The reference's pointer is about 4.5 % of frame width,
+  // which on this canvas is 170 design units - it is a character, not a speck.
   cursor(ctx, x, y, {
     alpha,
     press: clamp(1 - Math.abs(lineLocal - press) / 0.12),
-    scale: 1.1,
+    scale: 2.2,
   });
 }
 
-/** The rail and the build window, for the layer between the scene and the bands. */
+/**
+ * The rail, and the product card when the line calls for it.
+ *
+ * The card is a shot, not furniture: on the lines that are *about* the product
+ * it covers the frame (scene and rail included) and back again. On every other
+ * line the frame belongs to the scene and to the rail. That is the difference
+ * the reference film made plain - a UI demo shows the interface when it is the
+ * subject, and shows type when the type is the subject. It never parks the
+ * product in a corner and animates it at 23 px.
+ */
 export function secondUnit(ctx, { scene, t, local, pointer = true, h = 2160 }) {
   const lineIndex = scene.lines.reduce((count, line) => (line.start <= t ? count + 1 : count), 0) - 1;
   const current = scene.lines[Math.max(0, lineIndex)];
   const lineLocal = current ? t - current.start : 0;
-  const view = buildView(ctx, { kind: scene.kind, lineIndex: Math.max(0, lineIndex), lineLocal, t, h });
-  stepRail(ctx, { scene, t });
-  if (pointer) {
-    // The pointer clicks the search field on the line where a query is being
-    // typed, so the click is what causes the filtering the viewer then watches.
-    const typing = view.stage.app && view.stage.search && view.stage.query;
-    purposefulPointer(ctx, {
-      lineLocal,
-      from: { x: WINDOW.x + WINDOW.w - 130, y: WINDOW.y + WINDOW.h - 140 },
-      to: typing && view.search
-        ? { x: view.search.x + view.search.w * 0.5, y: view.search.y + view.search.h * 0.55 }
-        : null,
-    });
+  const index = Math.max(0, lineIndex);
+  const view = buildView(ctx, { kind: scene.kind, lineIndex: index, lineLocal, t, h });
+
+  if (view) {
+    // Card beat: the rail would be half-covered by the card, so it stands down
+    // and the card carries the beat on its own - rows arriving, typing, pointer.
+    if (pointer) {
+      const target = view.focus ?? view.search;
+      purposefulPointer(ctx, {
+        lineLocal,
+        from: { x: CARD.x + CARD.w - 300, y: CARD.y + CARD.h - 120 },
+        // A row is pressed at three-quarters across, so the pointer never sits on
+        // the word it is pressing; the search field is pressed at its centre.
+        to: target
+          ? view.focus
+            ? { x: target.x + target.w * 0.72, y: target.y + target.h * 0.55 }
+            : { x: target.x + target.w * 0.5, y: target.y + target.h * 0.55 }
+          : null,
+      });
+    }
+    return;
   }
+
+  stepRail(ctx, { scene, t });
   void local;
 }

@@ -101,12 +101,15 @@ const OPTS = parseArgs(process.argv.slice(2));
 const FPS = OPTS.fps;
 const W = DESIGN_W;
 const H = DESIGN_H;
-// The right column belongs to the build window (see motion/buildview.mjs): a
-// browser window at x 2700..3780 showing the product being made. Scene content
-// is centred in what is left, 0..2656, so a title card or a slab stack can never
-// run under it. Measured on a still of 0:13, the title slabs ended at 3225 and
-// the window covered their right edge.
-const CONTENT_W = 2656;
+// Scenes own the whole frame again.
+//
+// For one round these were narrowed to 2656 so nothing ran under the sidebar
+// window. That window is gone: the product card (motion/buildview.mjs) now takes
+// the entire frame on the lines that are about the product, and is absent on the
+// lines that are not. It never shares the picture, so nothing needs to keep out
+// of its way. The names stay because every call site uses them, and one place to
+// decide where content sits is worth more than four inline W / 2s.
+const CONTENT_W = 3840;
 const CONTENT_MID = CONTENT_W / 2;
 
 const canvas = createCanvas(OPTS.width, OPTS.height);
@@ -741,7 +744,7 @@ function drawTitle(ctx, scene, t, local) {
   // the live column on the right - and the still at 0:12 showed the gold slab
   // sitting under the ticker list. Every full-width element has to be measured
   // with that scale already applied.
-  const keyW = 2100;
+  const keyW = 2460;
   const keyH = 260;
   // the phrases leave as the name stamps: the frame must never keep an old
   // composition and add a new one on top of it
@@ -783,9 +786,9 @@ function drawTitle(ctx, scene, t, local) {
     // slab arrives, so the slab lands and the sentence writes itself inside it.
     kineticWords(ctx, {
       text: phrase.text,
-      // Centred on the slab, not on the frame: with the build window owning the
-      // right column, frame centre sits past the slab's right edge and the type
-      // hung out of its own panel on a still of 0:13.
+      // Centred on the slab, not on the frame: the slab stack is centred on the
+      // frame and the type has to be centred on the slab, or a phrase longer than
+      // the panel hangs out of its own edge.
       x: CONTENT_MID,
       y: y + keyH / 2 + phrase.size * 0.35,
       size: phrase.size, weight: 700, family: 'Space Grotesk',
@@ -936,7 +939,7 @@ function drawTitle(ctx, scene, t, local) {
   const slabH = 230;
   const slabY = 1400;
   const slabLeft = 460;
-  const slabRight = 2600;
+  const slabRight = 3080;
   const slabX0 = slabLeft + (slabRight - slabLeft - (promises.length * (slabW + 80) - 80)) / 2;
   const sIn = (i) => b3 + 0.45 + i * 0.9;
   const tickSpan = Math.max(0.6, e3 - 0.25 - (b3 + 3.0));
@@ -1065,10 +1068,8 @@ function drawStatement(ctx, scene, t, local) {
         const p = span(local, at, at + 0.55);
         if (p <= 0) return;
         const ex = ease.outBack(clamp(p * 1.2));
-        // Narrowed from 1050 to keep the third panel clear of the build window
-        // at x 2700: the card read as cut in half on a still of 0:34.
-        const w = 760;
-        const x = 260 + i * (w + 40);
+        const w = 1050;
+        const x = 260 + i * (w + 100);
         ctx.save();
         ctx.globalAlpha = clamp(p * 1.8) * (1 - out);
         ctx.translate((1 - ex) * 90 - out * 160, 0);
