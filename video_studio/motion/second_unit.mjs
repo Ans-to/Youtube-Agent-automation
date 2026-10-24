@@ -20,7 +20,7 @@
  * which is exactly what the check asks for. Neither overlaps a scene's title,
  * which is set from the left.
  */
-import { UI, clamp, span, ease, text, panel, roundRect } from './ui.mjs';
+import { UI, clamp, span, ease, text, panel, roundRect, cursor, clickRing } from './ui.mjs';
 
 // Design units. The canvas is 3840x2160 and everything is drawn in those units.
 const RAIL = { x: 2560, y: 130, w: 1240, h: 400 };
@@ -65,6 +65,57 @@ const SNIPPETS = {
   habits: ['branch per change', 'merge only green', 'readme as you go'],
   recap: ['repo. prompt. diff.', 'checks. merge. repeat.', 'smaller next time.'],
   outro: ['build it by', 'describing it.', 'no course. no key.'],
+};
+
+/** What a command answers when it is clicked. Short: it has to fit the card. */
+const OUTPUTS = {
+  'git init': 'empty repo created',
+  'git add .': '3 files staged',
+  'git commit -m "first"': 'commit 9f2c1a7',
+  'git remote add origin': 'origin set',
+  'git push -u origin main': 'pushed to main',
+  'gh repo view': 'repo opened',
+  'arena connect github': 'one repo connected',
+  'read: files, history': '12 files read',
+  'prompt ->': 'prompt accepted',
+  'plan -> branch ->': 'branch created',
+  'diff -> checks -> merge': 'ready to merge',
+  'build a book list': 'one page built',
+  'read books.json': 'list loaded',
+  'no framework. no build.': '40 lines added',
+  'plan the change': 'plan ready',
+  'edit the branch': '3 files changed',
+  'run the checks': 'checks green',
+  '+ const search = el("input")': 'line added',
+  '+ on("input", filter)': 'handler bound',
+  '- // old list': 'line removed',
+  'npm test  ... ok': 'all tests pass',
+  'lint      ... ok': 'no lint errors',
+  'build     ... ok': 'built in 1.2s',
+  'gh pr merge --squash': 'merged to main',
+  'git push origin main': 'main updated',
+  'pages: deploying': 'pages live',
+  'add a search box': 'feature shipped',
+  'filter on input': 'filters as you type',
+  'one file. 40 lines.': 'one file changed',
+  'gh pr revert 12': 'change reverted',
+  'git log --oneline': 'history restored',
+  'git checkout -- .': 'working tree clean',
+  'name the outcome': 'outcome named',
+  'state the constraint': 'constraint stated',
+  'paste the error': 'error pasted',
+  'secrets: settings': 'key set in settings',
+  'never in the repo': 'repo stays clean',
+  'rotate the key': 'key rotated',
+  'branch per change': 'branch open',
+  'merge only green': 'merge blocked until green',
+  'readme as you go': 'readme updated',
+  'repo. prompt. diff.': 'loop complete',
+  'checks. merge. repeat.': 'shipped',
+  'smaller next time.': 'scope cut',
+  'build it by': 'repo created',
+  'describing it.': 'page live',
+  'no course. no key.': 'nothing to buy',
 };
 
 /** The step name the rail shows, per kind of scene. */
@@ -150,15 +201,25 @@ export function stepRail(ctx, { scene, t }) {
  * character appearing at a cursor. The cursor is a solid block for the same
  * reason.
  */
-export function liveConsole(ctx, { scene, t, local }) {
+export function liveConsole(ctx, { scene, t, local, h = 2160 }) {
   const snippet = SNIPPETS[scene.kind] ?? SNIPPETS.title;
-  const beat = beatOf(t);
-  const phase = ease.outCubic(beatPhase(t));
 
   const box = { ...CONSOLE, ...(CONSOLE_AT[scene.kind] ?? {}) };
   const rows = box.rows ?? 4;
   const rowH = box.rowH ?? 120;
   const size = box.size ?? 52;
+  const header = box.compact ? 60 : 150;
+  const plan = interactionPlan({ local, box, rows, rowH, header, beatOf, snippet });
+  const open = plan.filter((action) => local >= action.at && local <= action.at + INTERACT.hold).pop();
+  // The feed pauses for a moment while its answer is open, then resumes where it
+  // stopped. Without the pause the command that was clicked scrolls out from
+  // under the pointer and the card ends up answering a row that is no longer
+  // there - seen on a still of 0:18, where the card said "git init" while the
+  // pointer sat on "git add .".
+  const paused = open ? Math.min(Math.max(0, local - open.at), 0.9) : 0;
+  const tRows = t - paused;
+  const beat = beatOf(tRows);
+  const phase = ease.outCubic(beatPhase(tRows));
   roundRect(ctx, box.x, box.y, box.w, box.h, 18);
   ctx.fillStyle = '#101014';
   ctx.fill();
@@ -167,7 +228,6 @@ export function liveConsole(ctx, { scene, t, local }) {
   ctx.stroke();
 
   // A narrow ticker has no room for a window bar; a wide console does.
-  const header = box.compact ? 60 : 150;
   if (!box.compact) {
     ['#FF5F57', '#FEBC2E', '#28C840'].forEach((colour, i) => {
       ctx.beginPath();
@@ -211,43 +271,175 @@ export function liveConsole(ctx, { scene, t, local }) {
     ctx.fillStyle = UI.gold;
     ctx.fillRect(box.x + 20, top + rows * rowH + 10, box.w - 40, 34);
   }
+
+  // What the pointer just clicked, and what came back.
+  //
+  // This is the "opens something" half of the interaction. It is a real result
+  // for the exact command under the pointer, not a decorative panel: the console
+  // is the only place in the frame where a command and its output belong
+  // together, and putting the answer under the panel keeps it inside the live
+  // column, where nothing else is drawn.
+  if (open) {
+    const grow = ease.outCubic(span(local, open.at, open.at + 0.28));
+    const fade = 1 - span(local, open.at + INTERACT.hold - 0.3, open.at + INTERACT.hold);
+    // Below the panel - unless the panel already reaches the caption band, in
+    // which case the card opens above it. A card that runs under the subtitles
+    // is the same overlap fault as two lines of type in one place.
+    const below = box.y + box.h + 26;
+    const cardY = below + 168 > h * 0.855 ? box.y - 26 - 168 : below;
+    const card = {
+      x: box.x,
+      y: cardY,
+      w: box.w,
+      h: 168 * grow,
+    };
+    ctx.save();
+    ctx.globalAlpha = ctx.globalAlpha * clamp(grow * 1.4) * fade;
+    panel(ctx, { x: card.x, y: card.y, w: card.w, h: card.h, r: 14, fill: '#101014', stroke: UI.gold });
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(card.x, card.y, 12, card.h);
+    if (grow > 0.55) {
+      // The command leads and its answer follows. The list keeps scrolling after
+      // the press, so the card has to say which command it is answering - a card
+      // that only says "3 files staged" is a fact with no subject.
+      text(ctx, 'OUTPUT', card.x + 34, card.y + 40, {
+        size: 24, weight: 700, color: UI.faint, tracking: 4,
+      });
+      text(ctx, '> ' + open.value, card.x + 34, card.y + 86, {
+        size: 30, weight: 700, color: UI.gold, maxWidth: card.w - 68,
+      });
+      text(ctx, open.result ?? 'done', card.x + 34, card.y + 136, {
+        size: 34, weight: 600, color: UI.white, maxWidth: card.w - 68,
+      });
+    }
+    ctx.restore();
+
+    // The row under the pointer takes a gold outline while it is being used.
+    const ring = span(local, open.at, open.at + 0.45);
+    if (ring < 1) {
+      const rowY = top + (rows - 1) * rowH + (1 - phase) * rowH;
+      ctx.save();
+      ctx.globalAlpha = ctx.globalAlpha * (1 - ring);
+      // White, not gold: the row the pointer presses is already the gold one, so
+      // a gold outline around it would be invisible.
+      ctx.strokeStyle = UI.white;
+      ctx.lineWidth = 5;
+      roundRect(ctx, box.x + 14, rowY - rowH * 0.66, box.w - 28, rowH * 0.86, 10);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  return { box, rows, rowH, header, plan };
 }
 
 /**
- * A pointer that crosses the frame once per spoken line, so a third cell is
- * alive in scenes that would otherwise hold still in the middle of the frame.
+ * A pointer with a job: it goes to a command, clicks it, and the output opens.
  *
- * It is drawn inside the picture rather than in the furniture, and it never
- * presses anything: a press would promise an interaction the scene is not
- * making. This one simply travels, the way a producer's finger runs across a
- * board.
+ * The previous version was a shape travelling the frame on a sine, never
+ * touching anything. The owner's note was exact: "cursur is just moving rendomly
+ * give him a perpose like clicking on anything and that opens something". A
+ * pointer that presses nothing is the most amateur object you can put on screen,
+ * because every viewer knows what a pointer is for.
+ *
+ * So it is scripted, not roamed. Every few seconds it travels along an eased path
+ * to the newest line in the console, presses it, and the console answers: the
+ * row under the pointer takes a gold outline, a click ring opens at the press,
+ * and an output card folds open beneath the panel with the result of that exact
+ * command. Then the pointer withdraws and waits for the next one.
+ *
+ * The schedule is fixed rather than random, so the film renders the same way
+ * twice, and every action has a target that exists on that frame.
  */
-export function roamingPointer(ctx, { scene, t, seed = 0 }) {
-  const travel = span(t * 0.55 + seed, 0, 1);
-  const phase = (t * 0.55 + seed) % 2;
-  const across = phase < 1 ? phase : 2 - phase;
-  const x = 900 + across * 2100;
-  const y = 1180 + Math.sin((t * 0.55 + seed) * Math.PI) * 420;
-  const alpha = 0.5 * Math.sin(Math.PI * clamp(travel)) + 0.12;
-  ctx.save();
-  ctx.globalAlpha = clamp(alpha);
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + 38, y + 96);
-  ctx.lineTo(x + 58, y + 52);
-  ctx.lineTo(x + 104, y + 44);
-  ctx.closePath();
-  ctx.fillStyle = UI.ink;
-  ctx.fill();
-  ctx.strokeStyle = UI.white;
-  ctx.lineWidth = 4;
-  ctx.stroke();
-  ctx.restore();
+const INTERACT = {
+  first: 3.0,     // first click, in scene-local seconds
+  every: 5.2,     // and then one every five seconds or so
+  travel: 0.55,   // how long the pointer takes to reach the target
+  press: 0.12,    // how long the button is held down
+  ring: 0.5,      // how long the click ring stays open
+  hold: 2.6,      // how long the opened output stays on screen
+};
+
+/** Where the pointer rests between jobs: inside the panel's lower edge. */
+function pointerRest(box) {
+  return { x: box.x + box.w - 120, y: box.y + box.h - 60 };
+}
+
+/** Where it clicks: the row slot that new commands scroll into. */
+function pointerTarget(box, rows, rowH, header) {
+  // On the row's plate, not under it. The plate is drawn from the row's baseline
+  // up by 0.62 of a row, so its centre is about a fifth of a row above the
+  // baseline - measured off a still, where the first attempt clicked the empty
+  // space below the row it meant to press.
+  return { x: box.x + box.w * 0.42, y: box.y + header + (rows - 1) * rowH - rowH * 0.18 };
+}
+
+/**
+ * The schedule of clicks for one scene: when, and which command is under the
+ * pointer when it lands.
+ */
+export function interactionPlan({ local, box, rows, rowH, header, beatOf, snippet }) {
+  const plan = [];
+  for (let k = 0; k < 8; k += 1) {
+    const at = INTERACT.first + k * INTERACT.every;
+    if (at > local + INTERACT.every) break;
+    const index = beatOf(at) + rows - 1;
+    const value = snippet[index % snippet.length];
+    plan.push({ at, index, value, result: OUTPUTS[value] ?? 'saved' });
+  }
+  return plan;
+}
+
+/** Draw the pointer for whichever part of the plan is on screen now. */
+function purposefulPointer(ctx, { local, box, rows, rowH, header, plan }) {
+  const rest = pointerRest(box);
+  const target = pointerTarget(box, rows, rowH, header);
+  let x = rest.x;
+  let y = rest.y;
+  let press = 0;
+  let alpha = 0;
+  let ringAt = null;
+
+  for (const action of plan) {
+    const nearest = action.at - INTERACT.travel;
+    if (local < nearest || local > action.at + INTERACT.ring + 1.1) continue;
+    // One eased move to the target, a held press, then a slower withdrawal.
+    if (local <= action.at) {
+      const e = ease.inOutCubic(span(local, nearest, action.at));
+      x = rest.x + (target.x - rest.x) * e;
+      y = rest.y + (target.y - rest.y) * e;
+      alpha = span(local, nearest, nearest + 0.2);
+      press = span(local, action.at - INTERACT.press, action.at);
+      ringAt = local >= action.at ? action.at : null;
+    } else {
+      const back = ease.inOutCubic(span(local, action.at + 0.55, action.at + 1.15));
+      x = target.x + (rest.x - target.x) * back;
+      y = target.y + (rest.y - target.y) * back;
+      alpha = 1 - span(local, action.at + 0.9, action.at + 1.2);
+      press = 1 - span(local, action.at, action.at + INTERACT.press);
+    }
+    if (local >= action.at && local <= action.at + INTERACT.ring) ringAt = action.at;
+    break;
+  }
+
+  if (alpha <= 0) return;
+  if (ringAt !== null) {
+    clickRing(ctx, target.x, target.y, span(local, ringAt, ringAt + INTERACT.ring), {
+      colour: UI.gold, radius: 96,
+    });
+  }
+  cursor(ctx, x, y, { alpha, press, scale: 1.15 });
 }
 
 /** Both always-on elements, for the layer between the scene and the bands. */
-export function secondUnit(ctx, { scene, t, local, pointer = true }) {
-  if (pointer) roamingPointer(ctx, { scene, t, seed: 0.35 });
+export function secondUnit(ctx, { scene, t, local, pointer = true, h = 2160 }) {
   stepRail(ctx, { scene, t });
-  liveConsole(ctx, { scene, t, local });
+  const unit = liveConsole(ctx, { scene, t, local, h });
+  // The pointer is drawn last: it is the thing on top of the interface, and the
+  // panel it just opened must not cover the hand that opened it.
+  if (pointer) {
+    purposefulPointer(ctx, {
+      local, box: unit.box, rows: unit.rows, rowH: unit.rowH, header: unit.header, plan: unit.plan,
+    });
+  }
 }

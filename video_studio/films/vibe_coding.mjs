@@ -1027,10 +1027,15 @@ function drawStatement(ctx, scene, t, local) {
     ctx.restore();
   });
   {
+    // An underline, not a slab. This used to be a 1200x150 block of solid ink
+    // with nothing on it, which on a still at 0:46 reads as a panel whose content
+    // failed to load - an element the owner cannot identify on sight is a fault,
+    // whatever the code intended. A rule that draws on under the two lines does
+    // the same job as punctuation and cannot be mistaken for anything else.
     const p = ease.outQuint(clamp(span(local, 2.9, 3.65)));
     if (p > 0) {
       ctx.fillStyle = UI.ink;
-      ctx.fillRect(264, 860, 1200 * p, 150);
+      ctx.fillRect(264, 878, 1200 * p, 30);
     }
   }
 
@@ -3697,7 +3702,7 @@ function render(t) {
   //     every cut scored one live region or none.
   // It is a lower-third: it belongs to the film, not to the shot, so a cut
   // happens underneath it.
-  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local });
+  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local, h: H });
 
   // The probe measures the picture, not the furniture: the bands and their
   // caption are drawn for the viewer but excluded from the measurement, because
