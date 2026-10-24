@@ -145,8 +145,8 @@ Measured on the whole film, 640 wide:
 | build | seconds with fewer than two live regions |
 | --- | --- |
 | before the second unit | 42% |
-| after it | 25% |
-| after the chapter card stopped hiding it | work in progress |
+| after it, with the chapter card and the cut fading it out | 25% |
+| now, with the unit drawn above both, and placed clear of each scene | **0% - 625 of 625 seconds pass**, mean 5.2 live regions |
 
 ## Rendering it
 
