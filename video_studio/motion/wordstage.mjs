@@ -23,6 +23,37 @@
  */
 import { clamp, span, ease, text, measure } from './ui.mjs';
 
+/**
+ * The stage's left margin, as a fraction of the frame width.
+ *
+ * The owner's note on the previous pass was that the type was in the wrong
+ * place. It was: every phrase was centred on the frame's midline and scaled
+ * about that midline, so the left edge of the type sat somewhere different on
+ * every phrase and kept moving while the phrase settled. Nothing in the frame
+ * could be used as a reference - the eye had no edge to hold on to, and a
+ * phrase that floats in the exact centre of an empty frame with equal air on
+ * all four sides reads as a title card, not as motion graphics.
+ *
+ * So the stage is gridded. One margin, running the whole film: the beat clock
+ * at the top starts on it, the phrase's left edge never leaves it, and the type
+ * is ragged right. 9.5 percent sits inside the 90 percent title-safe area with
+ * air to spare, and it is the same number in every scene, which is what makes
+ * it read as a design rather than as a coincidence.
+ */
+export const STAGE_MARGIN = 0.095;
+
+/**
+ * How large a phrase is at the instant it lands, relative to its resting size.
+ *
+ * The phrase settles by shrinking - it arrives at this size and comes down
+ * across the beat - so a phrase is only ever this wide for the first second it
+ * is on screen. Which is exactly when type runs off the edge of a frame: the
+ * caller has to fit the phrase at *this* size, not at its resting size, or the
+ * first second of every wide phrase overflows the safe area and then pulls back
+ * in, and the whole block looks like it was placed by accident.
+ */
+export const SETTLE_MAX = 1.35;
+
 export const PALETTES = {
   light: {
     field: ['#F7F9FA', '#E7EEF2', '#DCE6EC'],
@@ -84,7 +115,7 @@ export function drawField(ctx, { w, h, t, palette }) {
  */
 export function drawPhrase(ctx, {
   lines, w, h, p, palette, size, exit = 0, accentLine = -1, ellipse = false, t = 0,
-  hold = 0, reveal = null,
+  hold = 0, reveal = null, left = null,
 }) {
   if (p <= 0) return;
   // 0.4 s to arrive. Longer reads as a dissolve; shorter reads as a cut, and the
@@ -103,7 +134,7 @@ export function drawPhrase(ctx, {
   // beat - and it has to run at a constant speed for the whole beat. Eased, all
   // the travel happens in the first second and the rest of the beat measures as
   // a still frame, which is what the gate kept reporting.
-  const drift = 1.35 - 0.35 * clamp(hold);
+  const drift = SETTLE_MAX - (SETTLE_MAX - 1) * clamp(hold);
   const scale = (0.86 + 0.14 * arrive) * drift;
   const alpha = clamp(p * 3.2) * (1 - exit);
   // Leaving lifts and fades rather than sitting still under the next phrase:
@@ -111,7 +142,12 @@ export function drawPhrase(ctx, {
   const rise = (1 - arrive) * size * 0.06 - exit * size * 0.45;
 
   ctx.save();
-  ctx.translate(w / 2, h / 2);
+  // Gridded: the anchor is the phrase's left edge, so the scale settle grows and
+  // shrinks the phrase away from that edge and the edge itself never moves.
+  // Centred only when no margin is given, which is what the older scenes do.
+  const anchorX = left === null ? w / 2 : left;
+  const anchorY = left === null ? h / 2 : h * 0.46;
+  ctx.translate(anchorX, anchorY);
   ctx.scale(scale, scale);
   ctx.translate(0, rise);
   ctx.globalAlpha = ctx.globalAlpha * alpha;
@@ -137,9 +173,18 @@ export function drawPhrase(ctx, {
     const parts = value.split(/\s+/);
     const width = measure(ctx, value, { size, weight, family: 'Space Grotesk' });
     const space = measure(ctx, ' ', { size, weight, family: 'Space Grotesk' });
-    let x = -width / 2;
+    // Ragged right off the margin, or centred about the anchor.
+    let x = left === null ? -width / 2 : 0;
     parts.forEach((word) => {
-      const wp = clamp((schedule - (wordIndex / slots) * 0.6) / 0.4);
+      // Arrivals overlap. Before this, each word finished before the next one
+      // started: one word was in flight at a time, so on a three-word phrase the
+      // left third of the frame was still for most of the beat and the gate
+      // reported two live regions instead of five. Overlapping the windows keeps
+      // one or two words moving at all times, in different columns, which is what
+      // the eye is reading anyway - a sentence arriving, not a queue of words.
+      // The windows stay strictly forward: no word ever moves back, so this is
+      // not a bounce, and the masks still keep type from touching type.
+      const wp = clamp((schedule - (wordIndex / slots) * 0.55) / 0.62);
       const ww = measure(ctx, word, { size, weight, family: 'Space Grotesk' });
       if (wp > 0) {
         ctx.save();
@@ -162,7 +207,7 @@ export function drawPhrase(ctx, {
   // because it is the one the reference uses to say "this word".
   if (ellipse && lines.length === 1 && exit <= 0) {
     const bw = measure(ctx, lines[0], { size, weight: 700, family: 'Space Grotesk' });
-    const rx = bw * 0.58;
+    const rx = bw * 0.55;
     const ry = size * 0.52;
     const draw = ease.inOutCubic(span(p, 0.35, 0.95));
     if (draw > 0) {
@@ -171,8 +216,15 @@ export function drawPhrase(ctx, {
       ctx.lineWidth = Math.max(3, size * 0.022);
       ctx.beginPath();
       const turns = Math.PI * 2 * draw;
-      // A hand-drawn ellipse leaves a small gap where the pen lifts.
-      ctx.ellipse(0, 0, rx, ry, -0.06, -Math.PI * 0.62, -Math.PI * 0.62 + turns);
+      // A hand-drawn ellipse leaves a small gap where the pen lifts. It has to
+      // be centred on the word's own box, which on the gridded stage starts at
+      // the margin rather than at x = 0.
+      // Concentric with the word. It used to be pushed right so its left arc
+      // landed on the margin, but a ring that is not centred on the word runs
+      // straight through the first letter. A wider ring is the caller's problem:
+      // an annotated phrase is fitted to a narrower column so the ring itself
+      // stays inside the safe area.
+      ctx.ellipse(left === null ? 0 : bw / 2, 0, rx, ry, -0.06, -Math.PI * 0.62, -Math.PI * 0.62 + turns);
       ctx.stroke();
       ctx.restore();
     }
@@ -186,7 +238,8 @@ export function drawPhrase(ctx, {
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * (1 - sweep) * 0.5;
     ctx.fillStyle = palette.accent;
-    ctx.fillRect(-bw / 2 + bw * sweep, first - size * 0.42, size * 0.16, size * 0.05);
+    const sweepX = left === null ? -bw / 2 : 0;
+    ctx.fillRect(sweepX + bw * sweep, first - size * 0.42, size * 0.16, size * 0.05);
     ctx.restore();
   }
 

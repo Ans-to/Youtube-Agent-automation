@@ -31,7 +31,7 @@ import {
   rainbowStreak, roundRect,
 } from '../motion/ui.mjs';
 import { beatState, spotlight, beatTicks } from '../motion/live.mjs';
-import { PALETTES, drawField, drawPhrase, beatAt } from '../motion/wordstage.mjs';
+import { PALETTES, STAGE_MARGIN, SETTLE_MAX, drawField, drawPhrase, beatAt } from '../motion/wordstage.mjs';
 import { chooseTransition, reveal } from '../motion/transitions.mjs';
 import { secondUnit } from '../motion/second_unit.mjs';
 import { kineticWords } from '../motion/kinetic.mjs';
@@ -3795,11 +3795,37 @@ function drawWordScene(ctx, { scene, t, local, palette }) {
     return;
   }
 
-  // Type size follows the phrase, not a constant: a two-word phrase can be
-  // bigger than a four-word one and still hold its margins.
+  // The phrase is set to fill its column.
+  //
+  // It used to be set to an authored size and then fitted only if it overflowed,
+  // which sounds reasonable and is wrong twice. Wrong once because a two-word
+  // phrase at that size occupied the left third of the frame and left the right
+  // third empty for three seconds - the gate found it as a dead column, and an
+  // empty third of the frame is the held frame the owner keeps rejecting. Wrong
+  // twice because it inverted the reference: the reference sets a short phrase
+  // *larger* (35 to 50 percent of frame height) and a long one smaller, so that
+  // every phrase has the same weight on the page. Ours set them all to roughly
+  // the same size, so the short ones whispered.
+  //
+  // Now the measure is the constant and the size follows from it: measure the
+  // longest line, scale it until its landing width is exactly the column. The
+  // authored size survives as the ceiling, so a phrase the script marked as a
+  // quiet one still cannot shout.
+  //
+  // A ring adds 8 percent of the word's width on each side, so an annotated
+  // phrase is fitted to a narrower column: at the full column the ring's left
+  // arc would sit outside title-safe. Everything else gets the whole column.
+  const column = W * (1 - STAGE_MARGIN - 0.055) * (beat.ellipse ? 0.75 : 1);
   const base = Math.min(W, H) * (beat.size ?? 0.17);
-  const longest = beat.lines.reduce((n, l) => Math.max(n, l.length), 1);
-  const fitted = Math.min(base, (W * 0.86) / (longest * 0.58));
+  const longestLine = beat.lines.reduce((a, b) => (
+    measure(ctx, a, { size: base, weight: 700, family: 'Space Grotesk' })
+      >= measure(ctx, b, { size: base, weight: 700, family: 'Space Grotesk' }) ? a : b
+  ), beat.lines[0]);
+  const natural = measure(ctx, longestLine, { size: base, weight: 700, family: 'Space Grotesk' });
+  // The size at which the phrase fills the column at the instant it lands, and
+  // the ceiling the authored size implies: a beat written as a whisper stays one.
+  const fillSize = (base * column) / (natural * SETTLE_MAX);
+  const fitted = Math.min(fillSize, Math.min(W, H) * Math.min(0.30, (beat.size ?? 0.17) * 1.7));
 
   // A phrase whose line has finished fades out in the gap before the next line,
   // rather than holding until something replaces it. Otherwise the last phrase
@@ -3815,6 +3841,7 @@ function drawWordScene(ctx, { scene, t, local, palette }) {
   drawPhrase(ctx, {
     lines: beat.lines, w: W, h: H, p: at.p, palette, size: fitted,
     exit: overrun, accentLine: beat.accent ?? -1, ellipse: !!beat.ellipse, t,
+    left: W * STAGE_MARGIN,
     hold: clamp((local - beat.at) / Math.max(0.6, beat.until - beat.at)),
     // Words keep arriving for 78 percent of the beat, not for the first half
     // second of it.
@@ -3841,13 +3868,21 @@ function drawBeatClock(ctx, { scene, at, local, palette, y }) {
   const stepNumber = String(at.index + 1).padStart(2, '0');
   const labelIn = span(local - at.beat.at, 0.05, 0.5);
   const labelSize = Math.round(H * 0.03);
+  // The lockup starts on the stage margin and runs to the right, so the clock
+  // shares its left edge with the phrase below it. Centred, it floated over a
+  // left-flush phrase with no relationship to it - which is the fault the owner
+  // called out as the type being in the wrong place.
+  const mx = W * STAGE_MARGIN;
+  const chapterW = measure(ctx, chapter, { size: labelSize, weight: 700, family: 'Inter', tracking: 8 });
+  const stepW = measure(ctx, stepNumber, { size: labelSize, weight: 700, family: 'Inter', tracking: 8 });
+  const gap = labelSize * 1.2;
   ctx.save();
   ctx.globalAlpha = ctx.globalAlpha * clamp(labelIn * 1.8);
-  text(ctx, chapter, W / 2 - 40, y, {
+  text(ctx, chapter, mx, y, {
     size: labelSize, weight: 700, family: 'Inter', color: palette.accent,
-    align: 'right', tracking: 8,
+    align: 'left', tracking: 8,
   });
-  text(ctx, stepNumber, W / 2 + 40, y, {
+  text(ctx, stepNumber, mx + chapterW + gap, y, {
     size: labelSize, weight: 700, family: 'Inter', color: palette.ink,
     align: 'left', tracking: 8,
   });
@@ -3855,13 +3890,16 @@ function drawBeatClock(ctx, { scene, at, local, palette, y }) {
 
   const duration = Math.max(0.6, at.beat.until - at.beat.at);
   const p = clamp((local - at.beat.at) / duration);
-  const bw = W * 0.10;
+  // The rule spans the lockup exactly rather than an arbitrary tenth of the
+  // frame, so it reads as an underline for these two words and not as a
+  // progress bar that happens to be nearby.
+  const bw = chapterW + gap + stepW;
   ctx.save();
   ctx.globalAlpha = ctx.globalAlpha * clamp(labelIn * 1.6) * 0.95;
   ctx.fillStyle = palette.rule;
-  ctx.fillRect(W / 2 - bw / 2, y + H * 0.028, bw, 4);
+  ctx.fillRect(mx, y + H * 0.028, bw, 4);
   ctx.fillStyle = palette.accent;
-  ctx.fillRect(W / 2 - bw / 2, y + H * 0.028, bw * ease.inOutCubic(p), 4);
+  ctx.fillRect(mx, y + H * 0.028, bw * ease.inOutCubic(p), 4);
   ctx.restore();
 }
 
