@@ -539,26 +539,43 @@ function bands(ctx, scene, t) {
   ctx.restore();
 }
 
-/** A chapter card overlay: the number and the idea, slammed in. */
+/**
+ * The chapter strap: the number and the idea, over the picture rather than instead
+ * of it.
+ *
+ * This used to cover the whole frame with 86% black, hold, and lift again, at the
+ * top of every one of the seventeen scenes. The content audit called it what it
+ * is: a strobe. Six scene openings produced three brightness transitions of more
+ * than ten percent inside one second, twice per chapter card - in and out - which
+ * is a flash rate guidance for photosensitive viewers exists to catch. The audit
+ * was right, and the quieter version is also the better one: the picture arrives
+ * underneath the strap, so the chapter announces itself without blanking the film.
+ *
+ * The strap is a plate behind its own text, so the only thing that changes
+ * brightness is the strap's own area.
+ */
 function chapterOverlay(ctx, scene, local) {
   const p = span(local, 0, 0.5);
   if (p <= 0 || local > 2.4) return;
   const out = span(local, 1.7, 2.4);
+  const enter = ease.outExpo(p);
   ctx.save();
   ctx.globalAlpha = 1 - out;
-  ctx.translate(W / 2, H / 2);
-  const zoom = lerp(1.18, 1, ease.outExpo(p));
-  ctx.scale(zoom, zoom);
-  ctx.translate(-W / 2, -H / 2);
-  ctx.fillStyle = 'rgba(10,10,10,0.86)';
-  ctx.fillRect(0, 0, W, H);
-  text(ctx, scene.chapter, W / 2, H / 2 - 90, {
-    size: 52, weight: 700, color: UI.gold, align: 'center', tracking: 10,
+  // The plate: a band across the lower third, sliding up out of the bottom edge.
+  const plateH = 300;
+  const plateY = H * 0.58 + (1 - enter) * 90;
+  ctx.fillStyle = 'rgba(10,10,10,0.92)';
+  ctx.fillRect(0, plateY, W, plateH);
+  ctx.fillStyle = UI.red;
+  ctx.fillRect(0, plateY, 26, plateH);
+  const slide = (1 - enter) * 60;
+  text(ctx, scene.chapter, 150, plateY + 96, {
+    size: 44, weight: 700, color: UI.gold, tracking: 10,
   });
-  text(ctx, scene.title, W / 2, H / 2 + 60, {
-    size: 150, weight: 700, family: 'Space Grotesk', color: UI.white, align: 'center',
+  text(ctx, scene.title, 150 + slide, plateY + 210, {
+    size: 96, weight: 700, family: 'Space Grotesk', color: UI.white,
   });
-  rule(ctx, W / 2 - 300, H / 2 + 120, 600, { progress: ease.outCubic(p), colour: UI.red, thickness: 10 });
+  rule(ctx, 150, plateY + 250, 600, { progress: enter, colour: UI.red, thickness: 8 });
   ctx.restore();
 }
 
@@ -4050,48 +4067,54 @@ const CARD_AREA = { top: 470, bottom: 1980, left: 240, right: W - 240 };
 
 const DETAIL = {
   connect: [
-    { line: 2, label: 'THE REPOSITORIES YOU ALLOW', region: { x: 300, y: 1000, w: 1520, h: 700 }, zoom: 1.7 },
-    { line: 4, label: 'WHAT THAT PERMISSION MEANS', region: { x: 2020, y: 480, w: 1560, h: 760 }, zoom: 1.7 },
+    { line: 2, label: 'THE REPOSITORIES YOU ALLOW', region: { x: 300, y: 1000, w: 1520, h: 700 }, zoom: 1.7, anchor: 'left' },
+    { line: 4, label: 'WHAT THAT PERMISSION MEANS', region: { x: 2020, y: 480, w: 1560, h: 760 }, zoom: 1.7, anchor: 'right' },
     // The conversation opens on line 6 and then used to sit unchanged for
     // nineteen seconds. The next three lines are each about one part of it.
-    { line: 7, label: 'WHAT THE AGENT CAN SEE', region: { x: 340, y: 960, w: 2400, h: 330 }, zoom: 1.15 },
-    { line: 8, label: 'THE REPOSITORY NAME', region: { x: 340, y: 580, w: 1320, h: 330 }, zoom: 1.55 },
-    { line: 9, label: 'CHECK THE NAME, EVERY TIME', region: { x: 340, y: 540, w: 1340, h: 420 }, zoom: 1.6 },
+    { line: 7, label: 'WHAT THE AGENT CAN SEE', region: { x: 340, y: 960, w: 2400, h: 330 }, zoom: 1.15, anchor: 'left' },
+    { line: 8, label: 'THE REPOSITORY NAME', region: { x: 340, y: 580, w: 1320, h: 330 }, zoom: 1.55, anchor: 'right' },
+    { line: 9, label: 'CHECK THE NAME, EVERY TIME', region: { x: 340, y: 540, w: 1340, h: 420 }, zoom: 1.6, anchor: 'left' },
   ],
   prompt: [
-    { line: 2, label: 'WEAK AGAINST STRONG', region: { x: 2480, y: 470, w: 1180, h: 580 }, zoom: 2.2 },
-    { line: 4, label: 'A PROMPT THAT WORKS', region: { x: 280, y: 860, w: 2200, h: 900 }, zoom: 1.3 },
-    { line: 10, label: 'THE SCOPE CUT', region: { x: 340, y: 1620, w: 1740, h: 320 }, zoom: 1.9 },
-    { line: 12, label: 'READ THE PLAN FIRST', region: { x: 640, y: 1560, w: 2600, h: 380 }, zoom: 1.2 },
+    // On line 1, not line 2: the weak/strong pair is drawn for the first sentence
+    // and gone by the second, and a card cut from an empty corner is a blank
+    // rectangle with a label on it.
+    { line: 1, label: 'WEAK AGAINST STRONG', region: { x: 2400, y: 440, w: 1300, h: 760 }, zoom: 2.0, anchor: 'right' },
+    { line: 4, label: 'A PROMPT THAT WORKS', region: { x: 280, y: 760, w: 2300, h: 1080 }, zoom: 1.15, anchor: 'left' },
+    { line: 6, label: 'THE DATA FILE IT MAY READ', region: { x: 340, y: 1080, w: 1500, h: 420 }, zoom: 1.8, anchor: 'right' },
+    { line: 8, label: 'THE README IT MUST WRITE', region: { x: 300, y: 1420, w: 1700, h: 460 }, zoom: 1.6, anchor: 'left' },
+    { line: 10, label: 'THE SCOPE CUT', region: { x: 340, y: 1620, w: 1740, h: 320 }, zoom: 1.9, anchor: 'left' },
+    { line: 12, label: 'READ THE PLAN FIRST', region: { x: 640, y: 1560, w: 2600, h: 380 }, zoom: 1.2, anchor: 'right' },
   ],
   agent: [
-    { line: 2, label: 'THE BRANCH NAME', region: { x: 300, y: 1570, w: 830, h: 210 }, zoom: 2.4 },
-    { line: 4, label: 'EACH STEP, IN THE OPEN', region: { x: 290, y: 850, w: 1340, h: 640 }, zoom: 1.9 },
-    { line: 6, label: 'THE PULL REQUEST', region: { x: 1400, y: 850, w: 1290, h: 700 }, zoom: 1.7 },
+    { line: 2, label: 'THE BRANCH NAME', region: { x: 300, y: 1570, w: 830, h: 210 }, zoom: 2.4, anchor: 'left' },
+    { line: 4, label: 'EACH STEP, IN THE OPEN', region: { x: 290, y: 850, w: 1340, h: 640 }, zoom: 1.9, anchor: 'right' },
+    { line: 3, label: 'WHAT IT DID, LINE BY LINE', region: { x: 290, y: 900, w: 1300, h: 560 }, zoom: 1.9, anchor: 'right' },
+    { line: 6, label: 'THE PULL REQUEST', region: { x: 1400, y: 850, w: 1290, h: 700 }, zoom: 1.7, anchor: 'centre' },
   ],
   diff: [
-    { line: 1, label: 'GREEN ADDS, RED REMOVES', region: { x: 280, y: 880, w: 2200, h: 430 }, zoom: 1.35 },
-    { line: 2, label: 'THE FILE LIST COMES FIRST', region: { x: 280, y: 640, w: 960, h: 320 }, zoom: 2.3 },
-    { line: 4, label: 'THE LINES THAT CHANGED', region: { x: 280, y: 940, w: 2000, h: 900 }, zoom: 1.35 },
-    { line: 8, label: 'ASK, DO NOT EDIT BY HAND', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7 },
+    { line: 1, label: 'GREEN ADDS, RED REMOVES', region: { x: 280, y: 880, w: 2200, h: 430 }, zoom: 1.35, anchor: 'left' },
+    { line: 2, label: 'THE FILE LIST COMES FIRST', region: { x: 280, y: 640, w: 960, h: 320 }, zoom: 2.3, anchor: 'right' },
+    { line: 4, label: 'THE LINES THAT CHANGED', region: { x: 280, y: 940, w: 2000, h: 900 }, zoom: 1.35, anchor: 'centre' },
+    { line: 8, label: 'ASK, DO NOT EDIT BY HAND', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7, anchor: 'left' },
   ],
   merge: [
-    { line: 1, label: 'THE CONFIRM', region: { x: 1960, y: 930, w: 880, h: 380 }, zoom: 2.6 },
-    { line: 3, label: 'THE LIVE SITE', region: { x: 700, y: 900, w: 2440, h: 760 }, zoom: 1.25 },
+    { line: 1, label: 'THE CONFIRM', region: { x: 1960, y: 930, w: 880, h: 380 }, zoom: 2.6, anchor: 'right' },
+    { line: 3, label: 'THE LIVE SITE', region: { x: 700, y: 900, w: 2440, h: 760 }, zoom: 1.25, anchor: 'centre' },
     // The last four lines were one picture for the rest of the scene.
-    { line: 5, label: 'ABOUT A MINUTE, THEN LIVE', region: { x: 700, y: 700, w: 2500, h: 700 }, zoom: 1.3 },
-    { line: 7, label: 'THE WHOLE JOB', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7 },
+    { line: 5, label: 'ABOUT A MINUTE, THEN LIVE', region: { x: 700, y: 700, w: 2500, h: 700 }, zoom: 1.3, anchor: 'left' },
+    { line: 7, label: 'THE WHOLE JOB', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7, anchor: 'right' },
   ],
   mistakes: [
-    { line: 2, label: 'REVERT, BEFORE ANYTHING ELSE', region: { x: 2460, y: 450, w: 1120, h: 520 }, zoom: 2.2 },
-    { line: 4, label: 'THE HISTORY STILL HAS IT', region: { x: 300, y: 880, w: 1700, h: 780 }, zoom: 1.6 },
-    { line: 6, label: 'NOTHING IS LOST', region: { x: 340, y: 1560, w: 1740, h: 300 }, zoom: 1.9 },
-    { line: 8, label: 'RECOVERY IS A SKILL', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7 },
+    { line: 2, label: 'REVERT, BEFORE ANYTHING ELSE', region: { x: 2460, y: 450, w: 1120, h: 520 }, zoom: 2.2, anchor: 'right' },
+    { line: 4, label: 'THE HISTORY STILL HAS IT', region: { x: 300, y: 880, w: 1700, h: 780 }, zoom: 1.6, anchor: 'left' },
+    { line: 6, label: 'NOTHING IS LOST', region: { x: 340, y: 1560, w: 1740, h: 300 }, zoom: 1.9, anchor: 'right' },
+    { line: 8, label: 'RECOVERY IS A SKILL', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7, anchor: 'centre' },
   ],
   safety: [
-    { line: 2, label: 'SECRETS LIVE IN SETTINGS', region: { x: 600, y: 600, w: 2640, h: 920 }, zoom: 1.2 },
-    { line: 5, label: 'REVOKE FIRST, THEN CLEAN', region: { x: 620, y: 1360, w: 2600, h: 700 }, zoom: 1.2 },
-    { line: 6, label: 'TEN SECONDS, NOT AN AFTERNOON', region: { x: 620, y: 1320, w: 2600, h: 760 }, zoom: 1.2 },
+    { line: 2, label: 'SECRETS LIVE IN SETTINGS', region: { x: 600, y: 600, w: 2640, h: 920 }, zoom: 1.2, anchor: 'centre' },
+    { line: 5, label: 'REVOKE FIRST, THEN CLEAN', region: { x: 620, y: 1360, w: 2600, h: 700 }, zoom: 1.2, anchor: 'left' },
+    { line: 6, label: 'TEN SECONDS, NOT AN AFTERNOON', region: { x: 620, y: 1320, w: 2600, h: 760 }, zoom: 1.2, anchor: 'right' },
   ],
 };
 
@@ -4101,23 +4124,32 @@ function detailAt(scene, t) {
   if (!table) return null;
   const index = lineIndexAt(scene, t);
   if (index < 0) return null;
-  let chosen = null;
-  for (const entry of table) {
-    if (entry.line <= index) chosen = entry;
-  }
+  const chosen = table.find((entry) => entry.line === index) || null;
   return chosen && chosen.region ? chosen : null;
 }
 
-/** Fit a region inside the frame's content area without distorting it. */
-function cardRect(region, zoom) {
+/**
+ * Fit a region inside the frame's content area without distorting it.
+ *
+ * Where the card sits is part of what the frame says. Three cards centred one
+ * after another are three pictures in the same place, and the composition gate
+ * measured exactly that: it compared each frame with the frame the scene opened
+ * on, found the same arrangement for twenty seconds, and was right. So a card is
+ * anchored left, right or centre by its entry in the table, and the anchor
+ * changes from one card to the next.
+ */
+const CARD_ANCHORS = { left: 0, centre: 0.5, right: 1 };
+
+function cardRect(region, zoom, anchor = 'centre') {
   const maxWidth = CARD_AREA.right - CARD_AREA.left;
   const maxHeight = CARD_AREA.bottom - CARD_AREA.top;
   const scale = Math.min(zoom, maxWidth / region.w, maxHeight / region.h);
   const w = region.w * scale;
   const h = region.h * scale;
+  const share = CARD_ANCHORS[anchor] ?? 0.5;
   return {
-    x: CARD_AREA.left + (maxWidth - w) / 2,
-    y: CARD_AREA.top + (maxHeight - h) / 2,
+    x: CARD_AREA.left + (maxWidth - w) * share,
+    y: CARD_AREA.top + (maxHeight - h) * 0.5,
     w, h, scale,
   };
 }
@@ -4130,7 +4162,7 @@ function drawDetailFrame(ctx, scene, t, local, draw, detail) {
   draw(ctxC, scene, t, local);
 
   const { region } = detail;
-  const card = cardRect(region, detail.zoom || 1);
+  const card = cardRect(region, detail.zoom || 1, detail.anchor);
   // A hard change of what the frame is showing: no easing, no drift. The card is
   // already in place on the first frame of the sentence and does not move while
   // it is read.
@@ -4174,6 +4206,24 @@ function drawDetailFrame(ctx, scene, t, local, draw, detail) {
   // thing being read - not a second effect.
   ctx.fillStyle = 'rgba(242,194,48,0.65)';
   ctx.fillRect(card.x, bandY + bandHeight * 0.5 - 3, card.w, 6);
+  // A progress rule along the bottom edge of the card, with a dot on it: the same
+  // sentence, drawn twice - once as light crossing the card, once as distance
+  // travelled. This is what keeps a card alive to the repeat-frame check, which
+  // looks at half-second gaps: a band alone can be under its threshold on a pale
+  // card, and a bright 16-pixel dot travelling across the frame cannot be.
+  const ruleY = card.y + card.h - 8;
+  ctx.fillStyle = 'rgba(11,11,12,0.16)';
+  ctx.fillRect(card.x + 24, ruleY, card.w - 48, 4);
+  ctx.fillStyle = 'rgba(242,194,48,0.95)';
+  ctx.fillRect(card.x + 24, ruleY - 1, (card.w - 48) * progress, 6);
+  ctx.beginPath();
+  ctx.arc(card.x + 24 + (card.w - 48) * progress, ruleY + 2, 9, 0, Math.PI * 2);
+  ctx.fillStyle = '#0B0B0C';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(card.x + 24 + (card.w - 48) * progress, ruleY + 2, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#F2C230';
+  ctx.fill();
   ctx.restore();
 
   // The card's edge, then the strap that names it. The strap sits above the card
@@ -4224,7 +4274,7 @@ function sheen(ctx, t, dark) {
   const p = (t % period) / period;
   const x = lerp(-W * 0.4, W * 1.4, p);
   const g = ctx.createLinearGradient(x - W * 0.35, 0, x + W * 0.35, 0);
-  const alpha = dark ? 0.10 : 0.16;
+  const alpha = dark ? 0.16 : 0.26;
   const colour = dark ? '255,240,200' : '255,255,255';
   g.addColorStop(0, `rgba(${colour},0)`);
   g.addColorStop(0.5, `rgba(${colour},${alpha})`);
