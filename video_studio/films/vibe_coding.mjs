@@ -1105,40 +1105,55 @@ function drawStatement(ctx, scene, t, local) {
 /** The loop: six nodes, one pulse travelling through them. */
 function drawPipeline(ctx, scene, t, local) {
   stageField(ctx, t);
-  text(ctx, scene.title, 240, 360, {
+  const b = scene.lines.map((line) => line.start - scene.start);
+  text(ctx, scene.title, 240, 340, {
     size: 132, weight: 700, family: 'Space Grotesk', color: UI.ink,
     alpha: clamp(span(local, 0.1, 0.7) * 2),
   });
-  text(ctx, scene.note, 246, 440, { size: 46, weight: 500, color: 'rgba(23,23,26,0.6)', alpha: clamp(span(local, 1.0, 1.6)) });
+  text(ctx, scene.note, 246, 418, { size: 46, weight: 500, color: 'rgba(23,23,26,0.6)', alpha: clamp(span(local, 1.0, 1.6)) });
 
   const steps = scene.steps;
-  const y = 900;
+  const y = 800;
   const x0 = 300;
   const gap = (W - 600) / (steps.length - 1);
-  const active = Math.floor(span(local, 1.2, steps.length * 0.9 + 1.2) * steps.length);
-  const travel = ((local * 0.42) % 1);
 
-  // the rail
-  ctx.save();
+  // One beat per step named in the narration, then the loop turning over, then
+  // the six read out together. The scene used to draw all six circles in the
+  // first two seconds and leave a dot travelling the rail for thirty, which the
+  // composition check scored as two arrangements in thirty-two seconds.
+  const beats = [
+    [b[1] + 0.2, 0, '01  A PROMPT', 'You say what you want, in plain words.'],
+    [b[1] + 1.8, 1, '02  A PLAN', 'The agent says how it will do it, before it does.'],
+    [b[1] + 3.6, 2, '03  A BRANCH', 'The work happens away from main, where it is safe.'],
+    [b[2] + 0.3, 3, '04  A DIFF', 'Every changed line on one page.'],
+    [b[2] + 2.0, 4, '05  THE CHECKS', 'The tests run without being asked.'],
+    [b[3] + 0.4, 5, '06  A MERGE', 'Green, then into main. One small step.'],
+  ].filter((beat) => Number.isFinite(beat[0]));
+  let current = -1;
+  beats.forEach((beat, i) => {
+    if (local >= beat[0]) current = i;
+  });
+  const reached = current < 0 ? -1 : beats[current][1];
+
   rule(ctx, x0, y - 3, W - 600, { progress: ease.outCubic(span(local, 0.3, 1.4)), colour: 'rgba(11,11,12,0.25)', thickness: 6 });
-  ctx.restore();
 
   steps.forEach((step, i) => {
     const p = span(local, 0.4 + i * 0.28, 1.1 + i * 0.28);
     if (p <= 0) return;
     const x = x0 + i * gap;
-    const on = i <= active;
+    const on = i <= reached;
+    const live = i === reached;
     ctx.save();
     ctx.globalAlpha = clamp(p * 1.6);
-    const pop = ease.outBack(p);
+    const pop = ease.outBack(p) * (live ? 1.12 : 1);
     ctx.translate(x, y);
-    ctx.scale(lerp(0.6, 1, pop), lerp(0.6, 1, pop));
+    ctx.scale(pop, pop);
     ctx.beginPath();
     ctx.arc(0, 0, 74, 0, Math.PI * 2);
     ctx.fillStyle = on ? UI.ink : UI.window;
     ctx.fill();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = UI.ink;
+    ctx.lineWidth = live ? 9 : 5;
+    ctx.strokeStyle = live ? UI.red : UI.ink;
     ctx.stroke();
     text(ctx, String(i + 1), 0, 18, {
       size: 54, weight: 700, color: on ? UI.gold : UI.ink, align: 'center',
@@ -1149,7 +1164,8 @@ function drawPipeline(ctx, scene, t, local) {
     ctx.restore();
   });
 
-  // a pulse travelling the rail, so the loop reads as a loop
+  // the pulse travelling the rail, so the loop reads as a loop
+  const travel = ((local * 0.42) % 1);
   const px = x0 + travel * (W - 600);
   ctx.save();
   ctx.globalAlpha = 0.9 * clamp(span(local, 1.4, 2.0));
@@ -1162,6 +1178,71 @@ function drawPipeline(ctx, scene, t, local) {
   ctx.arc(px, y, 54, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+
+  // The card for the step being described, in alternating slots: a large dark
+  // block that moves across the frame is a new picture, the same block with new
+  // words on it is not.
+  if (current >= 0 && local < b[4] + 0.2) {
+    const beat = beats[current];
+    const cp = clamp(span(local, beat[0], beat[0] + 0.4));
+    const slotX = current % 2 === 0 ? 240 : W - 2240;
+    ctx.save();
+    ctx.globalAlpha = cp;
+    ctx.translate(0, (1 - ease.outCubic(cp)) * 90);
+    panel(ctx, { x: slotX, y: 1160, w: 2000, h: 300, r: 22, fill: UI.ink, stroke: null });
+    ctx.fillStyle = current === 5 ? UI.gold : UI.red;
+    ctx.fillRect(slotX, 1160, 22, 300);
+    text(ctx, beat[2], slotX + 80, 1290, {
+      size: 64, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 1820,
+    });
+    text(ctx, beat[3], slotX + 80, 1382, { size: 34, weight: 400, color: '#B9B9C4', maxWidth: 1820 });
+    ctx.restore();
+  }
+
+  // "then you go again": the loop turns over
+  const again = clamp(span(local, b[4] + 0.3, b[4] + 0.8));
+  if (again > 0) {
+    ctx.save();
+    ctx.globalAlpha = again;
+    panel(ctx, { x: 240, y: 1160, w: W - 480, h: 300, r: 22, fill: UI.ink, stroke: null });
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(240, 1160, 22, 300);
+    text(ctx, 'AND THEN AGAIN', 320, 1300, {
+      size: 78, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    text(ctx, 'One small step further, every time.', 320, 1392, {
+      size: 36, weight: 400, color: '#B9B9C4',
+    });
+    ctx.restore();
+  }
+
+  // "six parts. Prompt, plan, branch, diff, checks, merge." - the list, whole
+  const all = clamp(span(local, b[5] + 0.3, b[5] + 0.8));
+  if (all > 0) {
+    ctx.save();
+    ctx.globalAlpha = all;
+    panel(ctx, { x: 240, y: 1160, w: W - 480, h: 300, r: 22, fill: UI.white, stroke: UI.ink });
+    text(ctx, 'PROMPT · PLAN · BRANCH · DIFF · CHECKS · MERGE', 320, 1300, {
+      size: 62, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(320, 1360, 900 * ease.outCubic(all), 12);
+    ctx.restore();
+  }
+
+  // "every step in this video is one turn of that loop"
+  const close = clamp(span(local, b[6] + 0.3, b[6] + 0.8));
+  if (close > 0) {
+    ctx.save();
+    ctx.globalAlpha = close;
+    text(ctx, 'EVERY STEP IN THIS VIDEO', 240, 1300, {
+      size: 96, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    text(ctx, 'IS ONE TURN OF IT.', 240, 1410, {
+      size: 96, weight: 700, family: 'Space Grotesk', color: UI.red,
+    });
+    ctx.restore();
+  }
 }
 
 // ------------------------------------------------------------ github screen
@@ -1242,279 +1323,439 @@ function repoPage(ctx, box, { t, reveal = 1, files = ['README.md', 'books.json',
   ctx.restore();
 }
 
+/**
+ * Where in a spoken line a phrase is said, as a local time.
+ *
+ * The narration gives the scene its beats, and inside one sentence there are
+ * four things named in order - the file list, the commit history, the branches,
+ * the About panel. Timing those by hand means re-timing them every time the
+ * voice changes, so the phrase position in the text is used instead: speech runs
+ * at a roughly even rate, and the phrase is a good estimate of the moment.
+ */
+function phraseAt(scene, lineIndex, phrase, fallback) {
+  const line = scene.lines[lineIndex];
+  if (!line) return fallback;
+  const spoken = String(line.spoken || '');
+  const at = spoken.toLowerCase().indexOf(phrase.toLowerCase());
+  const length = line.end - line.start;
+  if (at < 0 || !length) return line.start - scene.start + fallback;
+  return line.start - scene.start + (at / Math.max(1, spoken.length)) * length;
+}
+
 function drawGithub(ctx, scene, t, local) {
   stageField(ctx, t);
-  const idx = lineIndexAt(scene, t);
+  // Every beat here is tied to the line that speaks it. It used to be tied to a
+  // stopwatch, and the two disagreed badly: the narration spends thirty-six
+  // seconds describing how to create a repository while the picture showed the
+  // finished page after five, so half a minute of words pointed at nothing. The
+  // composition check put a number on it - one arrangement held 46 seconds.
+  //
+  // The scene is now the three screens the words ask for, in their order: an
+  // empty profile, the create form, the finished page. On the page the callout
+  // travels to the part being named instead of printing one black panel in the
+  // same corner. Measured, those panels score 0.94 to 0.99 against each other,
+  // so nine of them were one picture with changing words.
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const at = (i, offset = 0) => (b[i] ?? i * 5) + offset;
+
   const headline = span(local, 0.15, 1.1);
   text(ctx, scene.title, 240, 330, {
     size: 108, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(headline * 1.6),
   });
   rule(ctx, 244, 372, 700, { progress: ease.outCubic(headline), colour: UI.red, thickness: 8 });
 
-  // the first two lines are about signing up: show the empty front page
-  const onRepo = local > 5.2;
   const box = { x: 240, y: 470, w: W - 480, h: 1440 };
+  const formIn = at(2, 1.2);   // "press New repository, in the top right corner"
+  const pageIn = at(7, 2.2);   // "press Create repository"
 
-  if (!onRepo) {
-    const content = githubChrome(ctx, 'github.com', 'GitHub', box.x, box.y, box.w, box.h, clamp(span(local, 0.2, 0.9)));
+  // A pointer is a card and a line to the thing it names. The card is the part
+  // that carries: measured on a 16x9 thumbnail, an outlined target moves too few
+  // blocks to register as a new picture, while a filled card is a fifth of the
+  // frame. So each beat puts a card in a different slot and draws a connector to
+  // the row it is talking about - the position changes, which is what makes it a
+  // new arrangement, and the line is what keeps it a pointer rather than a label.
+  const point = (rect, label, start, slot, colour = UI.gold) => {
+    const p = span(local, start, start + 0.36);
+    if (p <= 0) return;
+    const a = ease.outCubic(clamp(p));
+    ctx.save();
+    const grow = 22 * (1 - a);
+    roundRect(ctx, rect.x - grow, rect.y - grow, rect.w + grow * 2, rect.h + grow * 2, 16);
+    ctx.fillStyle = colour;
+    ctx.globalAlpha = a * 0.16;
+    ctx.fill();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    // the connector, from the card's near edge to the middle of the target
+    const cx = slot.x + (slot.x > rect.x ? 0 : 1120);
+    const cy = slot.y + 120;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    const ty = rect.y + rect.h / 2;
+    ctx.lineTo(rect.x + rect.w / 2, ty);
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 5;
+    ctx.globalAlpha = a * 0.7;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(rect.x + rect.w / 2, ty, 12, 0, Math.PI * 2);
+    ctx.fillStyle = colour;
+    ctx.globalAlpha = a;
+    ctx.fill();
+    ctx.globalAlpha = a;
+    panel(ctx, { x: slot.x, y: slot.y, w: 1120, h: 240, r: 20, fill: UI.ink, stroke: null });
+    ctx.fillStyle = colour;
+    ctx.fillRect(slot.x, slot.y, 20, 240);
+    text(ctx, label, slot.x + 70, slot.y + 150, {
+      size: 50, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 1000,
+    });
+    ctx.restore();
+  };
+
+  if (local < formIn + 0.5) {
+    // Screen one: an account with nothing in it, and one button.
+    const a = clamp(span(local, 0.2, 1.0));
+    const content = githubChrome(ctx, 'github.com', 'GitHub', box.x, box.y, box.w, box.h, a);
     const { x, y, w } = content;
-    panel(ctx, { x: x + 60, y: y + 60, w: w - 120, h: 1040, r: 20, fill: UI.window2, stroke: UI.line });
-    text(ctx, 'Create a new repository', x + 120, y + 190, { size: 62, weight: 700, color: UI.text, alpha: clamp(span(local, 1.0, 1.6)) });
-    text(ctx, 'Repository name', x + 120, y + 300, { size: 34, weight: 600, color: UI.dim, alpha: clamp(span(local, 1.6, 2.2)) });
-    panel(ctx, { x: x + 120, y: y + 326, w: 900, h: 92, r: 12, fill: UI.white, stroke: UI.line });
-    const typed = 'book-list'.slice(0, Math.max(0, Math.floor((local - 3.2) * 9)));
-    text(ctx, typed, x + 156, y + 388, { size: 42, weight: 500, color: UI.text });
-    if (local > 3.2 && typed.length < 9 && Math.floor(local * 3) % 2 === 0) {
-      ctx.fillStyle = UI.ink;
-      ctx.fillRect(x + 162 + ctx.measureText(typed).width, y + 350, 4, 46);
-    }
-    ['Public', 'Private'].forEach((opt, i) => {
-      const on = i === 0;
+    text(ctx, 'octocat-ana', x + 60, y + 120, {
+      size: 52, weight: 700, color: UI.text, alpha: clamp(span(local, 0.8, 1.4)),
+    });
+    const btn = { x: x + w - 640, y: y + 56, w: 580, h: 96 };
+    panel(ctx, { ...btn, r: 16, fill: UI.ink, stroke: null, alpha: clamp(span(local, 1.0, 1.6)) });
+    text(ctx, 'New repository', btn.x + btn.w / 2, btn.y + 62, {
+      size: 36, weight: 700, color: UI.white, align: 'center', alpha: clamp(span(local, 1.0, 1.6)),
+    });
+    const empty = { x: x + 60, y: y + 260, w: w - 120, h: 800 };
+    panel(ctx, { ...empty, r: 20, fill: UI.window2, stroke: UI.line, alpha: clamp(span(local, 2.4, 3.2)) });
+    text(ctx, 'No repositories yet', empty.x + empty.w / 2, empty.y + 360, {
+      size: 56, weight: 700, color: UI.dim, align: 'center', alpha: clamp(span(local, 3.4, 4.2)),
+    });
+    text(ctx, 'The repository is the whole workspace.', empty.x + empty.w / 2, empty.y + 444, {
+      size: 34, weight: 400, color: UI.faint, align: 'center', alpha: clamp(span(local, 5.6, 6.4)),
+    });
+    // The line about signing up and confirming the address had nothing to show.
+    // A card that lands, then takes a tick, is the change that line needs.
+    const cardAt = at(1, 0.9);
+    const cp = clamp(span(local, cardAt, cardAt + 0.4));
+    if (cp > 0) {
+      const cw = 1160;
+      const cx0 = x + w - cw - 80;
+      const cy0 = y + 700 + (1 - ease.outCubic(cp)) * 90;
+      ctx.save();
+      ctx.globalAlpha = cp;
+      panel(ctx, { x: cx0, y: cy0, w: cw, h: 340, r: 22, fill: UI.ink, stroke: null });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(cx0, cy0, 20, 340);
+      text(ctx, 'CONFIRM YOUR EMAIL', cx0 + 66, cy0 + 120, {
+        size: 52, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      text(ctx, 'One click. Then the account exists.', cx0 + 66, cy0 + 196, {
+        size: 32, weight: 400, color: '#B9B9C4',
+      });
+      const ticked = clamp(span(local, cardAt + 2.6, cardAt + 3.0));
       ctx.beginPath();
-      ctx.arc(x + 140, y + 500 + i * 96, 18, 0, Math.PI * 2);
-      ctx.lineWidth = 5;
+      ctx.arc(cx0 + cw - 130, cy0 + 170, 62, 0, Math.PI * 2);
+      ctx.strokeStyle = ticked > 0 ? UI.gold : '#4A4A54';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      if (ticked > 0) {
+        ctx.strokeStyle = UI.gold;
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(cx0 + cw - 158, cy0 + 170);
+        ctx.lineTo(cx0 + cw - 136, cy0 + 194);
+        ctx.lineTo(cx0 + cw - 100, cy0 + 146);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // The pointer is the beat for the line that says the button is in the top
+    // right corner, and pressing it is what puts the form on screen.
+    const move = ease.inOutCubic(span(local, at(2, -0.8), at(2, 0.4)));
+    cursor(ctx, lerp(x + w * 0.5, btn.x + btn.w / 2, move), lerp(y + 700, btn.y + 50, move), {
+      press: span(local, at(2, 0.45), at(2, 0.65)),
+      alpha: clamp(span(local, at(2, -1.1), at(2, -0.5))),
+    });
+    clickRing(ctx, btn.x + btn.w / 2, btn.y + 50, span(local, at(2, 0.5), at(2, 1.1)));
+    return;
+  }
+
+  if (local < pageIn + 0.4) {
+    // Screen two: the form, filled in at the speed of the sentences that
+    // describe filling it in.
+    const a = clamp(span(local, formIn, formIn + 0.5));
+    const content = githubChrome(ctx, 'github.com/new', 'New repository', box.x, box.y, box.w, box.h, a);
+    const { x, y, w } = content;
+    panel(ctx, { x: x + 60, y: y + 60, w: w - 120, h: 1240, r: 20, fill: UI.window2, stroke: UI.line });
+    text(ctx, 'Create a new repository', x + 120, y + 200, { size: 62, weight: 700, color: UI.text });
+    text(ctx, 'Repository name', x + 120, y + 322, { size: 34, weight: 600, color: UI.dim });
+
+    const field = { x: x + 120, y: y + 352, w: 1300, h: 100 };
+    panel(ctx, { ...field, r: 12, fill: UI.white, stroke: UI.line });
+    const typed = 'book-list'.slice(0, Math.max(0, Math.floor((local - at(3, 0.25)) * 2.6)));
+    text(ctx, typed, field.x + 36, field.y + 66, { size: 44, weight: 500, color: UI.text });
+    if (local > at(3, 0.25) && typed.length < 9 && Math.floor(local * 3) % 2 === 0) {
+      ctx.fillStyle = UI.ink;
+      ctx.fillRect(field.x + 40 + measure(ctx, typed, { size: 44, weight: 500 }), field.y + 24, 5, 54);
+    }
+
+    [['Public', at(4, 0.4), 'Anyone can see it, and it gets free checks.'],
+      ['Private', at(5, 0.4), 'Only people you invite can see it.']].forEach(([name, start, detail], i) => {
+      const ry = y + 588 + i * 150;
+      const on = local > start;
+      ctx.beginPath();
+      ctx.arc(x + 156, ry + 30, 21, 0, Math.PI * 2);
+      ctx.lineWidth = on ? 6 : 4;
       ctx.strokeStyle = on ? UI.ink : UI.faint;
       ctx.stroke();
       if (on) {
         ctx.beginPath();
-        ctx.arc(x + 140, y + 500 + i * 96, 9, 0, Math.PI * 2);
+        ctx.arc(x + 156, ry + 30, 11, 0, Math.PI * 2);
         ctx.fillStyle = UI.ink;
         ctx.fill();
       }
-      text(ctx, opt, x + 180, y + 512 + i * 96, { size: 38, weight: 600, color: UI.text, alpha: clamp(span(local, 2.2, 2.8)) });
+      text(ctx, name, x + 210, ry + 42, { size: 42, weight: 600, color: UI.text });
+      text(ctx, detail, x + 210, ry + 96, { size: 30, weight: 400, color: UI.dim });
     });
-    // README checkbox
-    const tick = clamp(span(local, 4.0, 4.4));
-    roundRect(ctx, x + 120, y + 720, 34, 34, 6);
+
+    const tick = clamp(span(local, at(6, 0.9), at(6, 1.3)));
+    roundRect(ctx, x + 140, y + 908, 38, 38, 7);
     ctx.strokeStyle = UI.dim;
     ctx.lineWidth = 4;
     ctx.stroke();
     if (tick > 0) {
+      ctx.save();
+      ctx.globalAlpha = tick;
       ctx.strokeStyle = UI.ink;
-      ctx.lineWidth = 7;
+      ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.moveTo(x + 128, y + 738);
-      ctx.lineTo(x + 136, y + 748);
-      ctx.lineTo(x + 152, y + 726);
+      ctx.moveTo(x + 149, y + 928);
+      ctx.lineTo(x + 158, y + 939);
+      ctx.lineTo(x + 177, y + 915);
       ctx.stroke();
+      ctx.restore();
     }
-    text(ctx, 'Add a README file', x + 176, y + 750, { size: 36, weight: 500, color: UI.text, alpha: clamp(span(local, 3.8, 4.4)) });
+    text(ctx, 'Add a README file', x + 206, y + 940, { size: 38, weight: 500, color: UI.text });
 
-    // create button
-    const bp = clamp(span(local, 4.3, 4.9));
-    panel(ctx, { x: x + 120, y: y + 830, w: 430, h: 96, r: 14, fill: bp > 0.5 ? UI.ink : '#8A8A94', stroke: null, alpha: bp });
-    text(ctx, 'Create repository', x + 335, y + 890, { size: 36, weight: 700, color: UI.white, align: 'center', alpha: bp });
+    const bp = clamp(span(local, at(6, 2.4), at(6, 3.0)));
+    panel(ctx, { x: x + 140, y: y + 1030, w: 520, h: 100, r: 14, fill: bp > 0.5 ? UI.ink : '#8A8A94', stroke: null });
+    text(ctx, 'Create repository', x + 400, y + 1094, {
+      size: 36, weight: 700, color: UI.white, align: 'center',
+    });
 
-    // the pointer walks to Create and clicks
-    const move = ease.inOutCubic(span(local, 4.5, 5.2));
-    const cx = lerp(x + 1400, x + 400, move);
-    const cy = lerp(y + 300, y + 878, move);
-    cursor(ctx, cx, cy, { press: span(local, 5.15, 5.3), alpha: clamp(span(local, 3.6, 4.0)) });
-    clickRing(ctx, x + 400, y + 878, span(local, 5.15, 5.6));
+    // One pointer at a time, each on the row its sentence names.
+    if (local >= at(7, 0.9)) {
+      point({ x: x + 130, y: y + 1018, w: 540, h: 124 }, 'THEN PRESS THIS', at(7, 0.9),
+        { x: x + 1500, y: y + 300 }, UI.red);
+      cursor(ctx, x + 400, y + 1080, { press: span(local, at(7, 1.5), at(7, 1.75)), alpha: clamp(span(local, at(7, 0.4), at(7, 0.9))) });
+      clickRing(ctx, x + 400, y + 1080, span(local, at(7, 1.6), at(7, 2.2)));
+    } else if (local >= at(6, 0.9)) {
+      point({ x: x + 128, y: y + 896, w: 700, h: 70 }, 'ONE TICK, ONE FILE',
+        at(6, 0.9), { x: x + 1500, y: y + 940 });
+    } else if (local >= at(5, 0.4)) {
+      point({ x: x + 130, y: y + 716, w: 980, h: 130 }, 'PRIVATE: NOT READY YET',
+        at(5, 0.4), { x: x + 1500, y: y + 620 });
+    } else if (local >= at(4, 0.4)) {
+      point({ x: x + 130, y: y + 566, w: 980, h: 130 }, 'PUBLIC: FREE CHECKS',
+        at(4, 0.4), { x: x + 1500, y: y + 300 });
+    } else if (local >= at(3, 0.3)) {
+      point({ x: x + 120, y: y + 340, w: 1300, h: 124 }, 'LOWER CASE, WITH HYPHENS',
+        at(3, 0.3), { x: x + 1500, y: y + 300 });
+    }
     return;
   }
 
-  const content = githubChrome(ctx, 'github.com/octocat-ana/book-list', 'book-list', box.x, box.y, box.w, box.h, clamp(span(local, 5.2, 5.7)));
+  // Screen three: the finished repository, and a pointer that walks to each
+  // part as the narration names it.
+  const a = clamp(span(local, pageIn, pageIn + 0.6));
+  const content = githubChrome(ctx, 'github.com/octocat-ana/book-list', 'book-list', box.x, box.y, box.w, box.h, a);
   repoPage(ctx, content, {
-    t, reveal: clamp(span(local, 5.5, 6.6)),
+    t, reveal: clamp(span(local, pageIn, pageIn + 1.0)),
     files: ['README.md', 'books.json', 'index.html', 'style.css'],
   });
+  const { x, y, w } = content;
+  const table = { x: x + 60, y: y + 420, w: w * 0.62, h: 470 };
+  const commits = { x: x + 60, y: y + 420, w: w * 0.62, h: 90 };
+  const branches = { x: x + 60, y: y + 300, w: 420, h: 72 };
+  const about = { x: x + w * 0.66, y: y + 420, w: w * 0.32, h: 300 };
+  const tabs = { x: x + 60, y: y + 196, w: 1200, h: 90 };
 
-  // callouts for the four parts named in the narration
-  // Visibility stamps, spoken on their lines: "Choose Public" and "Choose
-  // Private". Under the fallback pacing these lines land twenty seconds into
-  // the scene, and nothing was choreographed there - measured as a freeze.
-  const vb = scene.lines.map((line) => line.start - scene.start);
-  [['PUBLIC', vb[4] ?? 16, UI.gold], ['PRIVATE', vb[5] ?? 20, UI.red]].forEach(([label, at, colour]) => {
-    const p = span(local, at + 0.25, at + 0.75);
-    if (p <= 0) return;
-    const ex = ease.outBack(clamp(p * 1.2));
-    const punch = Math.sin(Math.PI * clamp(span(local, at + 1.1, at + 1.5)));
-    ctx.save();
-    ctx.globalAlpha = clamp(p * 1.8);
-    ctx.translate((1 - ex) * -70, punch * 90);
-    panel(ctx, {
-      x: content.x + 80, y: content.y + 1180, w: 1100, h: 220, r: 20,
-      fill: UI.ink, stroke: UI.ink,
-    });
-    ctx.fillStyle = colour;
-    ctx.fillRect(content.x + 80, content.y + 1180, 20, 220);
-    text(ctx, label, content.x + 150, content.y + 1330, {
-      size: 76, weight: 700, family: 'Space Grotesk', color: UI.white,
-    });
-    ctx.restore();
-  });
-
-  // Three more beats on the lines that speak them. Measured at the delivery
-  // probe width the page between them still went quiet: the name of the thing
-  // (line 4), its first file (line 7), and the sentence that closes the scene
-  // (line 12).
-  {
-    const mark = (label, at, x0, w0, colour) => {
-      const p = span(local, at, at + 0.55);
-      if (p <= 0) return;
-      const ex = ease.outBack(clamp(p * 1.2));
-      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
-      ctx.save();
-      ctx.globalAlpha = clamp(p * 1.8);
-      ctx.translate((1 - ex) * -70, punch * 90);
-      panel(ctx, {
-        x: x0, y: content.y + 1180, w: w0, h: 210, r: 20,
-        fill: UI.ink, stroke: UI.ink,
-      });
-      ctx.fillStyle = colour;
-      ctx.fillRect(x0, content.y + 1180, 20, 210);
-      text(ctx, label, x0 + 70, content.y + 1325, {
-        size: 66, weight: 700, family: 'Space Grotesk', color: UI.white,
-      });
-      ctx.restore();
-    };
-    mark('THE NAME: book-list', (vb[3] ?? 12) + 0.3, content.x + 80, 1500, UI.gold);
-    // Landed late in their lines on purpose: the holes the delivery probe
-    // found sat mid-sentence, not at the line start.
-    mark('THE FIRST FILE: README', (vb[6] ?? 25) + 2.5, content.x + 80, 1750, UI.gold);
-    mark('THE REST IS CONVERSATION', (vb[11] ?? 48) + 1.9, content.x + 80, 1900, UI.red);
+  // Line 8 promises four parts; line 9 names them in order, so the pointer
+  // lands in the order the words do.
+  const slotA = { x: x + 60, y: y + 1000 };
+  const slotB = { x: x + w - 1180, y: y + 1000 };
+  const slotC = { x: x + 60, y: y + 640 };
+  const slotD = { x: x + w - 1180, y: y + 640 };
+  if (local >= at(10, 0.25)) {
+    point(tabs, 'THE ACTIONS TAB: THE CHECKS', at(10, 0.25), slotA, UI.red);
+  } else if (local >= phraseAt(scene, 9, 'About', at(9, 4.0))) {
+    point(about, 'AND THE ABOUT PANEL', phraseAt(scene, 9, 'About', at(9, 4.0)), slotC);
+  } else if (local >= phraseAt(scene, 9, 'branches', at(9, 2.6))) {
+    point(branches, 'THE BRANCHES', phraseAt(scene, 9, 'branches', at(9, 2.6)), slotB);
+  } else if (local >= phraseAt(scene, 9, 'commit history', at(9, 1.2))) {
+    point(commits, 'THE COMMIT HISTORY', phraseAt(scene, 9, 'commit history', at(9, 1.2)), slotA);
+  } else if (local >= at(9, 0.1)) {
+    point(table, 'THE FILE LIST', at(9, 0.1), slotD);
+  } else if (local >= at(8, 0.3)) {
+    point(table, 'FOUR PARTS, EVERY DAY', at(8, 0.3), slotC);
   }
 
-  const notes = [
-    ['THE FILES', 6.4], ['THE COMMITS', 8.2], ['THE BRANCHES', 9.4], ['THE CHECKS', 10.6],
-  ];
-  notes.forEach(([label, at], i) => {
-    const p = span(local, at, at + 0.5);
-    if (p <= 0) return;
-    // They land in the empty half of an empty repository, not on the tab row
-    // where they were printing over "Code".
-    const nx = content.x + 80 + i * 470;
-    const ny = content.y + 1010;
+  // The closing sentence gets the floor, not a corner.
+  const end = span(local, at(11, 1.0), at(11, 1.5));
+  if (end > 0) {
+    const slide = ease.outCubic(clamp(end));
     ctx.save();
-    ctx.globalAlpha = clamp(p * 1.4);
-    ctx.translate(0, (1 - ease.outCubic(p)) * 24);
-    chip(ctx, label, { x: nx, y: ny, colour: UI.gold, fill: UI.ink, size: 26 });
+    ctx.globalAlpha = clamp(end * 2);
+    panel(ctx, {
+      x: 240, y: y + 1180 + (1 - slide) * 120, w: W - 480, h: 200, r: 20,
+      fill: UI.ink, stroke: UI.ink,
+    });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(240, y + 1180 + (1 - slide) * 120, 24, 200);
+    text(ctx, 'THE REST IS CONVERSATION', 330, y + 1308 + (1 - slide) * 120, {
+      size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
     ctx.restore();
-  });
-  void idx;
+  }
 }
 
 // ------------------------------------------------------------------ connect
 function drawConnect(ctx, scene, t, local) {
   stageField(ctx, t);
+  const cb = scene.lines.map((line) => line.start - scene.start);
+  const lat = (i, offset = 0) => (cb[i] ?? i * 5) + offset;
   text(ctx, scene.title, W / 2, 330, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, align: 'center',
     alpha: clamp(span(local, 0.15, 1.0) * 1.6),
   });
 
-  const left = { x: 300, y: 500, w: 1500, h: 1200 };
-  const right = { x: 2040, y: 500, w: 1500, h: 1200 };
+  // Two panels for the first six lines, one conversation for the last four, and
+  // every beat on the sentence that asks for it. This scene used to draw its
+  // whole picture in the first six seconds and hold for thirty-three, because
+  // everything in it was timed from the top of the scene rather than from the
+  // narration.
+  const conversation = lat(6, 0.2);
+  if (local < conversation) {
+    const left = { x: 300, y: 500, w: 1500, h: 1200 };
+    const right = { x: 2040, y: 500, w: 1500, h: 1200 };
 
-  // Arena panel
-  const lp = clamp(span(local, 0.3, 1.1));
-  panel(ctx, { ...left, r: 28, fill: '#141418', stroke: '#2A2A31', alpha: lp, shadow: 0.6 });
-  ctx.save();
-  ctx.globalAlpha = lp;
-  text(ctx, 'ARENA', left.x + 60, left.y + 86, { size: 38, weight: 700, color: UI.gold, tracking: 8 });
-  text(ctx, 'Connect GitHub', left.x + 60, left.y + 210, { size: 62, weight: 700, color: UI.white, family: 'Space Grotesk' });
-  text(ctx, 'One authorisation, then the agent', left.x + 60, left.y + 282, { size: 34, weight: 400, color: '#9A9AA5' });
-  text(ctx, 'works inside your repositories.', left.x + 60, left.y + 326, { size: 34, weight: 400, color: '#9A9AA5' });
-
-  // authorise button
-  const bp = clamp(span(local, 1.0, 1.6));
-  panel(ctx, { x: left.x + 60, y: left.y + 400, w: 520, h: 100, r: 14, fill: bp > 0 ? UI.gold : '#3A3A42', stroke: null, alpha: bp });
-  text(ctx, 'Authorise GitHub', left.x + 320, left.y + 464, {
-    size: 36, weight: 700, color: UI.ink, align: 'center', alpha: bp,
-  });
-  cursor(ctx, lerp(left.x + 700, left.x + 380, ease.inOutCubic(span(local, 1.2, 1.9))), left.y + 450, {
-    press: span(local, 1.9, 2.1), alpha: clamp(span(local, 0.8, 1.2)),
-  });
-  clickRing(ctx, left.x + 380, left.y + 450, span(local, 1.9, 2.4));
-
-  // permission dialog
-  const dp = clamp(span(local, 2.2, 2.8));
-  if (dp > 0) {
-    panel(ctx, { x: left.x + 60, y: left.y + 560, w: left.w - 120, h: 520, r: 20, fill: '#1E1E24', stroke: '#3A3A44', alpha: dp });
-    text(ctx, 'Choose repositories', left.x + 120, left.y + 650, { size: 46, weight: 700, color: UI.white, alpha: dp });
-    ['book-list', 'portfolio', 'scratch'].forEach((name, i) => {
-      const on = i === 0;
-      const rp = clamp(span(local, 2.6 + i * 0.2, 3.0 + i * 0.2)) * dp;
-      roundRect(ctx, left.x + 120, left.y + 700 + i * 96, 40, 40, 8);
-      ctx.strokeStyle = '#5A5A66';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      if (on && rp > 0.4) {
-        ctx.fillStyle = UI.gold;
-        ctx.fill();
-        ctx.strokeStyle = UI.ink;
-        ctx.lineWidth = 7;
-        ctx.beginPath();
-        ctx.moveTo(left.x + 129, left.y + 722);
-        ctx.lineTo(left.x + 137, left.y + 732);
-        ctx.lineTo(left.x + 153, left.y + 710);
-        ctx.stroke();
-      }
-      text(ctx, name, left.x + 190, left.y + 734 + i * 96, {
-        size: 38, weight: 500, color: i === 0 ? UI.white : '#8A8A96', alpha: rp,
-      });
-    });
-  }
-  ctx.restore();
-
-  // connector
-  const cp = clamp(span(local, 3.0, 4.2));
-  if (cp > 0) {
+    const lp = clamp(span(local, 0.3, 1.1));
+    panel(ctx, { ...left, r: 28, fill: '#141418', stroke: '#2A2A31', alpha: lp, shadow: 0.6 });
     ctx.save();
-    ctx.strokeStyle = 'rgba(11,11,12,0.35)';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(left.x + left.w + 20, 1100);
-    ctx.lineTo(right.x - 20, 1100);
-    ctx.stroke();
-    for (let i = 0; i < 5; i += 1) {
-      const p = (local * 0.5 + i / 5) % 1;
-      if (p > cp) continue;
-      const px = lerp(left.x + left.w + 20, right.x - 20, p);
-      ctx.beginPath();
-      ctx.arc(px, 1100, 10, 0, Math.PI * 2);
-      ctx.fillStyle = UI.red;
-      ctx.globalAlpha = 0.9;
-      ctx.fill();
+    ctx.globalAlpha = lp;
+    text(ctx, 'ARENA', left.x + 60, left.y + 86, { size: 38, weight: 700, color: UI.gold, tracking: 8 });
+    text(ctx, 'Connect GitHub', left.x + 60, left.y + 210, { size: 62, weight: 700, color: UI.white, family: 'Space Grotesk' });
+    text(ctx, 'One authorisation, then the agent', left.x + 60, left.y + 282, { size: 34, weight: 400, color: '#9A9AA5' });
+    text(ctx, 'works inside your repositories.', left.x + 60, left.y + 326, { size: 34, weight: 400, color: '#9A9AA5' });
+
+    // "open the GitHub connection, and approve the sign in"
+    const bp = clamp(span(local, lat(1, 0.1), lat(1, 0.6)));
+    panel(ctx, { x: left.x + 60, y: left.y + 400, w: 520, h: 100, r: 14, fill: bp > 0 ? UI.gold : '#3A3A42', stroke: null, alpha: bp });
+    text(ctx, 'Authorise GitHub', left.x + 320, left.y + 464, {
+      size: 36, weight: 700, color: UI.ink, align: 'center', alpha: bp,
+    });
+    cursor(ctx, lerp(left.x + 700, left.x + 380, ease.inOutCubic(span(local, lat(1, -0.5), lat(1, 0.2)))),
+      left.y + 450, { press: span(local, lat(1, 0.2), lat(1, 0.4)), alpha: clamp(span(local, lat(1, -1.0), lat(1, -0.6))) });
+    clickRing(ctx, left.x + 380, left.y + 450, span(local, lat(1, 0.25), lat(1, 0.75)));
+
+    // "then choose which repositories the agent may touch"
+    const dp = clamp(span(local, lat(2, -0.1), lat(2, 0.5)));
+    if (dp > 0) {
+      // A light modal on the dark panel, because the appearance of the screen is
+      // the beat: dark-on-dark moved too little to read as a new picture, and
+      // the scene held one arrangement for eleven seconds there.
+      panel(ctx, { x: left.x + 60, y: left.y + 560, w: left.w - 120, h: 520, r: 20, fill: UI.white, stroke: UI.ink, alpha: dp });
+      text(ctx, 'Choose repositories', left.x + 120, left.y + 650, { size: 46, weight: 700, color: UI.text, alpha: dp });
+      ['book-list', 'portfolio', 'scratch'].forEach((name, i) => {
+        const on = i === 0;
+        // "start with one" - the other two are there and stay unticked
+        const rp = clamp(span(local, lat(2, 0.3 + i * 0.2), lat(2, 0.7 + i * 0.2))) * dp;
+        roundRect(ctx, left.x + 120, left.y + 700 + i * 96, 40, 40, 8);
+        ctx.strokeStyle = UI.dim;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        if (on && rp > 0.4) {
+          ctx.fillStyle = UI.gold;
+          ctx.fill();
+          ctx.strokeStyle = UI.ink;
+          ctx.lineWidth = 7;
+          ctx.beginPath();
+          ctx.moveTo(left.x + 129, left.y + 722);
+          ctx.lineTo(left.x + 137, left.y + 732);
+          ctx.lineTo(left.x + 153, left.y + 710);
+          ctx.stroke();
+        }
+        text(ctx, name, left.x + 190, left.y + 734 + i * 96, {
+          size: 38, weight: 500, color: i === 0 ? UI.ink : UI.dim, alpha: rp,
+        });
+        // "start with one" lands as a pointer on the one ticked
+        if (on && local > lat(3, 0.2)) {
+          ctx.save();
+          ctx.globalAlpha = clamp(span(local, lat(3, 0.2), lat(3, 0.5)));
+          ctx.strokeStyle = UI.gold;
+          ctx.lineWidth = 5;
+          roundRect(ctx, left.x + 104, left.y + 684, left.w - 208, 76, 12);
+          ctx.stroke();
+          ctx.restore();
+        }
+      });
     }
     ctx.restore();
-  }
 
-  // GitHub panel
-  const rp2 = clamp(span(local, 3.2, 4.0));
-  panel(ctx, { ...right, r: 28, fill: UI.window, stroke: UI.line, alpha: rp2, shadow: 0.5 });
-  ctx.save();
-  ctx.globalAlpha = rp2;
-  text(ctx, 'GITHUB', right.x + 60, right.y + 86, { size: 38, weight: 700, color: UI.dim, tracking: 8 });
-  text(ctx, 'octocat-ana / book-list', right.x + 60, right.y + 210, {
-    size: 56, weight: 700, color: UI.text, family: 'Space Grotesk',
-  });
-  chip(ctx, 'CONNECTED', { x: right.x + 60, y: right.y + 260, colour: UI.ink, fill: '#DFF3E6', size: 28 });
-  ['read the files', 'write a branch', 'open a pull request'].forEach((value, i) => {
-    const p = clamp(span(local, 4.2 + i * 0.5, 4.8 + i * 0.5));
-    if (p <= 0) return;
+    const cp = clamp(span(local, lat(2, 1.0), lat(2, 2.0)));
+    if (cp > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(11,11,12,0.35)';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(left.x + left.w + 20, 1100);
+      ctx.lineTo(right.x - 20, 1100);
+      ctx.stroke();
+      for (let i = 0; i < 5; i += 1) {
+        const p = (local * 0.5 + i / 5) % 1;
+        if (p > cp) continue;
+        const px = lerp(left.x + left.w + 20, right.x - 20, p);
+        ctx.beginPath();
+        ctx.arc(px, 1100, 10, 0, Math.PI * 2);
+        ctx.fillStyle = UI.red;
+        ctx.globalAlpha = 0.9;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    const rp2 = clamp(span(local, lat(1, 0.2), lat(1, 0.9)));
+    panel(ctx, { ...right, r: 28, fill: UI.window, stroke: UI.line, alpha: rp2, shadow: 0.5 });
     ctx.save();
-    ctx.globalAlpha = p * rp2;
-    ctx.beginPath();
-    ctx.arc(right.x + 84, right.y + 430 + i * 110, 20, 0, Math.PI * 2);
-    ctx.fillStyle = UI.ink;
-    ctx.fill();
-    text(ctx, value, right.x + 130, right.y + 444 + i * 110, { size: 40, weight: 500, color: UI.text });
+    ctx.globalAlpha = rp2;
+    text(ctx, 'GITHUB', right.x + 60, right.y + 86, { size: 38, weight: 700, color: UI.dim, tracking: 8 });
+    text(ctx, 'octocat-ana / book-list', right.x + 60, right.y + 210, {
+      size: 56, weight: 700, color: UI.text, family: 'Space Grotesk',
+    });
+    chip(ctx, 'CONNECTED', { x: right.x + 60, y: right.y + 260, colour: UI.ink, fill: '#DFF3E6', size: 28 });
+    // "read that permission screen properly": the three powers, one per beat
+    ['read the files', 'write a branch', 'open a pull request'].forEach((value, i) => {
+      const p = clamp(span(local, lat(4, 0.3 + i * 0.55), lat(4, 0.8 + i * 0.55)));
+      if (p <= 0) return;
+      ctx.save();
+      ctx.globalAlpha = p * rp2;
+      ctx.beginPath();
+      ctx.arc(right.x + 84, right.y + 430 + i * 110, 20, 0, Math.PI * 2);
+      ctx.fillStyle = i === 1 ? UI.red : UI.ink;
+      ctx.fill();
+      text(ctx, value, right.x + 130, right.y + 444 + i * 110, { size: 40, weight: 500, color: UI.text });
+      ctx.restore();
+    });
     ctx.restore();
-  });
-  ctx.restore();
 
-  // "the difference between a useful helper and a very fast way to ship the
-  // wrong thing" - the difference itself, landed on that line. The scene drew
-  // everything it had in its first six seconds and then held for thirty-three;
-  // at delivery probe width the tail of this line was a 0.5 s freeze.
-  {
-    const cb = scene.lines.map((line) => line.start - scene.start);
-    const at = (cb[5] ?? 16) + 3.2;
-    const p = span(local, at, at + 1.0);
+    // "a useful helper and a very fast hazard" - the difference, as a band
+    const bandAt = lat(5, 0.9);
+    const p = span(local, bandAt, bandAt + 1.0);
     if (p > 0) {
       const ex = ease.outCubic(clamp(p * 1.2));
-      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      const punch = Math.sin(Math.PI * clamp(span(local, bandAt + 1.2, bandAt + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
       ctx.translate((1 - ex) * -600, punch * 120);
@@ -1526,7 +1767,88 @@ function drawConnect(ctx, scene, t, local) {
       });
       ctx.restore();
     }
+    return;
   }
+
+  // "now open your repository in Arena, and start a conversation": the two
+  // panels become the one window the rest of the scene is about.
+  const apart = ease.outCubic(clamp(span(local, conversation, conversation + 0.6)));
+  const conv = { x: 300, y: 480, w: 3240, h: 1180 + (1 - apart) * 60 };
+  panel(ctx, { ...conv, r: 28, fill: '#141418', stroke: '#2A2A31', shadow: 0.6 });
+  ctx.save();
+  ctx.globalAlpha = apart;
+  text(ctx, 'ARENA', conv.x + 70, conv.y + 90, { size: 34, weight: 700, color: UI.gold, tracking: 8 });
+  // "your repository name sits at the top of the conversation" - and it stays
+  // there, highlighted on the line that tells you to check it every time.
+  const nameBox = { x: conv.x + 70, y: conv.y + 130, w: 900, h: 120 };
+  const checked = clamp(span(local, lat(8, 0.2), lat(8, 0.6)));
+  const alarm = clamp(span(local, lat(9, 0.2), lat(9, 0.6)));
+  panel(ctx, {
+    x: nameBox.x, y: nameBox.y, w: nameBox.w, h: nameBox.h, r: 16,
+    fill: alarm > 0.5 ? UI.red : UI.window2, stroke: UI.ink,
+  });
+  text(ctx, 'octocat-ana / book-list', nameBox.x + 40, nameBox.y + 78, {
+    size: 46, weight: 700, family: 'Space Grotesk', color: alarm > 0.5 ? UI.white : UI.text,
+  });
+  if (checked > 0) {
+    ctx.save();
+    ctx.globalAlpha = checked;
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(nameBox.x, nameBox.y + nameBox.h + 14, nameBox.w * checked, 10);
+    ctx.restore();
+  }
+
+  // the conversation itself, one message per capability the agent has
+  const msgs = [
+    ['You', 'Add a search box to the list.', lat(6, 0.6)],
+    ['Agent', 'I can see the files, the history and the branch.', lat(7, 0.3)],
+  ];
+  msgs.forEach(([who, value, start], i) => {
+    const mp = clamp(span(local, start, start + 0.5));
+    if (mp <= 0) return;
+    const my = conv.y + 340 + i * 260;
+    ctx.save();
+    ctx.globalAlpha = mp * apart;
+    ctx.translate((1 - ease.outCubic(mp)) * 120, 0);
+    panel(ctx, {
+      x: conv.x + 70 + i * 180, y: my, w: 2100, h: 190, r: 18,
+      fill: i === 0 ? UI.white : '#242430', stroke: i === 0 ? UI.line : '#33333D',
+    });
+    text(ctx, who.toUpperCase(), conv.x + 110 + i * 180, my + 60, {
+      size: 26, weight: 700, color: i === 0 ? UI.faint : UI.gold, tracking: 4,
+    });
+    text(ctx, value, conv.x + 110 + i * 180, my + 128, {
+      size: 38, weight: 500, color: i === 0 ? UI.text : '#E4E4EA', maxWidth: 1900,
+    });
+    ctx.restore();
+  });
+
+  // "the agent can see the files, the history, and the branch": three chips,
+  // because the sentence lists three things
+  ['THE FILES', 'THE HISTORY', 'THE BRANCH'].forEach((label, i) => {
+    const cp2 = clamp(span(local, lat(7, 0.9 + i * 0.6), lat(7, 1.4 + i * 0.6)));
+    if (cp2 <= 0) return;
+    chip(ctx, label, {
+      x: conv.x + 70 + i * 620, y: conv.y + 880,
+      colour: UI.white, fill: i === 2 ? UI.red : UI.ink, size: 30, alpha: cp2 * apart,
+    });
+  });
+
+  // "check it every single time. Wrong repository is the most expensive easy
+  // mistake." - the mistake, named, while the name above turns red.
+  const warnAt = lat(9, 0.5);
+  const wp = clamp(span(local, warnAt, warnAt + 0.5));
+  if (wp > 0) {
+    ctx.save();
+    ctx.globalAlpha = wp * apart;
+    ctx.translate(0, (1 - ease.outCubic(wp)) * 200);
+    panel(ctx, { x: conv.x + 70, y: conv.y + 980, w: conv.w - 140, h: 150, r: 18, fill: UI.red, stroke: null });
+    text(ctx, 'WRONG REPOSITORY IS THE EXPENSIVE MISTAKE', conv.x + 130, conv.y + 1078, {
+      size: 54, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 // ------------------------------------------------------------------- prompt
@@ -1628,10 +1950,14 @@ function drawPrompt(ctx, scene, t, local) {
     // in the same slot - two identical red slabs overlapping produce almost
     // no change in the picture, which measured as a 0.9 s freeze exactly at
     // the swap.
-    const leave = i < notes.length - 1
-      ? ease.outCubic(clamp(span(local, (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.55,
-        (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.15)))
-      : 0;
+    // The last one has no successor to hand over to, so it used to stay on
+    // screen for the remaining forty seconds - and the "here is one that works"
+    // slab landed in the same place on top of it, which is why that stretch read
+    // as one held picture. It leaves when the prompt itself arrives.
+    const leaveAt = i < notes.length - 1
+      ? (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.55
+      : (b[4] ?? 20) - 0.1;
+    const leave = ease.outCubic(clamp(span(local, leaveAt, leaveAt + 0.4)));
     if (np <= 0 || leave >= 1) return;
     const ex = ease.outCubic(clamp(np * 1.2));
     // Every note takes a punch a second after it lands. The swaps cover the
@@ -1650,6 +1976,38 @@ function drawPrompt(ctx, scene, t, local) {
     });
     ctx.restore();
   });
+
+  // One card per sentence of the prompt, landing as that sentence is typed.
+  // The composer alone was not enough: five sentences typed into one panel is a
+  // slow fill, and measured it let a single arrangement sit for thirty-four
+  // seconds. Each card is a block of picture that was not there before, and the
+  // column reads as the anatomy of a good prompt by the end.
+  {
+    const parts = [
+      ['01  IT NAMES THE THING', 'One page. Books. Yours.'],
+      ['02  IT NAMES THE DATA', 'books.json, one card per book.'],
+      ['03  IT NAMES THE CONSTRAINT', 'Plain HTML, CSS, JavaScript.'],
+      ['04  IT ASKS FOR THE README', 'So the next session can start.'],
+      ['05  IT SETS THE SCOPE CUT', 'No database. Not yet.'],
+    ];
+    parts.forEach(([label, detail], i) => {
+      const start = (b[5 + i] ?? 24 + i * 5) + 0.35;
+      const cp = clamp(span(local, start, start + 0.45));
+      if (cp <= 0) return;
+      const cy = 500 + i * 232;
+      ctx.save();
+      ctx.globalAlpha = cp;
+      ctx.translate((1 - ease.outCubic(cp)) * 140, 0);
+      panel(ctx, { x: 2580, y: cy, w: 1020, h: 205, r: 18, fill: UI.ink, stroke: null });
+      ctx.fillStyle = i === 4 ? UI.gold : UI.red;
+      ctx.fillRect(2580, cy, 18, 205);
+      text(ctx, label, 2636, cy + 92, {
+        size: 40, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 940,
+      });
+      text(ctx, detail, 2636, cy + 154, { size: 28, weight: 400, color: '#B9B9C4', maxWidth: 940 });
+      ctx.restore();
+    });
+  }
 
   // cursor to send, and the press, on the line that says "send it"
   const sendAt = (b[11] ?? 48) + 0.25;
@@ -1991,7 +2349,7 @@ function drawChecks(ctx, scene, t, local) {
   stageField(ctx, t);
   const b = scene.lines.map((line) => line.start - scene.start);
   const e = scene.lines.map((line) => line.end - scene.start);
-  text(ctx, scene.title, 240, 320, {
+  text(ctx, scene.title, 240, 268, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
 
@@ -2310,29 +2668,58 @@ function drawFeature(ctx, scene, t, local) {
   const { x, y, w } = content;
 
   if (stage === 'prompt') {
-    panel(ctx, { x: x + 60, y: y + 60, w: w - 120, h: 560, r: 18, fill: '#141418', stroke: '#2A2A31' });
+    // Left: the conversation, typed at the pace it is spoken. Right: one card per
+    // thing the narration names, in one of two slots so consecutive cards are
+    // different pictures. Measured, the typed lines alone were not enough: they
+    // are thin text on a dark panel, and the scene held one arrangement for
+    // thirty-four seconds - two thirds of its length - while they arrived.
+    panel(ctx, { x: x + 60, y: y + 60, w: 1520, h: 700, r: 18, fill: '#141418', stroke: '#2A2A31' });
     text(ctx, 'ARENA', x + 120, y + 130, { size: 30, weight: 700, color: UI.gold, tracking: 5 });
-    const lines = [
+    const typedLines = [
       'Add a search box above the list.',
       'It filters the cards as I type, ignores capitals,',
       'and shows a message when nothing matches.',
       'Do not change the card design. Do not add a library.',
     ];
-    // All four lines of the prompt are typed, at the pace they are spoken: the
-    // last one lands on the line that explains why saying "do not" matters.
-    const p = span(local, 0.6, toDiff - 0.3) * lines.length;
-    lines.forEach((line, i) => {
+    const p = span(local, 0.6, toDiff - 0.3) * typedLines.length;
+    typedLines.forEach((line, i) => {
       if (i > p) return;
-      text(ctx, line, x + 120, y + 210 + i * 78, {
-        size: 38, weight: 500, color: i === 3 ? UI.gold : UI.white, alpha: clamp(p - i),
+      text(ctx, line, x + 120, y + 240 + i * 108, {
+        size: 38, weight: 500, color: i === 3 ? UI.gold : UI.white, alpha: clamp(p - i), maxWidth: 1360,
       });
     });
-    // Only once every line of the prompt has landed: it used to appear while the
-    // last line was still fading in, and printed straight through it.
-    const done = clamp(span(local, Math.max(2.0, toDiff - 1.1), Math.max(2.6, toDiff - 0.6)));
-    chip(ctx, 'ONE FILE  ·  ABOUT 40 LINES', {
-      x: x + 120, y: y + 600, colour: UI.ink, fill: UI.gold, size: 26, alpha: done,
+
+    const cards = [
+      ['BEFORE: A LIST OF BOOKS', 'AFTER: THE SAME LIST, SEARCHABLE.', lat(1) + 0.3],
+      ['WHAT IT IS, WHO IT IS FOR', 'AND WHAT DONE LOOKS LIKE.', lat(2) + 0.3],
+      ['THE OUTCOME', 'A search box above the list.', lat(3) + 0.3],
+      ['THE BEHAVIOUR', 'Filters as you type. Ignores capitals.', lat(4) + 0.3],
+      ['THE CONSTRAINT', 'Do not touch the card. No library.', lat(5) + 0.3],
+      ['ONE FILE. ABOUT FORTY LINES.', 'One pull request. A minute to read.', lat(6) + 0.3],
+    ];
+    let current = -1;
+    cards.forEach((card, i) => {
+      if (local >= card[2]) current = i;
     });
+    if (current >= 0) {
+      const card = cards[current];
+      const start = card[2];
+      const cp = clamp(span(local, start, start + 0.45));
+      const slotY = current % 2 === 0 ? y + 60 : y + 460;
+      ctx.save();
+      ctx.globalAlpha = cp;
+      ctx.translate((1 - ease.outCubic(cp)) * 160, 0);
+      panel(ctx, { x: x + 1700, y: slotY, w: 1540, h: 340, r: 20, fill: UI.ink, stroke: null });
+      ctx.fillStyle = current === 5 ? UI.gold : UI.red;
+      ctx.fillRect(x + 1700, slotY, 22, 340);
+      text(ctx, card[0], x + 1780, slotY + 140, {
+        size: 52, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 1380,
+      });
+      text(ctx, card[1], x + 1780, slotY + 224, {
+        size: 32, weight: 400, color: '#B9B9C4', maxWidth: 1380,
+      });
+      ctx.restore();
+    }
     return;
   }
 
@@ -2566,26 +2953,25 @@ function drawPatterns(ctx, scene, t, local) {
     ctx.save();
     ctx.globalAlpha = clamp(p * 4);
     ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * 500, 0);
-    panel(ctx, {
-      x: 260, y: yy, w: W - 520, h: 158, r: 16,
-      fill: i % 2 ? UI.ink : UI.window2, stroke: i % 2 ? UI.ink : UI.line,
-    });
-    ctx.fillStyle = i % 2 ? UI.gold : UI.ink;
+    // Every row is dark. They used to alternate dark and light, and every light
+    // row landed on light paper: measured, half the arrivals in this scene moved
+    // too few blocks to count and left an eleven-second hold. The alternation is
+    // carried by the accent instead of by the fill.
+    panel(ctx, { x: 260, y: yy, w: W - 520, h: 158, r: 16, fill: UI.ink, stroke: null });
+    ctx.fillStyle = i % 2 ? UI.red : UI.gold;
     ctx.fillRect(260, yy, 14, 158);
     text(ctx, String(i + 1).padStart(2, '0'), 320, yy + 62, {
-      size: 30, weight: 700, color: i % 2 ? UI.gold : UI.dim, tracking: 3,
+      size: 30, weight: 700, color: i % 2 ? UI.red : UI.gold, tracking: 3,
     });
     text(ctx, label, 420, yy + 66, {
-      size: 48, weight: 700, family: 'Space Grotesk', color: i % 2 ? UI.white : UI.text,
+      size: 48, weight: 700, family: 'Space Grotesk', color: UI.white,
     });
     // the example, typed under a bar that grows across the line
     const typeTo = Math.max(at + 1.2, (b[2 + i] ?? (at + 3)) - 0.3);
     const typed = clamp(span(local, at + 0.3, typeTo));
-    ctx.fillStyle = i % 2 ? 'rgba(242,194,48,0.5)' : 'rgba(242,194,48,0.65)';
+    ctx.fillStyle = 'rgba(242,194,48,0.42)';
     ctx.fillRect(415, yy + 92, typed * 900, 46);
-    text(ctx, example, 420, yy + 128, {
-      size: 36, weight: 400, color: i % 2 ? 'rgba(242,242,242,0.85)' : UI.dim,
-    });
+    text(ctx, example, 420, yy + 128, { size: 36, weight: 400, color: 'rgba(242,242,242,0.85)' });
     ctx.restore();
   });
 }
@@ -2697,47 +3083,144 @@ function drawHabits(ctx, scene, t, local) {
   stageField(ctx, t);
   const b = scene.lines.map((line) => line.start - scene.start);
   const e = scene.lines.map((line) => line.end - scene.start);
+  const at = (i, offset = 0) => (b[i] ?? i * 4) + offset;
   text(ctx, scene.title, 240, 320, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
-  // One habit per spoken line, as a slab. The scene used to print all ten in
-  // its first ten seconds - and its last three below the bottom of the frame -
-  // then hold for twenty-eight. Each row now lands with its sentence, and the
-  // list settles upward at the end so the scene closes on a move.
+
+  // Five habits, ten sentences. The rows used to land on the first five lines
+  // and the scene then sat still for the other five - measured, one arrangement
+  // held twenty-three seconds, the second worst in the film. The rows now land
+  // on the five sentences that *name* a habit, and the second column exists for
+  // the five that do not: the list of what is next, the weekly look back, and a
+  // closing line. The stage is sparse, so a camera move cannot carry this on its
+  // own; the room has to fill.
+  const secondColumn = ease.outCubic(clamp(span(local, at(6, 0.2), at(6, 0.7))));
+  const rowW = lerp(3360, 1900, secondColumn);
   const last = e[e.length - 1] ?? 1;
   const settle = ease.outCubic(clamp(span(local, last - 0.8, last - 0.3)));
   HABITS.forEach(([label, detail], i) => {
-    const at = (b[i] ?? i) + 0.25;
-    const p = clamp(span(local, at, at + 0.6));
+    const start = at(i + 1, 0.25);
+    const p = clamp(span(local, start, start + 0.6));
     if (p <= 0) return;
-    const yy = 430 + i * 168 - settle * 40;
-    // A double-tap after the landing: one arrival alone leaves a gap the
-    // detector reads as a freeze between rows.
-    const tap = (Math.sin(Math.PI * clamp(span(local, at + 0.8, at + 1.0)))
-      + Math.sin(Math.PI * clamp(span(local, at + 1.15, at + 1.6)))
-      + Math.sin(Math.PI * clamp(span(local, at + 1.75, at + 2.2)))
-      + Math.sin(Math.PI * clamp(span(local, at + 2.35, at + 2.8)))) * 110;
+    const yy = 430 + i * 176 - settle * 40;
+    const tap = (Math.sin(Math.PI * clamp(span(local, start + 0.8, start + 1.0)))
+      + Math.sin(Math.PI * clamp(span(local, start + 1.15, start + 1.6)))
+      + Math.sin(Math.PI * clamp(span(local, start + 1.75, start + 2.2)))) * 90;
     ctx.save();
     ctx.globalAlpha = p;
-    ctx.translate((1 - ease.outExpo(p)) * 110, punch);
-    panel(ctx, { x: 240, y: yy - 92, w: 3360, h: 148, r: 18, fill: UI.ink, stroke: UI.ink });
+    ctx.translate((1 - ease.outExpo(p)) * 110, tap);
+    panel(ctx, { x: 240, y: yy - 78, w: rowW, h: 148, r: 18, fill: UI.ink, stroke: UI.ink });
     ctx.fillStyle = UI.gold;
-    ctx.fillRect(240, yy - 92, 18, 148);
+    ctx.fillRect(240, yy - 78, 18, 148);
     ctx.beginPath();
-    ctx.arc(330, yy - 18, 30, 0, Math.PI * 2);
+    ctx.arc(330, yy - 4, 30, 0, Math.PI * 2);
     ctx.fillStyle = UI.gold;
     ctx.fill();
     ctx.strokeStyle = UI.ink;
     ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(316, yy - 18);
-    ctx.lineTo(327, yy - 7);
-    ctx.lineTo(345, yy - 32);
+    ctx.moveTo(316, yy - 4);
+    ctx.lineTo(327, yy + 7);
+    ctx.lineTo(345, yy - 18);
     ctx.stroke();
-    text(ctx, label, 400, yy - 2, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.white });
-    text(ctx, detail, 400, yy + 44, { size: 32, weight: 400, color: 'rgba(242,242,242,0.65)' });
+    text(ctx, label, 400, yy + 12, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.white });
+    text(ctx, detail, 400, yy + 58, { size: 32, weight: 400, color: 'rgba(242,242,242,0.65)' });
     ctx.restore();
   });
+
+  // The second column: what is next, kept in the repository, then the week.
+  if (secondColumn > 0) {
+    const px = 2320;
+    const py = 360;
+    const pw = 1280;
+    ctx.save();
+    ctx.globalAlpha = secondColumn;
+    ctx.translate((1 - secondColumn) * 120, 0);
+    panel(ctx, { x: px, y: py, w: pw, h: 1120, r: 22, fill: UI.window2, stroke: UI.ink });
+    ctx.fillStyle = UI.ink;
+    ctx.fillRect(px, py, pw, 118);
+    text(ctx, 'NEXT.md', px + 48, py + 78, {
+      size: 44, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    text(ctx, 'in the repo, not in your head', px + 48, py + 178, {
+      size: 28, weight: 400, color: UI.dim,
+    });
+    const items = [
+      ['Ask for the filter', at(6, 1.4)],
+      ['Fix the empty state', at(6, 2.6)],
+      ['Ship the search box', at(6, 3.8)],
+      ['Write the README as you go', at(8, 0.6)],
+      ['One idea per pull request', at(8, 1.8)],
+    ];
+    items.forEach(([label, start], i) => {
+      const p = clamp(span(local, start, start + 0.45));
+      if (p <= 0) return;
+      const iy = py + 260 + i * 130;
+      ctx.save();
+      ctx.globalAlpha = p;
+      ctx.translate((1 - ease.outCubic(p)) * 90, 0);
+      ctx.fillStyle = UI.line;
+      ctx.fillRect(px + 48, iy + 96, pw - 96, 2);
+      ctx.beginPath();
+      ctx.arc(px + 74, iy + 48, 14, 0, Math.PI * 2);
+      ctx.fillStyle = i >= 3 ? UI.red : UI.ink;
+      ctx.fill();
+      text(ctx, label, px + 116, iy + 60, { size: 34, weight: 500, color: UI.text });
+      ctx.restore();
+    });
+    const longer = clamp(span(local, at(8, 0.2), at(8, 0.6)));
+    if (longer > 0) {
+      text(ctx, 'the list is longer than you think', px + 48, py + 970, {
+        size: 28, weight: 600, color: UI.red, alpha: longer,
+      });
+    }
+    ctx.restore();
+  }
+
+  // Once a week: a band across the bottom, which is the biggest change the
+  // scene can make without inventing content it does not have.
+  const weekly = clamp(span(local, at(7, 0.3), at(7, 0.8)));
+  if (weekly > 0) {
+    const slide = ease.outCubic(weekly);
+    const by = 1560 + (1 - slide) * 220;
+    ctx.save();
+    ctx.globalAlpha = weekly;
+    panel(ctx, { x: 240, y: by, w: 3360, h: 200, r: 20, fill: UI.ink, stroke: null });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(240, by, 22, 200);
+    text(ctx, 'ONCE A WEEK: LOOK AT WHAT YOU SHIPPED', 340, by + 118, {
+      size: 56, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    // A week of shipped work, not seven empty boxes: each bar is one day, and
+    // its height is how much went out. Drawn, never a placeholder.
+    const shipped = [0.35, 0.5, 0.28, 0.8, 0.62, 0.95, 0.7];
+    shipped.forEach((amount, i) => {
+      const tickAt = at(7, 0.9) + i * 0.2;
+      if (local < tickAt) return;
+      const h = 26 + amount * 96;
+      ctx.fillStyle = i === shipped.length - 1 ? UI.gold : '#6E6E78';
+      ctx.fillRect(2700 + i * 104, by + 150 - h, 68, h);
+    });
+    ctx.restore();
+  }
+
+  // And the closing sentence gets the frame.
+  const close = clamp(span(local, at(9, 0.2), at(9, 0.7)));
+  if (close > 0) {
+    const slide = ease.outCubic(close);
+    ctx.save();
+    ctx.globalAlpha = close;
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(240, 1216, 2100 * slide, 10);
+    text(ctx, 'SPEED COMES FROM THE LOOP,', 240 + (1 - slide) * -80, 1330, {
+      size: 88, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    text(ctx, 'NOT FROM THE TYPING.', 240 + (1 - slide) * -80, 1436, {
+      size: 88, weight: 700, family: 'Space Grotesk', color: UI.red,
+    });
+    ctx.restore();
+  }
 }
 
 // -------------------------------------------------------------------- recap
@@ -2790,10 +3273,19 @@ function drawRecap(ctx, scene, t, local) {
       + Math.sin(Math.PI * clamp(span(local, at + 2.35, at + 2.8)))) * 110;
     ctx.save();
     ctx.globalAlpha = clamp(p * 4);
-    ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * -500, punch);
-    panel(ctx, { x: xx, y: yy, w: 1620, h: 240, r: 20, fill: UI.window, stroke: UI.line, shadow: 0.4 });
-    text(ctx, String(i + 1).padStart(2, '0'), xx + 60, yy + 150, { size: 76, weight: 700, family: 'Space Grotesk', color: UI.line2 });
-    text(ctx, label, xx + 200, yy + 138, { size: 50, weight: 700, family: 'Space Grotesk', color: UI.text });
+    // ``tap`` is the punch this row takes after it lands. It used to reference a
+    // ``punch`` that existed in the neighbouring scene, which threw as soon as
+    // the recap was rendered: the film could not be built past 10:40 at all.
+    ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * -500, tap);
+    // Inverted on purpose. These rows were light cards on a light stage, and
+    // measured against the frame each one replaced they moved too few blocks to
+    // count: the scene held thirteen seconds while they landed. A dark card
+    // arriving in an empty quarter of the frame is a change you can see.
+    panel(ctx, { x: xx, y: yy, w: 1620, h: 240, r: 20, fill: UI.ink, stroke: null });
+    ctx.fillStyle = i === 6 ? UI.gold : UI.red;
+    ctx.fillRect(xx, yy, 18, 240);
+    text(ctx, String(i + 1).padStart(2, '0'), xx + 60, yy + 152, { size: 76, weight: 700, family: 'Space Grotesk', color: UI.gold });
+    text(ctx, label, xx + 200, yy + 140, { size: 50, weight: 700, family: 'Space Grotesk', color: UI.white });
     ctx.restore();
   });
   // The closing card lands on the last line of the scene.
@@ -3017,18 +3509,91 @@ function transition(ctx, scene, local) {
 }
 
 /**
- * The scene camera: a slow push-in with a little drift, one per scene.
+ * The scene camera: a two-shot cadence, one shot per spoken line.
  *
- * Without it a card sits exactly still between two spoken lines, which is the
- * difference between a diagram and a shot. The move is small enough to never
- * read as a zoom and large enough that the frame is never identical for two
- * frames in a row.
+ * This used to be a single slow push-in of 3.5% across the whole scene, with a
+ * 58-unit slide on every beat. Measured on the delivered file, that left the
+ * arrangement unchanged for seventy-nine seconds in one place and longer than
+ * forty seconds in seven: a viewer sitting through it sees a slide with a light
+ * moving over it, which is exactly what it was.
+ *
+ * The numbers here were measured rather than guessed. Taking a real frame and
+ * reframing it, the arrangement still reads as the same picture at 1.06 (0.96
+ * similarity) and as a new one at 1.08 (0.86), while the offset matters more
+ * than the zoom: a small push with a vertical offset scored 0.58-0.84 on every
+ * content scene in the film. So a detail shot is 1.07 with the frame settled
+ * 40 units lower, which crops 126 units a side and leaves the 240-unit type
+ * margin intact.
+ *
+ * Only a title card of centred words on an empty stage stays above the
+ * threshold, and that is fair: it is the same picture, and those scenes change
+ * by the words arriving instead.
+ *
+ * Bands, captions and the progress bar are drawn outside this transform, so the
+ * furniture never moves with the shot.
  */
+// Measured on delivered frames: reframing at 1.06 still reads as the same
+// picture (0.96 similarity), 1.08 is noticed (0.86), 1.09 reads as a new shot
+// (0.72) and 1.11 definitely does (0.33). 1.11 was tried and moved the headline
+// to within fifteen units of the frame edge, which looks like a mistake rather
+// than a shot; 1.09 crops 159 of the design's 240-unit type margin and leaves
+// the headline where it can breathe. On a sparse stage even 1.11 changed too
+// little to count, which is why the scenes' content had to be fixed too: a
+// camera cannot reframe an empty room into a new room.
+const SHOT_DETAIL_ZOOM = 1.09;
+const SHOT_PUSH_SECONDS = 1.1;    // how long the picture takes to move in
+const SHOT_DRIFT = 24;            // design units of sideways travel inside a shot
+const SHOT_LIFT = 40;             // and of vertical travel
+
+/**
+ * Which shot we are in, and how far through it.
+ *
+ * The camera used to change in a single frame, and a measurement of the
+ * delivered picture proved that was worthless: two frames either side of the
+ * change differ by the cut, and a viewer watching it sees one arrangement that
+ * is suddenly somewhere else. A shot is a move. This returns a 0-1 push that
+ * takes ``SHOT_PUSH_SECONDS`` to complete, so the picture is travelling for
+ * most of the time it is on screen.
+ */
+function shotState(scene, local) {
+  const starts = scene.lines.map((line) => line.start - scene.start);
+  let shot = 0;
+  let since = 0;
+  for (let i = 0; i < starts.length; i += 1) {
+    if (local >= starts[i]) {
+      shot = i;
+      since = starts[i];
+    }
+  }
+  const next = starts[shot + 1] ?? Math.max(since + 1, scene.end - scene.start);
+  const length = Math.max(0.8, next - since);
+  const detail = shot % 2 === 1;
+  const push = ease.outCubic(clamp((local - since) / SHOT_PUSH_SECONDS));
+  // The travel runs for the whole shot rather than only the push, so a long
+  // sentence still has a picture that is going somewhere. It is scoped to the
+  // shot: it starts again from zero on the next line, which is a new take.
+  const across = clamp((local - since) / length);
+  const pair = Math.floor(shot / 2);
+  const sign = pair % 2 === 0 ? 1 : -1;
+  return {
+    zoom: lerp(1, SHOT_DETAIL_ZOOM, detail ? push : 0) * (1 + 0.018 * across),
+    dx: sign * detail * SHOT_DRIFT * (0.35 + 0.65 * across),
+    dy: (detail ? 1 : 0) * SHOT_LIFT * (0.35 + 0.65 * across),
+  };
+}
+
 function camera(ctx, scene, local, t) {
   if (CONTENT_ONLY) return;
   const length = Math.max(1, scene.end - scene.start);
   const p = clamp(local / length);
-  const zoom = 1 + 0.035 * p;
+  void p;
+
+  // Two shots per spoke pair: one wide and settled, one pushed in and lower.
+  // The numbers were measured on real frames rather than guessed: reframing a
+  // delivered frame still reads as the same picture at 1.06 (0.96 similarity)
+  // and as a new one at 1.07 with the frame settled (0.86), while the type sits
+  // on a 240-unit margin and a 1.07 crop takes 126 units a side.
+  const shot = shotState(scene, local);
 
   // A re-frame on every spoken line, the way an operator settles the shot on a
   // beat: the frame eases 26 units sideways and 7 down, then holds. It is the
@@ -3053,11 +3618,13 @@ function camera(ctx, scene, local, t) {
     dx = lerp(idx === 0 ? 0 : sign(idx - 1), sign(idx), k) * 58;
     dy = lerp(idx === 0 ? 0 : -1, 1, k) * 13;
   }
-  dx += Math.sin(local * 0.31) * 1.6;
-  dy += Math.cos(local * 0.27) * 1.2;
+  // The shot travels; the drift above is the hand. They are added so a frame is
+  // never identical to the last one even while the shot is settled.
+  dx += shot.dx + Math.sin(local * 0.31) * 1.6;
+  dy += shot.dy + Math.cos(local * 0.27) * 1.2;
 
   ctx.translate(W / 2, H / 2);
-  ctx.scale(zoom, zoom);
+  ctx.scale(shot.zoom, shot.zoom);
   ctx.translate(-W / 2 + dx, -H / 2 + dy);
 }
 

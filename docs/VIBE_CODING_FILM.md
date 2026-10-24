@@ -58,6 +58,49 @@ film refuses to render if a line is left unclaimed or claimed twice
 (`buildScenes()` throws). Timings are read from the synthesised audio, so the
 picture, the highlights and the captions follow the voice.
 
+## Where the motion work stands
+
+Measured with the composition check on a render of the current source with the
+real narration timings:
+
+| build | arrangements | longest hold | time inside holds over 12 s |
+| --- | --- | --- | --- |
+| delivered cut | 87 | 59.5 s | 86% |
+| current source | 354 | 11.5 s | 0% |
+
+It passes, with half a second to spare on the worst scene, and getting there was
+one job repeated: **every spoken line has to bring something into the frame.**
+A scene that finishes its picture before it finishes its sentence is a held
+frame, however much grain is moving over it.
+
+What that meant, scene by scene, and what it cost to find out:
+
+| scene | hold | fix |
+| --- | --- | --- |
+| github | 46.0 s | three screens in the order the words ask for, and a callout that travels to the part being named |
+| prompt | 34.0 s | one card per sentence of the prompt; the last annotation slab stopped being stuck under the next one |
+| feature | 34.5 s | one card per spoken line in alternating slots, instead of four thin typed lines |
+| habits | 23.5 s | a second column for the five sentences that do not name a habit |
+| loop | 22.5 s | one pipeline step lit per sentence, and a card that moves across the frame |
+| recap | 13.0 s | rows inverted: a light card on light paper is not an arrival |
+| connect | 11.5 s | the last four sentences get the conversation window; the permission dialog became a light modal |
+| patterns | 11.0 s | every row dark; half of them had been landing invisibly |
+
+Three of those are the same lesson, and it is not about taste. An outlined target
+moves too few blocks of a 16x9 thumbnail to count. A dark panel with new words on
+it scores 0.94-0.99 against the last one - nine of those are one picture with a
+ticking label. A light panel on light paper is barely a change at all. What
+registers is a **block of mass arriving somewhere it was not**: dark on light,
+large enough to be a fifth of the frame, in a different place each time.
+
+The camera does the same job at a coarser grain. Reframing at 1.06 still reads
+as the same picture (0.96 similarity), 1.09 reads as a new shot (0.72), and it
+crops 159 of the design's 240-unit type margin. 1.11 registered harder and was
+rejected for a different reason: it moved the headline to within fifteen units of
+the frame edge. On a sparse stage no camera move works at all - a camera cannot
+reframe an empty room into a new room, which is why the habits and loop scenes
+needed content rather than optics.
+
 ## Rendering it
 
 ```bash
@@ -161,9 +204,13 @@ distinct layouts across 11.5 minutes, seven held longer than 40 seconds, and 57%
 of the running time inside one of them. Grain keeps the *pixels* moving while the
 *picture* stands still, and a viewer sees the picture.
 
-The replacement check measures composition instead: how much of the frame is in
-a new place, not how much of it twinkles. Until that exists and passes, this film
-is a slideshow with a moving background, and it is not ready to publish.
+The replacement check exists now: `video_studio/composition.py`, run as
+`python tools/check_composition.py <file>`. It asks whether the arrangement on
+screen is the one that was there when the shot began, and it fails any film with
+an arrangement held longer than twelve seconds. On the delivered cut it reports
+87 arrangements and a longest hold of 59.5 s, with 86% of the running time inside
+holds that break the rule. That verdict is the honest one, and until the film
+passes it, it is a slideshow with a moving background and is not ready to publish.
 
 ## Publishing it
 

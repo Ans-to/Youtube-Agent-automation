@@ -61,6 +61,10 @@ STATIC_BELOW = 0.5
 # before it decides. One second is already long enough for a viewer to think the
 # video has stalled.
 MAX_STILL_SECONDS = 1.0
+# The bar for a picture that actually changes. See ``video_studio/composition.py``:
+# measured on this repository's films, the character film's longest arrangement
+# is 10.5 s and this tutorial film's is 79.5 s. Twelve seconds is generous.
+MAX_COMPOSITION_HOLD_SECONDS = 12.0
 
 # The contact sheet is a 5x2 tile: this many frames spans the whole film.
 CONTACT_TILES = 10
@@ -469,6 +473,19 @@ def mmss(seconds: float) -> str:
     return "%d:%02d" % (total // 60, total % 60)
 
 
+def measure_composition(video: Path, limit: float = MAX_COMPOSITION_HOLD_SECONDS) -> dict:
+    """How often the arrangement on screen changes. See ``video_studio/composition.py``.
+
+    ``measure_motion`` above is satisfied by grain, and the repeat-frame check is
+    satisfied by a ticking caption. This one is not satisfied by either, because
+    it compares thumbnails of the layout rather than pixels: decoration moves
+    every pixel and rearranges nothing.
+    """
+    import composition as composition_module
+
+    return composition_module.analyse_video(video, max_hold_seconds=limit)
+
+
 def measure_repeat_frames(video: Path, limit: float = MAX_STILL_SECONDS) -> dict:
     """Frozen-span check on the encoded file. See ``video_studio/repeat_frames.py``.
 
@@ -721,6 +738,12 @@ def main(argv: list[str] | None = None) -> int:
         motion = measure_motion(delivery, ffmpeg, out_dir / "build", gate)
         log("   " + motion["statement"])
 
+        log(step("measure composition"))
+        composition_report = measure_composition(delivery, MAX_COMPOSITION_HOLD_SECONDS)
+        log("   " + composition_report["statement"].splitlines()[0])
+        for span in composition_report.get("spans", [])[:5]:
+            log("   hold %s  %.1f s" % (span["start"], span["seconds"]))
+
         log(step("measure holds"))
         holds = measure_repeat_frames(delivery, MAX_STILL_SECONDS)
         log("   " + holds["statement"])
@@ -760,6 +783,10 @@ def main(argv: list[str] | None = None) -> int:
             "frames": {"count": manifest["frame_count"]},
             "elapsed_seconds": round(time.time() - started, 1),
             "motion_spec": motion,
+            "composition": {key: composition_report[key] for key in
+                            ("status", "statement", "compositions", "longest_hold_seconds",
+                             "longest_hold_at", "share_over_limit", "spans")
+                            if key in composition_report},
             "holds": {key: holds[key] for key in
                       ("status", "statement", "limit_seconds", "longest_still_seconds",
                        "still_share_of_frames", "spans", "fix_hint")
@@ -795,7 +822,8 @@ def main(argv: list[str] | None = None) -> int:
                 source.replace(out_dir / name)
 
         ok = (motion["status"] == "passed" and audit.get("status") != "flagged"
-              and holds.get("status") == "passed")
+              and holds.get("status") == "passed"
+              and composition_report.get("status") == "passed")
         if args.json:
             print(json.dumps(summary, indent=2))
         else:
@@ -803,6 +831,7 @@ def main(argv: list[str] | None = None) -> int:
             print("FILM:", summary["title"], "|", summary["frames"]["count"], "frames |",
                   summary["elapsed_seconds"], "s")
             print(motion["statement"])
+            print(composition_report["statement"])
             print(holds["statement"])
             print(audit["statement"])
             for item in summary["outputs"]:
