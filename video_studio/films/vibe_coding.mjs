@@ -30,7 +30,7 @@ import {
   clickRing, codeBlock, checkRow, chip, rule, slash, speedLines, shards,
   rainbowStreak, roundRect,
 } from '../motion/ui.mjs';
-import { beatState, pulse, spotlight, beatTicks } from '../motion/live.mjs';
+import { beatState, spotlight, beatTicks } from '../motion/live.mjs';
 import { secondUnit } from '../motion/second_unit.mjs';
 import { kineticWords } from '../motion/kinetic.mjs';
 import { drawTemplate } from '../motion/library.mjs';
@@ -3618,124 +3618,25 @@ function transition(ctx, scene, local) {
 }
 
 /**
- * The scene camera: a two-shot cadence, one shot per spoken line.
+ * The camera is locked. There is no scene camera, and there will not be one.
  *
- * This used to be a single slow push-in of 3.5% across the whole scene, with a
- * 58-unit slide on every beat. Measured on the delivered file, that left the
- * arrangement unchanged for seventy-nine seconds in one place and longer than
- * forty seconds in seven: a viewer sitting through it sees a slide with a light
- * moving over it, which is exactly what it was.
+ * The previous version moved the whole picture: 58 design units sideways on every
+ * narration beat, a 13-unit vertical offset, a zoom on alternate lines, and a
+ * permanent sine drift on top of all of it (`sin(local * 0.31) * 1.6`). Every one
+ * of those was measured and argued for in a comment. None of that mattered: on
+ * screen the frame never sat still, and two reviews named it as shake - "these
+ * are unprofessional".
  *
- * The numbers here were measured rather than guessed. Taking a real frame and
- * reframing it, the arrangement still reads as the same picture at 1.06 (0.96
- * similarity) and as a new one at 1.08 (0.86), while the offset matters more
- * than the zoom: a small push with a vertical offset scored 0.58-0.84 on every
- * content scene in the film. So a detail shot is 1.07 with the frame settled
- * 40 units lower, which crops 126 units a side and leaves the 240-unit type
- * margin intact.
+ * They are right, and the reasoning is simple. A camera move is a tool for
+ * showing a new part of a scene. This film has no scene to show more of - it is
+ * type and drawn interface, all of it inside the frame already. So a camera move
+ * can only ever be decoration, and decoration that moves the whole picture is
+ * exactly what makes a video look unfinished.
  *
- * Only a title card of centred words on an empty stage stays above the
- * threshold, and that is fair: it is the same picture, and those scenes change
- * by the words arriving instead.
- *
- * Bands, captions and the progress bar are drawn outside this transform, so the
- * furniture never moves with the shot.
+ * Everything that moves now moves inside the frame: the type, the slabs, the
+ * live column, the cursor. If a beat looks static, the answer is motion in the
+ * content, not movement of the picture.
  */
-// Measured on delivered frames: reframing at 1.06 still reads as the same
-// picture (0.96 similarity), 1.08 is noticed (0.86), 1.09 reads as a new shot
-// (0.72) and 1.11 definitely does (0.33). 1.11 was tried and moved the headline
-// to within fifteen units of the frame edge, which looks like a mistake rather
-// than a shot; 1.09 crops 159 of the design's 240-unit type margin and leaves
-// the headline where it can breathe. On a sparse stage even 1.11 changed too
-// little to count, which is why the scenes' content had to be fixed too: a
-// camera cannot reframe an empty room into a new room.
-const SHOT_DETAIL_ZOOM = 1.09;
-const SHOT_PUSH_SECONDS = 1.1;    // how long the picture takes to move in
-const SHOT_DRIFT = 24;            // design units of sideways travel inside a shot
-const SHOT_LIFT = 40;             // and of vertical travel
-
-/**
- * Which shot we are in, and how far through it.
- *
- * The camera used to change in a single frame, and a measurement of the
- * delivered picture proved that was worthless: two frames either side of the
- * change differ by the cut, and a viewer watching it sees one arrangement that
- * is suddenly somewhere else. A shot is a move. This returns a 0-1 push that
- * takes ``SHOT_PUSH_SECONDS`` to complete, so the picture is travelling for
- * most of the time it is on screen.
- */
-function shotState(scene, local) {
-  const starts = scene.lines.map((line) => line.start - scene.start);
-  let shot = 0;
-  let since = 0;
-  for (let i = 0; i < starts.length; i += 1) {
-    if (local >= starts[i]) {
-      shot = i;
-      since = starts[i];
-    }
-  }
-  const next = starts[shot + 1] ?? Math.max(since + 1, scene.end - scene.start);
-  const length = Math.max(0.8, next - since);
-  const detail = shot % 2 === 1;
-  const push = ease.outCubic(clamp((local - since) / SHOT_PUSH_SECONDS));
-  // The travel runs for the whole shot rather than only the push, so a long
-  // sentence still has a picture that is going somewhere. It is scoped to the
-  // shot: it starts again from zero on the next line, which is a new take.
-  const across = clamp((local - since) / length);
-  const pair = Math.floor(shot / 2);
-  const sign = pair % 2 === 0 ? 1 : -1;
-  return {
-    zoom: lerp(1, SHOT_DETAIL_ZOOM, detail ? push : 0) * (1 + 0.018 * across),
-    dx: sign * detail * SHOT_DRIFT * (0.35 + 0.65 * across),
-    dy: (detail ? 1 : 0) * SHOT_LIFT * (0.35 + 0.65 * across),
-  };
-}
-
-function camera(ctx, scene, local, t) {
-  if (CONTENT_ONLY) return;
-  const length = Math.max(1, scene.end - scene.start);
-  const p = clamp(local / length);
-  void p;
-
-  // Two shots per spoke pair: one wide and settled, one pushed in and lower.
-  // The numbers were measured on real frames rather than guessed: reframing a
-  // delivered frame still reads as the same picture at 1.06 (0.96 similarity)
-  // and as a new one at 1.07 with the frame settled (0.86), while the type sits
-  // on a 240-unit margin and a 1.07 crop takes 126 units a side.
-  const shot = shotState(scene, local);
-
-  // A re-frame on every spoken line, the way an operator settles the shot on a
-  // beat: the frame eases 26 units sideways and 7 down, then holds. It is the
-  // difference between a diagram that is shown and a shot that is covered.
-  // Beats land on every line *and* halfway through it. One per line left 3.7 s
-  // of dead frame between moves, which reads as a held slide on a long film.
-  const beats = [];
-  for (let i = 0; i < scene.lines.length; i += 1) {
-    const line = scene.lines[i];
-    beats.push(Math.max(scene.start, line.start - 0.06));
-    beats.push(line.start + (line.end - line.start) * 0.5);
-  }
-  const sign = (i) => (i % 2 === 0 ? 1 : -1);
-  let idx = -1;
-  for (let i = 0; i < beats.length; i += 1) {
-    if (t >= beats[i]) idx = i;
-  }
-  let dx = 0;
-  let dy = 0;
-  if (idx >= 0) {
-    const k = ease.outCubic(clamp((t - beats[idx]) / 0.42));
-    dx = lerp(idx === 0 ? 0 : sign(idx - 1), sign(idx), k) * 58;
-    dy = lerp(idx === 0 ? 0 : -1, 1, k) * 13;
-  }
-  // The shot travels; the drift above is the hand. They are added so a frame is
-  // never identical to the last one even while the shot is settled.
-  dx += shot.dx + Math.sin(local * 0.31) * 1.6;
-  dy += shot.dy + Math.cos(local * 0.27) * 1.2;
-
-  ctx.translate(W / 2, H / 2);
-  ctx.scale(shot.zoom, shot.zoom);
-  ctx.translate(-W / 2 + dx, -H / 2 + dy);
-}
 
 /**
  * A light sheen crossing the whole frame, on a slow cycle.
@@ -3771,21 +3672,10 @@ function render(t) {
   const draw = RENDERERS[scene.kind];
   if (!draw) throw new Error(`no renderer for scene ${scene.id} (${scene.kind})`);
 
-  // The content layer: camera, then the beat push, then the drawing itself.
-  //
-  // The push is small (2.4%) but it happens on every beat and relaxes over half
-  // a second, which is what stops a finished diagram from becoming a slide. It
-  // is applied to the content only, so the bands stay rock steady and the type
-  // inside them never drifts.
+  // The content layer. The camera is locked: the drawing is laid out in design
+  // coordinates and nothing above it moves, scales or rotates the frame.
   const beats = beatState(scene.lines, scene, t);
-  const push = LIVE ? pulse(beats, t) : { scale: 1, dx: 0, dy: 0, roll: 0 };
-
   ctx.save();
-  camera(ctx, scene, local, t);
-  ctx.translate(W / 2, H / 2);
-  ctx.rotate(push.roll);
-  ctx.scale(push.scale, push.scale);
-  ctx.translate(-W / 2 + push.dx, -H / 2 + push.dy);
   draw(ctx, scene, t, local);
   ctx.restore();
 

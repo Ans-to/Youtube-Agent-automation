@@ -31,6 +31,12 @@ The library in ``video_studio/motion/library.mjs`` claims five things:
     At least one film draws through the library. A catalogue nothing calls is a
     document, not a system.
 
+``M7 CAMERA``
+    No film shakes the frame. The owner rejected a moving camera twice - "dont
+    shake the camers", "these are unproffesional" - and the effect kept coming
+    back in different places: a camera function, a beat push, a handheld noise
+    layer. This rule fails the build when the identifiers come back.
+
     python tools/check_motion_library.py
     python tools/check_motion_library.py --json
     python tools/check_motion_library.py --skip-selfcheck
@@ -39,6 +45,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -49,6 +56,16 @@ STUDIO = ROOT / "video_studio"
 CLI = STUDIO / "motion" / "library_cli.mjs"
 AGENT_MAP = ROOT / "agents" / "motion_templates.json"
 FILMS = STUDIO / "films"
+MOTION = STUDIO / "motion"
+
+#: Patterns that mean somebody is shaking the picture again. Element-level
+#: motion (a panel drifting inside the frame) is allowed; moving the frame itself
+#: is not.
+SHAKE_PATTERNS = (
+    (r"\bshake[XY]\b", "a hand-held offset"),
+    (r"\bhandheld\b|\bhand-held\b", "a hand-held camera layer"),
+    (r"rotate\(\s*(?:noise\d?|Math\.(?:sin|cos))", "a rotation driven by noise or a sine"),
+)
 
 NODE = shutil.which("node")
 
@@ -207,6 +224,25 @@ def check_used(report: Report) -> None:
         report.note("drawn through the library by: " + ", ".join(users))
 
 
+def check_camera(report: Report) -> None:
+    """The frame does not move. Nothing shakes the camera."""
+    scanned = 0
+    for directory in (FILMS, MOTION):
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.mjs")):
+            scanned += 1
+            text = path.read_text(encoding="utf-8", errors="ignore")
+            for line_number, line in enumerate(text.splitlines(), start=1):
+                stripped = line.strip()
+                if stripped.startswith(("//", "*", "/*")):
+                    continue
+                for pattern, what in SHAKE_PATTERNS:
+                    if re.search(pattern, line):
+                        report.fail("M7", f"{path.name}:{line_number} has {what}: {stripped[:90]}")
+    report.note(f"{scanned} motion sources scanned for camera shake")
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--json", action="store_true", help="machine-readable output")
@@ -223,6 +259,7 @@ def main(argv: list[str]) -> int:
         if not args.skip_selfcheck:
             check_selfcheck(report)
         check_used(report)
+        check_camera(report)
 
     if args.json:
         print(json.dumps({

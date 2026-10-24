@@ -129,3 +129,22 @@ region" is a measurement, not a comment.
 
 **Nothing shakes.** No template translates or rotates the camera. Motion is one
 direction, eased, then still.
+
+**The camera is locked.** Not "subtle" — locked. There is no scene camera, no
+beat push, no roll and no hand-held noise layer in any film. It kept coming back
+because each version was defensible on its own: a reframe that settles like an
+operator, a two percent push on every beat, a slow drift so that no frame is
+identical to the last. On screen it is a picture that will not sit still, and the
+owner named it as shake twice.
+
+Measured on the background of the 0-30 s chunk, between consecutive frames:
+
+| Version | Worst movement of a background patch | Mean |
+|---|---|---|
+| Camera moving (reframe + push + drift) | 8.0 px per frame at 1280 wide | 0.31 px |
+| Camera locked (now) | **0.0 px** | **0.00 px** |
+
+Everything that moves now moves inside the frame: type, slabs, the live column,
+the cursor. `tools/check_motion_library.py` rule `M7 CAMERA` fails the build if a
+hand-held offset, a `shakeX`/`shakeY` pair or a noise-driven rotation returns to
+any film.

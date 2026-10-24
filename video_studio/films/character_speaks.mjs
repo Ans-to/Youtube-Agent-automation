@@ -650,15 +650,15 @@ function render(t) {
     weight: acting.weight,
   });
 
-  // camera: framing comes from the current shot size, movement from the dolly,
-  // the push and a handheld layer, so no frame is ever identical to the last
+  // camera: framing comes from the current shot size, movement from the dolly
+  // and the push. The frame itself never shakes.
   const shot = coverageAt(t);
   const shotAge = t - shot.start;
   const shotProgress = clamp((t - shot.start) / (shot.end - shot.start));
   const dolly = ease.inOutCubic(shotProgress) * 150;
-  const push = 1 + 0.05 * shotProgress + 0.012 * Math.sin(t * 0.9);
-  const shakeX = noise1(t * 0.9) * 12 + noise1(t * 3.1 + 11) * 4;
-  const shakeY = noise1(t * 1.1 + 5) * 9 + noise1(t * 2.7 + 23) * 3;
+  const push = 1 + 0.05 * shotProgress;
+  // No handheld layer: the frame is locked, and the movement comes from the
+  // figure and the dolly. Noise on the camera reads as a mistake, not as life.
 
   // The camera is aimed at the figure, not at a hard-coded height. The old code
   // assumed a 1810-unit figure, which was true of the illustrated character and
@@ -673,7 +673,7 @@ function render(t) {
   const focusX = W * shot.anchor + dolly;
   const focusY = cameraPivotY(bounds.top, GROUND_Y, shot.zoom, HEADROOM[shot.id] ?? 0.16);
   ctx.save();
-  ctx.translate(focusX + shakeX, focusY + shakeY);
+  ctx.translate(focusX, focusY);
   ctx.scale(shot.zoom * push, shot.zoom * push);
   ctx.translate(-focusX, -focusY);
   // The pen is a channel decision, not a per-film one: the default is the

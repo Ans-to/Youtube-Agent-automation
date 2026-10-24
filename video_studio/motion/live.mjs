@@ -7,8 +7,6 @@
  * pixels of grain are moving on top of it. This module supplies the two things
  * that keep a held composition alive without asking the viewer to re-read it:
  *
- *   - `pulse()`   a small, eased push-in on every narration beat, relaxing back
- *                 over half a second. It is the film's breath.
  *   - `spotlight()`  a moving light that follows the narration across the content,
  *                 so the frame is always being lit rather than merely displayed.
  *
@@ -55,28 +53,6 @@ export function beatState(lines, scene, t) {
  * read as a zoom; the drift keeps consecutive beats from landing on the same
  * framing, so two beats never produce the same picture.
  */
-export function pulse(state, t = 0) {
-  // A camera does not shake.
-  //
-  // This used to return a wandering dx/dy plus a third of a degree of roll that
-  // never settled - a hand-held effect. On a frame full of drawn interface the
-  // owner read it, correctly, as the picture jittering, and named it as the kind
-  // of effect an amateur video uses to fake motion. It also fought the type: text
-  // that is still in its own layer but sliding in the frame is still text that
-  // will not sit down.
-  //
-  // What is left is a slow, even breath of scale - two and a half percent at
-  // most, no translation, no rotation. It keeps the frame from being frozen
-  // between beats without ever looking like a mistake.
-  const accent = 0.012 * state.accent;
-  const breath = 0.005 * Math.sin(t * 0.42) + 0.002 * Math.sin(t * 0.19 + 1.1);
-  return {
-    scale: 1 + accent + breath,
-    dx: 0,
-    dy: 0,
-    roll: 0,
-  };
-}
 
 /**
  * The light that follows the narration.

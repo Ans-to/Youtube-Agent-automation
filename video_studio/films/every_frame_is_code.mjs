@@ -799,14 +799,17 @@ function shotC(g, t) {
 }
 
 // ============================================================== SHOT D (12-16)
-// Statement. Big type, per-word masks, handheld camera, dust in the beam.
+// Statement. Big type, per-word masks, dust in the beam.
+//
+// This shot used to have a handheld camera: two noise fields moving the frame up
+// to 17 units sideways and 13 down, plus a fraction of a degree of roll. That is
+// the effect the owner rejected as unprofessional, and it is rejected in every
+// film, not only the one being reviewed. The slow push-in stays - a push-in is a
+// shot, a noise field is a mistake - and the dust supplies the rest of the life.
 function shotD(g, t) {
-  const shakeX = noise1(t * 1.6) * 17 + noise1(t * 4.1) * 4;
-  const shakeY = noise1(t * 1.9 + 17) * 13 + noise1(t * 5.3 + 3) * 3;
   const zoom = 1.02 + 0.06 * ease.inOutCubic(span(t, 0, 4));
   g.save();
-  g.translate(W / 2 + shakeX, H / 2 + shakeY);
-  g.rotate(noise1(t * 0.8) * 0.0025);
+  g.translate(W / 2, H / 2);
   g.scale(zoom, zoom);
   g.translate(-W / 2, -H / 2);
 

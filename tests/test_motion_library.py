@@ -93,6 +93,33 @@ class CatalogueTests(unittest.TestCase):
             for reserved_name, keep_out in reserved.items():
                 self.assertFalse(overlap(box, keep_out), f"{name} overlaps {reserved_name}")
 
+    def test_no_film_shakes_the_camera(self):
+        """The owner rejected a moving frame twice; the pattern must not return."""
+        import re as _re
+        patterns = (
+            r"\bshake[XY]\b",
+            r"\bhandheld\b|\bhand-held\b",
+            r"rotate\(\s*(?:noise\d?|Math\.(?:sin|cos))",
+        )
+        offenders = []
+        for directory in (STUDIO / "films", STUDIO / "motion"):
+            for path in sorted(directory.glob("*.mjs")):
+                for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+                    if line.strip().startswith(("//", "*", "/*")):
+                        continue
+                    for pattern in patterns:
+                        if _re.search(pattern, line):
+                            offenders.append(f"{path.name}:{number}: {line.strip()[:80]}")
+        self.assertEqual(offenders, [], "\n".join(offenders))
+
+    def test_the_camera_rule_catches_a_real_offence(self):
+        """A rule that never fires is not a rule; feed it a synthetic shake."""
+        import re as _re
+        line = "  const shakeX = noise1(t * 0.9) * 12;"
+        self.assertTrue(_re.search(r"\bshake[XY]\b", line))
+        line = "  g.rotate(noise1(t * 0.8) * 0.0025);"
+        self.assertTrue(_re.search(r"rotate\(\s*(?:noise\d?|Math\.(?:sin|cos))", line))
+
     def test_the_python_checker_passes(self):
         probe = subprocess.run(
             ["python3", str(CHECKER), "--skip-selfcheck"],
