@@ -32,6 +32,7 @@ import {
 } from '../motion/ui.mjs';
 import { beatState, pulse, spotlight, beatTicks } from '../motion/live.mjs';
 import { secondUnit } from '../motion/second_unit.mjs';
+import { kineticWords } from '../motion/kinetic.mjs';
 
 // Collectors for native canvas memory, requested from inside the script so a
 // render does not depend on the caller remembering to pass node flags.
@@ -407,19 +408,24 @@ function bands(ctx, scene, t) {
   ctx.fillStyle = UI.gold;
   ctx.fillRect(150, H - botH / 2 - 2, (W - 300) * p, 5);
 
-  // The current spoken line, as a broadcast subtitle.
+  // The current spoken line, as kinetic subtitles.
   //
-  // It is wrapped rather than truncated: a sentence that runs off the right edge
-  // is a reading error the viewer has to absorb, and clipping it at sixteen words
-  // cut some lines mid-thought. Two lines of at most 56 characters fit the frame
-  // at this size on every scene, dark or pale.
+  // This used to be two rows of static text that swapped on the line boundary:
+  // a sentence appeared whole, sat still, then another replaced it. That is a
+  // caption, and the owner's note was that there is no kinetic typography in the
+  // film. Now each word rises into its own mask in the order it is spoken, timed
+  // across the line's real duration, so the subtitle performs the sentence at the
+  // speed of the voice.
+  //
+  // Wrapped to two rows of at most 56 characters, because the words are placed by
+  // the layout above rather than by a canvas text box, and a word wider than the
+  // frame would be clipped.
   const line = LINES.find((l) => t >= l.start - 0.15 && t <= l.end + 0.4);
   if (line) {
     const limit = 56;
-    const words = String(line.text).split(/\s+/);
     const rows = [];
     let row = '';
-    for (const word of words) {
+    for (const word of String(line.text).split(/\s+/)) {
       if ((row + ' ' + word).trim().length > limit && row) {
         rows.push(row.trim());
         row = word;
@@ -428,15 +434,33 @@ function bands(ctx, scene, t) {
       }
     }
     if (row) rows.push(row);
-    const top = H - botH - 34 - (rows.length - 1) * 54;
-    rows.slice(-2).forEach((value, i) => {
-      text(ctx, value, W / 2, top + i * 54, {
-        size: 44, weight: 600,
+    const shown = rows.slice(-2);
+    const top = H - botH - 34 - (shown.length - 1) * 54;
+    const duration = Math.max(0.5, line.end - line.start);
+    const words = shown.reduce((sum, value) => sum + value.split(/\s+/).length, 0);
+    // One word per beat of the sentence, so the text keeps arriving for exactly
+    // as long as the sentence lasts.
+    const stagger = Math.min(0.22, (duration * 0.75) / Math.max(1, words));
+    let index = 0;
+    shown.forEach((value, i) => {
+      const wordsInRow = value.split(/\s+/).length;
+      kineticWords(ctx, {
+        text: value,
+        x: W / 2,
+        y: top + i * 54,
+        size: 44,
+        weight: 600,
+        family: 'Inter',
+        align: 'center',
         // On a dark scene the caption is light; dark grey on near-black was
         // technically present and practically unreadable.
-        color: scene.dark ? 'rgba(242,242,242,0.82)' : 'rgba(12,12,14,0.66)',
-        align: 'center',
+        colour: scene.dark ? 'rgba(242,242,242,0.86)' : 'rgba(12,12,14,0.72)',
+        local: t - line.start,
+        start: index * stagger + 0.05,
+        stagger,
+        duration: 0.3,
       });
+      index += wordsInRow;
     });
   }
   ctx.restore();
@@ -557,7 +581,10 @@ function drawTitle(ctx, scene, t, local) {
   // and the picture is a slide. Every event below is spaced on that number,
   // and the slots are fractions of the spoken line so a slow read spreads
   // them and a fast read bunches them without ever freezing.
-  const slam1 = 0.4;
+  // The first line starts almost immediately. At 0.4 the opening quarter second
+  // was background and a console, and the first frame a viewer sees should not be
+  // a frame waiting for type.
+  const slam1 = 0.26;
   const slam2 = Math.min(Math.max(0.4 + (e0 - 0.4) * 0.12, 1.3), 1.7);
   const span1 = Math.max(0.8, b1 - slam2);
   const ev = (f) => slam2 + span1 * f;
@@ -583,11 +610,23 @@ function drawTitle(ctx, scene, t, local) {
     // Fully out, not half-lit: at 50% the title printed behind the phrase
     // slabs that arrive next, so "BY DESCRIBING IT" was legible through
     // "PLAIN ENGLISH" for the whole of that beat.
-    ctx.globalAlpha = clamp(p * 3.2) * (1 - lift) * (1 - gone);
-    ctx.translate(0, (1 - e) * slamTravel - compact * 220 - lift * 200 - gone * 340);
-    text(ctx, entry.text, entry.x, (i === 0 ? 960 : 1150), {
-      size: 230, weight: 700, family: 'Space Grotesk',
-      color: i === 0 ? UI.white : UI.gold,
+    ctx.globalAlpha = (1 - lift) * (1 - gone);
+    const rise = (1 - e) * slamTravel - compact * 220 - lift * 200 - gone * 340;
+    // Kinetic type, not a caption: each word is masked to its own box and rises
+    // into it, one after another, so the line performs instead of appearing.
+    kineticWords(ctx, {
+      text: entry.text,
+      x: W / 2,
+      y: (i === 0 ? 960 : 1150) + rise,
+      size: 230,
+      align: 'center',
+      colour: i === 0 ? UI.white : UI.gold,
+      emphasis: i === 0 ? {} : { 2: UI.white },
+      local: local - at,
+      start: 0,
+      stagger: 0.09,
+      duration: 0.55,
+      tracking: -4,
     });
     ctx.restore();
   });
@@ -638,29 +677,31 @@ function drawTitle(ctx, scene, t, local) {
   const noteOut = ease.inOutCubic(clamp(span(local, b1 + 0.1, b1 + 0.6)));
   noteBits.forEach((bit, i) => {
     const inAt = ev(0.52 + i * 0.16);
-    // The outgoing phrase clears first, then the new one arrives. They used to
-    // travel at the same time and cross in the middle, and at 150 px of type that
-    // is two readable words printed on top of each other for half a second: seen
-    // on a still of 0:08, "A REAL REPOSITORY" and the phrase replacing it were
-    // the same pixels. Staging, not a cross-fade.
-    const swap = span(local, inAt + 0.2, inAt + 0.65);
-    if (swap <= 0) return;
-    const e = ease.outExpo(swap);
-    const leave = i > 0 ? ease.inCubic(span(local, inAt, inAt + 0.2)) : 0;
+    // Each phrase is on screen only for its own window. The previous version hid
+    // the phrase before it but never the ones before that, so by the third beat
+    // all three were printed on top of each other - the "subtitles overlapping"
+    // at 0:07 was this, not the caption.
+    const outAt = i < noteBits.length - 1 ? ev(0.52 + (i + 1) * 0.16) : b1 + 0.1;
+    const inP = span(local, inAt, inAt + 0.45);
+    const out = ease.inCubic(clamp(span(local, outAt, outAt + 0.22)));
+    if (inP <= 0 || out >= 1) return;
     ctx.save();
-    ctx.globalAlpha = clamp(swap * 2.4) * (1 - noteOut);
-    if (i > 0 && leave < 1) {
-      // the previous phrase crosses out to the left as this one comes in
-      const prev = noteBits[i - 1];
-      text(ctx, prev, W / 2 - leave * 700, 1860, {
-        size: 150, weight: 700, family: 'Space Grotesk',
-        color: 'rgba(242,242,242,0.5)', align: 'center',
-        alpha: 1 - leave,
-      });
-    }
-    text(ctx, bit, W / 2 + (1 - e) * 500, 1860, {
-      size: 150, weight: 700, family: 'Space Grotesk',
-      color: i === 1 ? UI.gold : 'rgba(242,242,242,0.85)', align: 'center',
+    ctx.globalAlpha = (1 - out) * (1 - noteOut);
+    kineticWords(ctx, {
+      text: bit,
+      x: W / 2 - out * 620,
+      // Clears the caption band below it. At 1860 the phrase's descender sat on
+      // the top row of the subtitle, which is the same fault the owner found at
+      // 0:07 in a different form: two lots of type sharing one space.
+      y: 1786,
+      size: 150,
+      align: 'center',
+      colour: i === 1 ? UI.gold : 'rgba(242,242,242,0.88)',
+      local: local - inAt,
+      start: 0,
+      stagger: 0.08,
+      duration: 0.42,
+      tracking: -3,
     });
     ctx.restore();
   });
@@ -679,7 +720,12 @@ function drawTitle(ctx, scene, t, local) {
   ];
   const kStart = b1 + 0.3;
   const step2 = Math.min(Math.max((b2 - 2.1 - kStart) / 2, 0.8), 1.6);
-  const keyW = 2600;
+  // 2460, not 2600. The camera breath scales the frame by up to two percent,
+  // so a slab 2600 wide and centred ran to x 3245 on screen - five units inside
+  // the live column on the right - and the still at 0:12 showed the gold slab
+  // sitting under the ticker list. Every full-width element has to be measured
+  // with that scale already applied.
+  const keyW = 2460;
   const keyH = 260;
   // the phrases leave as the name stamps: the frame must never keep an old
   // composition and add a new one on top of it
@@ -717,9 +763,17 @@ function drawTitle(ctx, scene, t, local) {
     });
     ctx.fillStyle = i === 1 ? UI.gold : UI.red;
     ctx.fillRect(x, y, 22, keyH);
-    text(ctx, phrase.text, W / 2, y + keyH / 2 + phrase.size * 0.35, {
+    // The label is kinetic too: it rises into its own mask word by word as the
+    // slab arrives, so the slab lands and the sentence writes itself inside it.
+    kineticWords(ctx, {
+      text: phrase.text,
+      x: W / 2,
+      y: y + keyH / 2 + phrase.size * 0.35,
       size: phrase.size, weight: 700, family: 'Space Grotesk',
-      color: phrase.colour, align: 'center', tracking: 3,
+      colour: phrase.colour, align: 'center', tracking: 3,
+      maxWidth: keyW - 120,
+      local: local - (at + 0.18),
+      start: 0, stagger: 0.07, duration: 0.4,
     });
     ctx.restore();
   });
@@ -854,10 +908,17 @@ function drawTitle(ctx, scene, t, local) {
   // gold and takes a check. The card ends on three things kept, not on a
   // sentence about them.
   const promises = ['A REPOSITORY', 'A PULL REQUEST', 'A LIVE SITE'];
-  const slabW = 880;
+  // The three slabs have to end before the live column on the right.
+  // Centred on the whole frame they ran to x 3320 while the ticker starts at
+  // 3240, so the third slab's gold fill and the list behind it shared a strip of
+  // frame - visible on the still of 0:12 as type sitting inside another panel.
+  // They are centred in the space that is actually free instead.
+  const slabW = 820;
   const slabH = 230;
   const slabY = 1400;
-  const slabX0 = W / 2 - (promises.length * (slabW + 80) - 80) / 2;
+  const slabLeft = 460;
+  const slabRight = 3080;
+  const slabX0 = slabLeft + (slabRight - slabLeft - (promises.length * (slabW + 80) - 80)) / 2;
   const sIn = (i) => b3 + 0.45 + i * 0.9;
   const tickSpan = Math.max(0.6, e3 - 0.25 - (b3 + 3.0));
   const tickAt = (i) => b3 + 3.0 + (i * tickSpan) / 2;
@@ -889,13 +950,17 @@ function drawTitle(ctx, scene, t, local) {
     // Fit the label to the slab instead of trusting it to fit. The tick plate
     // takes the last 270 units, and "A PULL REQUEST" at 64 px ran underneath it:
     // seen on a still of 0:24, the plate sat on the final T.
-    const room = slabW - 64 - 300;
+    const room = slabW - 64 - 268;
     let labelSize = 64;
     while (labelSize > 34 && measure(ctx, label, { size: labelSize, weight: 700 }) > room) {
       labelSize -= 2;
     }
-    text(ctx, label, x + 64, y + 148, {
-      size: labelSize, weight: 700, color: UI.ink, tracking: 2,
+    kineticWords(ctx, {
+      text: label, x: x + 64, y: y + 148,
+      size: labelSize, weight: 700, colour: UI.ink, tracking: 2,
+      maxWidth: room,
+      local: local - (at + 0.2),
+      start: 0, stagger: 0.08, duration: 0.4,
     });
 
     if (plate > 0) {

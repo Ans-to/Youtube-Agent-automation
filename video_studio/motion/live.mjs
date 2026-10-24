@@ -56,20 +56,25 @@ export function beatState(lines, scene, t) {
  * framing, so two beats never produce the same picture.
  */
 export function pulse(state, t = 0) {
-  const sign = state.index % 2 === 0 ? 1 : -1;
-  // Two motions, not one: an accent on the beat, and a slow breath underneath
-  // it that never stops. The accent alone relaxed to a standstill between lines,
-  // which is exactly what a still frame with a highlight on it looks like.
-  const accent = 0.024 * state.accent;
-  const breath = 0.010 * Math.sin(t * 1.15) + 0.004 * Math.sin(t * 0.47 + 1.3);
+  // A camera does not shake.
+  //
+  // This used to return a wandering dx/dy plus a third of a degree of roll that
+  // never settled - a hand-held effect. On a frame full of drawn interface the
+  // owner read it, correctly, as the picture jittering, and named it as the kind
+  // of effect an amateur video uses to fake motion. It also fought the type: text
+  // that is still in its own layer but sliding in the frame is still text that
+  // will not sit down.
+  //
+  // What is left is a slow, even breath of scale - two and a half percent at
+  // most, no translation, no rotation. It keeps the frame from being frozen
+  // between beats without ever looking like a mistake.
+  const accent = 0.012 * state.accent;
+  const breath = 0.005 * Math.sin(t * 0.42) + 0.002 * Math.sin(t * 0.19 + 1.1);
   return {
     scale: 1 + accent + breath,
-    dx: sign * 9 * state.accent + 7 * Math.sin(t * 0.83 + 0.6),
-    dy: -6 * state.accent + 5 * Math.cos(t * 0.71),
-    // A hand-held frame, not a tripod: a third of a degree of roll that never
-    // settles. On a dense interface this is what reads as a camera rather than
-    // as a screenshot, and it is far more visible than a pixel of drift.
-    roll: 0.008 * Math.sin(t * 0.61) + 0.003 * Math.sin(t * 1.37 + 0.9),
+    dx: 0,
+    dy: 0,
+    roll: 0,
   };
 }
 
