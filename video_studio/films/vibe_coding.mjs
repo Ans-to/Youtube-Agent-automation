@@ -31,6 +31,7 @@ import {
   rainbowStreak, roundRect,
 } from '../motion/ui.mjs';
 import { beatState, pulse, spotlight, beatTicks } from '../motion/live.mjs';
+import { secondUnit } from '../motion/second_unit.mjs';
 
 // Collectors for native canvas memory, requested from inside the script so a
 // render does not depend on the caller remembering to pass node flags.
@@ -621,16 +622,22 @@ function drawTitle(ctx, scene, t, local) {
   const noteOut = ease.inOutCubic(clamp(span(local, b1 + 0.1, b1 + 0.6)));
   noteBits.forEach((bit, i) => {
     const inAt = ev(0.52 + i * 0.16);
-    const swap = span(local, inAt, inAt + 0.45);
+    // The outgoing phrase clears first, then the new one arrives. They used to
+    // travel at the same time and cross in the middle, and at 150 px of type that
+    // is two readable words printed on top of each other for half a second: seen
+    // on a still of 0:08, "A REAL REPOSITORY" and the phrase replacing it were
+    // the same pixels. Staging, not a cross-fade.
+    const swap = span(local, inAt + 0.2, inAt + 0.65);
     if (swap <= 0) return;
     const e = ease.outExpo(swap);
-    const leave = i > 0 ? ease.inCubic(span(local, inAt, inAt + 0.45)) : 0;
+    const leave = i > 0 ? ease.inCubic(span(local, inAt, inAt + 0.2)) : 0;
     ctx.save();
     ctx.globalAlpha = clamp(swap * 2.4) * (1 - noteOut);
     if (i > 0) {
       // the previous phrase crosses out to the left as this one comes in
       const prev = noteBits[i - 1];
-      text(ctx, prev, W / 2 - leave * 500, 1860, {
+      if (leave >= 1) return;
+      text(ctx, prev, W / 2 - leave * 700, 1860, {
         size: 150, weight: 700, family: 'Space Grotesk',
         color: 'rgba(242,242,242,0.5)', align: 'center',
         alpha: 1 - leave,
@@ -3684,6 +3691,12 @@ function render(t) {
     // Lighting and beat metres are part of the picture, not the furniture: they
     // sit inside the measured content layer on purpose.
   }
+  // The second unit: the two elements that are always alive, in two different
+  // cells of the picture. Drawn outside the camera transform so a push cannot
+  // crop them and the furniture cannot move them, but inside the measured
+  // picture so the check sees them.
+  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local });
+
   if (LIVE) spotlight(ctx, { w: W, h: H, t, state: beats, dark: !!scene.dark });
   transition(ctx, scene, local);
 

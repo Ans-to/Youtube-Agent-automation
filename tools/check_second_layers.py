@@ -21,8 +21,8 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from video_studio.second_layers import (  # noqa: E402 - path set up above
+    CELL_CHANGE,
     MIN_LIVE_REGIONS,
-    REGION_BREAK,
     SAMPLES_PER_SECOND,
     analyse_video,
     format_report,
@@ -36,9 +36,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--min-live", type=int, default=MIN_LIVE_REGIONS,
                         help="regions that must change inside every second (default %d)"
                              % MIN_LIVE_REGIONS)
-    parser.add_argument("--region-break", type=float, default=REGION_BREAK,
-                        help="how different a region must get to count (default %.2f)"
-                             % REGION_BREAK)
+    parser.add_argument("--cell-change", type=float, default=CELL_CHANGE,
+                        help="grey levels a cell must move to count (default %.1f)"
+                             % CELL_CHANGE)
     parser.add_argument("--samples", type=int, default=SAMPLES_PER_SECOND,
                         help="frames examined per second (default %d)" % SAMPLES_PER_SECOND)
     parser.add_argument("--ffmpeg", default=None, help="FFmpeg binary to use")
@@ -52,7 +52,7 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     try:
         report = analyse_video(path, ffmpeg=args.ffmpeg, samples_per_second=args.samples,
-                              region_break=args.region_break)
+                              cell_change=args.cell_change)
     except RuntimeError as exc:
         print("layer check could not run: %s" % exc, file=sys.stderr)
         return 2
@@ -68,7 +68,7 @@ def main(argv: list[str] | None = None) -> int:
             "failed_seconds": len(report.failed),
             "pass_share": round(report.pass_share, 4),
             "min_live": report.min_live,
-            "region_break": report.region_break,
+            "cell_change": report.cell_change,
             "seconds": [
                 {"second": second.index, "live": second.live, "passed": second.passed}
                 for second in report.seconds

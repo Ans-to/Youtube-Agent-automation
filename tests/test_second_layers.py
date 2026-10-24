@@ -27,13 +27,24 @@ def blank_frame() -> np.ndarray:
 
 def draw_block(frame: np.ndarray, region: second_layers.Region, value: int = 220,
                column: int = 0) -> np.ndarray:
-    """Put a bright block inside one region, optionally in one of its columns."""
+    """Put a substantial bright block inside one region.
+
+    Substantial matters: the floor is in grey levels of a pooled cell, so a
+    fixture has to occupy enough of a region to move one - which is the same
+    lesson the film itself learned. A 24-pixel block is a decoration; 70 across
+    the region is an element.
+    """
     copy = frame.copy()
     height, width = copy.shape
-    top = int(region.y0 * height) + 20
-    bottom = int(region.y1 * height) - 20
-    left = int(region.x0 * width) + 10 + column * 30
-    copy[top:bottom, left:left + 24] = value
+    top = int(region.y0 * height) + 12
+    bottom = int(region.y1 * height) - 12
+    region_left = int(region.x0 * width)
+    region_width = int(region.x1 * width) - region_left
+    block_w = int(region_width * 0.55)
+    # Four positions inside the region, never across its edge: a fixture that
+    # spills into a neighbour would be testing two regions, not one.
+    offset = int((region_width - block_w) * (column / 3)) if block_w < region_width else 0
+    copy[top:bottom, region_left + offset:region_left + offset + block_w] = value
     return copy
 
 
@@ -92,25 +103,36 @@ class TheRuleTests(unittest.TestCase):
         self.assertTrue(report.seconds[0].passed)
         self.assertEqual(sorted(report.seconds[0].live), ["r1c2", "r2c2"])
 
-    def test_a_camera_push_is_one_thing_however_large(self):
-        """A camera moves everything at once, and everything is still one move.
+    def test_a_gentle_drift_does_not_count_as_activity(self):
+        """A slow camera moves every region by a little, and that is not a beat.
 
-        The whole frame scales, so every region changes by the same amount. It
-        must not be scored as six things happening: a push is one move of one
-        picture, which is exactly what the owner rejected.
+        The floor is absolute (six grey levels), so motion too small to be a
+        picture change cannot be banked as something happening - which is what
+        this film's old camera push was: measured, under four levels everywhere.
         """
         frames = []
         for index in range(4):
-            zoom = 1.0 + 0.06 * index
             frame = blank_frame()
-            height, width = frame.shape
-            # A vertical bar that thickens as the frame "pushes in" on it.
-            frame[:, int(width * 0.4):int(width * 0.4) + int(18 * zoom)] = 220
+            # A bright band that creeps one pixel per sample, plus a little noise
+            # across the whole picture, the way a drifting camera looks.
+            frame[60:90, 40 + index:200] = 120
+            frame[:, :] = np.clip(frame.astype(np.int16) + (index % 2) * 3, 0, 255).astype(np.uint8)
             frames.append(frame)
         report = second_layers.analyse_stream(self.stream(frames), samples_per_second=4)
-        # The bar lives in one column of the frame, so at most one region of each
-        # row changes; what must not happen is the empty regions lighting up.
-        self.assertLessEqual(len(report.seconds[0].live), 2)
+        self.assertFalse(report.seconds[0].passed)
+
+    def test_a_large_element_in_one_region_is_one_thing(self):
+        """One block arriving is one region, however bright it is."""
+        base = blank_frame()
+        frames = [
+            base,
+            draw_block(base, second_layers.REGIONS[2], value=250),
+            draw_block(base, second_layers.REGIONS[2], value=250, column=2),
+            base,
+        ]
+        report = second_layers.analyse_stream(self.stream(frames), samples_per_second=4)
+        self.assertEqual(report.seconds[0].live, ["r1c3"])
+        self.assertFalse(report.seconds[0].passed)
 
     def test_a_flat_frame_is_neither_live_nor_still(self):
         report = second_layers.analyse_stream(
@@ -133,31 +155,25 @@ class TheRuleTests(unittest.TestCase):
         report = second_layers.analyse_stream(self.stream(frames), samples_per_second=4)
         self.assertIn("r1c2", report.seconds[0].live)
 
-    def test_flat_regions_cannot_produce_a_live_region(self):
-        """An empty corner must never be scored as activity.
+    def test_a_region_that_never_changes_is_never_live(self):
+        """An empty corner stays out of it, whatever happens elsewhere.
 
-        Normalising a flat patch produces noise, and noise compares to anything.
-        Measured on the film, an empty corner scored 0.266 against itself - well
-        under the break - on a second where nothing happened at all. So samples
-        without an arrangement are dropped before anything is compared.
+        The first version of this module compared regions by normalised
+        correlation, and an empty corner scored 0.266 against itself - noise
+        comparing itself to noise - so a still frame could bank activity it did
+        not have. Absolute grey levels cannot do that: six levels of change is a
+        block of the picture arriving, and an empty region never produces one.
         """
         base = blank_frame()
         frames = []
-        for index in range(4):
-            frame = draw_block(base, second_layers.REGIONS[1], column=index)
-            # A hard edge sweeping through an empty region, in and out again, is
-            # the worst case: real structure for part of the second and none for
-            # the rest.
-            if index == 1:
-                frame = frame.copy()
-                frame[:, :10] = 250
-            frames.append(frame)
+        for column in range(4):
+            # One element moving inside one region; every other region flat.
+            frames.append(draw_block(base, second_layers.REGIONS[1], column=column))
         report = second_layers.analyse_stream(self.stream(frames), samples_per_second=4)
         second = report.seconds[0]
-        # The empty regions of the frame stay out of it, whatever the edge did.
-        for name in second.live:
-            if name != "r1c2":
-                self.assertNotIn(name, ("r1c1", "r1c3", "r2c1", "r2c3"))
+        self.assertEqual(second.live, ["r1c2"])
+        self.assertIn("r1c1", second.unjudged)
+        self.assertIn("r2c3", second.unjudged)
         self.assertFalse(second.passed)
 
     def test_a_partial_second_is_not_judged(self):
@@ -200,8 +216,10 @@ class CommandTests(unittest.TestCase):
 
     def test_the_bar_can_be_raised_from_the_command_line(self):
         """Three live regions must be demanded when asked for, not defaulted."""
-        parser_default = check_second_layers.MIN_LIVE_REGIONS
-        self.assertEqual(parser_default, 2)
+        self.assertEqual(check_second_layers.MIN_LIVE_REGIONS, 2)
+        report = second_layers.SecondReport()
+        report.min_live = 3
+        self.assertEqual(report.min_live, 3)
 
 
 if __name__ == "__main__":

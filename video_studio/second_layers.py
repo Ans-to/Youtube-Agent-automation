@@ -31,10 +31,30 @@ nobody is looking at.
 
 What counts as a change
 -----------------------
-The same test as ``composition.py``: centred, unit-normalised dot product, so
-brightness and contrast do not count and a rearrangement does. That means a fade
-does not light a region, a camera drift does not light a region until it has
-actually moved the arrangement, and grain cannot light anything.
+Grey levels, not a correlation. Each region is a 5x3 grid of average brightness;
+a region is *candidate live* when some cell in it moves by at least
+``CELL_CHANGE`` grey levels inside the second. Two grey levels out of 255 is
+below what a viewer can see, and grain - even the heavy grain this film draws -
+moves a pooled 5x3 cell by well under one.
+
+The first version of this module compared regions the way the composition check
+compares frames: centred, unit-normalised, threshold at 0.97. It was wrong, and
+measurably so. Most of this film is a dark stage, where a region's standard
+deviation is under one grey level; normalising noise produces confident nonsense,
+an empty corner scored 0.266 against itself, and once those samples were dropped
+the check called 60% of the film empty - including seconds where the step rail
+and the typing console were both visibly moving. Absolute grey levels do not have
+that failure: a flat region simply does not change.
+
+And a camera is not two things, in practice
+-------------------------------------------
+A push or a reframe moves every region at once. A rule dividing each region's
+change by the median across all six was written for that, calibrated, and then
+thrown away: on this film a large single element lifts the median of the other
+five, so the multiplier discarded the very seconds that were visibly busy. It is
+not needed. Measured, a gentle push keeps every region under four grey levels
+while a designed element lands between eight and a hundred and thirty, so the
+absolute floor separates them without arithmetic.
 
 Honest limits
 -------------
@@ -55,7 +75,6 @@ from pathlib import Path
 
 import numpy as np
 
-from video_studio.composition import MIN_CONTRAST, similarity
 from video_studio.repeat_frames import iter_video_frames, resolve_ffmpeg, timecode
 
 # Sampling inside a second. Six samples a second catches a beat that lasts a
@@ -77,10 +96,13 @@ ROWS = 2
 CELL_X = 5
 CELL_Y = 3
 
-# How different a region has to get, inside one second, to count as live.
-# Measured: an untouched region scores 0.99+ across a second; a panel arriving or
-# a paragraph of code being typed in it scores well below this.
-REGION_BREAK = 0.97
+# How far a cell has to move, in grey levels of 255, to count as a change inside
+# one second. Measured on this film at 640 wide: an untouched region in an idle
+# second moves 0.5 levels (grain pools away almost completely), a gentle camera
+# push stays under 4, and a designed element - a card arriving, a typed line
+# scrolling in, the rail's bar stepping - lands between 8 and 130. Six levels
+# sits in the empty middle of that gap.
+CELL_CHANGE = 6.0
 
 # The bar the owner set: two different things happening, every second.
 MIN_LIVE_REGIONS = 2
@@ -162,7 +184,7 @@ class SecondReport:
     """Every second judged, and how many passed."""
 
     seconds: list[SecondVerdict] = field(default_factory=list)
-    region_break: float = REGION_BREAK
+    cell_change: float = CELL_CHANGE
     min_live: int = MIN_LIVE_REGIONS
 
     @property
@@ -188,10 +210,35 @@ class SecondReport:
         return sorted(self.seconds, key=lambda second: len(second.live))[:limit]
 
 
-def analyse_stream(streams: list[dict[str, np.ndarray]], *, samples_per_second: int = SAMPLES_PER_SECOND,
-                   region_break: float = REGION_BREAK) -> SecondReport:
-    """Judge every whole second of already-decoded region signatures. Pure."""
-    report = SecondReport(region_break=region_break)
+def _region_change(first: np.ndarray, others: list[np.ndarray]) -> float:
+    """How far the busiest cell of a region moved, in grey levels."""
+    best = 0.0
+    for other in others:
+        best = max(best, float(np.max(np.abs(first - other))))
+    return best
+
+
+def _region_change(first: np.ndarray, others: list[np.ndarray]) -> float:
+    """How far the busiest cell of a region moved, in grey levels."""
+    best = 0.0
+    for other in others:
+        best = max(best, float(np.max(np.abs(first - other))))
+    return best
+
+
+def analyse_stream(streams: list[dict[str, np.ndarray]], *,
+                   samples_per_second: int = SAMPLES_PER_SECOND,
+                   cell_change: float = CELL_CHANGE) -> SecondReport:
+    """Judge every whole second of already-decoded region signatures. Pure.
+
+    A second passes when at least two regions changed by ``cell_change`` grey
+    levels. The change is absolute on purpose: see the module docstring for the
+    normalised version this replaced, and for the separation rule that was tried
+    and measured out - one large object in one region lifts the median of the
+    other five, so a multiplier on the median throws away the very second that
+    is visibly busy.
+    """
+    report = SecondReport(cell_change=cell_change)
     if not streams or samples_per_second <= 0:
         return report
     complete = len(streams) // samples_per_second
@@ -199,27 +246,21 @@ def analyse_stream(streams: list[dict[str, np.ndarray]], *, samples_per_second: 
         window = streams[second * samples_per_second:(second + 1) * samples_per_second]
         verdict = SecondVerdict(index=second)
         for name in window[0]:
-            # Only samples with an arrangement in them can be compared. A flat
-            # region normalises to noise: measured on this film, an empty corner
-            # scored 0.266 against itself and would have been counted as a live
-            # region on a second where nothing happened at all. This is the same
-            # trap the composition check documents, in a smaller box.
-            samples = [frame[name] for frame in window if float(np.std(frame[name])) >= MIN_CONTRAST]
-            if len(samples) < 2:
-                verdict.unjudged.append(name)
-                continue
-            first = samples[0]
-            # Against every sample, not only the last: a looping detail returns
+            first = window[0][name]
+            # Against every sample, not only the last: something looping returns
             # to where it started by the end of the second.
-            if any(similarity(first, other) < region_break for other in samples[1:]):
+            amount = _region_change(first, [frame[name] for frame in window[1:]])
+            if amount >= cell_change:
                 verdict.live.append(name)
+            else:
+                verdict.unjudged.append(name)
         report.seconds.append(verdict)
     return report
 
 
 def analyse_video(path: Path | str, *, ffmpeg: str | None = None,
                   samples_per_second: int = SAMPLES_PER_SECOND,
-                  region_break: float = REGION_BREAK) -> SecondReport:
+                  cell_change: float = CELL_CHANGE) -> SecondReport:
     """Decode a file and judge every whole second of it."""
     source = Path(path)
     if not source.is_file():
@@ -232,7 +273,8 @@ def analyse_video(path: Path | str, *, ffmpeg: str | None = None,
                                width=FRAME_WIDTH, height=FRAME_HEIGHT, ffmpeg=binary)
     for frame in frames:
         streams.append(frame_signatures(frame))
-    return analyse_stream(streams, samples_per_second=samples_per_second, region_break=region_break)
+    return analyse_stream(streams, samples_per_second=samples_per_second,
+                          cell_change=cell_change)
 
 
 def format_report(report: SecondReport, *, limit: int = 12) -> str:
