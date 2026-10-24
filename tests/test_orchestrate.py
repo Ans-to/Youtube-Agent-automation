@@ -243,6 +243,38 @@ class CEODelegationTests(unittest.TestCase):
         self.assertNotIn("AGENT-51", ids)
         self.assertNotIn("AGENT-52", ids)
 
+    def test_every_role_is_reachable_from_a_documented_code_path(self):
+        """A role nothing can ever assign is dead weight, however good its skillbook.
+
+        Packaging, narration and the clip team had whole sub-agent trees and no
+        caller: their parents were never assigned by DEFAULT_PIPELINE or by the
+        no-model fallback, so eleven roles could not run at all. This is the check
+        that stops a tree from growing dead branches again.
+        """
+        roles = orchestrate.dispatch.roster_roles()
+        assigned = set(orchestrate.DEFAULT_PIPELINE)
+        for task in (
+            "Make a 30 second video about AI models on your laptop",
+            "Make a video and cut a vertical short from it",
+            "Write a changelog document for version 2",
+        ):
+            assignments, _ = orchestrate.heuristic_assignments(task)
+            assigned |= {item["agent_id"] for item in assignments}
+        reachable = set()
+        for agent_id in assigned:
+            reachable |= set(orchestrate.dispatch.subtree({agent_id}))
+        excepted = {"AGENT-01", "AGENT-50"}  # the CEO and the human gate are never workers
+        missing = [role["id"] for role in roles if role["id"] not in reachable and role["id"] not in excepted]
+        self.assertEqual(missing, [], "no code path assigns: " + ", ".join(missing))
+
+    def test_the_video_pipeline_assigns_packaging_and_the_voice(self):
+        assignments, _ = orchestrate.heuristic_assignments(
+            "Make a 30 second video about AI models on your laptop"
+        )
+        ids = {item["agent_id"] for item in assignments}
+        self.assertIn("AGENT-16", ids, "a finished upload needs a title, description and chapters")
+        self.assertIn("AGENT-27", ids, "the picture must be timed to a voice that exists")
+
     def test_software_goal_assigns_only_roles_that_exist_and_no_video_team(self):
         """A studio build is software: the tool pipeline writes it, no specialist invents it.
 

@@ -26,9 +26,14 @@ sys.path.insert(0, str(BASE))
 import dispatch
 import routing
 
+# Parents only. Every one of these owns a deliverable, and each carries its
+# sub-agents in its own brief. Packaging and narration are in here because they
+# produce two things a finished upload needs - the title, description and
+# chapters, and the voice the captions are timed to - and for a while neither was
+# reachable from any code path at all.
 DEFAULT_PIPELINE = [
     "AGENT-02", "AGENT-09", "AGENT-51", "AGENT-31",
-    "AGENT-26", "AGENT-08", "AGENT-37",
+    "AGENT-27", "AGENT-16", "AGENT-26", "AGENT-08", "AGENT-37",
 ]
 
 
@@ -158,6 +163,15 @@ def heuristic_assignments(task):
             {"agent_id": "AGENT-09", "task": "Own the words: the narrative arc, the hook, the outline and the retention pass, directing its sub-agents and returning the narration-ready script."},
             {"agent_id": "AGENT-51", "task": "Own the picture: art direction, shot rhythm, and the timing, kinetic typography, transitions, palette and diagrams its sub-agents produce."},
             {"agent_id": "AGENT-31", "task": "Own the file: the local render and encode, with its animator, validator and visual QA sub-agents reporting against it."},
+        ])
+        # A repurposing request replaces packaging at the tail of the list rather
+        # than being appended to it: the assignment cap keeps seven, and a request
+        # that asks for a vertical cut needs the clip team more than a title page.
+        if re.search(r"\b(shorts?|short-form|vertical|clips?|repurpos\w*)\b", text):
+            assignments.append({"agent_id": "AGENT-41", "task": "Own the vertical cut: select the strongest passage, check that it survives being cut down, and hand back a short that stands on its own."})
+        assignments.extend([
+            {"agent_id": "AGENT-27", "task": "Own the voice: mark emphasis, pauses and pronunciation, and run the local voice backend so the picture can be timed to the narration that actually exists."},
+            {"agent_id": "AGENT-16", "task": "Own the release package: accurate title, description, chapters built from real timings, and the metadata review that each of them matches the film."},
             {"agent_id": "AGENT-26", "task": "Prepare accessibility captions aligned to the narration and timing information available."},
         ])
         # Language is an explicit production profile; do not silently replace Urdu-English with English.
