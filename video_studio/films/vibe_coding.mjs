@@ -101,6 +101,13 @@ const OPTS = parseArgs(process.argv.slice(2));
 const FPS = OPTS.fps;
 const W = DESIGN_W;
 const H = DESIGN_H;
+// The right column belongs to the build window (see motion/buildview.mjs): a
+// browser window at x 2700..3780 showing the product being made. Scene content
+// is centred in what is left, 0..2656, so a title card or a slab stack can never
+// run under it. Measured on a still of 0:13, the title slabs ended at 3225 and
+// the window covered their right edge.
+const CONTENT_W = 2656;
+const CONTENT_MID = CONTENT_W / 2;
 
 const canvas = createCanvas(OPTS.width, OPTS.height);
 const ctx = canvas.getContext('2d');
@@ -698,7 +705,7 @@ function drawTitle(ctx, scene, t, local) {
     ctx.globalAlpha = (1 - out) * (1 - noteOut);
     kineticWords(ctx, {
       text: bit,
-      x: W / 2 - out * 620,
+      x: CONTENT_MID - out * 620,
       // Clears the caption band below it. At 1860 the phrase's descender sat on
       // the top row of the subtitle, which is the same fault the owner found at
       // 0:07 in a different form: two lots of type sharing one space.
@@ -734,7 +741,7 @@ function drawTitle(ctx, scene, t, local) {
   // the live column on the right - and the still at 0:12 showed the gold slab
   // sitting under the ticker list. Every full-width element has to be measured
   // with that scale already applied.
-  const keyW = 2460;
+  const keyW = 2100;
   const keyH = 260;
   // the phrases leave as the name stamps: the frame must never keep an old
   // composition and add a new one on top of it
@@ -761,7 +768,7 @@ function drawTitle(ctx, scene, t, local) {
     // is still on screen at 50% while the slabs land), the caption band below
     // it at 1900, and its own three slabs. 1180 + 2*220 + 260 = 1880.
     const y = 1180 + i * 220 + (1 - e) * 260 - scoot - settleA * 70 - settleB * 70;
-    const x = W / 2 - keyW / 2;
+    const x = CONTENT_MID - keyW / 2;
 
     ctx.save();
     ctx.globalAlpha = clamp(p * 1.7) * (1 - keyOut);
@@ -776,7 +783,10 @@ function drawTitle(ctx, scene, t, local) {
     // slab arrives, so the slab lands and the sentence writes itself inside it.
     kineticWords(ctx, {
       text: phrase.text,
-      x: W / 2,
+      // Centred on the slab, not on the frame: with the build window owning the
+      // right column, frame centre sits past the slab's right edge and the type
+      // hung out of its own panel on a still of 0:13.
+      x: CONTENT_MID,
       y: y + keyH / 2 + phrase.size * 0.35,
       size: phrase.size, weight: 700, family: 'Space Grotesk',
       colour: phrase.colour, align: 'center', tracking: 3,
@@ -926,7 +936,7 @@ function drawTitle(ctx, scene, t, local) {
   const slabH = 230;
   const slabY = 1400;
   const slabLeft = 460;
-  const slabRight = 3080;
+  const slabRight = 2600;
   const slabX0 = slabLeft + (slabRight - slabLeft - (promises.length * (slabW + 80) - 80)) / 2;
   const sIn = (i) => b3 + 0.45 + i * 0.9;
   const tickSpan = Math.max(0.6, e3 - 0.25 - (b3 + 3.0));
@@ -1055,8 +1065,10 @@ function drawStatement(ctx, scene, t, local) {
         const p = span(local, at, at + 0.55);
         if (p <= 0) return;
         const ex = ease.outBack(clamp(p * 1.2));
-        const w = 1050;
-        const x = 260 + i * (w + 100);
+        // Narrowed from 1050 to keep the third panel clear of the build window
+        // at x 2700: the card read as cut in half on a still of 0:34.
+        const w = 760;
+        const x = 260 + i * (w + 40);
         ctx.save();
         ctx.globalAlpha = clamp(p * 1.8) * (1 - out);
         ctx.translate((1 - ex) * 90 - out * 160, 0);

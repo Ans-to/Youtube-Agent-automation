@@ -46,7 +46,12 @@ import { kineticWords } from './kinetic.mjs';
  * there on every frame.
  */
 export const RESERVED = {
-  live: { x: 0.83, y: 0.03, w: 0.16, h: 0.86 },
+  // The right column now holds the build window - a browser window showing the
+  // product being made - at x 2700..3780 of a 3840-wide frame, from y 572 to
+  // 1810. It is reserved, not merely drawn on top: a template or a scene layer
+  // that reaches into it is a panel cut in half by another panel, which is the
+  // overlap fault the owner has rejected twice.
+  live: { x: 0.70, y: 0.03, w: 0.29, h: 0.86 },
   caption: { x: 0.0, y: 0.865, w: 1.0, h: 0.135 },
 };
 
@@ -58,13 +63,13 @@ export const RESERVED = {
  * that they each carried their own numbers.
  */
 export const REGIONS = {
-  title: { x: 0.10, y: 0.34, w: 0.64, h: 0.30 },
-  hero: { x: 0.08, y: 0.10, w: 0.66, h: 0.24 },
-  stage: { x: 0.08, y: 0.36, w: 0.66, h: 0.26 },
-  floor: { x: 0.08, y: 0.64, w: 0.66, h: 0.16 },
-  band: { x: 0.06, y: 0.46, w: 0.70, h: 0.10 },
-  split: { x: 0.06, y: 0.22, w: 0.70, h: 0.42 },
-  ledger: { x: 0.08, y: 0.12, w: 0.44, h: 0.52 },
+  title: { x: 0.08, y: 0.34, w: 0.60, h: 0.30 },
+  hero: { x: 0.08, y: 0.10, w: 0.60, h: 0.24 },
+  stage: { x: 0.08, y: 0.36, w: 0.60, h: 0.26 },
+  floor: { x: 0.08, y: 0.64, w: 0.60, h: 0.16 },
+  band: { x: 0.06, y: 0.46, w: 0.62, h: 0.10 },
+  split: { x: 0.06, y: 0.22, w: 0.62, h: 0.42 },
+  ledger: { x: 0.08, y: 0.12, w: 0.40, h: 0.52 },
 };
 
 /** A region in pixels, for a frame of ``w`` by ``h``. */
@@ -219,8 +224,16 @@ function listBuild(ctx, {
     const plate = Math.min(rowH * 0.5, 64);
     ctx.fillStyle = row.state === 'fail' ? UI.red : accent;
     ctx.fillRect(box.x, y - plate * 0.7, plate * 0.22, plate * 1.2);
+    // Fitted to the region, per row. The label used to be unconstrained, which
+    // was fine while `ledger` was 0.44 of the frame and a fault the self-check
+    // caught the moment it narrowed to 0.40. `text()` ignores maxWidth whenever
+    // tracking is set, because the tracked path places glyphs itself, so the fit
+    // has to be done here rather than passed down.
+    const rowSize = fitSize(ctx, row.name, {
+      maxWidth: box.w - plate * 0.9 - 12, cap: size, floor: 16, tracking: 1,
+    });
     text(ctx, row.name, box.x + plate * 0.9, y, {
-      size, weight: 700, family: 'Space Grotesk', color: row.colour ?? colour, tracking: 1,
+      size: rowSize, weight: 700, family: 'Space Grotesk', color: row.colour ?? colour, tracking: 1,
     });
     ctx.restore();
   });
