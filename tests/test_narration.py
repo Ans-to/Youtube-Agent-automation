@@ -104,11 +104,15 @@ class NarrationBuilderTests(unittest.TestCase):
         import voiceover
 
         with tempfile.TemporaryDirectory() as tmp:
+            # backend="espeak" is asked for by name: the formant voice is the
+            # offline path this test is about, not a fallback nobody chose.
             info = voiceover.build(SCRIPT, Path(tmp), allow_download=False,
-                                   backend="auto", fps=30)
+                                   backend="espeak", fps=30)
             voiceover_path = Path(info["path"])
             self.assertTrue(voiceover_path.is_file())
             self.assertEqual(info["backend"], "espeak")
+            self.assertTrue(info["formant"])
+            self.assertFalse(info["publishable_voice"])
             script_data = json.loads(SCRIPT.read_text(encoding="utf-8"))
             self.assertEqual(info["line_count"], len(script_data["lines"]))
             self.assertGreater(info["duration_seconds"], 10.0)
@@ -124,7 +128,7 @@ class NarrationBuilderTests(unittest.TestCase):
         import voiceover
 
         with tempfile.TemporaryDirectory() as tmp:
-            info = voiceover.build(SCRIPT, Path(tmp), allow_download=False, backend="auto", fps=30)
+            info = voiceover.build(SCRIPT, Path(tmp), allow_download=False, backend="espeak", fps=30)
             envelope = json.loads((Path(tmp) / "envelope.json").read_text(encoding="utf-8"))
         opened = [v["open"] for line in envelope["lines"] for v in line["visemes"]]
         self.assertTrue(opened)
@@ -154,6 +158,68 @@ class FilmNarrationWiringTests(unittest.TestCase):
         film = ROOT / "video_studio" / "films" / "character_speaks.mjs"
         companion = film.with_suffix(".voice.json")
         self.assertTrue(companion.is_file(), "the talking film has no narration script")
+
+    def test_the_film_build_only_allows_a_formant_voice_when_it_is_asked_for(self):
+        # step_voice is the one place the film decides whether a fallback read is
+        # acceptable. Left on "auto" it must not be.
+        sys.path.insert(0, str(ROOT / "tools"))
+        import render_authored_film
+
+        import voiceover
+
+        seen = {}
+        original = voiceover.build
+
+        def recorder(*args, **kwargs):
+            seen.update(kwargs)
+            raise RuntimeError("stop here: the call was recorded")
+
+        voiceover.build = recorder
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                for backend, expected in (("auto", False), ("espeak", True)):
+                    seen.clear()
+                    with self.assertRaises(RuntimeError):
+                        render_authored_film.step_voice(
+                            Path(tmp) / "script.json", Path(tmp), voice="v",
+                            allow_download=False, backend=backend, fps=30)
+                    self.assertEqual(seen["allow_formant"], expected, backend)
+        finally:
+            voiceover.build = original
+
+
+class DeliveryLevelTests(unittest.TestCase):
+    """The uploaded file's level is measured, not assumed."""
+
+    def _ffmpeg(self):
+        from app.infrastructure.ffmpeg import find_ffmpeg
+        sys.path.insert(0, str(ROOT))
+        return find_ffmpeg()
+
+    def test_a_quiet_delivery_is_corrected_without_re_encoding_the_picture(self):
+        ffmpeg = self._ffmpeg()
+        if not ffmpeg:
+            self.skipTest("FFmpeg is not installed")
+        sys.path.insert(0, str(ROOT / "tools"))
+        import render_authored_film
+
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)
+            tone = directory / "tone.wav"
+            subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+                            "-f", "lavfi", "-i", "sine=frequency=220:duration=6",
+                            "-af", "volume=-24dB", str(tone)], check=True)
+            delivery = directory / "film.mp4"
+            subprocess.run([ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+                            "-f", "lavfi", "-i", "color=c=black:s=320x180:d=6",
+                            "-i", str(tone), "-c:v", "libx264", "-c:a", "aac",
+                            "-shortest", str(delivery)], check=True)
+
+            result = render_authored_film.verify_delivery_loudness(
+                delivery, tone, ffmpeg, log=lambda *_: None)
+            self.assertIn(result["status"], ("corrected", "ok"))
+            if result["status"] == "corrected":
+                self.assertLess(abs(result["lufs"] - render_authored_film.TARGET_LUFS), 1.5)
 
 
 if __name__ == "__main__":

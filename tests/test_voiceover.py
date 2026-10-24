@@ -101,6 +101,98 @@ class EnvelopeTests(unittest.TestCase):
         self.assertTrue(all(0.0 <= value <= 1.0 for value in values))
 
 
+class PauseModelTests(unittest.TestCase):
+    """How long the read rests, and why it is not simply what the script says.
+
+    The long film was written with 0.35-0.8 s after each line and rendered with
+    almost none of it, which is what made eleven minutes of narration exhausting.
+    These rules are the fix, so they are pinned.
+    """
+
+    def line(self, text, **kwargs):
+        return voiceover.Line(text=text, **kwargs)
+
+    def test_a_full_stop_earns_a_longer_pause_than_the_script_asked_for(self):
+        self.assertEqual(voiceover.pause_after_for(self.line("One thing.", pause_after=0.2)), 0.55)
+
+    def test_a_script_may_ask_for_more_than_the_floor(self):
+        self.assertEqual(voiceover.pause_after_for(self.line("One thing.", pause_after=0.9)), 0.9)
+
+    def test_a_question_rests_longer_than_a_comma(self):
+        question = voiceover.pause_after_for(self.line("Why not?", pause_after=0.0))
+        comma = voiceover.pause_after_for(self.line("And then,", pause_after=0.0))
+        self.assertGreater(question, comma)
+
+    def test_a_line_with_no_punctuation_still_gets_air(self):
+        self.assertEqual(voiceover.pause_after_for(self.line("and then", pause_after=0.0)),
+                         voiceover.MIN_PAUSE)
+
+    def test_a_trailing_quote_does_not_hide_the_full_stop(self):
+        self.assertEqual(voiceover.pause_after_for(self.line('He said "done."', pause_after=0.0)), 0.55)
+
+    def test_a_section_change_gets_a_real_break(self):
+        gap = voiceover.scene_gap_for(self.line("Next.", scene="habits"), "loop")
+        self.assertEqual(gap, voiceover.SECTION_BREAK_SECONDS)
+
+    def test_the_first_line_of_a_section_does_not_get_an_extra_break(self):
+        self.assertEqual(voiceover.scene_gap_for(self.line("First.", scene="open"), ""), 0.0)
+
+    def test_a_writer_can_ask_for_a_longer_break_than_the_section_break(self):
+        gap = voiceover.scene_gap_for(self.line("Much later.", scene="outro", gap_before=3.0), "recap")
+        self.assertEqual(gap, 3.0)
+
+
+class FormantRefusalTests(unittest.TestCase):
+    """A published film must never be narrated by accident in a formant voice."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.script = self.dir / "script.json"
+        self.script.write_text(json.dumps({"lines": [{"text": "One line."}]}), encoding="utf-8")
+        self.originals = (voiceover.piper_available, voiceover.espeak_available,
+                          voiceover.synth_espeak_line)
+
+    def tearDown(self):
+        (voiceover.piper_available, voiceover.espeak_available,
+         voiceover.synth_espeak_line) = self.originals
+        self.tmp.cleanup()
+
+    def test_auto_backend_refuses_to_fall_back_to_the_formant_voice(self):
+        voiceover.piper_available = lambda: False
+        voiceover.espeak_available = lambda: True
+        with self.assertRaises(voiceover.VoiceBackendMissing) as caught:
+            voiceover.build(self.script, self.dir / "voice", backend="auto")
+        message = str(caught.exception)
+        self.assertIn("formant", message)
+        self.assertIn("piper", message)
+        self.assertIn("--voice-backend espeak", message)
+
+    def test_the_formant_voice_is_allowed_when_it_is_asked_for_by_name(self):
+        voiceover.piper_available = lambda: False
+        voiceover.espeak_available = lambda: True
+        voiceover.synth_espeak_line = lambda line, out_path: write_tone(Path(out_path), 0.5)
+        report = voiceover.build(self.script, self.dir / "voice", backend="espeak")
+        self.assertEqual(report["backend"], "espeak")
+        self.assertTrue(report["formant"])
+        self.assertFalse(report["publishable_voice"])
+
+    def test_a_preview_can_opt_in_without_renaming_the_backend(self):
+        voiceover.piper_available = lambda: False
+        voiceover.espeak_available = lambda: True
+        voiceover.synth_espeak_line = lambda line, out_path: write_tone(Path(out_path), 0.5)
+        report = voiceover.build(self.script, self.dir / "voice", allow_formant=True)
+        self.assertEqual(report["backend"], "espeak")
+
+    def test_a_neural_voice_is_marked_publishable(self):
+        voiceover.piper_available = lambda: True
+        voiceover.piper_model_path = lambda *args, **kwargs: Path("stub.onnx")
+        voiceover.synth_piper_line = lambda line, model, out_path: write_tone(Path(out_path), 0.5)
+        report = voiceover.build(self.script, self.dir / "voice")
+        self.assertFalse(report["formant"])
+        self.assertTrue(report["publishable_voice"])
+
+
 class AssemblyTests(unittest.TestCase):
     """Drive build() with a stubbed voice and check the timeline it publishes."""
 
@@ -136,7 +228,9 @@ class AssemblyTests(unittest.TestCase):
         for previous, current in zip(lines, lines[1:]):
             self.assertLessEqual(previous["end"], current["start"] + 1e-6)
         self.assertEqual(lines[0]["start"], 1.0)   # gap_before is honoured
-        self.assertAlmostEqual(report["duration_seconds"], lines[-1]["end"] + 0.25, places=2)
+        # "Once in code." ends in a full stop, so it earns a full stop's pause
+        # even though the script asked for 0.25 s.
+        self.assertAlmostEqual(report["duration_seconds"], lines[-1]["end"] + 0.55, places=2)
 
     def test_line_durations_come_from_the_audio(self):
         report = voiceover.build(self.script, self.dir / "voice", fps=30)
