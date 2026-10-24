@@ -56,7 +56,20 @@ const STAGES = {
   // 0-1 "build a real app" / "you describe it" - the page assembles.
   title: [
     { app: true, bare: true },
-    { card: true, app: true, title: 'BOOKS I HAVE READ', rows: BOOKS.slice(0, 1), typingRow: 0 },
+    // The card beat's own arrivals, timed from the line, not from a clock: this
+    // beat lasts a whole sentence, and one arrival at the top of it leaves four
+    // seconds of still frame.
+    { card: true, app: true, title: 'BOOKS I HAVE READ', rows: BOOKS.slice(0, 1), typingRow: 0,
+      // Arrivals every 1.1 s across a 5.6 s line, which is the reference's own
+      // cadence. The first version spaced them 1.3 s apart from the wrong start
+      // and two seconds in the middle of the line measured empty.
+      late: [
+        { at: 1.6, row: 'Piranesi', slot: 1, write: true },
+        { at: 2.6, field: true },
+        { at: 3.5, address: 'github.com/you/book-list' },
+        { at: 4.5, focusRow: 1 },
+        { at: 5.2, row: 'The Overstory', slot: 2, write: true },
+      ] },
     { app: true, title: 'BOOKS I HAVE READ', rows: BOOKS.slice(0, 2), search: true },
     // The press lands on the field, the letters type, and the list filters
     // from three rows to the one the viewer can see is the right answer.
@@ -114,7 +127,8 @@ const STAGES = {
     { repo: true, files: [['index.html', 'edit'], ['books.json', 'new']], branch: 'main', chip: 'merged' },
   ],
   feature: [
-    { card: true, app: true, title: 'BOOKS I HAVE READ', rows: BOOKS.slice(0, 3), search: true },
+    { card: true, app: true, title: 'BOOKS I HAVE READ', rows: BOOKS.slice(0, 3), search: true,
+      late: [{ at: 2.4, row: 'Klara and the Sun', slot: 3 }] },
     { app: true, title: 'BOOKS I HAVE READ', rows: ['Piranesi'], search: true, query: 'pi', focus: 0, chip: '1 result' },
     { app: true, title: 'BOOKS I HAVE READ', rows: ['Piranesi'], search: true, query: 'pir', chip: '1 result' },
   ],
@@ -386,8 +400,11 @@ function drawApp(ctx, { stage, lineLocal, prev, t }) {
     const writing = stage.typingRow === i && !(prev && (prev.rows || []).length > i);
     const label = writing
       ? name.slice(0, Math.max(0, Math.ceil(
-        span(lineLocal, 0.5, 0.5 + name.length * 0.09) * name.length)))
+        span(lineLocal, 0.12, 0.12 + name.length * 0.09) * name.length)))
       : name;
+    // A row with no characters yet is not drawn at all: an empty plate reads as
+    // a broken component, not as a row being written.
+    if (writing && !label) return;
     drawRow(ctx, {
       ...r, label: label || '\u200b', p,
       // The ring is the *result* of the pointer's press, so it lands after it.
@@ -435,6 +452,67 @@ function drawApp(ctx, { stage, lineLocal, prev, t }) {
   }
 
   if (stage.track) drawTrack(ctx, { items: stage.track, t });
+
+  // A card beat lasts a whole narration line, which is five or six seconds, and
+  // one arrival at the start of it leaves four seconds of still frame. The
+  // reference never does that: its cards keep adding a row, a field, a result
+  // while they are on screen. ``late`` is that schedule - the things that land
+  // after the first one, at times measured from the line, not from a clock.
+  if (stage.card && stage.late) {
+    stage.late.forEach((step) => {
+      const p2 = span(lineLocal, step.at, step.at + 0.4);
+      if (p2 <= 0) return;
+      if (step.field && !stage.search) {
+        const s2 = { x: L.body.x, y: L.body.y + FIRST_ROW + ROWS * (ROW_H + ROW_GAP) + 24, w: L.body.w, h: SEARCH_H };
+        ctx.save();
+        ctx.globalAlpha = ctx.globalAlpha * clamp(p2 * 2);
+        roundRect(ctx, s2.x, s2.y + (1 - ease.outCubic(p2)) * 40, s2.w, s2.h, 28);
+        ctx.fillStyle = UI.white; ctx.fill();
+        ctx.strokeStyle = '#DDDDE3'; ctx.lineWidth = 3; ctx.stroke();
+        text(ctx, 'Search your books', s2.x + 150, s2.y + s2.h * 0.5 + 38, {
+          size: T.row, weight: 600, family: 'Inter', color: '#A6A6B0', maxWidth: s2.w - 300,
+        });
+        ctx.restore();
+      }
+      if (step.row) {
+        const slot = Math.min(ROWS - 1, (stage.rows || []).length + (step.slot || 0));
+        const r2 = L.rows[slot] || { x: L.body.x, y: L.body.y + FIRST_ROW + slot * (ROW_H + ROW_GAP), w: L.body.w, h: ROW_H };
+        const written = step.write
+          ? step.row.slice(0, Math.max(0, Math.ceil(
+            span(lineLocal, step.at, step.at + step.row.length * 0.075) * step.row.length)))
+          : step.row;
+        if (written) drawRow(ctx, { ...r2, label: written, p: step.write ? 1 : p2 });
+      }
+      if (step.focusRow !== undefined) {
+        // The pointer's press lands, and the row answers: ring, tick, and the
+        // row's own plate goes white. That is the reference's green outline,
+        // caused by the press rather than appearing on a timer.
+        const slot = Math.min(ROWS - 1, (stage.rows || []).length + (step.focusRow - 1));
+        const r2 = L.rows[slot] || { x: L.body.x, y: L.body.y + FIRST_ROW + slot * (ROW_H + ROW_GAP), w: L.body.w, h: ROW_H };
+        drawRow(ctx, { ...r2, label: step.row || (stage.late.find((x) => x.row) || {}).row || 'Piranesi',
+          p: 1, focus: true, glyph: 'tick' });
+      }
+      if (step.address) {
+        // "on GitHub": the address bar changes to the repository, wiped left to
+        // right, so the sentence's own noun is the thing that arrives.
+        // A pill grows leftwards behind the new address and the address fades in
+        // on it. A five-character text swap alone is not a visible event at this
+        // size; a plate arriving across the width of the bar is.
+        const wipe = ease.outCubic(p2);
+        const w2 = measure(ctx, step.address, { size: T.small, weight: 600, family: 'Inter' }) + 64;
+        const right = CARD.x + CARD.w - PAD;
+        ctx.save();
+        roundRect(ctx, right - w2 * wipe, CARD.y + 44, w2 * wipe, 72, 36);
+        ctx.fillStyle = '#E6F3EA';
+        ctx.fill();
+        ctx.globalAlpha = ctx.globalAlpha * clamp(p2 * 2);
+        text(ctx, step.address, right, CARD.y + 100, {
+          size: T.small, weight: 600, family: 'Inter', color: '#186B3C', align: 'right',
+        });
+        ctx.restore();
+      }
+    });
+  }
   if (stage.prompt) {
     const r = L.rows[0] || { x: L.body.x, y: L.body.y + FIRST_ROW, w: L.body.w, h: ROW_H };
     drawRow(ctx, { ...r, label: '\u201c' + stage.prompt + '\u201d', p: 1, focus: true, glyph: 'arrow' });
@@ -531,8 +609,18 @@ function drawChecks(ctx, { stage, lineLocal, prev }) {
  * Draws the card. Returns the geometry the pointer needs, or null when this
  * line is not a card beat and the scene keeps the frame.
  */
-export function buildView(ctx, { kind, lineIndex, lineLocal, t, h = 2160 }) {
-  const stage = stageFor(kind, lineIndex);
+export function buildView(ctx, {
+  kind, lineIndex, lineLocal, t, h = 2160, palette = 'dark', forceCard = null,
+}) {
+  // `forceCard` exists because two tables now decide what is on screen: the
+  // stage table below, and the phrase table in the film. When the film is
+  // drawing the typographic stage it owns that decision, and the card must
+  // appear only on the lines it says are product lines - otherwise a card can
+  // cover a phrase the narration is speaking, which is the exact fault the
+  // owner rejected in the sidebar.
+  const stage = { ...stageFor(kind, lineIndex) };
+  if (forceCard === false) return null;
+  if (forceCard === true) stage.card = true;
   if (!stage.card) return null;
 
   const box = { ...CARD };
@@ -543,25 +631,41 @@ export function buildView(ctx, { kind, lineIndex, lineLocal, t, h = 2160 }) {
   // rubbish around the card's edges - a fragment saying "A REPO" beside an app
   // is the same fault as a panel unrelated to the sentence. Nothing from the
   // scene survives.
-  const grad = ctx.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, '#191A1E');
-  grad.addColorStop(0.55, '#131418');
-  grad.addColorStop(1, '#0C0C0F');
   ctx.save();
-  ctx.fillStyle = grad;
-  ctx.fillRect(-20, -20, 3880, h + 40);
-  // A dot field, four units across, so the backdrop is a surface rather than a
-  // void. Static: nothing here moves on its own.
-  ctx.fillStyle = 'rgba(255,255,255,0.05)';
-  for (let y = 60; y < h; y += 96) {
-    for (let x = 60; x < 3840; x += 96) ctx.fillRect(x, y, 4, 4);
+  if (palette === 'light') {
+    // The reference's own ground: the same soft field the type beats sit on, so
+    // a card insert is a shot in the same film rather than a dark rectangle
+    // dropped into it.
+    const grad = ctx.createLinearGradient(0, 0, 1400, h);
+    grad.addColorStop(0, '#F7F9FA');
+    grad.addColorStop(0.55, '#E7EEF2');
+    grad.addColorStop(1, '#DCE6EC');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-20, -20, 3880, h + 40);
+  } else {
+    const grad = ctx.createLinearGradient(0, 0, 0, h);
+    grad.addColorStop(0, '#191A1E');
+    grad.addColorStop(0.55, '#131418');
+    grad.addColorStop(1, '#0C0C0F');
+    ctx.fillStyle = grad;
+    ctx.fillRect(-20, -20, 3880, h + 40);
+    // A dot field, four units across, so the backdrop is a surface rather than a
+    // void. Static: nothing here moves on its own.
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    for (let y = 60; y < h; y += 96) {
+      for (let x = 60; x < 3840; x += 96) ctx.fillRect(x, y, 4, 4);
+    }
   }
   ctx.restore();
 
   // The card arrives with a short push-in and then drifts almost imperceptibly
   // for the rest of the beat. Slow enough not to fight the row animations.
   const enter = ease.outCubic(span(lineLocal, 0, 0.42));
-  const drift = 1 + 0.022 * clamp(lineLocal / 3);
+  // The card settles by 8 percent, linearly, across its five seconds. The
+  // reference scales its cards by about 6 percent while they are up; eased, the
+  // travel happens in the first second and the rest of the beat measures as a
+  // still frame, which is exactly what the gate kept reporting for 0:09 to 0:12.
+  const drift = 1.08 - 0.08 * clamp(lineLocal / 5);
   const scale = (0.955 + 0.045 * enter) * drift;
   ctx.save();
   ctx.translate(CARD.x + CARD.w / 2, CARD.y + CARD.h / 2);
@@ -569,7 +673,9 @@ export function buildView(ctx, { kind, lineIndex, lineLocal, t, h = 2160 }) {
   ctx.translate(-(CARD.x + CARD.w / 2), -(CARD.y + CARD.h / 2));
 
   ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  // A card on a light field separates by shadow, not by outline: the reference
+  // uses a wide, soft, low-contrast shadow and no border at all.
+  ctx.shadowColor = palette === 'light' ? 'rgba(22,42,66,0.28)' : 'rgba(0,0,0,0.45)';
   ctx.shadowBlur = 90;
   ctx.shadowOffsetY = 40;
   roundRect(ctx, box.x, box.y, box.w, box.h, 44);

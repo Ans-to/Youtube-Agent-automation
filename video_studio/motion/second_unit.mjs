@@ -150,20 +150,31 @@ function purposefulPointer(ctx, { lineLocal, from, to }) {
  * subject, and shows type when the type is the subject. It never parks the
  * product in a corner and animates it at 23 px.
  */
-export function secondUnit(ctx, { scene, t, local, pointer = true, h = 2160 }) {
+export function secondUnit(ctx, {
+  scene, t, local, pointer = true, h = 2160, rail = true, palette = 'dark', card = null,
+}) {
   const lineIndex = scene.lines.reduce((count, line) => (line.start <= t ? count + 1 : count), 0) - 1;
   const current = scene.lines[Math.max(0, lineIndex)];
   const lineLocal = current ? t - current.start : 0;
   const index = Math.max(0, lineIndex);
-  const view = buildView(ctx, { kind: scene.kind, lineIndex: index, lineLocal, t, h });
+  const view = buildView(ctx, { kind: scene.kind, lineIndex: index, lineLocal, t, h, palette, forceCard: card });
 
   if (view) {
     // Card beat: the rail would be half-covered by the card, so it stands down
     // and the card carries the beat on its own - rows arriving, typing, pointer.
     if (pointer) {
-      const target = view.focus ?? view.search;
+      const target = view.focus ?? view.search ?? (view.body ? { x: view.body.x + view.body.w * 0.6, y: view.body.y + 300, w: view.body.w * 0.4, h: 190 } : null);
+      // The press cycle repeats inside a long card beat, so a card beat is never
+      // a still frame: something is either travelling, pressing, or answering
+      // for the whole of it.
+      // Presses are placed where the card's own arrival schedule puts them, so
+      // the pointer is always pressing the thing that is about to answer.
+      const pressAt = (view.stage.late || []).filter((x) => x.row || x.focusRow !== undefined).map((x) => x.at);
+      const cycle = pressAt.length
+        ? (lineLocal < pressAt[0] ? lineLocal : pressAt.reduce((a, b) => (lineLocal >= b ? b : a), pressAt[0]) + (lineLocal % 0.4))
+        : lineLocal % 2.6;
       purposefulPointer(ctx, {
-        lineLocal,
+        lineLocal: cycle,
         from: { x: CARD.x + CARD.w - 300, y: CARD.y + CARD.h - 120 },
         // A row is pressed at three-quarters across, so the pointer never sits on
         // the word it is pressing; the search field is pressed at its centre.
@@ -177,6 +188,9 @@ export function secondUnit(ctx, { scene, t, local, pointer = true, h = 2160 }) {
     return;
   }
 
-  stepRail(ctx, { scene, t });
+  // On the typographic stage there is no rail: the reference has nothing in its
+  // frame but the words, and a black box in the corner would be one more thing
+  // competing with them. The stage passes rail = false.
+  if (rail) stepRail(ctx, { scene, t });
   void local;
 }

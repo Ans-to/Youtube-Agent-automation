@@ -31,6 +31,7 @@ import {
   rainbowStreak, roundRect,
 } from '../motion/ui.mjs';
 import { beatState, spotlight, beatTicks } from '../motion/live.mjs';
+import { PALETTES, drawField, drawPhrase, beatAt } from '../motion/wordstage.mjs';
 import { secondUnit } from '../motion/second_unit.mjs';
 import { kineticWords } from '../motion/kinetic.mjs';
 import { drawTemplate } from '../motion/library.mjs';
@@ -70,6 +71,11 @@ function parseArgs(argv) {
     out: 'frames', width: 1920, height: null, fps: 30, quality: 90,
     from: 0, to: null, still: null, quiet: false, plan: false,
     voiceLines: null, voiceScript: null, grain: true, probe: false,
+    // The look of the opening. 'current' is the film as it has always been;
+    // 'light' and 'dark' are the typographic stage of motion/wordstage.mjs,
+    // built from the owner's reference film. Two cuts are rendered from the same
+    // script so the owner can choose with his eyes rather than from a description.
+    look: 'current',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -88,6 +94,7 @@ function parseArgs(argv) {
     else if (flag === '--voice-script') opts.voiceScript = value();
     else if (flag === '--no-grain') opts.grain = false;
     else if (flag === '--probe') opts.probe = true;
+    else if (flag === '--look') opts.look = value();
     else if (flag === '--help' || flag === '-h') {
       console.log(fs.readFileSync(new URL(import.meta.url)).toString().split('*/')[0]);
       process.exit(0);
@@ -99,6 +106,21 @@ function parseArgs(argv) {
 
 const OPTS = parseArgs(process.argv.slice(2));
 const FPS = OPTS.fps;
+/**
+ * Which look the opening uses.
+ *
+ * 'current' keeps the film exactly as it was. 'light' and 'dark' draw the first
+ * two scenes on the typographic stage from motion/wordstage.mjs: one phrase in
+ * the frame at a time, at 35 to 50 percent of frame height, no rail, no chapter
+ * name, no timecode and no beat strip - which is what the reference film does
+ * and what our opening was not doing.
+ *
+ * Both new looks share every line of geometry; only the palette differs. That is
+ * deliberate: if the owner picks one, the other is a one-word change and there is
+ * no second implementation to drift.
+ */
+const LOOK = ['current', 'light', 'dark'].includes(OPTS.look) ? OPTS.look : 'current';
+const WORDSTAGE = LOOK !== 'current';
 const W = DESIGN_W;
 const H = DESIGN_H;
 // Scenes own the whole frame again.
@@ -395,6 +417,70 @@ function grain(ctx, frameIndex, amount = GRAIN_ALPHA) {
 }
 
 /** The reference film's bands: a chapter on the left, a clock on the right. */
+/**
+ * The spoken line, as kinetic subtitles.
+ *
+ * Shared by the old bands and by the typographic stage, so there is one caption
+ * implementation rather than two that drift. ``palette`` is the only thing the
+ * two paths disagree about.
+ */
+function captions(ctx, scene, t, palette) {
+  //
+  // This used to be two rows of static text that swapped on the line boundary:
+  // a sentence appeared whole, sat still, then another replaced it. That is a
+  // caption, and the owner's note was that there is no kinetic typography in the
+  // film. Now each word rises into its own mask in the order it is spoken, timed
+  // across the line's real duration, so the subtitle performs the sentence at the
+  // speed of the voice.
+  //
+  // Wrapped to two rows of at most 56 characters, because the words are placed by
+  // the layout above rather than by a canvas text box, and a word wider than the
+  // frame would be clipped.
+  const line = LINES.find((l) => t >= l.start - 0.15 && t <= l.end + 0.4);
+  if (line) {
+    const limit = 46;
+    const rows = [];
+    let row = '';
+    for (const word of String(line.text).split(/\s+/)) {
+      if ((row + ' ' + word).trim().length > limit && row) {
+        rows.push(row.trim());
+        row = word;
+      } else {
+        row = (row + ' ' + word).trim();
+      }
+    }
+    if (row) rows.push(row);
+    const shown = rows.slice(-2);
+    const top = H - 96 - 46 - (shown.length - 1) * 76;
+    const duration = Math.max(0.5, line.end - line.start);
+    const words = shown.reduce((sum, value) => sum + value.split(/\s+/).length, 0);
+    // One word per beat of the sentence, so the text keeps arriving for exactly
+    // as long as the sentence lasts.
+    const stagger = Math.min(0.22, (duration * 0.75) / Math.max(1, words));
+    let index = 0;
+    shown.forEach((value, i) => {
+      const wordsInRow = value.split(/\s+/).length;
+      kineticWords(ctx, {
+        text: value,
+        x: W / 2,
+        y: top + i * 76,
+        size: 64,
+        weight: 600,
+        family: 'Inter',
+        align: 'center',
+        // On a dark scene the caption is light; dark grey on near-black was
+        // technically present and practically unreadable.
+        colour: palette.caption,
+        local: t - line.start,
+        start: index * stagger + 0.05,
+        stagger,
+        duration: 0.3,
+      });
+      index += wordsInRow;
+    });
+  }
+}
+
 function bands(ctx, scene, t) {
   const topH = 108;
   const botH = 96;
@@ -419,61 +505,7 @@ function bands(ctx, scene, t) {
   ctx.fillStyle = UI.gold;
   ctx.fillRect(150, H - botH / 2 - 2, (W - 300) * p, 5);
 
-  // The current spoken line, as kinetic subtitles.
-  //
-  // This used to be two rows of static text that swapped on the line boundary:
-  // a sentence appeared whole, sat still, then another replaced it. That is a
-  // caption, and the owner's note was that there is no kinetic typography in the
-  // film. Now each word rises into its own mask in the order it is spoken, timed
-  // across the line's real duration, so the subtitle performs the sentence at the
-  // speed of the voice.
-  //
-  // Wrapped to two rows of at most 56 characters, because the words are placed by
-  // the layout above rather than by a canvas text box, and a word wider than the
-  // frame would be clipped.
-  const line = LINES.find((l) => t >= l.start - 0.15 && t <= l.end + 0.4);
-  if (line) {
-    const limit = 56;
-    const rows = [];
-    let row = '';
-    for (const word of String(line.text).split(/\s+/)) {
-      if ((row + ' ' + word).trim().length > limit && row) {
-        rows.push(row.trim());
-        row = word;
-      } else {
-        row = (row + ' ' + word).trim();
-      }
-    }
-    if (row) rows.push(row);
-    const shown = rows.slice(-2);
-    const top = H - botH - 34 - (shown.length - 1) * 54;
-    const duration = Math.max(0.5, line.end - line.start);
-    const words = shown.reduce((sum, value) => sum + value.split(/\s+/).length, 0);
-    // One word per beat of the sentence, so the text keeps arriving for exactly
-    // as long as the sentence lasts.
-    const stagger = Math.min(0.22, (duration * 0.75) / Math.max(1, words));
-    let index = 0;
-    shown.forEach((value, i) => {
-      const wordsInRow = value.split(/\s+/).length;
-      kineticWords(ctx, {
-        text: value,
-        x: W / 2,
-        y: top + i * 54,
-        size: 44,
-        weight: 600,
-        family: 'Inter',
-        align: 'center',
-        // On a dark scene the caption is light; dark grey on near-black was
-        // technically present and practically unreadable.
-        colour: scene.dark ? 'rgba(242,242,242,0.86)' : 'rgba(12,12,14,0.72)',
-        local: t - line.start,
-        start: index * stagger + 0.05,
-        stagger,
-        duration: 0.3,
-      });
-      index += wordsInRow;
-    });
-  }
+  captions(ctx, scene, t, scene.dark ? PALETTES.dark : PALETTES.light);
   ctx.restore();
 }
 
@@ -3598,6 +3630,215 @@ function drawOutro(ctx, scene, t, local) {
 }
 
 // ------------------------------------------------------------------ dispatch
+// ------------------------------------------------------------ the typographic stage
+/**
+ * What the opening says, phrase by phrase.
+ *
+ * Each entry belongs to one narration line, and its `share` divides that line's
+ * real duration between the phrases on it. Nothing here invents timing: a phrase
+ * is on screen for exactly as long as its line is spoken, so a three-noun line
+ * becomes three beats and a one-sentence line stays one.
+ *
+ * `accent` is the index of the line inside a phrase drawn in the accent colour,
+ * `ellipse` marks a single word the way the reference marks "Workflow", and
+ * `card` is a UI insert - the product, for the length of one line.
+ */
+const WORD_BEATS = {
+  // Line numbers are SCENE-LOCAL: each scene consumes its own slice of the
+  // narration in order, so "open" owns lines 0-3 and "define" owns 0-8 again.
+  //
+  // No beat is longer than about two and a half seconds. That is the reference's
+  // own cadence - it changes what is on screen every 1.5 to 3 seconds - and it is
+  // also the only way a phrase can be the whole picture without the picture going
+  // still: one phrase held for a five-second sentence is four dead seconds,
+  // which is exactly what the gate called out.
+  title: [
+    // "This is how you build a real app without writing the code yourself."
+    { line: 0, lines: ['BUILD IT'], size: 0.19, share: 0.45 },
+    { line: 0, lines: ['BY DESCRIBING IT'], accent: 0, size: 0.165, share: 0.55 },
+    // "You describe what you want in plain English. An agent writes it, on GitHub."
+    { line: 1, card: true },
+    // "This is called vibe coding, and this video walks the whole loop, step by step."
+    { line: 2, lines: ['VIBE CODING'], ellipse: true, size: 0.155, share: 0.5 },
+    { line: 2, lines: ['THE WHOLE LOOP'], size: 0.145, share: 0.5 },
+    // "a repository, a pull request, and a working site" - three nouns, three beats
+    { line: 3, lines: ['A REPOSITORY'], size: 0.15, share: 1 },
+    { line: 3, lines: ['A PULL REQUEST'], size: 0.15, share: 1 },
+    { line: 3, lines: ['A WORKING SITE'], size: 0.145, share: 1 },
+  ],
+  statement: [
+    // "Vibe coding means you work in intention, not in syntax."
+    { line: 0, lines: ['INTENTION,'], size: 0.19, share: 0.5 },
+    { line: 0, lines: ['NOT SYNTAX'], accent: 0, size: 0.2, share: 0.5 },
+    // "You say what you want. You look at the result. You say what to change."
+    { line: 1, card: true },
+    // "The agent writes the files, runs the tools, and records the work as commits."
+    { line: 2, lines: ['THE AGENT'], size: 0.165, share: 0.4 },
+    { line: 2, lines: ['WRITES THE FILES'], size: 0.14, share: 0.3 },
+    { line: 2, lines: ['RECORDS IT'], size: 0.16, share: 0.3 },
+    // "That does not mean you stop thinking."
+    { line: 3, lines: ['YOU STILL THINK'], size: 0.17 },
+    // "It means your attention goes on the decision, not on the typing."
+    { line: 4, lines: ['THE DECISION'], size: 0.16, share: 0.5 },
+    { line: 4, lines: ['NOT THE TYPING'], size: 0.155, share: 0.5 },
+  ],
+};
+
+/** The narration lines that are product lines, derived from the phrase table. */
+function cardLinesFor(scene) {
+  const spec = WORD_BEATS[scene.kind];
+  if (!spec) return null;
+  return new Set(spec.filter((b) => b.card).map((b) => b.line));
+}
+
+/** The beats of a scene, with real times resolved from its narration lines. */
+function wordBeatsFor(scene) {
+  const spec = WORD_BEATS[scene.kind];
+  if (!spec) return null;
+  const out = [];
+  scene.lines.forEach((line, i) => {
+    const group = spec.filter((b) => b.line === i);
+    if (!group.length) return;
+    // A line with several phrases splits its own duration between them; a line
+    // with one keeps all of it.
+    //
+    // The first phrase of a scene starts with the shot, not with the voice: the
+    // reference opens on its title card and the narration arrives over it.
+    //
+    // The window a line's phrases share is therefore [start, line.end], where
+    // `start` is the earlier of the voice's own start and the beat before it.
+    // The first version pinned the first beat to zero but still divided the
+    // line's original duration, so the last phrase finished a second and a half
+    // before the line did and then held - a still frame inside a spoken
+    // sentence, which is the dead-beat fault this pass exists to remove.
+    const voiceStart = Math.max(0, line.start - scene.start);
+    const lineEnd = Math.max(voiceStart + 0.6, line.end - scene.start);
+    const start = out.length === 0 ? 0 : voiceStart;
+    const window = Math.max(0.9, lineEnd - start);
+    const weights = group.map((b) => b.share ?? 1);
+    const total = weights.reduce((a, b) => a + b, 0);
+    let at = start;
+    group.forEach((b, j) => {
+      const share = (weights[j] / total) * window;
+      out.push({ ...b, at, until: at + share });
+      at += share;
+    });
+    void i;
+  });
+
+  // A phrase holds until the next one is ready to arrive, across the silence
+  // between two narration lines. Without this the field is bare for the whole
+  // gap - measured, 0.4 s of nothing at 0:19 - and a bare field is the held
+  // frame the owner rejects, just in white instead of black. The overlap is two
+  // frames at the handover, which is invisible; everything longer than that is
+  // the exit and the arrival, and they never cross.
+  out.forEach((beat, i) => {
+    const next = out[i + 1];
+    beat.until = next ? Math.max(beat.until, next.at - 0.04) : beat.until + 0.25;
+  });
+  return out;
+}
+
+/**
+ * The opening, drawn as type.
+ *
+ * One phrase in the frame. The field drifts; the phrase resolves, holds long
+ * enough to read at 13 characters a second, then hands over to the next. Nothing
+ * else is drawn - no rail, no chapter, no clock - because the reference has
+ * nothing else and every mark we add is one more thing competing with the words
+ * the viewer is meant to read.
+ */
+function drawWordScene(ctx, { scene, t, local, palette }) {
+  drawField(ctx, { w: W, h: H, t, palette });
+
+  const beats = wordBeatsFor(scene);
+  if (!beats || !beats.length) return;
+
+  // A card beat is handled by secondUnit, which draws the product card; here the
+  // field is all this scene needs to contribute, and it hands over cleanly.
+  const at = beatAt(beats, local, 0.26);
+  if (!at) return;
+  const { beat } = at;
+  // On a card beat the product card owns the picture, but the film's beat clock
+  // stays on screen above it. Without this the card beat is one region of the
+  // frame doing anything at all, and a card that has finished assembling is a
+  // still frame - the gate called out eleven seconds of that.
+  if (beat.card) {
+    // The clock is drawn by render(), after the card: the card's backdrop covers
+    // the whole frame, so anything painted before it is buried.
+    return;
+  }
+
+  // Type size follows the phrase, not a constant: a two-word phrase can be
+  // bigger than a four-word one and still hold its margins.
+  const base = Math.min(W, H) * (beat.size ?? 0.17);
+  const longest = beat.lines.reduce((n, l) => Math.max(n, l.length), 1);
+  const fitted = Math.min(base, (W * 0.86) / (longest * 0.58));
+
+  // A phrase whose line has finished fades out in the gap before the next line,
+  // rather than holding until something replaces it. Otherwise the last phrase
+  // of a line is still on screen while the voice has moved on to the next
+  // sentence, which is a phrase with nothing to do with what is being said.
+  // Every phrase leaves before the next one arrives. No crossfade: two phrases
+  // in the same place at the same time is overlapping text, which the owner has
+  // rejected twice, and a 50/50 blend of two different words is unreadable even
+  // where it is not formally an overlap. The reference does the same thing - its
+  // word blurs out, the field is empty for a moment, the next word blurs in.
+  const overrun = span(local, beat.until - 0.2, beat.until);
+
+  drawPhrase(ctx, {
+    lines: beat.lines, w: W, h: H, p: at.p, palette, size: fitted,
+    exit: overrun, accentLine: beat.accent ?? -1, ellipse: !!beat.ellipse, t,
+    hold: clamp((local - beat.at) / Math.max(0.6, beat.until - beat.at)),
+    // Words keep arriving for 78 percent of the beat, not for the first half
+    // second of it.
+    reveal: span(local, beat.at, beat.at + Math.max(0.6, beat.until - beat.at) * 0.78),
+  });
+
+  // The clock itself is drawn by render(), above the card and the words, so
+  // there is exactly one of it and it never moves between beats.
+}
+
+/**
+ * The beat clock: the chapter, its step number, and a rule that fills.
+ *
+ * This is the film's smallest unit of motion and the only furniture the
+ * typographic stage allows. It is also what keeps a slow beat alive: the step
+ * number changes every beat and the rule fills across it, which is a visible
+ * change in one part of the frame while a phrase arrives in another.
+ *
+ * It sits above the phrase on a word beat and above the card on a card beat, so
+ * there is exactly one of it and it never moves between beats.
+ */
+function drawBeatClock(ctx, { scene, at, local, palette, y }) {
+  const chapter = scene.chapter || '';
+  const stepNumber = String(at.index + 1).padStart(2, '0');
+  const labelIn = span(local - at.beat.at, 0.05, 0.5);
+  const labelSize = Math.round(H * 0.03);
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * clamp(labelIn * 1.8);
+  text(ctx, chapter, W / 2 - 40, y, {
+    size: labelSize, weight: 700, family: 'Inter', color: palette.accent,
+    align: 'right', tracking: 8,
+  });
+  text(ctx, stepNumber, W / 2 + 40, y, {
+    size: labelSize, weight: 700, family: 'Inter', color: palette.ink,
+    align: 'left', tracking: 8,
+  });
+  ctx.restore();
+
+  const duration = Math.max(0.6, at.beat.until - at.beat.at);
+  const p = clamp((local - at.beat.at) / duration);
+  const bw = W * 0.10;
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * clamp(labelIn * 1.6) * 0.95;
+  ctx.fillStyle = palette.rule;
+  ctx.fillRect(W / 2 - bw / 2, y + H * 0.028, bw, 4);
+  ctx.fillStyle = palette.accent;
+  ctx.fillRect(W / 2 - bw / 2, y + H * 0.028, bw * ease.inOutCubic(p), 4);
+  ctx.restore();
+}
+
 const RENDERERS = {
   title: drawTitle,
   statement: drawStatement,
@@ -3690,37 +3931,46 @@ function render(t) {
   const draw = RENDERERS[scene.kind];
   if (!draw) throw new Error(`no renderer for scene ${scene.id} (${scene.kind})`);
 
+  const beats = beatState(scene.lines, scene, t);
+  const staged = WORDSTAGE && !!wordBeatsFor(scene);
+  const palette = PALETTES[LOOK === 'light' ? 'light' : 'dark'];
+
+  if (staged) {
+    // The typographic stage: field, one phrase, one hairline. It draws its own
+    // ground, so nothing of the old scene leaks into it.
+    drawWordScene(ctx, { scene, t, local, palette });
+    const index = Math.max(0, scene.lines.reduce((n, l) => (l.start <= t ? n + 1 : n), 0) - 1);
+    const cards = cardLinesFor(scene);
+    if (!CONTENT_ONLY) {
+      secondUnit(ctx, {
+        scene, t, local, h: H, rail: false, palette: LOOK,
+        card: cards ? cards.has(index) : false,
+      });
+      // One clock, drawn last, at one height whether the card is up or not: the
+      // step number and the filling rule are the second live region on every
+      // beat of this stage.
+      const wb = wordBeatsFor(scene);
+      const bat = wb ? beatAt(wb, local, 0.26) : null;
+      if (bat) drawBeatClock(ctx, { scene, at: bat, local, palette, y: H * 0.045 });
+    }
+    // Captions stay: they are the film's transcript, not decoration. Nothing
+    // else of the old furniture is drawn - no chapter band, no clock, no ticks.
+    if (!CONTENT_ONLY) captions(ctx, scene, t, palette);
+    if (OPTS.grain) grain(ctx, Math.round(t * FPS));
+    return;
+  }
+
   // The content layer. The camera is locked: the drawing is laid out in design
   // coordinates and nothing above it moves, scales or rotates the frame.
-  const beats = beatState(scene.lines, scene, t);
   ctx.save();
   draw(ctx, scene, t, local);
   ctx.restore();
 
-  if (!CONTENT_ONLY) {
-    // Lighting and beat metres are part of the picture, not the furniture: they
-    // sit inside the measured content layer on purpose.
-  }
   if (LIVE) spotlight(ctx, { w: W, h: H, t, state: beats, dark: !!scene.dark });
   transition(ctx, scene, local);
 
-  // The second unit: the two elements that are always alive, in two different
-  // cells of the picture. Drawn last of the picture layers, outside both the
-  // camera transform and the transition, for reasons each measured:
-  //   * outside the camera, so a push cannot crop them out of their cells;
-  //   * after the chapter card, which covered them for the first 2.4 seconds of
-  //     every step (a black sheet over two finished elements);
-  //   * after the transition, which fades the picture to black at every cut and
-  //     took the rail and console with it - measured, the two seconds around
-  //     every cut scored one live region or none.
-  // It is a lower-third: it belongs to the film, not to the shot, so a cut
-  // happens underneath it.
-  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local, h: H });
+  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local, h: H, palette: WORDSTAGE ? LOOK : 'dark' });
 
-  // The probe measures the picture, not the furniture: the bands and their
-  // caption are drawn for the viewer but excluded from the measurement, because
-  // a progress bar creeping two pixels a second must never be able to pass a
-  // scene off as moving.
   if (!CONTENT_ONLY) {
     bands(ctx, scene, t);
     beatTicks(ctx, { w: W, h: H, state: beats, colour: UI.gold });
