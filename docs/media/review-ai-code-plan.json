@@ -14,8 +14,8 @@
   "fps": 30,
   "width": 3840,
   "height": 2160,
-  "duration_seconds": 53.618,
-  "frames": 1609,
+  "duration_seconds": 59.405,
+  "frames": 1782,
   "voiced": true,
   "sections": [
     {
@@ -37,8 +37,8 @@
       "kind": "stake",
       "situation": "state-the-thesis",
       "start": 5.889,
-      "end": 10.996,
-      "seconds": 5.107,
+      "end": 10.671,
+      "seconds": 4.782,
       "arrive": "iris",
       "reason": "named by the brief"
     },
@@ -48,9 +48,9 @@
       "heading": "The three checks",
       "kind": "section",
       "situation": "show-a-sequence",
-      "start": 11.846,
-      "end": 16.186,
-      "seconds": 4.34,
+      "start": 11.521,
+      "end": 19.977,
+      "seconds": 8.456,
       "arrive": "wipe",
       "reason": "named by the brief"
     },
@@ -60,9 +60,9 @@
       "heading": "The budget",
       "kind": "section",
       "situation": "explain-a-number",
-      "start": 17.036,
-      "end": 18.957,
-      "seconds": 1.921,
+      "start": 20.827,
+      "end": 24.738,
+      "seconds": 3.911,
       "arrive": "iris",
       "reason": "named by the brief"
     },
@@ -72,9 +72,9 @@
       "heading": "How the minute is spent",
       "kind": "section",
       "situation": "show-the-mechanism",
-      "start": 19.807,
-      "end": 29.685,
-      "seconds": 9.878,
+      "start": 25.588,
+      "end": 36.139,
+      "seconds": 10.551,
       "arrive": "wipe",
       "reason": "named by the brief"
     },
@@ -84,9 +84,9 @@
       "heading": "Make it one command",
       "kind": "section",
       "situation": "show-the-command",
-      "start": 30.535,
-      "end": 35.189,
-      "seconds": 4.654,
+      "start": 36.989,
+      "end": 41.452,
+      "seconds": 4.463,
       "arrive": "iris",
       "reason": "named by the brief"
     },
@@ -96,9 +96,9 @@
       "heading": "The decision",
       "kind": "payoff",
       "situation": "punchline",
-      "start": 36.039,
-      "end": 40.652,
-      "seconds": 4.613,
+      "start": 42.302,
+      "end": 46.439,
+      "seconds": 4.137,
       "arrive": "wipe",
       "reason": "named by the brief"
     },
@@ -108,8 +108,8 @@
       "heading": "Recap",
       "kind": "recap",
       "situation": "recap",
-      "start": 41.502,
-      "end": 46.651,
+      "start": 47.289,
+      "end": 52.438,
       "seconds": 5.149,
       "arrive": "focus",
       "reason": "named by the brief"
@@ -120,8 +120,8 @@
       "heading": "Next",
       "kind": "outro",
       "situation": "punchline",
-      "start": 47.501,
-      "end": 53.618,
+      "start": 53.288,
+      "end": 59.405,
       "seconds": 6.117,
       "arrive": "flash",
       "reason": "named by the brief"
@@ -134,21 +134,35 @@
       "section_index": 1,
       "beat": 1,
       "start": 0,
-      "end": 2.494,
-      "seconds": 2.494,
+      "end": 1.663,
+      "seconds": 1.663,
       "template": "kinetic-headline",
-      "region": "title"
+      "region": "title",
+      "shows": "AN AGENT JUST OPENED"
     },
     {
       "id": "open-2",
       "section": "open",
       "section_index": 1,
       "beat": 2,
-      "start": 2.494,
-      "end": 4.989,
-      "seconds": 2.494,
+      "start": 1.663,
+      "end": 3.326,
+      "seconds": 1.663,
       "template": "kinetic-headline",
-      "region": "title"
+      "region": "title",
+      "shows": "A PULL REQUEST"
+    },
+    {
+      "id": "open-3",
+      "section": "open",
+      "section_index": 1,
+      "beat": 3,
+      "start": 3.326,
+      "end": 4.989,
+      "seconds": 1.663,
+      "template": "kinetic-headline",
+      "region": "title",
+      "shows": "DO YOU SHIP IT TODAY"
     },
     {
       "id": "stake-1",
@@ -156,208 +170,227 @@
       "section_index": 2,
       "beat": 1,
       "start": 5.889,
-      "end": 8.442,
-      "seconds": 2.554,
+      "end": 10.671,
+      "seconds": 4.782,
       "template": "compare-pair",
-      "region": "split"
-    },
-    {
-      "id": "stake-2",
-      "section": "stake",
-      "section_index": 2,
-      "beat": 2,
-      "start": 8.442,
-      "end": 10.996,
-      "seconds": 2.554,
-      "template": "compare-pair",
-      "region": "split"
+      "region": "split",
+      "shows": "Rubber stamp | Rewrite the whole thing"
     },
     {
       "id": "checks-1",
       "section": "checks",
       "section_index": 3,
       "beat": 1,
-      "start": 11.846,
-      "end": 14.016,
-      "seconds": 2.17,
+      "start": 11.521,
+      "end": 13.635,
+      "seconds": 2.114,
       "template": "list-build",
-      "region": "ledger"
+      "region": "ledger",
+      "shows": "Read the diff, not the summary"
     },
     {
       "id": "checks-2",
       "section": "checks",
       "section_index": 3,
       "beat": 2,
-      "start": 14.016,
-      "end": 16.186,
-      "seconds": 2.17,
-      "template": "stack-push",
-      "region": "stage"
+      "start": 13.635,
+      "end": 15.749,
+      "seconds": 2.114,
+      "template": "list-build",
+      "region": "ledger",
+      "shows": "Read the diff, not the summary | Run it once yourself"
+    },
+    {
+      "id": "checks-3",
+      "section": "checks",
+      "section_index": 3,
+      "beat": 3,
+      "start": 15.749,
+      "end": 17.863,
+      "seconds": 2.114,
+      "template": "list-build",
+      "region": "ledger",
+      "shows": "Read the diff, not the summary | Run it once yourself | Ask what it does not handle"
+    },
+    {
+      "id": "checks-4",
+      "section": "checks",
+      "section_index": 3,
+      "beat": 4,
+      "start": 17.863,
+      "end": 19.977,
+      "seconds": 2.114,
+      "template": "list-build",
+      "region": "ledger",
+      "shows": "Read the diff, not the summary | Run it once yourself | Ask what it does not handle"
     },
     {
       "id": "number-1",
       "section": "number",
       "section_index": 4,
       "beat": 1,
-      "start": 17.036,
-      "end": 18.957,
-      "seconds": 1.921,
+      "start": 20.827,
+      "end": 24.738,
+      "seconds": 3.911,
       "template": "count-up",
-      "region": "stage"
+      "region": "stage",
+      "shows": "SIXTY SECONDS."
     },
     {
       "id": "mechanism-1",
       "section": "mechanism",
       "section_index": 5,
       "beat": 1,
-      "start": 19.807,
-      "end": 21.783,
-      "seconds": 1.976,
+      "start": 25.588,
+      "end": 27.698,
+      "seconds": 2.11,
       "template": "stack-push",
-      "region": "stage"
+      "region": "stage",
+      "shows": "Forty seconds reading the diff"
     },
     {
       "id": "mechanism-2",
       "section": "mechanism",
       "section_index": 5,
       "beat": 2,
-      "start": 21.783,
-      "end": 23.758,
-      "seconds": 1.976,
-      "template": "list-build",
-      "region": "ledger"
+      "start": 27.698,
+      "end": 29.808,
+      "seconds": 2.11,
+      "template": "stack-push",
+      "region": "stage",
+      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
     },
     {
       "id": "mechanism-3",
       "section": "mechanism",
       "section_index": 5,
       "beat": 3,
-      "start": 23.758,
-      "end": 25.734,
-      "seconds": 1.976,
+      "start": 29.808,
+      "end": 31.919,
+      "seconds": 2.11,
       "template": "stack-push",
-      "region": "stage"
+      "region": "stage",
+      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
     },
     {
       "id": "mechanism-4",
       "section": "mechanism",
       "section_index": 5,
       "beat": 4,
-      "start": 25.734,
-      "end": 27.709,
-      "seconds": 1.976,
-      "template": "list-build",
-      "region": "ledger"
+      "start": 31.919,
+      "end": 34.029,
+      "seconds": 2.11,
+      "template": "stack-push",
+      "region": "stage",
+      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
     },
     {
       "id": "mechanism-5",
       "section": "mechanism",
       "section_index": 5,
       "beat": 5,
-      "start": 27.709,
-      "end": 29.685,
-      "seconds": 1.976,
+      "start": 34.029,
+      "end": 36.139,
+      "seconds": 2.11,
       "template": "stack-push",
-      "region": "stage"
+      "region": "stage",
+      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
     },
     {
       "id": "command-1",
       "section": "command",
       "section_index": 6,
       "beat": 1,
-      "start": 30.535,
-      "end": 32.862,
-      "seconds": 2.327,
+      "start": 36.989,
+      "end": 41.452,
+      "seconds": 4.463,
       "template": "code-typing",
-      "region": "stage"
-    },
-    {
-      "id": "command-2",
-      "section": "command",
-      "section_index": 6,
-      "beat": 2,
-      "start": 32.862,
-      "end": 35.189,
-      "seconds": 2.327,
-      "template": "code-typing",
-      "region": "stage"
+      "region": "stage",
+      "shows": "npm test"
     },
     {
       "id": "payoff-1",
       "section": "payoff",
       "section_index": 7,
       "beat": 1,
-      "start": 36.039,
-      "end": 38.346,
-      "seconds": 2.306,
+      "start": 42.302,
+      "end": 44.37,
+      "seconds": 2.069,
       "template": "kinetic-headline",
-      "region": "title"
+      "region": "title",
+      "shows": "GREEN MEANS MERGE"
     },
     {
       "id": "payoff-2",
       "section": "payoff",
       "section_index": 7,
       "beat": 2,
-      "start": 38.346,
-      "end": 40.652,
-      "seconds": 2.306,
+      "start": 44.37,
+      "end": 46.439,
+      "seconds": 2.069,
       "template": "kinetic-headline",
-      "region": "title"
+      "region": "title",
+      "shows": "RED MEANS SEND IT BACK"
     },
     {
       "id": "recap-1",
       "section": "recap",
       "section_index": 8,
       "beat": 1,
-      "start": 41.502,
-      "end": 43.218,
+      "start": 47.289,
+      "end": 49.005,
       "seconds": 1.716,
       "template": "list-build",
-      "region": "ledger"
+      "region": "ledger",
+      "shows": "Three checks | One command"
     },
     {
       "id": "recap-2",
       "section": "recap",
       "section_index": 8,
       "beat": 2,
-      "start": 43.218,
-      "end": 44.935,
+      "start": 49.005,
+      "end": 50.722,
       "seconds": 1.716,
-      "template": "stack-push",
-      "region": "stage"
+      "template": "list-build",
+      "region": "ledger",
+      "shows": "Three checks | One command | A minute of your time"
     },
     {
       "id": "recap-3",
       "section": "recap",
       "section_index": 8,
       "beat": 3,
-      "start": 44.935,
-      "end": 46.651,
+      "start": 50.722,
+      "end": 52.438,
       "seconds": 1.716,
       "template": "list-build",
-      "region": "ledger"
+      "region": "ledger",
+      "shows": "Three checks | One command | A minute of your time"
     },
     {
       "id": "outro-1",
       "section": "outro",
       "section_index": 9,
       "beat": 1,
-      "start": 47.501,
-      "end": 50.559,
+      "start": 53.288,
+      "end": 56.346,
       "seconds": 3.059,
       "template": "kinetic-headline",
-      "region": "title"
+      "region": "title",
+      "shows": "PICK ONE REPOSITORY THIS WEEK"
     },
     {
       "id": "outro-2",
       "section": "outro",
       "section_index": 9,
       "beat": 2,
-      "start": 50.559,
-      "end": 53.618,
+      "start": 56.346,
+      "end": 59.405,
       "seconds": 3.059,
       "template": "kinetic-headline",
-      "region": "title"
+      "region": "title",
+      "shows": "THAT IS THE METHOD"
     }
   ],
   "captions": [
@@ -372,75 +405,90 @@
     },
     {
       "start": 6.169,
-      "end": 10.576,
+      "end": 10.251,
       "lines": [
-        "Most teams either rubber stamp the diff or",
+        "Most teams rubber stamp the diff, or",
         "rewrite the whole thing."
       ],
-      "text": "Most teams either rubber stamp the diff or rewrite the whole thing."
+      "text": "Most teams rubber stamp the diff, or rewrite the whole thing."
     },
     {
-      "start": 12.126,
-      "end": 15.766,
+      "start": 11.801,
+      "end": 14.226,
       "lines": [
-        "Three checks catch almost everything an",
-        "agent gets wrong."
+        "Read the diff, not the summary."
       ],
-      "text": "Three checks catch almost everything an agent gets wrong."
+      "text": "Read the diff, not the summary."
     },
     {
-      "start": 17.316,
-      "end": 18.537,
+      "start": 15.196,
+      "end": 16.77,
       "lines": [
-        "Sixty seconds."
+        "Run it once yourself."
       ],
-      "text": "Sixty seconds."
+      "text": "Run it once yourself."
     },
     {
-      "start": 20.087,
-      "end": 22.744,
+      "start": 17.74,
+      "end": 19.557,
       "lines": [
-        "Forty seconds reading the diff properly."
+        "Ask what it does not handle."
       ],
-      "text": "Forty seconds reading the diff properly."
+      "text": "Ask what it does not handle."
     },
     {
-      "start": 23.714,
-      "end": 29.265,
+      "start": 21.107,
+      "end": 24.318,
       "lines": [
-        "Ten seconds running it, and ten asking",
-        "what it quietly refuses to handle."
+        "Sixty seconds of reading is the whole",
+        "budget."
       ],
-      "text": "Ten seconds running it, and ten asking what it quietly refuses to handle."
+      "text": "Sixty seconds of reading is the whole budget."
     },
     {
-      "start": 30.815,
-      "end": 34.769,
+      "start": 25.868,
+      "end": 27.916,
       "lines": [
-        "Wire those checks to one command, so the",
-        "machine runs them."
+        "Forty seconds reading the diff."
       ],
-      "text": "Wire those checks to one command, so the machine runs them."
+      "text": "Forty seconds reading the diff."
     },
     {
-      "start": 36.319,
-      "end": 37.707,
+      "start": 28.886,
+      "end": 31.004,
       "lines": [
-        "Green means merge."
+        "Ten seconds running it yourself."
       ],
-      "text": "Green means merge."
+      "text": "Ten seconds running it yourself."
     },
     {
-      "start": 38.677,
-      "end": 40.232,
+      "start": 31.974,
+      "end": 35.719,
       "lines": [
-        "Red means send it back."
+        "Ten seconds asking what it quietly refuses",
+        "to handle."
       ],
-      "text": "Red means send it back."
+      "text": "Ten seconds asking what it quietly refuses to handle."
     },
     {
-      "start": 41.782,
-      "end": 46.231,
+      "start": 37.269,
+      "end": 41.032,
+      "lines": [
+        "One command runs every check: npm test."
+      ],
+      "text": "One command runs every check: npm test."
+    },
+    {
+      "start": 42.582,
+      "end": 46.019,
+      "lines": [
+        "Green means merge. Red means send it back."
+      ],
+      "text": "Green means merge. Red means send it back."
+    },
+    {
+      "start": 47.569,
+      "end": 52.018,
       "lines": [
         "Three checks. One command. A minute of",
         "your time."
@@ -448,8 +496,8 @@
       "text": "Three checks. One command. A minute of your time."
     },
     {
-      "start": 47.781,
-      "end": 53.198,
+      "start": 53.568,
+      "end": 58.985,
       "lines": [
         "Pick one repository this week. Run the",
         "checks. That is the method."
@@ -465,7 +513,13 @@
       "length": 0.6
     },
     {
-      "at": 2.514,
+      "at": 1.683,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 3.346,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
@@ -477,127 +531,127 @@
       "length": 0.6
     },
     {
-      "at": 8.462,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 11.866,
+      "at": 11.541,
       "kind": "whoosh",
       "gain": 0.5,
       "length": 0.6
     },
     {
-      "at": 14.036,
+      "at": 13.655,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 17.056,
+      "at": 15.769,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 17.883,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 20.847,
       "kind": "whoosh",
       "gain": 0.5,
       "length": 0.6
     },
     {
-      "at": 19.827,
+      "at": 25.608,
       "kind": "whoosh",
       "gain": 0.5,
       "length": 0.6
     },
     {
-      "at": 21.803,
+      "at": 27.718,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 23.778,
+      "at": 29.828,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 25.754,
+      "at": 31.939,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 27.729,
+      "at": 34.049,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 30.555,
+      "at": 37.009,
       "kind": "whoosh",
       "gain": 0.5,
       "length": 0.6
     },
     {
-      "at": 32.882,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 36.059,
+      "at": 42.322,
       "kind": "whoosh",
       "gain": 0.5,
       "length": 0.6
     },
     {
-      "at": 36.339,
+      "at": 42.602,
       "kind": "impact",
       "gain": 0.55,
       "length": 0.9
     },
     {
-      "at": 38.366,
+      "at": 44.391,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 38.645,
+      "at": 44.67,
       "kind": "impact",
       "gain": 0.55,
       "length": 0.9
     },
     {
-      "at": 41.522,
+      "at": 47.309,
       "kind": "whoosh",
       "gain": 0.5,
       "length": 0.6
     },
     {
-      "at": 41.622,
+      "at": 47.409,
       "kind": "riser",
       "gain": 0.4,
       "length": 0.8
     },
     {
-      "at": 43.238,
+      "at": 49.025,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 44.955,
+      "at": 50.742,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
     },
     {
-      "at": 47.521,
+      "at": 53.308,
       "kind": "whoosh",
       "gain": 0.5,
       "length": 0.6
     },
     {
-      "at": 50.58,
+      "at": 56.367,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3

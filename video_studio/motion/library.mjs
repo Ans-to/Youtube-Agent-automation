@@ -202,16 +202,23 @@ function countUp(ctx, {
  * arrive in the order they are spoken; nothing is on screen before its line.
  */
 function listBuild(ctx, {
-  box, local, seconds, items = [], colour = UI.white, accent = UI.gold,
+  box, local, seconds, items = [], slots, colour = UI.white, accent = UI.gold,
 }) {
   const rows = items.map((item) => (typeof item === 'string' ? { name: item } : item));
   if (!rows.length) return;
-  const rowH = Math.min(box.h / rows.length, box.h * 0.34);
+  // `slots` is how many rows the finished list will have. Laying out against the
+  // rows that happen to be visible makes every new row shove the ones above it
+  // up the frame, which reads as a glitch. With slots, the list has its shape
+  // from the first row and rows simply arrive into it.
+  const count = Math.max(rows.length, Number(slots) || 0);
+  const rowH = Math.min(box.h / count, box.h * 0.34);
   const size = Math.min(rowH * 0.34, fitSize(ctx, rows[0].name, {
     maxWidth: box.w * 0.8, cap: rowH * 0.36, floor: 22, tracking: 1,
   }));
   rows.forEach((row, i) => {
-    const at = (seconds * 0.62) * (i / rows.length);
+    // A row that carries its own moment ("say this at 4.1 s") is dr,awn on the
+    // clock it was given; one without it keeps the old even spread.
+    const at = typeof row.at === 'number' ? row.at : (seconds * 0.62) * (i / count);
     const p = span(local, at, at + Math.min(0.4, seconds * 0.25));
     if (p <= 0) return;
     const e = ease.outCubic(p);
@@ -401,30 +408,44 @@ function sweepRule(ctx, {
  * a still frame.
  */
 function stackPush(ctx, {
-  box, local, seconds, items = [], colour = UI.white, accent = UI.red, highlight = 1,
+  box, local, seconds, items = [], slots, colour = UI.white, accent = UI.red, highlight,
 }) {
   const rows = items.map((item) => (typeof item === 'string' ? { text: item } : item));
   if (!rows.length) return;
-  const slot = Math.min(box.h / Math.max(rows.length, 2.2), box.h * 0.34);
+  // Top-down, in the order the narrator says them, with the geometry fixed by the
+  // section's full list (`slots`). These slabs used to be pushed in from the
+  // bottom and then scoot up as each new one landed, which only works while the
+  // rows arrive inside one beat; across a section it makes the whole list walk
+  // up the frame every two seconds.
+  const count = Math.max(rows.length, Number(slots) || 0);
+  const slot = Math.min(box.h / Math.max(count, 2.2), box.h * 0.34);
   const slabH = slot * 0.86;
-  const step = (seconds * 0.62) / rows.length;
+  const step = (seconds * 0.62) / Math.max(count, 1);
+  // The newest slab that has arrived is the one that is highlighted; before any
+  // arrive, the first is.
+  let newest = 0;
   rows.forEach((row, i) => {
-    const at = i * step;
+    const at = typeof row.at === 'number' ? row.at : i * step;
+    if (local >= at) newest = i;
+  });
+  rows.forEach((row, i) => {
+    const at = typeof row.at === 'number' ? row.at : i * step;
     const p = span(local, at, at + Math.min(0.5, Math.max(0.3, step * 0.9)));
     if (p <= 0) return;
-    const e = ease.outBack(clamp(p * 1.2));
-    // Every slab that arrived before this one scoots up to make room.
-    const scoot = i < rows.length - 1 ? ease.outCubic(span(local, at + step - 0.35, at + step)) * slot * 0.5 : 0;
-    const y = box.y + box.h - (i + 1) * slot + (1 - e) * slot * 1.1 - scoot;
-    const isHighlight = i === highlight;
+    const e = ease.outCubic(clamp(p));
+    const y = box.y + i * slot + (1 - e) * slot * 0.35;
+    const isHighlight = highlight === undefined ? i === newest : i === highlight;
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * clamp(p * 1.7);
+    // The highlight is the slab's own accent, and the words stay in the film's
+    // ink. A gold label on a gold panel is invisible - which is exactly what the
+    // light palette produced the first time this was drawn on it.
     panel(ctx, {
       x: box.x, y, w: box.w, h: slabH, r: 18,
-      fill: isHighlight ? 'rgba(242,194,48,0.16)' : 'rgba(255,255,255,0.06)',
-      stroke: isHighlight ? UI.gold : 'rgba(255,255,255,0.16)',
+      fill: isHighlight ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.34)',
+      stroke: isHighlight ? accent : 'rgba(18,35,63,0.14)',
     });
-    ctx.fillStyle = isHighlight ? UI.gold : accent;
+    ctx.fillStyle = accent;
     ctx.fillRect(box.x, y, Math.max(8, slabH * 0.09), slabH);
     const labelSize = fitSize(ctx, row.text, {
       maxWidth: box.w - slabH * 0.3, cap: slabH * 0.44, floor: 18, tracking: 1,
@@ -434,7 +455,7 @@ function stackPush(ctx, {
     kineticWords(ctx, {
       text: row.text, x: box.x + slabH * 0.32, y: y + slabH * 0.62,
       size: labelSize, weight: 700, family: 'Space Grotesk',
-      colour: isHighlight ? UI.gold : colour, tracking: 1,
+      colour, tracking: 1,
       local: local - at, start: 0, stagger, duration, maxWidth: box.w - slabH * 0.3,
     });
     ctx.restore();
@@ -613,7 +634,12 @@ export function drawTemplate(ctx, id, options) {
   if (!Number.isFinite(seconds)) {
     throw new Error(`drawTemplate("${id}") needs the beat length in seconds`);
   }
-  if (seconds < template.minSeconds || seconds > template.maxSeconds) {
+  // A template can also be asked to hold a whole section and reveal its rows as
+  // the narration reaches them. Then "seconds" is the section, not a beat, and the
+  // beat-length window does not apply - the rows arrive spaced across the section
+  // instead of all at once. Opt in explicitly; nothing gets past the check by
+  // accident.
+  if (!options.storedRows && (seconds < template.minSeconds || seconds > template.maxSeconds)) {
     throw new Error(
       `"${id}" is built for beats of ${template.minSeconds}-${template.maxSeconds}s, got ${seconds}s. `
       + 'Ask the chooser for a template that fits the beat instead of stretching this one.',

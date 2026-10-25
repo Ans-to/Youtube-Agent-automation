@@ -17,7 +17,7 @@
       "situation": "opening-claim",
       "template": "kinetic-headline",
       "props": {
-        "text": "SHIP IT, OR STOP IT."
+        "text": "AN AGENT JUST OPENED A PULL REQUEST"
       },
       "lines": [
         {
@@ -33,11 +33,11 @@
       "template": "compare-pair",
       "props": {
         "left": "Rubber stamp",
-        "right": "Rewrite it"
+        "right": "Rewrite the whole thing"
       },
       "lines": [
         {
-          "text": "Most teams either rubber stamp the diff or rewrite the whole thing."
+          "text": "Most teams rubber stamp the diff, or rewrite the whole thing."
         }
       ]
     },
@@ -56,7 +56,13 @@
       },
       "lines": [
         {
-          "text": "Three checks catch almost everything an agent gets wrong."
+          "text": "Read the diff, not the summary."
+        },
+        {
+          "text": "Run it once yourself."
+        },
+        {
+          "text": "Ask what it does not handle."
         }
       ]
     },
@@ -68,11 +74,12 @@
       "template": "count-up",
       "props": {
         "value": 60,
+        "label": "SECONDS",
         "text": "SIXTY SECONDS."
       },
       "lines": [
         {
-          "text": "Sixty seconds."
+          "text": "Sixty seconds of reading is the whole budget."
         }
       ]
     },
@@ -84,17 +91,20 @@
       "template": "stack-push",
       "props": {
         "items": [
-          "Forty seconds: read",
-          "Ten: run",
-          "Ten: question"
+          "Forty seconds reading the diff",
+          "Ten seconds running it",
+          "Ten seconds asking what it refuses"
         ]
       },
       "lines": [
         {
-          "text": "Forty seconds reading the diff properly."
+          "text": "Forty seconds reading the diff."
         },
         {
-          "text": "Ten seconds running it, and ten asking what it quietly refuses to handle."
+          "text": "Ten seconds running it yourself."
+        },
+        {
+          "text": "Ten seconds asking what it quietly refuses to handle."
         }
       ]
     },
@@ -106,14 +116,12 @@
       "template": "code-typing",
       "props": {
         "lines": [
-          "npm test",
-          "npm run lint",
-          "git diff --stat"
+          "npm test"
         ]
       },
       "lines": [
         {
-          "text": "Wire those checks to one command, so the machine runs them."
+          "text": "One command runs every check: npm test."
         }
       ]
     },
@@ -124,14 +132,11 @@
       "situation": "punchline",
       "template": "kinetic-headline",
       "props": {
-        "text": "MERGE WHEN GREEN."
+        "text": "GREEN MEANS MERGE"
       },
       "lines": [
         {
-          "text": "Green means merge."
-        },
-        {
-          "text": "Red means send it back."
+          "text": "Green means merge. Red means send it back."
         }
       ]
     },
@@ -143,9 +148,9 @@
       "template": "list-build",
       "props": {
         "items": [
-          "Read the diff",
-          "Run it",
-          "Ask what is missing"
+          "Three checks",
+          "One command",
+          "A minute of your time"
         ]
       },
       "lines": [
@@ -161,7 +166,7 @@
       "situation": "punchline",
       "template": "kinetic-headline",
       "props": {
-        "text": "ONE CHECK, THEN SHIP."
+        "text": "PICK ONE REPOSITORY THIS WEEK"
       },
       "lines": [
         {

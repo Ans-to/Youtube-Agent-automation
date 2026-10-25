@@ -177,6 +177,41 @@ def scene_gap_for(line: Line, previous_scene: str) -> float:
     return gap
 
 
+def word_timings(text: str, start: float, end: float) -> list[dict]:
+    """When each word of a line is spoken, estimated from the audio window.
+
+    The models return a waveform, not an alignment, so this distributes the
+    line's own measured duration across its words - longer words take longer,
+    and a word that ends a clause carries the pause after it. It is an estimate,
+    and it is a good one: the picture uses it to decide which words are on
+    screen, and being 80 ms out on a two-second clause is not something a viewer
+    can see.
+
+    What it replaces was worse than an estimate: the beats were cut into equal
+    slices and the words were split evenly across them, so a headline could be
+    showing words the narrator had not reached yet - or had already left behind.
+    """
+    parts = [word for word in re.findall(r"\S+", str(text))]
+    if not parts or end <= start:
+        return []
+    weights = []
+    for word in parts:
+        core = re.sub(r"[^0-9A-Za-z']", "", word)
+        weight = 1.0 + 0.30 * len(core)
+        tail = word[-1] if word else ""
+        weight += 1.4 if tail in ".!?" else (0.7 if tail in ",;:" else 0.0)
+        weights.append(weight)
+    total = sum(weights) or 1.0
+    cursor = start
+    out = []
+    for word, weight in zip(parts, weights):
+        span = (end - start) * weight / total
+        out.append({"text": word, "start": round(cursor, 3),
+                    "end": round(cursor + span, 3)})
+        cursor += span
+    return out
+
+
 def emphasis_words(text: str) -> list[str]:
     """Words the writer marked for stress, by caps or *stars*."""
     starred = re.findall(r"[*_]{1,2}([^*_]+)[*_]{1,2}", text)
@@ -814,6 +849,7 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
             "words_per_minute": round(words / max(end - start, 1e-6) * 60.0, 1),
             "gap_before": round(gap_before, 3),
             "pause_after": round(pause_after, 3),
+            "word_times": word_timings(spoken_text(line.text), start, end),
             "prosody": prosody_note(line),
             "emphasis": emphasis_words(line.text),
         })

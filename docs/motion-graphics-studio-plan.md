@@ -238,16 +238,16 @@ deterministic: the same script renders the same audio every time.
 
 ### Measured on the delivered file
 
-`docs/media/review-ai-code-720p.mp4`: 0:54, 1280x720, 30 fps, Kokoro
-`am_michael`, 6.9 MB.
+`docs/media/review-ai-code-720p.mp4`: 0:59, 1280x720, 30 fps, Kokoro
+`am_michael`, 7.5 MB.
 
 | Gate | Result |
 | --- | --- |
-| motion | PASSED - mean frame delta 1.35, 0.5% near-static (limit 15%) |
-| composition | PASSED - 92 arrangements, longest 1.5 s (limit 12 s) |
+| motion | PASSED - mean frame delta 1.32, 0.5% near-static (limit 15%) |
+| composition | PASSED - 92 arrangements, longest 2.0 s (limit 12 s) |
 | holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
-| narration | PASSED - 146 words per minute, 11.2 audible rests per minute |
-| delivery level | -14.8 LUFS, true peak -1.6 dBFS |
+| narration | PASSED - 144 words per minute, 11.2 audible rests per minute |
+| delivery level | -14.7 LUFS, true peak -1.7 dBFS |
 | craft | PASSED - 18/18 rules |
 | first claim | 0.12 s (was 0.87 s) |
 
@@ -276,3 +276,65 @@ ceiling of this approach is a clean, consistent, professional-sounding read -
 which is the brief - and the next real step up is a human voice, or a hosted
 model the owner chooses to pay for. The pipeline takes either: a pre-rendered
 `voiceover.wav` plus `lines.json` drops straight into `tools/assemble_voiceover.py`.
+
+## 12. The picture now says what the voice says
+
+The film passed every gate and still failed the only test that matters: the owner
+watched it and said the picture and the narration were about different things.
+They were. Each section carried its own hand-written on-screen copy - "SHIP IT, OR
+STOP IT." over a frame where the narrator was still saying "an agent just opened a
+pull request" - and nothing had ever compared the two, because nothing could:
+the narration's timings were per line, and a line was treated as one block.
+
+The fix is three changes and one guard.
+
+1. **Every word has a time.** `video_studio/voiceover.py` now emits `word_times`
+   for each line: the line's duration split across its words, weighted by word
+   length and by the punctuation that follows them. A comma buys a word more room
+   than a letter does. Nothing is guessed at render time; the picture reads the
+   same numbers the audio was built from.
+2. **The picture is derived from the narration.** A section no longer carries an
+   independent headline. `propsForBeat()` asks which clause the narrator is in the
+   middle of, and prints *that* - split across two beats if the clause is longer
+   than six words. A list's rows arrive when their sentence is spoken, not on an
+   even clock, and they stay where they arrived: one list, one layout, for the
+   whole section.
+3. **The caption band stops repeating the frame.** A kinetic headline *is* the
+   sentence, in the middle of the frame at reading size. Printing it again along
+   the bottom is the same sentence twice, which is what a viewer reads as "the
+   picture and the voice disagree". Captions are skipped when the picture already
+   carries 60% of the cue's words. They still appear where the picture shows
+   something else - a number, a comparison - which is where they earn their space.
+4. **The guard.** Nothing may be printed that is not said. At build time, every
+   authored string in a brief (`items`, `lines`, `left`, `right`, `label`) must be
+   a subsequence of that section's spoken words, or the build stops:
+
+   ```
+   section number: the picture would print "SECONDS" but the narration never says that.
+     spoken: sixty seconds of reading is the whole budget
+   ```
+
+   `tests/test_brief_sync.py` holds the same rule at the other end: it checks the
+   brief, and it checks the *delivered* `plan.json` beat by beat, so a film whose
+   picture drifts away from its voice cannot be committed.
+
+The plan file now also records what each beat draws (`shows`), which is what let
+the audit run without decoding frames:
+
+| Beat | Window | On the frame |
+| --- | --- | --- |
+| open-1 | 0.00-1.66 | AN AGENT JUST OPENED |
+| open-2 | 1.66-3.33 | A PULL REQUEST |
+| open-3 | 3.33-4.99 | DO YOU SHIP IT TODAY |
+| checks-1 | 11.52-13.63 | Read the diff, not the summary |
+| checks-3 | 15.75-17.86 | + Run it once yourself, Ask what it does not handle |
+| command-1 | 36.99-41.45 | npm test (typed) |
+| payoff-1 | 42.30-44.37 | GREEN MEANS MERGE |
+| recap-2 | 49.01-50.72 | Three checks, One command, A minute of your time |
+
+Three of those beats were wrong when this started, in the way that is easiest to
+miss: not wrong words, but right words at the wrong moment - a recap printing
+"Three checks" three seconds before the narrator said it, and a list replaying its
+entrance on every beat, so two rows overlapped mid-slide. The timing is what the
+`word_times` fix bought; the overlap was a clock bug - the row templates were
+being handed the beat's clock when what they build is the section's picture.

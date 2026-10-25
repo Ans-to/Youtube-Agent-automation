@@ -60,6 +60,11 @@ const WORDS_PER_SECOND = 2.6;  // measured narration pace; used only without a v
 // sentence that has finished arriving: measured, that produced 89% near-static
 // frames. Cutting each section into ~1.8 s beats keeps the picture in arrival,
 // which is also what the owner asked for when he said "about one second chunks".
+// Templates that hold a list and reveal its rows one at a time. They own a
+// section, not a beat: the rows stay where they arrived, so swapping the layout
+// halfway through the list (list-build to stack-push and back) makes the whole
+// list jump between two arrangements every two seconds.
+const ROW_TEMPLATES = new Set(['list-build', 'stack-push', 'code-typing']);
 const TARGET_BEAT = 1.8;
 const MAX_BEAT = 2.4;
 const PAD_HEAD = 0.28;
@@ -220,10 +225,88 @@ function loadLineTimings(file) {
     const start = Number(row.start);
     const end = Number(row.end);
     if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-      timings.set(row.id, { start, end });
+      timings.set(row.id, {
+        start, end,
+        words: Array.isArray(row.word_times) && row.word_times.length ? row.word_times : null,
+      });
     }
   }
   return timings.size ? timings : null;
+}
+
+/** Strip a word down to what is actually printed: no case, no punctuation. */
+function bare(word) {
+  return String(word).toLowerCase().replace(/[^a-z0-9']/g, '');
+}
+
+/**
+ * Every word of a section with the time it is spoken, in order.
+ *
+ * When the voice file carries per-word timings they are used directly. Without
+ * them (a timed script from somewhere else) each line's own measured duration is
+ * divided across its words, which is what `voiceover.word_timings` does in the
+ * pipeline that produces the file.
+ */
+function speechOf(lines) {
+  const out = [];
+  for (const line of lines) {
+    const parts = line.words && line.words.length ? line.words : null;
+    if (parts) {
+      for (const word of parts) out.push({ text: word.text, start: word.start, end: word.end });
+      continue;
+    }
+    const tokens = words(line.text);
+    const span = Math.max(0.001, line.end - line.start);
+    const per = span / Math.max(1, tokens.length);
+    tokens.forEach((token, index) => out.push({
+      text: token,
+      start: line.start + index * per,
+      end: line.start + (index + 1) * per,
+    }));
+  }
+  return out;
+}
+
+/**
+ * The spoken words cut at the points a speaker breathes.
+ *
+ * A clause is what a person hears as one piece of a sentence, so it is the
+ * largest thing that can be put on screen at once without splitting a thought
+ * down the middle - and the smallest thing that still carries a meaning.
+ */
+function clausesOf(speech) {
+  const clauses = [];
+  let current = [];
+  for (const word of speech) {
+    current.push(word);
+    if (/[.!?,;:]$/.test(String(word.text).replace(/["')\]]+$/, ''))) {
+      clauses.push(current);
+      current = [];
+    }
+  }
+  if (current.length) clauses.push(current);
+  return clauses.map((group) => ({
+    text: group.map((word) => String(word.text).replace(/^["'(\[]+|["')\]]+$/g, '')).join(' ')
+      .replace(/[.,;:!?]+$/, '').trim(),
+    start: group[0].start,
+    end: group[group.length - 1].end,
+    words: group,
+  })).filter((clause) => clause.text);
+}
+
+/** The first time `phrase` is spoken inside `speech`, or null if it never is. */
+function firstSpokenAt(phrase, speech) {
+  const want = words(phrase).map(bare).filter(Boolean);
+  if (!want.length) return 0;
+  let cursor = 0;
+  let first = null;
+  for (const token of want) {
+    while (cursor < speech.length && bare(speech[cursor].text) !== token) cursor += 1;
+    if (cursor >= speech.length) return null;
+    if (first === null) first = speech[cursor].start;
+    cursor += 1;
+  }
+  return first;
 }
 
 function estimateSeconds(section, index) {
@@ -320,8 +403,9 @@ function buildSections(brief, timings) {
     let start;
     let end;
     let lines;
+    let found = null;
     if (timings) {
-      const found = section.lines
+      found = section.lines
         .filter((line) => line.id && timings.has(line.id))
         .map((line) => ({ id: line.id, text: line.text, ...timings.get(line.id) }))
         .sort((a, b) => a.start - b.start);
@@ -345,6 +429,36 @@ function buildSections(brief, timings) {
     }
     cursor = end;
 
+    // What is said, and when. Everything the picture prints is chosen from this,
+    // so the frame can only ever show words the narrator is saying at that
+    // moment - the fault the owner reported as "what we see and what is being
+    // talked about are totally different".
+    const absolute = timings
+      ? found
+      : lines.map((line) => ({ ...line, start: line.start + start, end: line.end + start }));
+    const speech = speechOf(absolute);
+    const clauses = clausesOf(speech);
+
+    // Authored copy - the rows of a list, the lines of a command, the two halves
+    // of a comparison - is held to the same rule. It is allowed to condense the
+    // sentence ("Ten: running it" for "ten seconds running it"), never to
+    // introduce words nobody says.
+    const authored = [];
+    if (Array.isArray(section.props?.items)) authored.push(...section.props.items);
+    if (Array.isArray(section.props?.lines)) authored.push(...section.props.lines);
+    if (section.props?.left) authored.push(section.props.left);
+    if (section.props?.right) authored.push(section.props.right);
+    if (section.props?.label) authored.push(section.props.label);
+    const unsaid = authored.filter((phrase) => firstSpokenAt(phrase, speech) === null);
+    if (unsaid.length) {
+      throw new Error(
+        `section ${section.id}: the picture would print ${unsaid.map((p) => JSON.stringify(p)).join(', ')}`
+        + ` but the narration never says ${unsaid.length > 1 ? 'those words' : 'that'}.`
+        + `\n  spoken: ${absolute.map((line) => line.text).join(' ')}`
+        + '\n  Rewrite the on-screen copy as words from the narration, or rewrite the narration.',
+      );
+    }
+
     const seconds = end - start;
     // The words that will be drawn, not the words that will be spoken: a
     // headline's own text is what gets cut into beats.
@@ -359,7 +473,13 @@ function buildSections(brief, timings) {
       : candidates.some((id) => PROGRESSIVE.has(id));
     const byWords = Math.max(1, Math.floor(words / 2));
     let lengths;
-    if (progressive) {
+    const codeLines = section.template === 'code-typing' && Array.isArray(section.props?.lines)
+      ? section.props.lines.length : 0;
+    if (codeLines === 1 && seconds <= 6.0) {
+      // One command is one picture. Cutting it in two would retype the same line
+      // on the next beat, and a typing animation that restarts reads as a glitch.
+      lengths = [seconds];
+    } else if (progressive) {
       lengths = beatLengths(seconds, candidates, byWords);
     } else {
       // A comparison or a number cannot show a new piece on each beat, so the
@@ -374,8 +494,13 @@ function buildSections(brief, timings) {
     let beatStart = start;
     let previousTemplate = null;
     const recentTemplates = [];
+    let rowTemplateLock = null;
     lengths.forEach((length, beatIndex) => {
-      const template = templateForBeat(section, candidates, length, previousTemplate, recentTemplates, beatIndex);
+      const chosen = templateForBeat(section, candidates, length, previousTemplate, recentTemplates, beatIndex);
+      // One list, one layout. The beat still changes - a new row arrives - but the
+      // arrangement may not.
+      const template = rowTemplateLock && ROW_TEMPLATES.has(chosen) ? rowTemplateLock : chosen;
+      if (ROW_TEMPLATES.has(template)) rowTemplateLock = template;
       previousTemplate = template;
       recentTemplates.push(template);
       if (recentTemplates.length > 2) recentTemplates.shift();
@@ -415,6 +540,8 @@ function buildSections(brief, timings) {
       seconds,
       arrive,
       lines,
+      speech,
+      clauses,
       palette,
       props: section.props || {},
       beats,
@@ -427,6 +554,28 @@ const BRIEF = loadBrief(OPTS.brief);
 const TIMINGS = loadLineTimings(OPTS.voiceLines);
 const SECTIONS = buildSections(BRIEF, TIMINGS);
 const SHOTS = SECTIONS.flatMap((section) => section.beats.map((beat) => ({ ...beat, section })));
+
+/**
+ * What each beat prints, in one string.
+ *
+ * Recorded once, on the beat, for two reasons: the caption check below needs to
+ * know whether the frame is already saying these words, and the plan file
+ * publishes it so the picture can be audited against the narration without
+ * decoding a single frame.
+ */
+function shownTextOf(shot) {
+  const drawn = propsForBeat(shot.section, shot, shot.section.beats.length, shot.section.palette);
+  const label = (item) => (typeof item === 'string' ? item : (item.name ?? item.text ?? ''));
+  const said = (item) => typeof item === 'object' && typeof item.at === 'number'
+    ? item.at <= (shot.end - shot.section.start) + 0.05 : true;
+  return drawn.text
+    || (Array.isArray(drawn.items)
+      ? drawn.items.filter(said).map(label).filter(Boolean).join(' | ') : null)
+    || (Array.isArray(drawn.lines) ? drawn.lines.join(' | ') : null)
+    || [drawn.left, drawn.right].filter(Boolean).join(' | ')
+    || '';
+}
+for (const shot of SHOTS) shot.shownText = shownTextOf(shot);
 const DURATION = Math.max(...SHOTS.map((shot) => shot.end));
 const FPS = Number(OPTS.fps) || Number(BRIEF.fps) || 30;
 
@@ -547,7 +696,20 @@ function chrome(ctx, shot, sectionLocal) {
 }
 
 /** The caption band. Reserved by the library, so no template may draw here. */
-function captions(ctx, section, sectionLocal) {
+function captions(ctx, section, sectionLocal, shot) {
+  // A kinetic headline *is* the caption on that beat: it is the clause being
+  // spoken, at reading size, in the middle of the frame. Printing the same
+  // sentence again along the bottom is the mistake a template makes when nobody
+  // is comparing the two layers.
+  // A kinetic headline is the clause being spoken, in the middle of the frame at
+  // reading size. Printing the sentence again along the bottom is the mistake
+  // that made the picture feel like two things talking at once.
+  if (shot && shot.template === 'kinetic-headline') return;
+  // Words the picture has already printed on this beat. A caption that repeats
+  // them is the same sentence twice on one frame - that is what a viewer reads as
+  // "the picture and the voice are not the same thing".
+  const shown = new Set(shot && shot.shownText
+    ? shot.shownText.split(/\s+/).map(bare).filter(Boolean) : []);
   const band = RESERVED.caption;
   const x = band.x * W + W * 0.055;
   const y = band.y * H + band.h * H * 0.34;
@@ -555,6 +717,13 @@ function captions(ctx, section, sectionLocal) {
   const step = size * 1.32;
   for (const line of section.lines) {
     if (sectionLocal < line.start - 0.02 || sectionLocal > line.end + 0.18) continue;
+    // If the picture already carries most of this cue, the caption band is a
+    // second copy of the same sentence, and a viewer reads it as a mistake. The
+    // test is coverage, not equality: "Ten seconds running it yourself" over a row
+    // that says "Ten seconds running it" is still a duplicate.
+    const cue = line.captionLines.join(' ').split(/\s+/).map(bare).filter(Boolean);
+    const covered = cue.filter((word) => shown.has(word)).length;
+    if (cue.length && covered / cue.length >= 0.6) continue;
     const appear = clamp(span(sectionLocal, line.start - 0.02, line.start + 0.16) * 2.2);
     const leave = span(sectionLocal, line.end + 0.02, line.end + 0.18);
     ctx.save();
@@ -605,28 +774,88 @@ function splitWords(text, count) {
  * and anything that cannot be revealed progressively (a comparison, a number)
  * simply is not repeated: it is given the whole section as one beat.
  */
+/**
+ * The words on screen on this beat, taken from the words being spoken on it.
+ *
+ * The old version split the section's authored headline evenly across its beats,
+ * so the type said "SHIP IT, OR" while the narrator was still on "an agent just
+ * opened a pull request". Now the headline is the clause the narrator is
+ * actually in the middle of: a section is cut where the speaker breathes, and
+ * each beat shows the clause it covers. A long clause is trimmed to the groups
+ * of words in front of the beat rather than being printed entire and unread.
+ */
+function headlineForBeat(section, beat) {
+  const clauses = section.clauses || [];
+  if (!clauses.length) return null;
+  const overlap = clauses.map((clause) => Math.max(
+    0, Math.min(clause.end, beat.end) - Math.max(clause.start, beat.start)));
+  let index = overlap.indexOf(Math.max(...overlap));
+  if (Math.max(...overlap) <= 0.01) {
+    // A beat in a pause between clauses: hold the last clause that had started.
+    index = clauses.reduce((found, clause, at) => (clause.start <= beat.end ? at : found), 0);
+  }
+  const clause = clauses[index];
+  const parts = clause.text.toUpperCase().split(' ');
+  if (parts.length <= 6) return clause.text.toUpperCase();
+  // A long clause is spoken over more than one beat, so it is shown in two
+  // halves and the beat picks the half it is covering. Printing all seven words
+  // and holding them is how a headline ends up describing a sentence the
+  // narrator finished two seconds ago.
+  const split = Math.ceil(parts.length / 2);
+  const first = clause.words.slice(0, split);
+  const second = clause.words.slice(split);
+  const secondStarts = second.length ? second[0].start : Infinity;
+  const half = beat.start >= secondStarts ? second : first;
+  return half.map((word) => String(word.text).replace(/[.,;:!?]+$/, '')).join(' ').toUpperCase();
+}
+
 function propsForBeat(section, beat, beatCount, palette) {
   const props = themedProps(beat.template, section, palette);
-  if (beatCount <= 1) return props;
-  const index = beat.beatIndex;
+  const speech = section.speech || [];
+
   if (beat.template === 'kinetic-headline') {
-    const chunks = splitWords(props.text || '', beatCount);
-    props.text = chunks[Math.min(index, chunks.length - 1)];
+    const fromSpeech = speech.length ? headlineForBeat(section, beat) : null;
+    props.text = fromSpeech || props.text;
+    props.subtext = fromSpeech ? '' : props.subtext;
     return props;
   }
+
   if (beat.template === 'list-build' || beat.template === 'stack-push') {
-    const items = props.items || [];
-    const upto = Math.min(items.length, Math.ceil(((index + 1) / beatCount) * items.length));
-    props.items = items.slice(0, Math.max(1, upto));
+    // Both spellings: list-build reads `name`, stack-push reads `text`.
+    const items = (props.items || []).map((item) => {
+      if (typeof item === 'string') return { name: item, text: item };
+      return { text: item.name ?? item.text, ...item, name: item.name ?? item.text };
+    });
+    if (!speech.length) return props;
+    // A row arrives when its words are said, not on an even clock. The time goes
+    // with the row, because the row is drawn from the section's clock: it appears
+    // once, where it will stay, and later beats do not replay its entrance.
+    const start = section.start;
+    const timed = items.map((item) => {
+      const at = firstSpokenAt(item.name, speech);
+      return { ...item, at: at === null ? null : Math.max(0, at - start) };
+    }).filter((item) => item.at !== null);
+    if (!timed.length) return props;
+    props.items = timed;
+    // The section's full list decides the layout, so a row that has not been
+    // said yet does not move the rows that have.
+    props.slots = items.length;
     return props;
   }
+
   if (beat.template === 'code-typing') {
     const lines = props.lines || [];
-    const upto = Math.min(lines.length, index + 1);
-    props.lines = lines.slice(0, Math.max(1, upto));
+    if (!speech.length) return props;
+    const shown = lines.filter((line) => {
+      const at = firstSpokenAt(line, speech);
+      return at !== null && at <= beat.end + 0.05;
+    });
+    props.lines = shown.length ? shown : lines.slice(0, 1);
+    props.slots = lines.length;
     return props;
   }
-  if (beat.template === 'count-up' && index > 0) {
+
+  if (beat.template === 'count-up' && beat.beatIndex > 0) {
     props.from = props.value;
   }
   return props;
@@ -836,18 +1065,26 @@ function paint(target, shot, at) {
 
   beatPlate(target, shot, section, beatLocal);
 
+  // A template that builds rows animates *within* its picture: the row slides in,
+  // the row fades up. Handing it the beat's clock makes every stored row replay
+  // its entrance on every new beat, so the list flickers and two rows overlap
+  // mid-slide. Those templates get the section's clock instead - the rows arrive
+  // once, in order, and stay put for the rest of the section.
+  const rowTemplate = ROW_TEMPLATES.has(shot.template);
+  const templateLocal = rowTemplate ? sectionLocal : beatLocal;
+  const templateSeconds = rowTemplate ? section.seconds : shot.seconds;
   target.save();
   target.globalAlpha = span(beatLocal, 0, 0.3);
   drawTemplate(target, shot.template, {
-    w: W, h: H, region: shot.region, seconds: shot.seconds, local: beatLocal,
-    palette: section.palette, t: beatLocal,
+    w: W, h: H, region: shot.region, seconds: templateSeconds, local: templateLocal,
+    palette: section.palette, t: templateLocal, storedRows: rowTemplate,
     ...propsForBeat(section, shot, section.beats.length, section.palette),
   });
   target.restore();
 
   secondUnit(target, section, sectionLocal, section.palette);
   chrome(target, shot, sectionLocal);
-  captions(target, section, sectionLocal);
+  captions(target, section, sectionLocal, shot);
   if (Math.abs(target.globalAlpha - 1) > 1e-6) {
     throw new Error(`globalAlpha leaked to ${target.globalAlpha} after beat ${shot.id}`);
   }
@@ -938,12 +1175,16 @@ function plan() {
       end: Number(section.end.toFixed(3)), seconds: Number(section.seconds.toFixed(3)),
       arrive: section.arrive, reason: section.reason,
     })),
+    // What each beat actually puts in front of the viewer, so the picture can be
+    // audited against the narration without decoding frames: the plan says what
+    // was drawn and the captions say what was said, and both carry times.
     shots: SHOTS.map((shot) => ({
       id: shot.id, section: shot.section.id, section_index: shot.section.index,
       beat: shot.beatIndex + 1,
       start: Number(shot.start.toFixed(3)), end: Number(shot.end.toFixed(3)),
       seconds: Number(shot.seconds.toFixed(3)),
       template: shot.template, region: shot.region,
+      shows: shot.shownText || null,
     })),
     captions: SECTIONS.flatMap((section) => section.lines.map((line) => ({
       start: Number((section.start + line.start).toFixed(3)),
