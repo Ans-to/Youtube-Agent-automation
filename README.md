@@ -4,6 +4,14 @@
 
 The project is designed for a low-cost phone-first setup. It uses Python's standard library for the task runner, dashboard, and bridge. It does not require a paid AI API.
 
+## The film this pipeline made
+
+A finished twelve-minute film, drawn frame by frame by `video_studio/films/vibe_coding.mjs`:
+
+**▶ [Vibe Coding on Arena, through GitHub](docs/media/vibe-coding-720p-web.mp4)** — 12:02, 1280×720, 30 fps, 155 subtitle cues. Play it in the page that link opens, or press **Download** there. Subtitles: [vibe-coding.srt](docs/media/vibe-coding.srt). What to publish with it: [the upload pack](docs/media/vibe-coding-upload-pack.md) — titles, description, chapters, tags.
+
+The file is 86 MB because git refuses any single file over 100 MB; the 469 MB delivery master stays outside the repository and is re-created by the render command in the upload pack. The narration is an `espeak-ng` preview voice: correct in timing, not a voice to publish.
+
 ## Start on Windows PC or Android
 
 - **VS Code:** open the repository folder, press `F5`, and choose **Agent HQ: Dashboard**. The browser opens at `http://127.0.0.1:8765`. Requirements, debugging notes, and troubleshooting are in [docs/VSCODE.md](docs/VSCODE.md).
