@@ -23,7 +23,7 @@ that types `npm test`, and the same fork again for *green means merge / red mean
 send it back*. Seven of the nine sections are diagrams. Each arrives as its own
 sentence is spoken, nothing is printed that the narration does not say, and the
 picture keeps a slow push and a light sweep behind it so no frame is dead. **[The plan beside the film](docs/media/review-ai-code-plan.json)**
-records what every beat draws, and the poster is drawn by the same code from the same brief: **[the thumbnail](docs/media/review-ai-code-thumbnail.png)** - 60 in the left third, *AI CODE REVIEW* stacked on the right, and the corner YouTube covers with a duration badge left empty. Voice: **[the two reads back to back](docs/media/voice-ab.mp4)**.
+records what every beat draws, and the poster is drawn by the same code from the same brief: **[the thumbnail](docs/media/review-ai-code-thumbnail.png)** - 60 in the left third, *AI CODE REVIEW* stacked on the right, and the corner YouTube covers with a duration badge left empty. Voice: **[the two reads back to back](docs/media/voice-ab.mp4)**. What to publish with it: **[the upload pack](docs/media/review-ai-code-upload-pack.md)** - three titles, a description whose first two lines carry the hook, chapters that clear YouTube's ten-second floor, tags, and the four things to do before pressing publish.
 
 There is no API key anywhere in it and nothing to pay for. The voice is
 Kokoro-82M under Apache-2.0: the runtime is a PyPI package, the weights are two

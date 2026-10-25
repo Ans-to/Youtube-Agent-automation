@@ -143,11 +143,22 @@ jobs:
       - name: Keep the plan beside the film
         run: cp build/film/build/frames/plan.json build/plan.json
 
+      - name: Write the upload pack - titles, description, chapters, tags
+        run: |
+          python tools/upload_pack.py \
+            --brief "${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
+            --film build/plan.json \
+            --out build/upload-pack.md \
+            --json-out build/youtube.json
+
       - name: Draw the thumbnail from the same design system
         working-directory: video_studio
         run: |
+          # The brief is given relative to the repository root, but the renderer
+          # has to run inside video_studio for its canvas module to resolve, so
+          # the path is made absolute rather than walked with "..".
           node films/thumbnail.mjs \
-            --brief "../${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
+            --brief "$GITHUB_WORKSPACE/${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
             --out ../build/thumbnail.png
 
       - name: Upload the film
@@ -160,6 +171,8 @@ jobs:
             build/plan.json
             build/craft-report.json
             build/thumbnail.png
+            build/upload-pack.md
+            build/youtube.json
           if-no-files-found: error
           retention-days: 30
 

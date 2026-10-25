@@ -1,0 +1,72 @@
+{
+  "titles": [
+    "How to Review AI-Written Code in 60 Seconds",
+    "Can you review AI-written code in about a minute, before it ships?",
+    "You will review AI-written code in about a minute, before it ships"
+  ],
+  "title": "How to Review AI-Written Code in 60 Seconds",
+  "short_title": "How to Review AI-Written Code in 60 Seconds",
+  "description": "An agent just opened a pull request. Do you ship it today?\n\nYou will review AI-written code in about a minute, before it ships.\n\nWhat it covers, in order:\n- The situation\n- Why it matters\n- The three checks\n- The budget\n- How the minute is spent\n- Make it one command\n- The decision\n- Recap\n- Next\n\nChapters\n0:00 The situation - Why it matters\n0:12 The three checks - The budget\n0:26 How the minute is spent\n0:37 Make it one command - The decision\n0:47 Recap - Next\n\nEvery frame is drawn by code and the narration is synthesised locally. No stock footage, no licensed music, no API key.\n\n#AiCodeReview #PullRequest #CodeReview",
+  "chapters": [
+    {
+      "start": 0.0,
+      "heading": "The situation",
+      "also": [
+        "Why it matters"
+      ],
+      "time": "0:00"
+    },
+    {
+      "start": 11.521,
+      "heading": "The three checks",
+      "also": [
+        "The budget"
+      ],
+      "time": "0:12"
+    },
+    {
+      "start": 25.588,
+      "heading": "How the minute is spent",
+      "time": "0:26"
+    },
+    {
+      "start": 36.989,
+      "heading": "Make it one command",
+      "also": [
+        "The decision"
+      ],
+      "time": "0:37"
+    },
+    {
+      "start": 47.289,
+      "heading": "Recap",
+      "also": [
+        "Next"
+      ],
+      "time": "0:47"
+    }
+  ],
+  "tags": [
+    "ai code review",
+    "code review",
+    "pull request",
+    "vibe coding",
+    "ai agents",
+    "github",
+    "reviewing ai code",
+    "merge or send back",
+    "situation",
+    "decision",
+    "command",
+    "matters",
+    "seconds",
+    "written",
+    "budget",
+    "checks",
+    "minute",
+    "review"
+  ],
+  "thumbnail": "AI CODE REVIEW",
+  "duration_seconds": 59.405,
+  "site": ""
+}

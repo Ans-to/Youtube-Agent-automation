@@ -476,3 +476,33 @@ same transition", doubled. Cuts are now chosen by what kind of picture is on eac
 side of them: clarity when two diagrams are the same room further along, a push
 when the film leans into a closer look, a release when it comes back out, and one
 flash for the last cut of the film.
+
+## 16. Packaging: the poster and the pack
+
+The film was finished before anyone could find it. Two things were missing, and
+both are the difference between a video that exists and a video that gets watched.
+
+**The poster.** `video_studio/films/thumbnail.mjs` draws the thumbnail from the
+same brief as the film, in the same palette and the same type, so the thumbnail
+and the first frame are recognisably one product. It is not a still from the
+film, because a frame of the film is composed to be watched for four seconds and
+a thumbnail is composed to be seen for one. The figure the claim turns on - 60 -
+is set at 40% of the frame height in the left third; the promise, three words,
+is stacked on the right; one accent is spent once, on the last line and the tick;
+and the bottom-right corner is left empty, because that is where YouTube prints
+the duration. Three of those rules are constraints a still cannot satisfy and a
+poster has to.
+
+**The pack.** `tools/upload_pack.py` writes the rest: three titles in the three
+shapes that work (search, question, promise), a description whose first two lines
+carry the hook and the promise, chapters, tags, hashtags, and the four things to
+do before pressing publish. The chapters are the part that needed real code.
+YouTube rejects a list where any chapter is under ten seconds, and the film's plan
+has thirteen shots across nine sections, several of which are five seconds long.
+So sections are merged into chapters until every one clears the floor, and the
+sections that were folded in are named in the chapter they belong to rather than
+dropped. The first read of this code paired shots with brief sections by index,
+which shifted every heading by one - the chapter called "How the minute is spent"
+was timed to the three checks. The plan's own `sections` array is now the only
+source of timing; `tests/test_upload_pack.py` checks each chapter against a real
+section start and against the floor.
