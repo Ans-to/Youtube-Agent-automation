@@ -71,6 +71,16 @@ Measured on the delivered file, not on the plan:
   this machine because there is no vision model or language model here; they are
   listed at the end of the audit, and they are not passes.
 
+## Where the film file lives
+
+- `docs/media/vibe-coding-720p-web.mp4` — this repository, 86 MB, 12:02,
+  1280×720, 30 fps. It is the film re-encoded for the 100 MB file limit GitHub
+  puts on a repository file, so it is the copy you can send as a link. Raw:
+  `https://github.com/Ans-to/Youtube-Agent-automation/raw/arena/ef6d1f79-youtube-agent-automation/docs/media/vibe-coding-720p-web.mp4`
+- The delivery master (CRF 22, 469 MB) is not in the repository on purpose: git
+  refuses a single file over 100 MB. Upload that one to YouTube from the machine
+  that rendered it, or re-render it with the command below.
+
 ## Honest notes for the uploader
 
 - The narration in this render is the **espeak-ng preview voice**. It is correct
