@@ -105,6 +105,7 @@
     "punchline": {
       "says": "Land a short line at the end of an argument, with nothing else on screen.",
       "wants": [
+        "stamp-lockup",
         "kinetic-headline"
       ]
     },
@@ -573,6 +574,35 @@
           }
         ],
         "total": 60
+      }
+    },
+    {
+      "id": "stamp-lockup",
+      "name": "Stamp lockup",
+      "purpose": "Impresses the closing phrase onto the frame as a stamped object.",
+      "when": [
+        "punchline",
+        "opening-claim",
+        "name-the-thing"
+      ],
+      "avoid": [
+        "A long sentence: a stamp holds four or five words, not a clause.",
+        "Anywhere but the end of an argument: a stamp is a verdict."
+      ],
+      "minSeconds": 1.6,
+      "maxSeconds": 5,
+      "needs": [
+        "text"
+      ],
+      "regions": [
+        "statement",
+        "title",
+        "hero"
+      ],
+      "cost": "low",
+      "sample": {
+        "text": "That is the method",
+        "kicker": "the method"
       }
     },
     {

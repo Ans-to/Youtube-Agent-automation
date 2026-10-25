@@ -409,9 +409,48 @@ function templateForBeat(section, candidates, seconds, previous, recent, beatInd
   return fitting[0].id;
 }
 
+/**
+ * What kind of picture a section makes, so a cut can be chosen by relationship.
+ *
+ * A transition is a sentence: it says how two shots are related. "Same place,
+ * further along" wants a cut or an iris; "a closer look at the thing just named"
+ * wants a push; "back out to the statement" wants a release; the last cut of a
+ * film is allowed punctuation. Picking by rotation gave the film
+ * wipe, iris, wipe, iris, wipe - five chapters that read as one alternating
+ * mechanical flourish, which is the same fault the owner rejected as "always
+ * the same transition", only doubled.
+ */
+function picKind(section) {
+  if (section.kind === 'hook') return 'statement';
+  if (section.kind === 'payoff') return 'decision';
+  if (section.kind === 'recap') return 'recap';
+  if (section.kind === 'outro') return 'outro';
+  const template = section.template
+    || ((SITUATIONS[section.situation] || {}).wants || [])[0] || '';
+  if (['fork-paths', 'matrix-grid', 'ring-gauge', 'budget-rail', 'command-console',
+    'compare-pair', 'bar-compare', 'list-build', 'stack-push', 'count-up',
+    'code-typing'].includes(template)) return 'diagram';
+  return 'statement';
+}
+
+/** The situation a cut is made in, as the transition chooser names it. */
+function arrivalSituation(from, to) {
+  if (to === 'outro') return 'final';
+  if (to === 'recap') return 'release';
+  if (from === 'statement' && to === 'diagram') return 'detail';    // a closer look
+  if (from === 'diagram' && to === 'statement') return 'release';   // back out
+  if (from === 'diagram' && to === 'decision') return 'detail';     // the argument lands
+  // Two diagrams in a row are the same room, further along. A hard cut is the
+  // most confident transition there is, and the least tiring when the ground is
+  // already shared - a device between every pair of diagrams is a flourish.
+  if (from === 'diagram' && to === 'diagram') return 'new-idea';
+  return 'new-scene';
+}
+
 function buildSections(brief, timings) {
   const palette = PALETTES[brief.look || 'light'];
   let previousTransition = 'cut';
+  const previousKinds = [];
   let cursor = 0;
 
   return brief.sections.map((section, index) => {
@@ -520,7 +559,25 @@ function buildSections(brief, timings) {
     const recentTemplates = [];
     let rowTemplateLock = null;
     lengths.forEach((length, beatIndex) => {
-      const chosen = templateForBeat(section, candidates, length, previousTemplate, recentTemplates, beatIndex);
+      // A section may name a template per beat - the closing card is a different
+      // kind of object from the line that introduces it. Anything it names must
+      // still be in the library, take the props this section carries, and fit
+      // the beat, so this is staging, not a way around the contract.
+      const staged = Array.isArray(section.beats) && section.beats.length
+        ? section.beats[Math.min(beatIndex, section.beats.length - 1)]
+        : null;
+      if (staged) {
+        const meta = TEMPLATES.get(staged);
+        if (!meta) throw new Error(`section ${section.id}: beat template ${staged} is not in the library`);
+        for (const need of meta.needs) {
+          if (section.props?.[need] === undefined) {
+            throw new Error(`section ${section.id}: beat template ${staged} needs prop "${need}"`);
+          }
+        }
+      }
+      const chosen = staged
+        ? staged
+        : templateForBeat(section, candidates, length, previousTemplate, recentTemplates, beatIndex);
       // One list, one layout. The beat still changes - a new row arrives - but the
       // arrangement may not.
       const template = rowTemplateLock && ROW_TEMPLATES.has(chosen) ? rowTemplateLock : chosen;
@@ -529,7 +586,9 @@ function buildSections(brief, timings) {
       recentTemplates.push(template);
       if (recentTemplates.length > 2) recentTemplates.shift();
       const meta = TEMPLATES.get(template);
-      const region = section.region || meta.regions[0];
+      const region = (staged && meta.regions.includes(meta.regions[0]) && !meta.regions.includes(section.region))
+        ? meta.regions[0]
+        : (section.region || meta.regions[0]);
       if (!meta.regions.includes(region)) {
         throw new Error(`section ${section.id}: ${template} cannot draw in ${region} (owns ${meta.regions.join(', ')})`);
       }
@@ -546,12 +605,11 @@ function buildSections(brief, timings) {
     });
 
     const arrive = section.arrive || chooseTransition(
-      section.kind === 'recap' ? 'release'
-        : section.kind === 'outro' ? 'final'
-          : 'new-scene',
+      arrivalSituation(previousKinds[previousKinds.length - 1], picKind(section)),
       previousTransition,
     );
     previousTransition = arrive;
+    previousKinds.push(picKind(section));
 
     return {
       id: section.id,
@@ -829,8 +887,13 @@ function headlineForBeat(section, beat) {
     index = clauses.reduce((found, clause, at) => (clause.start <= beat.end ? at : found), 0);
   }
   const clause = clauses[index];
-  const parts = clause.text.toUpperCase().split(' ');
-  if (parts.length <= 6) return clause.text.toUpperCase();
+  // Sentence case, not capitals. A spoken sentence set in caps is shouting: it
+  // reads as a caption over a stock photo, which is the look the owner called a
+  // template. The film's display type is mixed case at weight 700, and only the
+  // eyebrows, units and the closing stamp are set in caps - which is what makes
+  // those read as labels instead of competing with the sentence.
+  const parts = clause.text.split(' ');
+  if (parts.length <= 6) return sentence(clause.text);
   // A long clause is spoken over more than one beat, so it is shown in two
   // halves and the beat picks the half it is covering. Printing all seven words
   // and holding them is how a headline ends up describing a sentence the
@@ -840,14 +903,21 @@ function headlineForBeat(section, beat) {
   const second = clause.words.slice(split);
   const secondStarts = second.length ? second[0].start : Infinity;
   const half = beat.start >= secondStarts ? second : first;
-  return half.map((word) => String(word.text).replace(/[.,;:!?]+$/, '')).join(' ').toUpperCase();
+  return sentence(half.map((word) => String(word.text).replace(/[.,;:!?]+$/, '')).join(' '));
+}
+
+/** A phrase set the way a sentence is set: first letter up, full stops off. */
+function sentence(value) {
+  const text = String(value).replace(/[.,;:!?]+\s*$/, '').trim();
+  if (!text) return text;
+  return text[0].toUpperCase() + text.slice(1);
 }
 
 function propsForBeat(section, beat, beatCount, palette) {
   const props = themedProps(beat.template, section, palette);
   const speech = section.speech || [];
 
-  if (beat.template === 'kinetic-headline') {
+  if (beat.template === 'kinetic-headline' || beat.template === 'stamp-lockup') {
     const fromSpeech = speech.length ? headlineForBeat(section, beat) : null;
     props.text = fromSpeech || props.text;
     props.subtext = fromSpeech ? '' : props.subtext;
@@ -925,9 +995,67 @@ function propsForBeat(section, beat, beatCount, palette) {
  * All three are pure functions of the section clock, so the render is still
  * deterministic, and all three sit outside every template's region.
  */
+/** An "18,35,63" string from a palette colour, for gradients that need alpha. */
+function rgb(value) {
+  const text = String(value).trim();
+  if (text.startsWith('#')) {
+    const hex = text.slice(1);
+    const n = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
+    return [0, 2, 4].map((i) => parseInt(n.slice(i, i + 2), 16)).join(',');
+  }
+  const nums = text.match(/[\d.]+/g);
+  return nums ? nums.slice(0, 3).join(',') : '18,35,63';
+}
+
 /** The colour of the light that sweeps the ground, per palette. */
 function tint0(palette) {
   return palette.dark ? '255,255,255' : '255,255,255';
+}
+
+/**
+ * Film grain, over everything and under the captions.
+ *
+ * A gradient on a flat colour field bands: the encoder has to quantise a slow
+ * ramp, and at 720p that shows as contour rings. A couple of percent of fine
+ * noise costs almost nothing in bitrate and removes it completely - which is why
+ * professional renders carry grain. It also gives the frame a floor of motion, so
+ * a diagram that has finished building still looks alive.
+ *
+ * The tile is generated once from a fixed seed and offset per frame by an
+ * integer, so the render stays deterministic: frame 100 always has the same
+ * grain in the same place.
+ */
+let GRAIN_TILE = null;
+function grainTile() {
+  if (GRAIN_TILE) return GRAIN_TILE;
+  const tile = createCanvas(256, 256);
+  const tctx = tile.getContext('2d');
+  const image = tctx.createImageData(256, 256);
+  let seed = 0x9e3779b9;
+  for (let i = 0; i < 256 * 256; i += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const value = 118 + ((seed >>> 24) % 20);
+    image.data[i * 4] = value;
+    image.data[i * 4 + 1] = value;
+    image.data[i * 4 + 2] = value;
+    image.data[i * 4 + 3] = 255;
+  }
+  tctx.putImageData(image, 0, 0);
+  GRAIN_TILE = tile;
+  return GRAIN_TILE;
+}
+
+function drawGrain(ctx, frameIndex, palette) {
+  const tile = grainTile();
+  const ox = (frameIndex * 37) % 256;
+  const oy = (frameIndex * 61) % 256;
+  ctx.save();
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.globalAlpha = palette.dark ? 0.045 : 0.035;
+  for (let x = -ox; x < W; x += 256) {
+    for (let y = -oy; y < H; y += 256) ctx.drawImage(tile, x, y);
+  }
+  ctx.restore();
 }
 
 function secondUnit(ctx, section, sectionLocal, palette) {
@@ -966,8 +1094,8 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   // Two passes, one wide and one narrow, at different speeds, so the sweep never
   // lands in the same place twice.
   const passes = [
-    { period: 1.5, width: 0.58, alpha: 0.22, accent: false },
-    { period: 2.4, width: 0.22, alpha: 0.24, accent: true },
+    { period: 0.85, width: 0.26, alpha: 0.11, accent: false },
+    { period: 1.45, width: 0.15, alpha: 0.14, accent: true },
   ];
   passes.forEach((pass) => {
     const at = (t / pass.period) % 1;
@@ -985,7 +1113,7 @@ function secondUnit(ctx, section, sectionLocal, palette) {
     ctx.restore();
   });
 
-  const cursorPass = ((t / 2.0) % 1);
+  const cursorPass = ((t / 1.15) % 1);
   const cursorX = -W * 0.05 + cursorPass * W * 1.1;
   ctx.save();
   ctx.globalAlpha = ctx.globalAlpha * 0.35;
@@ -993,11 +1121,11 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   ctx.fillRect(cursorX, H * 0.10, Math.max(3, W * 0.0035), H * 0.72);
   ctx.restore();
 
-  const bloomX = W * (0.42 + 0.20 * Math.cos((t / 3.1) * Math.PI * 2));
-  const bloomY = H * (0.40 + 0.16 * Math.sin((t / 2.3) * Math.PI * 2));
+  const bloomX = W * (0.46 + 0.26 * Math.cos((t / 3.1) * Math.PI * 2));
+  const bloomY = H * (0.44 + 0.20 * Math.sin((t / 2.3) * Math.PI * 2));
   const bloom = ctx.createRadialGradient(bloomX, bloomY, 0, bloomX, bloomY, W * 0.38);
   const tint = palette.dark ? '255,255,255' : '255,255,255';
-  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.14 : 0.42})`);
+  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.16 : 0.46})`);
   bloom.addColorStop(1, `rgba(${tint},0)`);
   ctx.save();
   ctx.fillStyle = bloom;
@@ -1201,7 +1329,7 @@ function motionField(ctx, section, sectionLocal, palette) {
   // Drift.
   for (let i = 0; i < 26; i += 1) {
     const seed = ((i * 2654435761) % 997) / 997;
-    const speed = H * (0.012 + seed * 0.02);
+    const speed = H * (0.022 + seed * 0.035);
     const spanY = H * 0.62;
     const y = H * 0.86 - ((t * speed + seed * spanY) % spanY);
     const x = W * (0.04 + ((seed * 631 + i * 37) % 1000) / 1000 * 0.52) + Math.sin(t * 0.5 + i) * W * 0.002;
@@ -1356,15 +1484,35 @@ function paint(target, shot, at) {
   const templateLocal = rowTemplate ? sectionLocal : beatLocal;
   const templateSeconds = rowTemplate ? section.seconds : shot.seconds;
   target.save();
-  target.globalAlpha = span(beatLocal, 0, 0.3);
+  // A diagram that builds its own rows must not also be faded in on every beat:
+  // the row is the entrance, and a global fade on top of it makes the whole
+  // picture ghost in and out inside a section - soft, and the reason a solid
+  // bar looked like tinted glass. Single-object templates keep a short fade,
+  // because they arrive whole.
+  target.globalAlpha = rowTemplate ? 1 : span(beatLocal, 0, 0.22);
+  // A slow push on the artwork across its section: the picture dollies in by
+  // three percent and drifts a hair, one direction, eased, never reversing. This
+  // is a camera move, not a camera shake - the frame is not thrown about, it is
+  // leaning in - and it is what keeps a finished diagram from being a still.
+  const region = REGIONS[shot.region];
+  const push = 1 + 0.055 * clamp(templateLocal / Math.max(0.001, templateSeconds));
+  const anchorX = (region.x + region.w / 2) * W;
+  const anchorY = (region.y + region.h / 2) * H;
+  target.save();
+  target.translate(anchorX - W * 0.004 * clamp(templateLocal / Math.max(0.001, templateSeconds)), anchorY);
+  target.scale(push, push);
+  target.translate(-anchorX, -anchorY);
   drawTemplate(target, shot.template, {
     w: W, h: H, region: shot.region, seconds: templateSeconds, local: templateLocal,
     palette: section.palette, t: templateLocal, storedRows: rowTemplate,
     ...propsForBeat(section, shot, section.beats.length, section.palette),
   });
   target.restore();
+  target.restore();
 
   chrome(target, shot, sectionLocal);
+  drawGrain(target, Math.round(at * FPS), section.palette);
+  drawGrain(target, Math.round(at * FPS), section.palette);
   captions(target, section, sectionLocal, shot);
   if (Math.abs(target.globalAlpha - 1) > 1e-6) {
     throw new Error(`globalAlpha leaked to ${target.globalAlpha} after beat ${shot.id}`);

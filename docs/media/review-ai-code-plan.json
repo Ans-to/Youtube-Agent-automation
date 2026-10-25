@@ -39,7 +39,7 @@
       "start": 5.889,
       "end": 10.671,
       "seconds": 4.782,
-      "arrive": "iris",
+      "arrive": "push",
       "reason": "named by the brief"
     },
     {
@@ -51,7 +51,7 @@
       "start": 11.521,
       "end": 19.977,
       "seconds": 8.456,
-      "arrive": "wipe",
+      "arrive": "cut",
       "reason": "named by the brief"
     },
     {
@@ -63,7 +63,7 @@
       "start": 20.827,
       "end": 24.738,
       "seconds": 3.911,
-      "arrive": "iris",
+      "arrive": "wipe",
       "reason": "named by the brief"
     },
     {
@@ -75,7 +75,7 @@
       "start": 25.588,
       "end": 36.139,
       "seconds": 10.551,
-      "arrive": "wipe",
+      "arrive": "cut",
       "reason": "named by the brief"
     },
     {
@@ -87,7 +87,7 @@
       "start": 36.989,
       "end": 41.452,
       "seconds": 4.463,
-      "arrive": "iris",
+      "arrive": "wipe",
       "reason": "named by the brief"
     },
     {
@@ -99,7 +99,7 @@
       "start": 42.302,
       "end": 46.439,
       "seconds": 4.137,
-      "arrive": "wipe",
+      "arrive": "push",
       "reason": "named by the brief"
     },
     {
@@ -138,7 +138,7 @@
       "seconds": 1.663,
       "template": "kinetic-headline",
       "region": "statement",
-      "shows": "AN AGENT JUST OPENED"
+      "shows": "An agent just opened"
     },
     {
       "id": "open-2",
@@ -150,7 +150,7 @@
       "seconds": 1.663,
       "template": "kinetic-headline",
       "region": "statement",
-      "shows": "A PULL REQUEST"
+      "shows": "A pull request"
     },
     {
       "id": "open-3",
@@ -162,7 +162,7 @@
       "seconds": 1.663,
       "template": "kinetic-headline",
       "region": "statement",
-      "shows": "DO YOU SHIP IT TODAY"
+      "shows": "Do you ship it today"
     },
     {
       "id": "stake-1",
@@ -270,7 +270,7 @@
       "seconds": 3.059,
       "template": "kinetic-headline",
       "region": "statement",
-      "shows": "PICK ONE REPOSITORY THIS WEEK"
+      "shows": "Pick one repository this week"
     },
     {
       "id": "outro-2",
@@ -280,9 +280,9 @@
       "start": 56.346,
       "end": 59.405,
       "seconds": 3.059,
-      "template": "kinetic-headline",
+      "template": "stamp-lockup",
       "region": "statement",
-      "shows": "THAT IS THE METHOD"
+      "shows": "That is the method"
     }
   ],
   "captions": [

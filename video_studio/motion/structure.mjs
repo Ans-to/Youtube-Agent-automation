@@ -24,6 +24,13 @@
  */
 import { UI, clamp, span, ease, text, measure, panel, roundRect } from './ui.mjs';
 
+/** Solid greys, mixed against the light field, for shapes that must stay opaque. */
+const SOLID = {
+  ink35: '#B9C2CC',
+  ink70: '#78848F',
+  paper: 'rgba(255,255,255,0.9)',
+};
+
 const hair = (alpha = 0.16) => `rgba(18,35,63,${alpha})`;
 const tint = (alpha) => `rgba(18,35,63,${alpha})`;
 
@@ -73,7 +80,7 @@ function labelBlock(ctx, value, x, y, {
   ctx.save();
   ctx.globalAlpha = ctx.globalAlpha * alpha;
   lines.forEach((line, i) => {
-    text(ctx, String(line).toUpperCase(), x, y + i * size * lineGap, {
+    text(ctx, String(line), x, y + i * size * lineGap, {
       size, weight, family, color: colour, align, tracking,
     });
   });
@@ -563,8 +570,8 @@ function budgetRail(ctx, {
     // washing the other out.
     slab(ctx, {
       x: cursor, y, w: Math.max(4, width * e), h, r: 10,
-      fill: i === 0 ? accent : tint(isActive ? 0.52 : 0.30),
-      alpha: i === 0 ? 0.95 : 1,
+      fill: i === 0 ? accent : (isActive ? SOLID.ink70 : SOLID.ink35),
+      alpha: 1,
     });
     const value = Math.round(Number(row.value) || 0);
     text(ctx, String(value), cursor + width * 0.5, y - box.h * 0.055, {
@@ -701,6 +708,101 @@ function commandConsole(ctx, {
   }
 }
 
+/* ------------------------------------------------------------------- stamp */
+
+/**
+ * A phrase impressed onto the frame, like a stamp on a page.
+ *
+ * The film opens by naming the rubber stamp as its villain: "most teams rubber
+ * stamp the diff". The closing card is the same object, earned this time - the
+ * method, stamped. That is a callback doing structural work rather than a
+ * decoration: the shape of the ending answers the shape of the opening.
+ *
+ * It lands hard and then is still. The rotation settles from five degrees to
+ * two and a half, the scale comes down from 1.14 to 1, and the ink arrives last,
+ * so the motion reads as pressure applied and released. No bounce, no wobble.
+ */
+function stampLockup(ctx, {
+  box, local, seconds, text: value = '', kicker: over = '',
+  colour = UI.white, accent = UI.gold,
+}) {
+  if (!value) return;
+  const land = clamp(local / Math.min(0.42, seconds * 0.3));
+  const e = ease.outCubic(land);
+  const press = 1 + (1 - e) * 0.14;
+  const tilt = -0.05 + (1 - e) * 0.03;
+  const padX = box.w * 0.045;
+  const padY = box.h * 0.115;
+  // Sized for the press: the object arrives 14% oversized while it lands, so
+  // its resting size has to leave that room inside the region.
+  const w = box.w * 0.70;
+  const h = box.h * 0.74;
+  const cx = box.x + box.w * 0.5;
+  const cy = box.y + box.h * 0.5;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(tilt);
+  ctx.scale(press, press);
+  ctx.globalAlpha = ctx.globalAlpha * clamp(land * 1.6);
+
+  // Two rules: the outer is the object, the inner is its impression.
+  const weight = Math.max(3, H_UNIT(box) * 0.012);
+  ctx.strokeStyle = colour;
+  ctx.lineWidth = weight;
+  roundRect(ctx, -w / 2, -h / 2, w, h, 10);
+  ctx.stroke();
+  ctx.strokeStyle = accent;
+  ctx.lineWidth = Math.max(2, weight * 0.55);
+  roundRect(ctx, -w / 2 + padX * 0.55, -h / 2 + padY * 0.55,
+    w - padX * 1.1, h - padY * 1.1, 6);
+  ctx.stroke();
+
+  // The phrase, set in the object's own measure.
+  const lines = wrapTo(ctx, value, {
+    maxWidth: w - padX * 1.6, size: Math.round(h * 0.2), weight: 700,
+    family: 'Space Grotesk', tracking: 6, max: 2,
+  });
+  const size = fit(ctx, lines.join(' '), {
+    maxWidth: w - padX * 1.9, cap: h * (lines.length > 1 ? 0.21 : 0.26),
+    floor: 20, family: 'Space Grotesk', weight: 700, tracking: 6,
+  });
+  const lineH = size * 1.12;
+  const top = -((lines.length - 1) * lineH) / 2;
+  lines.forEach((line, i) => {
+    text(ctx, String(line).toUpperCase(), 0, top + i * lineH + size * 0.36, {
+      size, weight: 700, family: 'Space Grotesk', color: colour, align: 'center', tracking: 6,
+    });
+  });
+
+  // Three ticks along the bottom rule: the impression's own counter-mark.
+  const marks = 3;
+  for (let i = 0; i < marks; i += 1) {
+    const appear = clamp((land - 0.3 - i * 0.08) / 0.4);
+    if (appear <= 0) continue;
+    ctx.globalAlpha = ctx.globalAlpha * appear;
+    ctx.fillStyle = accent;
+    ctx.fillRect(-w * 0.06 + i * w * 0.05, h / 2 - padY * 0.9, w * 0.026, weight * 1.6);
+    ctx.globalAlpha = ctx.globalAlpha / Math.max(appear, 1e-6);
+  }
+  ctx.restore();
+
+  if (over) {
+    const size = fit(ctx, over, {
+      maxWidth: box.w * 0.7, cap: box.h * 0.075, floor: 16,
+      family: 'Inter', weight: 600, tracking: 5,
+    });
+    label(ctx, over, cx, box.y + box.h + box.h * 0.02, {
+      size, colour: tint(0.65), align: 'center', tracking: 5, alpha: clamp((land - 0.4) * 2),
+    });
+  }
+}
+
+/** A unit of height that a template can measure against, from its own box. */
+function H_UNIT(box) {
+  return box.h * 4;
+}
+
 /* --------------------------------------------------------------- registration */
 
 /**
@@ -779,6 +881,23 @@ export const STRUCTURES = [
     cost: 'low',
     sample: { segments: [{ label: 'Forty seconds reading the diff', value: 40 }, { label: 'Ten seconds running it', value: 10 }, { label: 'Ten seconds asking what it refuses', value: 10 }], total: 60 },
     draw: budgetRail,
+  },
+  {
+    id: 'stamp-lockup',
+    name: 'Stamp lockup',
+    purpose: 'Impresses the closing phrase onto the frame as a stamped object.',
+    when: ['punchline', 'opening-claim', 'name-the-thing'],
+    avoid: [
+      'A long sentence: a stamp holds four or five words, not a clause.',
+      'Anywhere but the end of an argument: a stamp is a verdict.',
+    ],
+    minSeconds: 1.6,
+    maxSeconds: 5.0,
+    needs: ['text'],
+    regions: ['statement', 'title', 'hero'],
+    cost: 'low',
+    sample: { text: 'That is the method', kicker: 'the method' },
+    draw: stampLockup,
   },
   {
     id: 'command-console',

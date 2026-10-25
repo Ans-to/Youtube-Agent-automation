@@ -176,6 +176,7 @@
       "heading": "Next",
       "situation": "punchline",
       "template": "kinetic-headline",
+      "beats": ["kinetic-headline", "stamp-lockup"],
       "region": "statement",
       "props": {
         "text": "PICK ONE REPOSITORY THIS WEEK"

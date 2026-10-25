@@ -44,7 +44,7 @@ export const SITUATIONS = {
   },
   'punchline': {
     says: 'Land a short line at the end of an argument, with nothing else on screen.',
-    wants: ['kinetic-headline'],
+    wants: ['stamp-lockup', 'kinetic-headline'],
   },
   'explain-a-number': {
     says: 'Show a figure the script claims, so it can be read rather than guessed.',

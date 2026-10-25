@@ -239,12 +239,12 @@ deterministic: the same script renders the same audio every time.
 ### Measured on the delivered file
 
 `docs/media/review-ai-code-720p.mp4`: 0:59, 1280x720, 30 fps, Kokoro
-`am_michael`, 9.6 MB.
+`am_michael`, 10.0 MB.
 
 | Gate | Result |
 | --- | --- |
-| motion | PASSED - mean frame delta 1.29, 9.0% near-static (limit 15%) |
-| composition | PASSED - 92 arrangements, longest 3.0 s (limit 12 s) |
+| motion | PASSED - mean frame delta 1.32, 2.1% near-static (limit 15%) |
+| composition | PASSED - 49 arrangements, longest 3.5 s (limit 12 s) |
 | holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
 | narration | PASSED - 144 words per minute, 11.2 audible rests per minute |
 | delivery level | -14.7 LUFS, true peak -1.7 dBFS |
@@ -425,3 +425,54 @@ The lesson is in the numbers rather than in the taste: on a pale, sparse film,
 large low-contrast areas that move are what the motion measurement can see, and
 they are also what makes the frame feel alive. A card was doing that job by
 accident.
+
+## 15. What made it look produced rather than generated
+
+Five changes, in the order they mattered.
+
+**Sentence case.** Every headline was set in capitals. A spoken sentence in caps
+shouts, and shouting is what stock templates do. Display type is now mixed case
+at weight 700; capitals are kept for the things that are genuinely labels - the
+chapter eyebrow, a unit on a dial, the closing stamp.
+
+**The shapes became solid.** A hard-edged rectangle is obviously a card and an
+obviously-a-card is what a viewer reads as a slide. The tonal fields are radial
+falloffs now, the plates are gradients that fade at both edges, and the rail's
+segments are opaque greys, so a chart reads as a chart.
+
+**A ghost that took a while to find.** Diagrams faded in on every beat: the
+template was being drawn at `globalAlpha` ramping from 0 on each new beat, on top
+of rows that already animate their own arrival. That is what made a solid bar
+look like tinted glass. A picture that builds itself now simply appears; only
+whole-object templates keep a short fade.
+
+**Grain.** Two to four percent of fine noise, deterministic from a fixed seed and
+offset per frame. It removes the contour banding a slow gradient produces at
+720p, it gives a held diagram a floor of motion, and it is the difference between
+a render and a photograph of a screen.
+
+**A slower film, without a slower read.** Turning the whites down cost the motion
+measurement its numbers twice. What bought them back without lifting the contrast
+was *speed*: the light sweeps cross more often, the dust travels faster, the
+ambient layer takes a slow push, and the artwork itself dollies in by five percent
+across its section. None of it is a shake; all of it is one direction and eased.
+
+### The ending
+
+The film opens by naming the rubber stamp as the villain - *most teams rubber
+stamp the diff*. It ends on a stamp: `THAT IS THE METHOD`, impressed on the frame,
+landing hard and then still. That callback is structural rather than decorative,
+and it replaced the weakest frame in the film, a second headline in an empty
+field. The outro is staged per beat (`"beats": ["kinetic-headline",
+"stamp-lockup"]`), so a section may now put a different kind of object on each
+beat - the sentence that introduces the verdict, then the verdict.
+
+### Transitions say something again
+
+The chooser had been given only one relationship to work with, so it rotated its
+fallback and produced wipe, iris, wipe, iris, wipe - five chapters of the same
+alternating flourish, which is the fault the owner named as "don't always use the
+same transition", doubled. Cuts are now chosen by what kind of picture is on each
+side of them: clarity when two diagrams are the same room further along, a push
+when the film leans into a closer look, a release when it comes back out, and one
+flash for the last cut of the film.
