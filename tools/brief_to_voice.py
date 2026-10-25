@@ -29,7 +29,10 @@ ROOT = Path(__file__).resolve().parents[1]
 # Silence, in seconds. Between sections is longer than inside one, and the film
 # opens with a beat of air before the first claim so the frame is not talking
 # before the viewer has looked at it.
-LEAD_IN = 1.15
+# The gap before the first word. It used to be 1.15 seconds, which spent the
+# opening of the hook - and, because the picture is cut from this timeline, the
+# first twenty-six frames of the film - on a blank field.
+LEAD_IN = 0.12
 GAP_IN_SECTION = 0.42
 GAP_BETWEEN_SECTIONS = 0.85
 PAUSE_AFTER = 0.32

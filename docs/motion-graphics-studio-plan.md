@@ -118,7 +118,8 @@ This change adds:
 Locally (needs Node + Python + FFmpeg):
 
 ```bash
-python -m venv .venv && .venv/bin/pip install numpy pillow imageio-ffmpeg piper-tts joe-us-piper-voice
+python -m venv .venv && .venv/bin/pip install numpy pillow imageio-ffmpeg kokoro-onnx onnxruntime piper-tts joe-us-piper-voice
+.venv/bin/python video_studio/kokoro_voice.py   # fetch and verify the voice weights, once
 npm --prefix video_studio ci
 .venv/bin/python tools/render_brief.py --brief video_studio/briefs/demo.json --out build/demo
 ```
@@ -182,3 +183,96 @@ table above is measured on the delivered file, not targeted.
   designed as the hand-authored long film, which had weeks of iteration per
   scene. The generator is the thing that scales; the scenes it composes come from
   a library of eight templates and will only get richer as more are added.
+
+## 11. The voice, after it was rejected twice
+
+The first two films were narrated by Piper `en_US-joe-medium`. The gates passed
+them and the owner did not: "voice over is the worst I have ever heard", then,
+after a fix, "voiceover is bad". Both judgements were right. The film looked
+deliberate and sounded like a machine reading a list.
+
+### What the first fix did, and what it could not do
+
+The obvious fault is prosody, not intelligibility, so the first attempt was a
+production layer rather than a new model: split the line where a speaker would
+breathe, synthesise each clause separately, put real silence where the
+punctuation is, and let the last clause of a sentence land slightly slower than
+the ones before it (`video_studio/voice_production.py`). Measured on the same
+three sentences, that moved the pitch range from 34 Hz to 31 Hz interquartile -
+which is to say it moved nothing audible. Phrasing cannot add a contour the
+model never produced. The layer is still in the chain, because it does fix the
+pauses, but it was not the answer.
+
+### Where a better model came from
+
+The blocked routes were checked and ruled out, not assumed:
+
+- **PyPI** carries exactly one voice wheel with weights inside it:
+  `joe-us-piper-voice`, one voice, `en_US-joe-medium`. Every other speech
+  package on the index (`kokoro`, `kittentts`, `pocket-tts`, `supertonic`,
+  `chatterbox-tts`, `f5-tts`, `styletts2`) ships code and fetches weights from
+  HuggingFace.
+- **HuggingFace** is not reachable from the runner, so those packages are
+  unusable however good they are.
+- **GitHub** repositories that look like they carry a voice model are carrying a
+  Git LFS pointer. One was downloaded end to end: a 38 KB tarball that extracted
+  a 133-byte text file where a 63 MB `.onnx` was promised.
+
+**npm was the route nobody looks at.** `kokoro-q8-shards` publishes Kokoro-82M
+as six byte-range shards, and `kokoro-js` carries the 54 voice embeddings. Both
+are Apache-2.0, both come from the public registry with a SHA-512 in the
+metadata, and both are reachable from a GitHub runner. `video_studio/kokoro_voice.py`
+downloads the two tarballs, checks each against that SHA-512, stitches the shards
+into one `.onnx`, packs the voices into one `.npz`, and caches the result. If npm
+is unreachable the studio falls back to Piper rather than shipping a silent film.
+
+### The chain a line now goes through
+
+    text -> clause split -> Kokoro per clause -> pauses and final-clause landing
+         -> 24 kHz reassembly -> highpass, de-ess, presence, compress, normalise
+         -> mixed under the score at -8.5 dB duck -> two-pass loudnorm -14 LUFS
+
+The tempo is pinned at 0.86 of the model's own pace, which lands the read at
+146 words per minute - a narrator, not an explainer in a hurry. It is
+deterministic: the same script renders the same audio every time.
+
+### Measured on the delivered file
+
+`docs/media/review-ai-code-720p.mp4`: 0:54, 1280x720, 30 fps, Kokoro
+`am_michael`, 6.9 MB.
+
+| Gate | Result |
+| --- | --- |
+| motion | PASSED - mean frame delta 1.35, 0.5% near-static (limit 15%) |
+| composition | PASSED - 92 arrangements, longest 1.5 s (limit 12 s) |
+| holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
+| narration | PASSED - 146 words per minute, 11.2 audible rests per minute |
+| delivery level | -14.8 LUFS, true peak -1.6 dBFS |
+| craft | PASSED - 18/18 rules |
+| first claim | 0.12 s (was 0.87 s) |
+
+Two defects surfaced while fixing the voice, and both were picture defects:
+
+- **The film opened on nothing.** A 0.87 s lead-in before the first line meant
+  the first twenty-six frames were a pale, empty field - and the audience
+  decides in three seconds. The opening gap is now capped at 0.12 s.
+- **A short line cut into many beats left one word alone on the frame.** Five
+  words dealt into three beats gave "SHIP IT," / "OR STOP" / "IT.". Beats are
+  now planned from the drawn words, dealt evenly, and a comparison or a number
+  gets the fewest beats that fit its template instead of the same picture three
+  times.
+
+### Listen to it
+
+`docs/media/voice-ab.mp4` - the same fourteen seconds of the same script, first
+the old Piper voice, then the new one, both normalised to -14 LUFS so the louder
+take cannot win the comparison.
+
+### What is still true
+
+Kokoro is a good synthetic narrator, not a human. It does not breathe, it does
+not smile, and on a twelve-minute film it repeats its own cadences. The honest
+ceiling of this approach is a clean, consistent, professional-sounding read -
+which is the brief - and the next real step up is a human voice, or a hosted
+model the owner chooses to pay for. The pipeline takes either: a pre-rendered
+`voiceover.wav` plus `lines.json` drops straight into `tools/assemble_voiceover.py`.

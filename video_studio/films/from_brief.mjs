@@ -245,26 +245,37 @@ function estimateSeconds(section, index) {
  * template would refuse. Rounding up matters - rounding to nearest is how the
  * first version produced a 3.32 s beat for a 3.2 s template and stopped.
  */
-function beatLengths(seconds, candidates) {
+function beatLengths(seconds, candidates, maxBeats = Infinity) {
   const most = Math.max(...candidates.map((id) => TEMPLATES.get(id).maxSeconds));
   const cap = Math.min(MAX_BEAT, Math.min(most, 6.0));
   let count = Math.max(1, Math.ceil(seconds / cap - 1e-6));
-  const fits = (each, id) => {
-    const meta = TEMPLATES.get(id);
-    return each <= meta.maxSeconds + 0.02 && each >= meta.minSeconds - 0.02;
-  };
   for (let attempt = 0; attempt < 6; attempt += 1) {
     const each = seconds / count;
-    if (candidates.some((id) => fits(each, id))) break;
+    if (candidates.some((id) => withinBand(id, each))) break;
     count += 1;
+  }
+  // A short line cut into many beats leaves one word alone on the frame, and a
+  // single word held for a second and a half reads as a stutter rather than as
+  // emphasis. When the narration for a section is only a few words, hold the
+  // line instead - but only if a template still covers the longer beat.
+  const limited = Math.max(1, Math.min(count, maxBeats));
+  if (limited < count && candidates.some((id) => withinBand(id, seconds / limited))) {
+    count = limited;
   }
   return Array.from({ length: count }, () => seconds / count);
 }
 
+// Templates that can reveal their content a piece at a time as the beats pass.
+// A comparison or a number has no "next piece": repeating it is a frozen frame.
+const PROGRESSIVE = new Set(['kinetic-headline', 'list-build', 'stack-push', 'code-typing']);
+
 function withinBand(id, seconds) {
   const meta = TEMPLATES.get(id);
+  // Strictly the template's own window: the library refuses a beat outside it
+  // rather than stretching the drawing to fill time, and that refusal is right.
   return seconds >= meta.minSeconds - 0.02 && seconds <= meta.maxSeconds + 0.02;
 }
+
 
 /**
  * The template for one beat.
@@ -335,7 +346,30 @@ function buildSections(brief, timings) {
     cursor = end;
 
     const seconds = end - start;
-    const lengths = beatLengths(seconds, candidates);
+    // The words that will be drawn, not the words that will be spoken: a
+    // headline's own text is what gets cut into beats.
+    const drawn = (section.props && section.props.text)
+      || section.lines.map((line) => line.text || '').join(' ');
+    const words = String(drawn).split(/\s+/).filter(Boolean).length;
+    // What the section will actually draw decides whether it can be cut up: a
+    // section that names its template is judged on that template, not on the
+    // whole candidate list, which contains templates it will never use.
+    const progressive = section.template
+      ? PROGRESSIVE.has(section.template)
+      : candidates.some((id) => PROGRESSIVE.has(id));
+    const byWords = Math.max(1, Math.floor(words / 2));
+    let lengths;
+    if (progressive) {
+      lengths = beatLengths(seconds, candidates, byWords);
+    } else {
+      // A comparison or a number cannot show a new piece on each beat, so the
+      // section is cut into the fewest beats that still fit the template's
+      // window. Cutting it to the usual 1.8 s beat would draw the same picture
+      // three times, which is the frozen frame the repeat gate exists to catch.
+      const meta = TEMPLATES.get(section.template || candidates[0]);
+      const fewest = Math.max(1, Math.ceil(seconds / (meta.maxSeconds - 0.02)));
+      lengths = Array.from({ length: fewest }, () => seconds / fewest);
+    }
     const beats = [];
     let beatStart = start;
     let previousTemplate = null;
@@ -546,9 +580,18 @@ function captions(ctx, section, sectionLocal) {
 function splitWords(text, count) {
   const parts = String(text).split(/\s+/).filter(Boolean);
   if (count <= 1 || parts.length < count) return [text];
+  // Evenly, not in fixed-size blocks: dealing five words into three beats by
+  // taking two at a time leaves a beat with one word on it, and one word alone
+  // on a full frame is not emphasis, it is a mistake.
+  const base = Math.floor(parts.length / count);
+  const extra = parts.length % count;
   const chunks = [];
-  const per = Math.ceil(parts.length / count);
-  for (let i = 0; i < parts.length; i += per) chunks.push(parts.slice(i, i + per).join(' '));
+  let cursor = 0;
+  for (let index = 0; index < count; index += 1) {
+    const take = base + (index < extra ? 1 : 0);
+    chunks.push(parts.slice(cursor, cursor + take).join(' '));
+    cursor += take;
+  }
   return chunks;
 }
 
@@ -645,7 +688,7 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   // contrast that keeps the frame difference honest.
   const halo = ctx.createLinearGradient(cursorX - W * 0.16, 0, cursorX + W * 0.04, 0);
   halo.addColorStop(0, 'rgba(18,35,63,0)');
-  halo.addColorStop(0.75, palette.dark ? 'rgba(255,255,255,0.10)' : 'rgba(18,35,63,0.13)');
+  halo.addColorStop(0.75, palette.dark ? 'rgba(255,255,255,0.12)' : 'rgba(18,35,63,0.155)');
   halo.addColorStop(1, 'rgba(18,35,63,0)');
   ctx.globalAlpha = ctx.globalAlpha * 0.9;
   ctx.fillStyle = halo;
@@ -659,7 +702,7 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   const bloomY = H * (0.40 + 0.16 * Math.sin((t / 2.3) * Math.PI * 2));
   const bloom = ctx.createRadialGradient(bloomX, bloomY, 0, bloomX, bloomY, W * 0.38);
   const tint = palette.dark ? '255,255,255' : '255,255,255';
-  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.09 : 0.30})`);
+  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.10 : 0.33})`);
   bloom.addColorStop(1, `rgba(${tint},0)`);
   ctx.save();
   ctx.fillStyle = bloom;
@@ -671,7 +714,7 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   const bandX = -W * 0.35 + pass * W * 1.7;
   const grad = ctx.createLinearGradient(bandX, 0, bandX + W * 0.30, H * 0.18);
   grad.addColorStop(0, 'rgba(180,118,42,0)');
-  grad.addColorStop(0.5, palette.dark ? 'rgba(242,194,48,0.10)' : 'rgba(180,118,42,0.13)');
+  grad.addColorStop(0.5, palette.dark ? 'rgba(242,194,48,0.12)' : 'rgba(180,118,42,0.16)');
   grad.addColorStop(1, 'rgba(180,118,42,0)');
   ctx.save();
   ctx.fillStyle = grad;
@@ -783,7 +826,10 @@ function beatPlate(ctx, shot, section, beatLocal) {
 function paint(target, shot, at) {
   const section = shot.section;
   const sectionLocal = at - section.start;
-  const beatLocal = at - shot.start;
+  // Clamped: during any pre-roll before the first beat starts, the frame used
+  // to compose a shot with a negative local time, which every reveal reads as
+  // "not yet" - so the film opened on a pale, empty field for its first second.
+  const beatLocal = Math.max(0, at - shot.start);
   target.setTransform(SCALE, 0, 0, SCALE, 0, 0);
   target.clearRect(0, 0, W, H);
   drawField(target, { w: W, h: H, t: sectionLocal + section.start * 0.17, palette: section.palette });
@@ -838,7 +884,7 @@ function render(t) {
   }
   paint(ctx, shot, t);
 
-  const fadeIn = 1 - span(t, 0, 0.3);
+  const fadeIn = 1 - span(t, 0, 0.12);
   if (fadeIn > 0) {
     ctx.save();
     ctx.globalAlpha = fadeIn;

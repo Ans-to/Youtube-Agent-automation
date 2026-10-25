@@ -3,7 +3,10 @@ name: Motion graphics studio
 # Turn a brief into a finished YouTube video, on a GitHub runner, for nothing.
 #
 # There is no API key in this workflow, no hosted rendering service, and no
-# paid step. The voice is Piper, installed from PyPI; the music and the sound
+# paid step. The voice is Kokoro-82M (Apache-2.0): the runtime comes from PyPI
+# and the weights come from npm, both public registries, and they are cached on
+# the runner after the first use. If npm cannot be reached the studio falls back
+# to Piper rather than shipping a film with no narration. The music and the sound
 # effects are synthesised by the repository's own code; the picture is drawn by
 # the repository's own Canvas2D renderer. Everything the job needs is a public
 # repository and a JSON brief.
@@ -88,9 +91,17 @@ jobs:
       - name: Install the voice and the media tools
         run: |
           python -m pip install --upgrade pip
-          pip install numpy pillow imageio-ffmpeg piper-tts joe-us-piper-voice
+          pip install numpy pillow imageio-ffmpeg
+          # The narrator: Kokoro for the read, Piper kept as the offline fallback
+          pip install kokoro-onnx onnxruntime piper-tts joe-us-piper-voice
 
-      - name: Point the narrator at the bundled voice
+      - name: Fetch the narrator's weights
+        run: |
+          # One 90 MB model and the voice pack, from npm, checked against the
+          # registry's SHA-512 and cached for later runs. No account, no token.
+          python video_studio/kokoro_voice.py --dir "$HOME/.cache/agent-hq/kokoro"
+
+      - name: Point the Piper fallback at its bundled voice
         run: |
           python - <<'PY' >> "$GITHUB_ENV"
           import os, joe_us_piper_voice
@@ -112,8 +123,8 @@ jobs:
             --script video_studio/films/from_brief.mjs \
             --script-args "--brief ${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
             --voice-script build/voice-script.json \
-            --voice-backend piper \
-            --voice en_US-joe-medium \
+            --voice-backend kokoro \
+            --voice am_michael \
             --out build/film \
             --width 1920 --height 1080 \
             --delivery-height "${{ github.event.inputs.delivery_height || '1080' }}" \

@@ -12,12 +12,16 @@ neural voice over, a music bed, burned-in captions, and the numbers that say
 whether the result is worth publishing.
 
 **▶ [How to Review AI-Written Code in 60 Seconds](docs/media/review-ai-code-720p.mp4)** —
-the first film it generated, 0:51, 1280×720, 30 fps, Piper voice, subtitles in
+0:54, 1280×720, 30 fps, Kokoro-82M narration, subtitles in
 [review-ai-code.srt](docs/media/review-ai-code.srt). Every gate passed on it:
-motion, composition, holds, narration and all eighteen craft rules.
+motion, composition, holds, narration and all eighteen craft rules. Its voice was
+replaced in this build; **[listen to the two voices back to back](docs/media/voice-ab.mp4)**
+(the same fourteen seconds of the same script, level-matched, old then new).
 
-There is no API key anywhere in it and nothing to pay for. The voice is Piper,
-installed from PyPI; the music and sound effects are synthesised by the
+There is no API key anywhere in it and nothing to pay for. The voice is
+Kokoro-82M under Apache-2.0: the runtime is a PyPI package, the weights are two
+npm tarballs checked against the registry's own SHA-512, and Piper stays as the
+offline fallback. The music and sound effects are synthesised by the
 repository's own code; the picture is drawn by its own Canvas2D renderer; and
 the compute is a GitHub-hosted runner, which is free and unlimited on a public
 repository and has the 16 GB a 1080p master needs.
@@ -34,14 +38,15 @@ repository and has the 16 GB a 1080p master needs.
 Run it locally:
 
 ```bash
-python -m venv .venv && .venv/bin/pip install numpy pillow imageio-ffmpeg piper-tts joe-us-piper-voice
+python -m venv .venv && .venv/bin/pip install numpy pillow imageio-ffmpeg kokoro-onnx onnxruntime piper-tts joe-us-piper-voice
+python video_studio/kokoro_voice.py          # one-time: fetch and verify the voice weights (90 MB)
 npm --prefix video_studio ci
 python tools/brief_to_voice.py --brief video_studio/briefs/review-ai-code.json --out build/voice.json
 python tools/render_authored_film.py --script video_studio/films/from_brief.mjs \
   --script-args "--brief video_studio/briefs/review-ai-code.json" \
   --voice-script build/voice.json --out build/film \
   --width 1920 --height 1080 --delivery-height 720 --skip-4k \
-  --voice-backend piper --voice en_US-joe-medium
+  --voice-backend kokoro --voice am_michael
 python tools/check_craft.py --script build/film/voice/lines.json --srt build/film/film.srt \
   --title "How to Review AI-Written Code in 60 Seconds" --thumbnail-text "60 SECOND REVIEW"
 ```
