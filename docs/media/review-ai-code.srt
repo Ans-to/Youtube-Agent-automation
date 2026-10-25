@@ -1,0 +1,50 @@
+1
+00:00:01,150 --> 00:00:05,283
+An agent just opened a pull request. Do
+you ship it today?
+
+2
+00:00:06,883 --> 00:00:10,807
+Most teams either rubber stamp the diff or
+rewrite the whole thing.
+
+3
+00:00:12,357 --> 00:00:15,910
+Three checks catch almost everything an
+agent gets wrong.
+
+4
+00:00:17,460 --> 00:00:18,923
+Sixty seconds.
+
+5
+00:00:20,473 --> 00:00:23,085
+Forty seconds reading the diff properly.
+
+6
+00:00:24,055 --> 00:00:29,314
+Ten seconds running it, and ten asking
+what it quietly refuses to handle.
+
+7
+00:00:30,864 --> 00:00:34,847
+Wire those checks to one command, so the
+machine runs them.
+
+8
+00:00:36,397 --> 00:00:37,836
+Green means merge.
+
+9
+00:00:38,806 --> 00:00:40,513
+Red means send it back.
+
+10
+00:00:42,063 --> 00:00:45,534
+Three checks. One command. A minute of
+your time.
+
+11
+00:00:47,084 --> 00:00:51,821
+Pick one repository this week. Run the
+checks. That is the method.

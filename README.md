@@ -4,6 +4,57 @@
 
 The project is designed for a low-cost phone-first setup. It uses Python's standard library for the task runner, dashboard, and bridge. It does not require a paid AI API.
 
+## A YouTube studio that runs on GitHub, for nothing
+
+Give it a brief — a title, a promise, and a few sections of narration written in
+plain English — and it makes the video: motion graphics drawn frame by frame, a
+neural voice over, a music bed, burned-in captions, and the numbers that say
+whether the result is worth publishing.
+
+**▶ [How to Review AI-Written Code in 60 Seconds](docs/media/review-ai-code-720p.mp4)** —
+the first film it generated, 0:51, 1280×720, 30 fps, Piper voice, subtitles in
+[review-ai-code.srt](docs/media/review-ai-code.srt). Every gate passed on it:
+motion, composition, holds, narration and all eighteen craft rules.
+
+There is no API key anywhere in it and nothing to pay for. The voice is Piper,
+installed from PyPI; the music and sound effects are synthesised by the
+repository's own code; the picture is drawn by its own Canvas2D renderer; and
+the compute is a GitHub-hosted runner, which is free and unlimited on a public
+repository and has the 16 GB a 1080p master needs.
+
+| Piece | Where |
+| --- | --- |
+| What makes a video get watched, with sources and numbers | [docs/youtube-craft.md](docs/youtube-craft.md) |
+| How the studio is put together, and what it costs | [docs/motion-graphics-studio-plan.md](docs/motion-graphics-studio-plan.md) |
+| A brief to copy | [video_studio/briefs/review-ai-code.json](video_studio/briefs/review-ai-code.json) |
+| The generator: brief → film | `video_studio/films/from_brief.mjs` |
+| The craft gate: hook, pacing, captions, chapters, packaging | `video_studio/craft.py`, `tools/check_craft.py` |
+| The zero-key build | [.github/workflows/motion-studio.yml](.github/workflows/motion-studio.yml) |
+
+Run it locally:
+
+```bash
+python -m venv .venv && .venv/bin/pip install numpy pillow imageio-ffmpeg piper-tts joe-us-piper-voice
+npm --prefix video_studio ci
+python tools/brief_to_voice.py --brief video_studio/briefs/review-ai-code.json --out build/voice.json
+python tools/render_authored_film.py --script video_studio/films/from_brief.mjs \
+  --script-args "--brief video_studio/briefs/review-ai-code.json" \
+  --voice-script build/voice.json --out build/film \
+  --width 1920 --height 1080 --delivery-height 720 --skip-4k \
+  --voice-backend piper --voice en_US-joe-medium
+python tools/check_craft.py --script build/film/voice/lines.json --srt build/film/film.srt \
+  --title "How to Review AI-Written Code in 60 Seconds" --thumbnail-text "60 SECOND REVIEW"
+```
+
+On GitHub: **Actions → Motion graphics studio → Run workflow**, pick the brief.
+No secret has to exist, and a missing secret cannot break it.
+
+**What it will not do.** It cannot invent a good idea, and it does not judge
+taste; it refuses to ship a film that breaks the measurable rules in the craft
+note and prints the number that failed. The first generated cut failed its own
+gates — 89% near-static frames, a 17-second hold — and the fixes are in the
+history rather than in a promise.
+
 ## The film this pipeline made
 
 A finished twelve-minute film, drawn frame by frame by `video_studio/films/vibe_coding.mjs`:

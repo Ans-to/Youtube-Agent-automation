@@ -1,0 +1,173 @@
+{
+  "slug": "review-ai-code",
+  "title": "How to Review AI-Written Code in 60 Seconds",
+  "promise": "You will review AI-written code in about a minute, before it ships.",
+  "hookType": "result",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "60 SECOND REVIEW",
+    "section": "number"
+  },
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "SHIP IT, OR STOP IT."
+      },
+      "lines": [
+        {
+          "text": "An agent just opened a pull request. Do you ship it today?"
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "Why it matters",
+      "situation": "state-the-thesis",
+      "template": "compare-pair",
+      "props": {
+        "left": "Rubber stamp",
+        "right": "Rewrite it"
+      },
+      "lines": [
+        {
+          "text": "Most teams either rubber stamp the diff or rewrite the whole thing."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The three checks",
+      "situation": "show-a-sequence",
+      "template": "list-build",
+      "props": {
+        "items": [
+          "Read the diff, not the summary",
+          "Run it once yourself",
+          "Ask what it does not handle"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Three checks catch almost everything an agent gets wrong."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The budget",
+      "situation": "explain-a-number",
+      "template": "count-up",
+      "props": {
+        "value": 60,
+        "text": "SIXTY SECONDS."
+      },
+      "lines": [
+        {
+          "text": "Sixty seconds."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "How the minute is spent",
+      "situation": "show-the-mechanism",
+      "template": "stack-push",
+      "props": {
+        "items": [
+          "Forty seconds: read",
+          "Ten: run",
+          "Ten: question"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Forty seconds reading the diff properly."
+        },
+        {
+          "text": "Ten seconds running it, and ten asking what it quietly refuses to handle."
+        }
+      ]
+    },
+    {
+      "id": "command",
+      "kind": "section",
+      "heading": "Make it one command",
+      "situation": "show-the-command",
+      "template": "code-typing",
+      "props": {
+        "lines": [
+          "npm test",
+          "npm run lint",
+          "git diff --stat"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Wire those checks to one command, so the machine runs them."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "payoff",
+      "heading": "The decision",
+      "situation": "punchline",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "MERGE WHEN GREEN."
+      },
+      "lines": [
+        {
+          "text": "Green means merge."
+        },
+        {
+          "text": "Red means send it back."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "list-build",
+      "props": {
+        "items": [
+          "Read the diff",
+          "Run it",
+          "Ask what is missing"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Three checks. One command. A minute of your time."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "ONE CHECK, THEN SHIP."
+      },
+      "lines": [
+        {
+          "text": "Pick one repository this week. Run the checks. That is the method."
+        }
+      ]
+    }
+  ]
+}

@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import shutil
 import statistics
 import sys
@@ -86,7 +87,7 @@ def log(message: str) -> None:
 
 def step_frames(
     script: Path, frames_dir: Path, width: int, height: int, fps: int, quality: int,
-    voice_lines: Path | None = None, slice_frames: int = 0,
+    voice_lines: Path | None = None, slice_frames: int = 0, script_args: list[str] | None = None,
 ) -> dict:
     """Draw the film, in slices of `slice_frames` when asked.
 
@@ -114,6 +115,11 @@ def step_frames(
         ]
         if voice_lines is not None:
             command += ["--voice-lines", str(voice_lines)]
+        # A generated film needs its brief; a hand-authored one has none. Both
+        # are the same renderer, so the extra arguments are passed through
+        # rather than forking the tool.
+        if script_args:
+            command += list(script_args)
         if slice_frames:
             command += ["--from", str(start), "--to", str(stop)]
         return command
@@ -543,6 +549,8 @@ def main(argv: list[str] | None = None) -> int:
                              "(0 draws the film in a single process)")
     parser.add_argument("--frames", default=None,
                         help="reuse an existing frame directory (skips rendering)")
+    parser.add_argument("--script-args", default="",
+                        help="extra arguments for the film script, e.g. '--brief path/to/brief.json'")
     parser.add_argument("--voice-script", default=None,
                         help="JSON narration script; synthesise a voiceover and mix it in")
     parser.add_argument("--voice-dir", default=None,
@@ -567,6 +575,14 @@ def main(argv: list[str] | None = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     frames_dir = out_dir / "build" / "frames"
     script = (ROOT / args.script).resolve()
+    script_args = shlex.split(args.script_args or "")
+    # A brief is resolved against the repository so the same command works from
+    # a checkout, from CI, and from a subdirectory.
+    for index, value in enumerate(script_args):
+        if value == "--brief" and index + 1 < len(script_args):
+            script_args[index + 1] = str((ROOT / script_args[index + 1]).resolve())
+        elif value.startswith("--brief="):
+            script_args[index] = "--brief=" + str((ROOT / value.split("=", 1)[1]).resolve())
 
     try:
         ffmpeg, ffprobe = base.resolve_ffmpeg()
@@ -672,7 +688,8 @@ def main(argv: list[str] | None = None) -> int:
             log(step("render frames"))
             manifest = step_frames(script, frames_dir, args.width, args.height, args.fps, args.quality,
                                    voice_lines if voice_info else None,
-                                   slice_frames=args.slice_frames)
+                                   slice_frames=args.slice_frames,
+                                   script_args=script_args)
             log("   %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"]))
             film_json = frames_dir / "film.json"
 

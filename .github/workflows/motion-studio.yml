@@ -1,0 +1,158 @@
+name: Motion graphics studio
+
+# Turn a brief into a finished YouTube video, on a GitHub runner, for nothing.
+#
+# There is no API key in this workflow, no hosted rendering service, and no
+# paid step. The voice is Piper, installed from PyPI; the music and the sound
+# effects are synthesised by the repository's own code; the picture is drawn by
+# the repository's own Canvas2D renderer. Everything the job needs is a public
+# repository and a JSON brief.
+#
+# The runner is a standard GitHub-hosted `ubuntu-24.04`, which on a public
+# repository is free and unlimited, and has 4 cores and 16 GB of RAM. That is
+# why the 1080p master is built here rather than on a laptop: the same render
+# needs more memory than a small machine has.
+#
+# Outputs (as artifacts): the master, the 720p web copy, the captions, the
+# plan, and the gate reports. Nothing is published to YouTube by this workflow;
+# the upload pack is written for a person to paste.
+
+on:
+  workflow_dispatch:
+    inputs:
+      brief:
+        description: Path to the brief JSON
+        required: true
+        default: video_studio/briefs/review-ai-code.json
+        type: string
+      delivery_height:
+        description: Height of the delivery copy in pixels
+        required: true
+        default: "1080"
+        type: string
+      skip_4k:
+        description: Skip the 4K master (faster; the 1080p master is still built)
+        required: false
+        default: true
+        type: boolean
+  push:
+    branches:
+      - main
+    paths:
+      - "video_studio/briefs/**"
+      - "video_studio/films/from_brief.mjs"
+      - "video_studio/motion/**"
+      - "video_studio/craft.py"
+      - "tools/brief_to_voice.py"
+      - "tools/render_authored_film.py"
+      - "tools/check_craft.py"
+      - ".github/workflows/motion-studio.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: motion-studio-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: "1"
+  # One place to point at the voice weights. The PyPI package ships the model,
+  # so this is a path inside site-packages rather than a download.
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  film:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Install the renderer
+        working-directory: video_studio
+        run: npm ci --no-audit --no-fund
+
+      - name: Install the voice and the media tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pillow imageio-ffmpeg piper-tts joe-us-piper-voice
+
+      - name: Point the narrator at the bundled voice
+        run: |
+          python - <<'PY' >> "$GITHUB_ENV"
+          import os, joe_us_piper_voice
+          data = os.path.join(os.path.dirname(joe_us_piper_voice.__file__), "data")
+          model = os.path.join(data, "en_US-joe-medium.onnx")
+          assert os.path.isfile(model), model
+          print(f"AGENTHQ_VOICE_MODEL={model}")
+          PY
+
+      - name: Write the narration script from the brief
+        run: |
+          python tools/brief_to_voice.py \
+            --brief "${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
+            --out build/voice-script.json
+
+      - name: Render the film, mix the sound, and measure it
+        run: |
+          python tools/render_authored_film.py \
+            --script video_studio/films/from_brief.mjs \
+            --script-args "--brief ${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
+            --voice-script build/voice-script.json \
+            --voice-backend piper \
+            --voice en_US-joe-medium \
+            --out build/film \
+            --width 1920 --height 1080 \
+            --delivery-height "${{ github.event.inputs.delivery_height || '1080' }}" \
+            ${{ (github.event.inputs.skip_4k == 'false') && '' || '--skip-4k' }}
+
+      - name: Craft gate - hook, pacing, captions, chapters, packaging
+        run: |
+          python tools/check_craft.py \
+            --script build/film/voice/lines.json \
+            --srt build/film/film.srt \
+            --title "$(python -c "import json;print(json.load(open('${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}'))['title'])")" \
+            --thumbnail-text "$(python -c "import json;print((json.load(open('${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}')).get('thumbnail') or {}).get('line',''))")" \
+            --json > build/craft-report.json
+          cat build/craft-report.json
+
+      - name: Keep the plan beside the film
+        run: cp build/film/build/frames/plan.json build/plan.json
+
+      - name: Upload the film
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: film
+          path: |
+            build/film/*.mp4
+            build/film/film.srt
+            build/plan.json
+            build/craft-report.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Write a short report on the run
+        if: always()
+        run: |
+          {
+            echo "### Motion graphics studio"
+            echo ""
+            echo "| step | result |"
+            echo "| --- | --- |"
+            echo "| brief | \`${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}\` |"
+            echo "| film | \`$(ls -1 build/film/*.mp4 2>/dev/null | head -1 || echo 'not built')\` |"
+            echo "| cost | \$0 - public repository, standard runner, no API key |"
+          } >> "$GITHUB_STEP_SUMMARY"
