@@ -143,6 +143,13 @@ jobs:
       - name: Keep the plan beside the film
         run: cp build/film/build/frames/plan.json build/plan.json
 
+      - name: Draw the thumbnail from the same design system
+        working-directory: video_studio
+        run: |
+          node films/thumbnail.mjs \
+            --brief "../${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
+            --out ../build/thumbnail.png
+
       - name: Upload the film
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -152,6 +159,7 @@ jobs:
             build/film/film.srt
             build/plan.json
             build/craft-report.json
+            build/thumbnail.png
           if-no-files-found: error
           retention-days: 30
 

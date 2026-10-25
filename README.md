@@ -23,7 +23,7 @@ that types `npm test`, and the same fork again for *green means merge / red mean
 send it back*. Seven of the nine sections are diagrams. Each arrives as its own
 sentence is spoken, nothing is printed that the narration does not say, and the
 picture keeps a slow push and a light sweep behind it so no frame is dead. **[The plan beside the film](docs/media/review-ai-code-plan.json)**
-records what every beat draws. Voice: **[the two reads back to back](docs/media/voice-ab.mp4)**.
+records what every beat draws, and the poster is drawn by the same code from the same brief: **[the thumbnail](docs/media/review-ai-code-thumbnail.png)** - 60 in the left third, *AI CODE REVIEW* stacked on the right, and the corner YouTube covers with a duration badge left empty. Voice: **[the two reads back to back](docs/media/voice-ab.mp4)**.
 
 There is no API key anywhere in it and nothing to pay for. The voice is
 Kokoro-82M under Apache-2.0: the runtime is a PyPI package, the weights are two
@@ -55,7 +55,7 @@ python tools/render_authored_film.py --script video_studio/films/from_brief.mjs 
   --width 1920 --height 1080 --delivery-height 720 --skip-4k \
   --voice-backend kokoro --voice am_michael
 python tools/check_craft.py --script build/film/voice/lines.json --srt build/film/film.srt \
-  --title "How to Review AI-Written Code in 60 Seconds" --thumbnail-text "60 SECOND REVIEW"
+  --title "How to Review AI-Written Code in 60 Seconds" --thumbnail-text "AI CODE REVIEW"
 ```
 
 On GitHub: **Actions → Motion graphics studio → Run workflow**, pick the brief.
