@@ -528,10 +528,54 @@ function budgetRail(ctx, {
   if (!rows.length) return;
   const sum = rows.reduce((acc, row) => acc + (Number(row.value) || 0), 0) || 1;
   const scale = Number(total) || sum;
-  const railY = box.y + box.h * 0.56;
-  const railH = box.h * 0.26;
+  // The rail sits above the middle of its region, not below it: at 56% of the
+  // height the bar left a third of the frame empty above it and the whole picture
+  // read as low and unbalanced. The room that frees up is not left empty - it
+  // carries the dimension line, which is what turns a bar into a measurement.
+  const railY = box.y + box.h * 0.40;
+  const railH = box.h * 0.30;
   const x0 = box.x;
   const usable = box.w * 0.94;
+
+  // The spent band: a low, wide wash behind the rail that fills from the left as
+  // the section runs. It is the one thing on this picture that changes over a
+  // large area at speech pace, and it says what the section is about - how much
+  // of the minute has been spent by the time the narrator has finished talking.
+  // Without it the rail is a static bar with a thin playhead, and the arrangement
+  // measurement read the whole chapter as one held composition.
+  const spent = clamp(local / Math.max(0.001, seconds));
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * 0.30;
+  const spentGrad = ctx.createLinearGradient(x0, 0, x0 + usable, 0);
+  spentGrad.addColorStop(0, 'rgba(180,118,42,0.20)');
+  spentGrad.addColorStop(1, 'rgba(180,118,42,0.02)');
+  ctx.fillStyle = spentGrad;
+  ctx.fillRect(x0, railY - box.h * 0.12, usable * spent, railH + box.h * 0.24);
+  ctx.restore();
+
+  // The dimension: a line across the whole span with an end cap at each end and
+  // the total set on it. A division of a minute only means something if the
+  // minute itself is drawn, so the rail now has a header that states the whole.
+  const dimY = box.y + box.h * 0.16;
+  const dimP = ease.outCubic(clamp(local / 0.5));
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * 0.9 * dimP;
+  ctx.fillStyle = hair(0.55);
+  ctx.fillRect(x0, dimY, usable * dimP, Math.max(2, box.h * 0.004));
+  [0, 1].forEach((end) => {
+    const x = x0 + usable * end * dimP;
+    ctx.fillRect(Math.min(x, x0 + usable * dimP), dimY - box.h * 0.035, Math.max(2, box.h * 0.006),
+      box.h * 0.07);
+  });
+  ctx.restore();
+  if (scale) {
+    // Left end of the dimension, not the middle: the readout below it is the big
+    // figure, and the two collided when the whole were set centred over the rail.
+    labelBlock(ctx, `${Math.round(scale)} seconds, all in`, x0, box.y + box.h * 0.12, {
+      maxWidth: usable * 0.34, cap: box.h * 0.092, minSize: 16, colour: tint(0.62),
+      align: 'left', max: 1, weight: 600, family: 'Inter', lineGap: 1.1, alpha: dimP,
+    });
+  }
 
   // Baseline and ticks: the measure the blocks sit on.
   ctx.save();
@@ -539,32 +583,51 @@ function budgetRail(ctx, {
   ctx.fillStyle = hair(0.45);
   ctx.fillRect(x0, railY + railH + box.h * 0.03, usable, Math.max(2, box.h * 0.006));
   ctx.restore();
-  const steps = 12;
-  for (let i = 0; i <= steps; i += 1) {
-    const x = x0 + (usable * i) / steps;
+  // The scale: one tick per second of the whole the rail divides.
+  //
+  // It was twelve coarse ticks, which said "there are some divisions" and nothing
+  // more. Sixty ticks say the actual thing - this is a minute, and it is being
+  // spent - and the ticks fill behind the playhead, so the picture keeps changing
+  // every second without anything moving in and out. A gauge needs a scale; a
+  // caption does not need to be drawn on top of one.
+  const ticks = Math.max(8, Math.round(scale));
+  const played = clamp(local / Math.max(0.001, seconds));
+  for (let i = 0; i <= ticks; i += 1) {
+    const x = x0 + (usable * i) / ticks;
+    const major = i % Math.max(1, Math.round(ticks / 6)) === 0;
+    const filled = i / ticks <= played;
     ctx.save();
-    ctx.globalAlpha = ctx.globalAlpha * 0.5;
-    ctx.fillStyle = hair(0.5);
-    ctx.fillRect(x, railY + railH + box.h * 0.03, 2, box.h * (i % 3 === 0 ? 0.05 : 0.028));
+    ctx.globalAlpha = ctx.globalAlpha * (filled ? 0.85 : 0.30);
+    ctx.fillStyle = filled ? accent : hair(0.5);
+    ctx.fillRect(x, railY + railH + box.h * 0.03, 2,
+      box.h * (major ? 0.055 : 0.030));
     ctx.restore();
   }
 
   let cursor = x0;
   let lastAt = 0;
   let activeIndex = 0;
-  rows.forEach((row, i) => {
-    if (typeof row.at === 'number' && local >= row.at) activeIndex = i;
+  const lastCentres = [];
+  // When the brief does not say when each part of the minute is discussed, the
+  // parts arrive in order across the first two thirds of the section - the same
+  // convention the grid uses. Without this every segment carried `at: 0`, so the
+  // rail finished building in the first second and then held one arrangement for
+  // seven, which the composition measurement reports as a held composition.
+  const rowAts = rows.map((row, i) => (typeof row.at === 'number' ? row.at
+    : (seconds * 0.62) * (i / Math.max(1, rows.length - 1))));
+  rowAts.forEach((at, i) => {
+    if (local >= at) activeIndex = i;
   });
   rows.forEach((row, i) => {
     const width = (usable * (Number(row.value) || 0)) / scale;
-    const at = typeof row.at === 'number' ? row.at : 0;
+    const at = rowAts[i];
     lastAt = at;
     const p = Math.min(1, span(local, at, at + Math.min(0.55, Math.max(0.3, (seconds * 0.6) / rows.length))));
     if (p <= 0) { cursor += width; return; }
     const e = ease.outCubic(p);
     // The segment being spoken is the tallest thing on the rail; the others sit
     // back. Listening to the narration and watching the bar agree is the point.
-    const nextAt = rows[i + 1] && typeof rows[i + 1].at === 'number' ? rows[i + 1].at : Infinity;
+    const nextAt = i + 1 < rowAts.length ? rowAts[i + 1] : Infinity;
     const isActive = local >= at && local < nextAt;
     const h = railH * (isActive ? 1.0 : 0.68);
     const y = railY + railH - h;
@@ -582,11 +645,13 @@ function budgetRail(ctx, {
       fill: i === 0 ? accent : (isActive ? SOLID.ink70 : SOLID.ink35),
       alpha: 1,
     });
-    const value = Math.round(Number(row.value) || 0);
-    text(ctx, String(value), cursor + width * 0.5, y - box.h * 0.055, {
-      size: Math.round(Math.min(box.h * 0.13, width * 0.42)), weight: 700, family: 'Space Grotesk',
-      color: colour, align: 'center',
-    });
+    // The value is not printed over its own segment any more. Three numbers on a
+    // rail a sixth of a segment wide either collide ("10 10" reads as "1010") or
+    // have to shrink to a whisper; the figure is drawn once, large, above
+    // whichever segment the narrator is on. That readout also gives the picture
+    // its arrangement change: the number is 120 px tall and it steps across the
+    // rail every time the narration moves on.
+    lastCentres[i] = cursor + width * 0.5;
     // A label only goes on the rail if it fits its own segment. A ten-second
     // segment on a sixty-second rail is a sixth of the width: "Ten seconds
     // running it" is four times too long for it, and squeezing it in prints a
@@ -606,6 +671,26 @@ function budgetRail(ctx, {
     ctx.restore();
     cursor += width;
   });
+
+  // The readout. One figure, set large, over the segment the sentence is on: it
+  // steps from the forty to the first ten to the second ten, so the number the
+  // narrator is saying is the biggest object on the frame, and the arrangement
+  // changes whenever the argument moves rather than when a decoration does.
+  const readoutIndex = Math.min(activeIndex, Math.max(0, lastCentres.length - 1));
+  if (lastCentres.length) {
+    // Anchored at the right end of the rail, clear of the dimension's own label on
+    // the left. The figure is what changes, not its position - and a number that
+    // swaps under the sentence is a cleaner event than one that slides about.
+    const rx = x0 + usable;
+    const size = Math.round(box.h * 0.155);
+    // The figure, and the part it counts, on one line: "40 seconds". A big number
+    // with a small word under it ran into the dimension line and read as two
+    // objects; on one baseline it reads as a measurement.
+    const value = String(Math.round(Number(rows[readoutIndex].value) || 0));
+    text(ctx, value + ' seconds', rx, box.y + box.h * 0.335, {
+      size, weight: 700, family: 'Space Grotesk', color: accent, align: 'right', tracking: -1,
+    });
+  }
 
   // The playhead: where the film is on the rail right now.
   const playX = x0 + usable * clamp(local / Math.max(0.001, seconds));

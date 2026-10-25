@@ -243,8 +243,8 @@ deterministic: the same script renders the same audio every time.
 
 | Gate | Result |
 | --- | --- |
-| motion | PASSED - mean frame delta 1.28, 13.4% near-static (limit 15%) |
-| composition | PASSED - 65 arrangements, longest 2.0 s (limit 12 s) |
+| motion | PASSED - mean frame delta 1.25, 13.2% near-static (limit 15%) |
+| composition | PASSED - 56 arrangements, longest 8.0 s (limit 12 s) |
 | holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
 | narration | PASSED - 150 words per minute, 12.1 audible rests per minute |
 | delivery level | -14.2 LUFS, true peak -1.7 dBFS, 48 kHz stereo |
@@ -569,3 +569,48 @@ peak**, and the audio a viewer gets is 48 kHz stereo instead of 24 kHz mono - a
 full octave of top end the encoder had been throwing away. The narration gate is
 also judged on the mix now rather than on the master, because a limiter's
 stereo fold-down reports rests the listener never hears.
+
+## 18. The collisions, and the rail that became a measurement
+
+Every fault in this round was two things printed in the same place. None of them
+were visible in a gate; all of them were visible in a still.
+
+**A headline through the frame's own furniture.** The statement region was 0.86
+of the frame wide, and the right column of the frame carries the meter and the big
+quiet chapter numeral. The hook's last word landed on the numeral - `opened` over
+`01` - and the closing line landed on the same numeral four seconds later. The
+region is 0.76 now, so a statement stops before the furniture starts.
+
+**A label through the meter.** The four-bar meter stood at x 0.895 near the bottom
+of the frame, which is inside the label zone of every wide diagram: "Red means
+send it back" printed its second line straight through the bars. The meter moved
+into the right margin, outside 0.94, where no template region can reach it. A
+decorative element that can be drawn behind a sentence is a decorative element
+that will be drawn behind a sentence.
+
+**Two numbers in the same place on the rail.** A full turn of a dial starts and
+ends at the top, so the ring gauge's scale printed "0" and "60" on one another.
+The rail printed "10" and "10" over its two ten-second segments, which read as
+"1010". Both now print fewer numbers, larger, where they cannot collide.
+
+**The rail did not say what it was.** It was a bar in the lower third of the frame
+with two fifths of the frame empty above it, three values floating over it, and no
+statement of the whole it divided. It is now a measurement: a dimension line
+across the full span with end caps and `60 seconds, all in` at its left end, a
+scale of one tick per second that fills as the playhead passes (which is why the
+picture now changes every second while the bar itself holds), a low wash that
+fills behind the rail as the section runs, and one readout at the right end -
+`40 seconds`, `10 seconds` - that steps when the narration moves to the next part.
+The bar itself moved up to 0.40 of its region so the frame is balanced.
+
+**The parts arrived all at once.** `budget-rail` read `at` from the brief, and the
+brief does not say when each part is discussed, so every segment carried `at: 0`:
+the rail finished building in its first second and then held one arrangement for
+seven. Segments now arrive in order across the first two thirds of the section,
+the same convention `matrix-grid` already used.
+
+One thing that did not change: the mechanism chapter still holds one arrangement
+for 7.0 seconds, and that is honest - the template draws once, on purpose, because
+a rail that rebuilds itself three times is the frozen frame in a different
+costume. Seven seconds inside a 10.5-second chapter, under a 12-second limit, with
+the scale filling tick by tick underneath it.

@@ -77,7 +77,12 @@ export const REGIONS = {
   // A full-measure statement. Set inside this, a headline runs almost the whole
   // width of the frame, which is what makes a sentence feel like a title card
   // rather than a paragraph.
-  statement: { x: 0.07, y: 0.30, w: 0.86, h: 0.32 },
+  // 0.76 wide, not 0.86. The right column of the frame carries the film's own
+  // furniture - the meter and the big quiet numeral - and a statement set to 0.86
+  // ran straight through them: the hook's last word landed on the numeral, and
+  // the closing line landed on the same numeral four seconds later. A headline
+  // that collides with the frame's furniture reads as a layout accident.
+  statement: { x: 0.07, y: 0.28, w: 0.76, h: 0.34 },
 };
 
 /** A region in pixels, for a frame of ``w`` by ``h``. */

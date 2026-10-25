@@ -1172,15 +1172,21 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   const railEnd = x0;
 
   // Meter: four bars, four periods, no shared phase. Cheap and continuous.
-  const meterX = W * 0.895;
+  //
+  // It used to stand at x 0.895 next to the bottom of the frame, which is inside
+  // the label zone of every wide diagram: "Red means send it back" printed its
+  // second line straight through the bars. The meter now hangs in the right
+  // margin, outside the 0.94 edge that no template region crosses, so it can
+  // never be behind a label.
+  const meterX = W * 0.958;
   const periods = [0.61, 0.83, 1.07, 0.72];
   periods.forEach((period, i) => {
     const pulse = 0.22 + 0.78 * Math.abs(Math.sin((t / (period * 0.72)) * Math.PI + i * 1.1));
-    const height = H * 0.085 * pulse;
+    const height = H * 0.062 * pulse;
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * 0.45;
     ctx.fillStyle = i % 2 === 0 ? palette.accent : palette.ink;
-    ctx.fillRect(meterX + i * W * 0.018, H * 0.70 - height, W * 0.009, height);
+    ctx.fillRect(meterX + i * W * 0.0105, H * 0.30 - height, W * 0.0055, height);
     ctx.restore();
   });
 
