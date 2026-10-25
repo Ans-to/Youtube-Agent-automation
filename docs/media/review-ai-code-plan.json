@@ -95,7 +95,7 @@
       "index": 7,
       "heading": "The decision",
       "kind": "payoff",
-      "situation": "punchline",
+      "situation": "make-a-comparison",
       "start": 42.302,
       "end": 46.439,
       "seconds": 4.137,
@@ -137,7 +137,7 @@
       "end": 1.663,
       "seconds": 1.663,
       "template": "kinetic-headline",
-      "region": "title",
+      "region": "statement",
       "shows": "AN AGENT JUST OPENED"
     },
     {
@@ -149,7 +149,7 @@
       "end": 3.326,
       "seconds": 1.663,
       "template": "kinetic-headline",
-      "region": "title",
+      "region": "statement",
       "shows": "A PULL REQUEST"
     },
     {
@@ -161,7 +161,7 @@
       "end": 4.989,
       "seconds": 1.663,
       "template": "kinetic-headline",
-      "region": "title",
+      "region": "statement",
       "shows": "DO YOU SHIP IT TODAY"
     },
     {
@@ -242,23 +242,11 @@
       "section_index": 7,
       "beat": 1,
       "start": 42.302,
-      "end": 44.37,
-      "seconds": 2.069,
-      "template": "kinetic-headline",
-      "region": "title",
-      "shows": "GREEN MEANS MERGE"
-    },
-    {
-      "id": "payoff-2",
-      "section": "payoff",
-      "section_index": 7,
-      "beat": 2,
-      "start": 44.37,
       "end": 46.439,
-      "seconds": 2.069,
-      "template": "kinetic-headline",
-      "region": "title",
-      "shows": "RED MEANS SEND IT BACK"
+      "seconds": 4.137,
+      "template": "fork-paths",
+      "region": "spread",
+      "shows": "Green means merge | Red means send it back"
     },
     {
       "id": "recap-1",
@@ -281,7 +269,7 @@
       "end": 56.346,
       "seconds": 3.059,
       "template": "kinetic-headline",
-      "region": "title",
+      "region": "statement",
       "shows": "PICK ONE REPOSITORY THIS WEEK"
     },
     {
@@ -293,7 +281,7 @@
       "end": 59.405,
       "seconds": 3.059,
       "template": "kinetic-headline",
-      "region": "title",
+      "region": "statement",
       "shows": "THAT IS THE METHOD"
     }
   ],
@@ -472,18 +460,6 @@
     },
     {
       "at": 42.602,
-      "kind": "impact",
-      "gain": 0.55,
-      "length": 0.9
-    },
-    {
-      "at": 44.391,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 44.67,
       "kind": "impact",
       "gain": 0.55,
       "length": 0.9

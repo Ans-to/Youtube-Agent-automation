@@ -74,6 +74,10 @@ export const REGIONS = {
   // a rail that stops at two-thirds of the frame reads as a card, not a chart.
   spread: { x: 0.06, y: 0.16, w: 0.88, h: 0.46 },
   wide: { x: 0.06, y: 0.30, w: 0.88, h: 0.34 },
+  // A full-measure statement. Set inside this, a headline runs almost the whole
+  // width of the frame, which is what makes a sentence feel like a title card
+  // rather than a paragraph.
+  statement: { x: 0.07, y: 0.30, w: 0.86, h: 0.32 },
 };
 
 /** A region in pixels, for a frame of ``w`` by ``h``. */
@@ -489,7 +493,7 @@ const TYPE_TEMPLATES = [
     minSeconds: 0.35,
     maxSeconds: 3.2,
     needs: ['text'],
-    regions: ['title', 'hero'],
+    regions: ['title', 'hero', 'statement'],
     cost: 'low',
     sample: { text: 'BUILD IT', subtext: 'BY DESCRIBING IT', subEmphasis: { 2: '#FFFFFF' } },
     draw: kineticHeadline,

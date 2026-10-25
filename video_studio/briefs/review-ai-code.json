@@ -16,6 +16,7 @@
       "heading": "The situation",
       "situation": "opening-claim",
       "template": "kinetic-headline",
+      "region": "statement",
       "props": {
         "text": "AN AGENT JUST OPENED A PULL REQUEST"
       },
@@ -134,10 +135,14 @@
       "id": "payoff",
       "kind": "payoff",
       "heading": "The decision",
-      "situation": "punchline",
-      "template": "kinetic-headline",
+      "situation": "make-a-comparison",
+      "template": "fork-paths",
+      "region": "spread",
       "props": {
-        "text": "GREEN MEANS MERGE"
+        "left": "Green means merge",
+        "right": "Red means send it back",
+        "leftColour": "#3F7F5A",
+        "rightColour": "#C4553B"
       },
       "lines": [
         {
@@ -171,6 +176,7 @@
       "heading": "Next",
       "situation": "punchline",
       "template": "kinetic-headline",
+      "region": "statement",
       "props": {
         "text": "PICK ONE REPOSITORY THIS WEEK"
       },

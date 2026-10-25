@@ -239,12 +239,12 @@ deterministic: the same script renders the same audio every time.
 ### Measured on the delivered file
 
 `docs/media/review-ai-code-720p.mp4`: 0:59, 1280x720, 30 fps, Kokoro
-`am_michael`, 7.5 MB.
+`am_michael`, 9.6 MB.
 
 | Gate | Result |
 | --- | --- |
-| motion | PASSED - mean frame delta 1.33, 0.6% near-static (limit 15%) |
-| composition | PASSED - 108 arrangements, longest 1.5 s (limit 12 s) |
+| motion | PASSED - mean frame delta 1.29, 9.0% near-static (limit 15%) |
+| composition | PASSED - 92 arrangements, longest 3.0 s (limit 12 s) |
 | holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
 | narration | PASSED - 144 words per minute, 11.2 audible rests per minute |
 | delivery level | -14.7 LUFS, true peak -1.7 dBFS |
@@ -389,3 +389,39 @@ arrangements (the longest held 1.5 s), mean frame delta 1.33, no span over 1.0 s
 craft 18/18. The library's own self-check renders all 34 template/region cases
 and refuses any template that draws outside its box - which caught the dial
 overflowing its region by six pixels, before the owner could.
+
+## 14. The frame, after the first refinement pass
+
+The diagrams were right and the frame around them was not. Three faults, all of
+them visible in one contact sheet:
+
+- **Every picture sat in a white card.** Rounded, opaque, with a caption under
+  it. It read as a slide deck: the artwork in a box, the edges of the frame dead.
+- **A line crossed the picture.** The travelling measure mark was painted after
+  the template, so it ran straight through the dial and the rail - a scanner
+  slicing the artwork in half. It was the single worst thing on screen.
+- **The statement beats were type in an empty field.** "GREEN MEANS MERGE" at full
+  size with nothing behind it is not a composition, it is a title card.
+
+What replaced them:
+
+| Was | Is |
+| --- | --- |
+| a white card behind each beat | a twelve-column grid at 3% opacity, a horizon at the chart baseline, and a tonal field that bleeds off a frame edge and changes every beat |
+| the measure line over the artwork | two light columns sweeping *behind* it, plus the mark itself, all behind everything the sentence owns |
+| a filled source box in the fork | a diamond decision node with the two branch edges leaving its points - a diagram, not two labels and a line |
+| the payoff as two headlines | the payoff as the same fork, with green and red terminals, because the narration forks |
+| equal-weight grids and rails | a focus state: the tile or segment being spoken takes the accent and the rest step back, so a three-second hold is still a new arrangement every second |
+| headlines inside a narrow region | a `statement` region across 86% of the frame, so a sentence is set like a title, not a paragraph |
+
+Two of those changes needed the gates to argue with me. Removing the card cost
+the film its motion: the first attempt after it measured 0.66 mean delta against
+a floor of 1.2, with 41% near-static frames and only 20 arrangements in a minute -
+a slideshow, exactly what the card had been hiding. Removing the card was right;
+removing the *tonal variation* was wrong. The sweep and the per-beat field put it
+back: 1.29 mean delta, 9% near-static, 92 arrangements, longest hold 3.0 s.
+
+The lesson is in the numbers rather than in the taste: on a pale, sparse film,
+large low-contrast areas that move are what the motion measurement can see, and
+they are also what makes the frame feel alive. A card was doing that job by
+accident.

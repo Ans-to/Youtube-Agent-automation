@@ -71,6 +71,12 @@
       "y": 0.3,
       "w": 0.88,
       "h": 0.34
+    },
+    "statement": {
+      "x": 0.07,
+      "y": 0.3,
+      "w": 0.86,
+      "h": 0.32
     }
   },
   "situations": {
@@ -208,7 +214,8 @@
       ],
       "regions": [
         "title",
-        "hero"
+        "hero",
+        "statement"
       ],
       "cost": "low",
       "sample": {

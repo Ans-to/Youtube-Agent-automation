@@ -925,6 +925,11 @@ function propsForBeat(section, beat, beatCount, palette) {
  * All three are pure functions of the section clock, so the render is still
  * deterministic, and all three sit outside every template's region.
  */
+/** The colour of the light that sweeps the ground, per palette. */
+function tint0(palette) {
+  return palette.dark ? '255,255,255' : '255,255,255';
+}
+
 function secondUnit(ctx, section, sectionLocal, palette) {
   const t = sectionLocal;
 
@@ -954,31 +959,45 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   ctx.stroke();
   ctx.restore();
 
-  // A cursor crossing the frame: a narrow, definite line rather than a wash. It
-  // reads as the picture being measured, which is what the film is doing.
-  const cursorPass = ((t / 2.2) % 1);
+  // A soft column of light crossing the frame, with a measuring line at its
+  // leading edge. It runs *behind* the artwork, so it lights the ground the
+  // diagram sits on instead of slicing the diagram - which is what the old
+  // over-the-top version did, and it was the single worst thing in the picture.
+  // Two passes, one wide and one narrow, at different speeds, so the sweep never
+  // lands in the same place twice.
+  const passes = [
+    { period: 1.5, width: 0.58, alpha: 0.22, accent: false },
+    { period: 2.4, width: 0.22, alpha: 0.24, accent: true },
+  ];
+  passes.forEach((pass) => {
+    const at = (t / pass.period) % 1;
+    const x = -W * 0.30 + at * W * 1.6;
+    ctx.save();
+    const gradient = ctx.createLinearGradient(x - W * pass.width, 0, x + W * pass.width, 0);
+    gradient.addColorStop(0, pass.accent ? 'rgba(180,118,42,0)' : `rgba(${tint0(palette)},0)`);
+    gradient.addColorStop(0.5, pass.accent
+      ? `rgba(180,118,42,${pass.alpha})`
+      : `rgba(${tint0(palette)},${pass.alpha})`);
+    gradient.addColorStop(1, pass.accent ? 'rgba(180,118,42,0)' : `rgba(${tint0(palette)},0)`);
+    ctx.globalAlpha = ctx.globalAlpha;
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x - W * pass.width, 0, W * pass.width * 2, H);
+    ctx.restore();
+  });
+
+  const cursorPass = ((t / 2.0) % 1);
   const cursorX = -W * 0.05 + cursorPass * W * 1.1;
   ctx.save();
-  // The cursor carries a soft column of light with it, so the pass reads as a
-  // sweep of the field rather than as a wire crossing the frame - and it is the
-  // contrast that keeps the frame difference honest.
-  const halo = ctx.createLinearGradient(cursorX - W * 0.16, 0, cursorX + W * 0.04, 0);
-  halo.addColorStop(0, 'rgba(18,35,63,0)');
-  halo.addColorStop(0.75, palette.dark ? 'rgba(255,255,255,0.12)' : 'rgba(18,35,63,0.155)');
-  halo.addColorStop(1, 'rgba(18,35,63,0)');
-  ctx.globalAlpha = ctx.globalAlpha * 0.9;
-  ctx.fillStyle = halo;
-  ctx.fillRect(cursorX - W * 0.16, 0, W * 0.20, H);
-  ctx.globalAlpha = ctx.globalAlpha * 0.34;
+  ctx.globalAlpha = ctx.globalAlpha * 0.35;
   ctx.fillStyle = palette.accent;
-  ctx.fillRect(cursorX, H * 0.055, W * 0.0035, H * 0.89);
+  ctx.fillRect(cursorX, H * 0.10, Math.max(3, W * 0.0035), H * 0.72);
   ctx.restore();
 
   const bloomX = W * (0.42 + 0.20 * Math.cos((t / 3.1) * Math.PI * 2));
   const bloomY = H * (0.40 + 0.16 * Math.sin((t / 2.3) * Math.PI * 2));
   const bloom = ctx.createRadialGradient(bloomX, bloomY, 0, bloomX, bloomY, W * 0.38);
   const tint = palette.dark ? '255,255,255' : '255,255,255';
-  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.10 : 0.33})`);
+  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.14 : 0.42})`);
   bloom.addColorStop(1, `rgba(${tint},0)`);
   ctx.save();
   ctx.fillStyle = bloom;
@@ -986,19 +1005,19 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   ctx.restore();
 
   // A soft accent band crossing the frame, one pass every 2.1 s.
-  const pass = ((t / 1.7) % 1);
+  const pass = ((t / 1.25) % 1);
   const bandX = -W * 0.35 + pass * W * 1.7;
-  const grad = ctx.createLinearGradient(bandX, 0, bandX + W * 0.30, H * 0.18);
+  const grad = ctx.createLinearGradient(bandX, 0, bandX + W * 0.24, H * 0.18);
   grad.addColorStop(0, 'rgba(180,118,42,0)');
-  grad.addColorStop(0.5, palette.dark ? 'rgba(242,194,48,0.12)' : 'rgba(180,118,42,0.16)');
+  grad.addColorStop(0.5, palette.dark ? 'rgba(242,194,48,0.14)' : 'rgba(180,118,42,0.15)');
   grad.addColorStop(1, 'rgba(180,118,42,0)');
   ctx.save();
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.moveTo(bandX, H * 0.10);
-  ctx.lineTo(bandX + W * 0.16, H * 0.02);
-  ctx.lineTo(bandX + W * 0.46, H * 0.86);
-  ctx.lineTo(bandX + W * 0.30, H * 0.94);
+  ctx.moveTo(bandX, H * 0.16);
+  ctx.lineTo(bandX + W * 0.09, H * 0.10);
+  ctx.lineTo(bandX + W * 0.34, H * 0.80);
+  ctx.lineTo(bandX + W * 0.25, H * 0.86);
   ctx.closePath();
   ctx.fill();
   ctx.restore();
@@ -1054,6 +1073,109 @@ function secondUnit(ctx, section, sectionLocal, palette) {
     ctx.fillRect(x, y, size, size);
     ctx.restore();
   }
+}
+
+/**
+ * The ambient architecture: large shapes that give every frame a structure.
+ *
+ * A diagram beat has its own geometry. A statement beat had nothing but a line of
+ * type in an empty field, which is why the film read as text on a background even
+ * after the diagrams arrived. Each section now carries two or three big, quiet
+ * forms behind the artwork - a ring, an arc, a plate, a dotted field - chosen from
+ * the section index so every chapter has a different silhouette and no two
+ * chapters look like the same slide.
+ *
+ * They are drawn from the section's clock, so they move through the beats instead
+ * of restarting on each one, and at four to seven percent opacity they are felt
+ * before they are seen. Nothing rotates fast, nothing pulses, nothing shakes: the
+ * drift is one direction, at about a hundredth of the frame per second.
+ */
+function ambientArt(ctx, section, sectionLocal, palette) {
+  const t = sectionLocal;
+  const ink = palette.ink;
+  const accent = palette.accent;
+  const alpha = (value) => { ctx.globalAlpha = ctx.globalAlpha * value; };
+  const families = [
+    // A ring and an arc: the film's measuring motif, off the right edge.
+    () => {
+      const cx = W * (0.84 + 0.03 * Math.sin(t * 0.21));
+      const cy = H * (0.34 + 0.012 * Math.cos(t * 0.17));
+      ctx.save();
+      ctx.strokeStyle = ink;
+      alpha(0.09);
+      ctx.lineWidth = W * 0.012;
+      ctx.beginPath();
+      ctx.arc(cx, cy, W * 0.20, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.strokeStyle = accent;
+      alpha(0.32);
+      ctx.lineWidth = W * 0.005;
+      ctx.beginPath();
+      ctx.arc(cx, cy, W * 0.20, -Math.PI * 0.5 + t * 0.12, Math.PI * 0.1 + t * 0.12);
+      ctx.stroke();
+      ctx.restore();
+    },
+    // Two plates crossing: a diptych behind the sentence.
+    () => {
+      ctx.save();
+      ctx.translate(W * (0.74 + 0.008 * Math.sin(t * 0.13)), H * 0.30);
+      ctx.rotate(-0.32 + 0.012 * Math.sin(t * 0.11));
+      ctx.fillStyle = ink;
+      alpha(0.085);
+      ctx.fillRect(-W * 0.11, -H * 0.30, W * 0.22, H * 0.60);
+      ctx.fillStyle = accent;
+      alpha(0.22);
+      ctx.fillRect(W * 0.02, -H * 0.22, W * 0.05, H * 0.44);
+      ctx.restore();
+    },
+    // A dotted field with a hard rule through it: the ledger motif.
+    () => {
+      ctx.save();
+      ctx.fillStyle = ink;
+      alpha(0.18);
+      for (let i = 0; i < 90; i += 1) {
+        const seed = ((i * 2654435761) % 1000) / 1000;
+        const x = W * (0.62 + ((seed * 613) % 1000) / 1000 * 0.36);
+        const y = H * (0.14 + ((seed * 977) % 1000) / 1000 * 0.62) + Math.sin(t * 0.4 + i) * H * 0.004;
+        const size = Math.max(1.5, H * (0.002 + seed * 0.003));
+        ctx.fillRect(x, y, size, size);
+      }
+      ctx.fillStyle = accent;
+      alpha(0.26);
+      ctx.fillRect(W * 0.70, H * (0.16 + 0.02 * Math.sin(t * 0.15)), W * 0.0016, H * 0.52);
+      ctx.restore();
+    },
+    // Stacked bars: the measure motif, half off the frame.
+    () => {
+      ctx.save();
+      const base = H * 0.60;
+      for (let i = 0; i < 5; i += 1) {
+        const level = 0.35 + 0.3 * Math.abs(Math.sin(t * 0.18 + i * 0.9));
+        const h = H * 0.26 * level;
+        ctx.fillStyle = i % 2 ? accent : ink;
+        alpha(i % 2 ? 0.24 : 0.10);
+        ctx.fillRect(W * (0.80 + i * 0.042), base - h, W * 0.028, h);
+      }
+      ctx.restore();
+    },
+  ];
+  const chosen = [
+    families[section.index % families.length],
+    families[(section.index + 2) % families.length],
+  ];
+  // A slow push across the section, no camera involved: the whole ambient layer
+  // grows by six percent and slides a little, so every frame of a beat differs
+  // from the one before it over a large area. It is the difference between a
+  // still image with a light on it and a picture that is alive. One direction,
+  // bounded, never reversing, and no shake.
+  const push = 1 + 0.06 * clamp(t / Math.max(0.001, section.seconds));
+  ctx.save();
+  ctx.translate(W * 0.5, H * 0.5);
+  ctx.scale(push, push);
+  ctx.translate(-W * 0.5 - W * 0.012 * clamp(t / Math.max(0.001, section.seconds)), -H * 0.5);
+  chosen.forEach((draw) => draw());
+  ctx.restore();
+  ctx.globalAlpha = 1;
 }
 
 /**
@@ -1123,34 +1245,75 @@ function motionField(ctx, section, sectionLocal, palette) {
 }
 
 /**
- * The plate a beat sits on, and the block that marks which beat it is.
+ * The ground a beat stands on.
  *
- * Without them the film is pale type on a pale field, and at any distance that
- * is one continuous image: the composition gate measured a seventeen-second
- * "arrangement" across seven different beats, which is exactly what a viewer
- * would also see. The plate gives each beat an edge, and the block walks around
- * the four corners with the beat index, so consecutive beats never share a
- * silhouette even when they share a template.
+ * This used to be a white rounded card behind every picture, which made a
+ * full-frame film look like a slide deck: the artwork sat in a box and the frame
+ * around it was dead. There is no card any more. What replaces it is a ground
+ * the artwork is *on*:
+ *
+ *   - a twelve-column grid, drawn as hairlines at six percent opacity. Barely
+ *     visible, and the reason the diagrams line up with each other;
+ *   - a horizon across the frame at the height a chart's baseline sits, which
+ *     the rail and the dial both key to;
+ *   - the beat block, which still walks the four corners so consecutive beats
+ *     never share a silhouette.
+ *
+ * All of it sits below the contrast of the artwork, so nothing competes with the
+ * sentence being said.
  */
 function beatPlate(ctx, shot, section, beatLocal) {
-  const arrive = span(beatLocal, 0, 0.26);
+  const arrive = span(beatLocal, 0, 0.34);
   const palette = section.palette;
-  const region = REGIONS[shot.region];
-  const pad = W * 0.022;
-  const box = {
-    x: region.x * W - pad,
-    y: region.y * H - pad * 0.6,
-    w: region.w * W + pad * 2,
-    h: region.h * H + pad * 1.2,
-  };
+  const ink = palette.dark ? '255,255,255' : '18,35,63';
+  const margin = W * 0.055;
+  const settle = 1 - (1 - clamp(arrive)) ** 3;
+
   ctx.save();
-  ctx.globalAlpha = ctx.globalAlpha * 0.62 * arrive;
-  roundRect(ctx, box.x, box.y, box.w, box.h, W * 0.012);
-  ctx.fillStyle = palette.dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.66)';
-  ctx.fill();
+  ctx.globalAlpha = ctx.globalAlpha * 0.032 * settle;
+  ctx.fillStyle = `rgba(${ink},1)`;
+  const columns = 12;
+  for (let i = 1; i < columns; i += 1) {
+    const x = margin + ((W - margin * 2) * i) / columns;
+    ctx.fillRect(x, H * 0.10, Math.max(1, W * 0.0006), H * 0.72);
+  }
   ctx.restore();
 
-  // The block: its corner follows the beat, and it slides in with the plate.
+  // The horizon: the line every chart in the film hangs from.
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * 0.12 * settle;
+  ctx.fillStyle = `rgba(${ink},1)`;
+  ctx.fillRect(margin, H * 0.655, (W - margin * 2) * settle, Math.max(1, H * 0.0013));
+  ctx.restore();
+
+  // A tonal field, one per beat, bleeding off an edge of the frame.
+  //
+  // This is what replaced the white card, and it has to do the card's job
+  // without the card's look: a large area of the frame that changes on every
+  // beat, so no two beats share a composition and the picture keeps moving.
+  // It bleeds past the frame edge on purpose - a panel with all four corners
+  // visible is a card; a panel that runs off the frame is a shadow on the ground.
+  const fields = [
+    { x: -0.30, y: -0.10, w: 0.46, h: 0.92, from: -1 },
+    { x: 0.86, y: 0.02, w: 0.42, h: 0.92, from: 1 },
+    { x: 0.10, y: 0.86, w: 0.72, h: 0.34, from: -1 },
+    { x: -0.34, y: 0.04, w: 0.34, h: 0.96, from: 1 },
+  ];
+  const field = fields[shot.beatIndex % fields.length];
+  const enter = span(beatLocal, 0, 0.55);
+  const fieldSettle = 1 - (1 - clamp(enter)) ** 3;
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * 0.05 * fieldSettle;
+  const fieldX = W * (field.x + field.from * ((1 - fieldSettle) * 0.05 + beatLocal * 0.010));
+  const gradient = ctx.createLinearGradient(fieldX, H * field.y, fieldX + W * field.w, H * (field.y + field.h));
+  gradient.addColorStop(0, `rgba(${ink},0.95)`);
+  gradient.addColorStop(0.55, `rgba(${ink},0.35)`);
+  gradient.addColorStop(1, `rgba(${ink},0)`);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(fieldX, H * field.y, W * field.w, H * field.h);
+  ctx.restore();
+
+  // The block: its corner follows the beat, and it slides in with the ground.
   const corners = [
     [0.055, 0.115], [0.845, 0.115], [0.055, 0.705], [0.845, 0.705],
   ];
@@ -1176,6 +1339,12 @@ function paint(target, shot, at) {
   target.clearRect(0, 0, W, H);
   drawField(target, { w: W, h: H, t: sectionLocal + section.start * 0.17, palette: section.palette });
 
+  // Ambient motion first, artwork on top. The second unit used to be painted
+  // after the template, so its travelling line ran straight through the dial and
+  // the rail - a scanner cutting the picture in half.
+  ambientArt(target, section, sectionLocal, section.palette);
+  motionField(target, section, sectionLocal, section.palette);
+  secondUnit(target, section, sectionLocal, section.palette);
   beatPlate(target, shot, section, beatLocal);
 
   // A template that builds rows animates *within* its picture: the row slides in,
@@ -1195,8 +1364,6 @@ function paint(target, shot, at) {
   });
   target.restore();
 
-  motionField(target, section, sectionLocal, section.palette);
-  secondUnit(target, section, sectionLocal, section.palette);
   chrome(target, shot, sectionLocal);
   captions(target, section, sectionLocal, shot);
   if (Math.abs(target.globalAlpha - 1) > 1e-6) {

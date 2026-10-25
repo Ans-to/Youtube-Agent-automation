@@ -122,6 +122,7 @@ function label(ctx, value, x, y, { size, colour, align = 'left', tracking = 1.5,
  */
 function forkPaths(ctx, {
   box, local, seconds, left = '', right = '', colour = UI.white, accent = UI.gold,
+  leftColour = null, rightColour = null,
 }) {
   const midY = box.y + box.h * 0.50;
   const sourceW = box.w * 0.18;
@@ -131,20 +132,45 @@ function forkPaths(ctx, {
   const endX = box.x + box.w * 0.58;
   const endW = box.w * 0.38;
   const endH = box.h * 0.22;
-  const topY = box.y + box.h * 0.02;
-  const bottomY = box.y + box.h * 0.66;
+  const topY = box.y + box.h * 0.06;
+  const bottomY = box.y + box.h * 0.62;
   const draw = ease.outCubic(clamp(local / Math.min(0.9, seconds * 0.4)));
 
-  // The source: a stack of three short bars, the thing being decided about.
-  slab(ctx, { ...source, r: 16, fill: tint(0.06), stroke: hair(0.2), alpha: span(local, 0, 0.22) });
+  // The source: a diamond with the two branch edges leaving its points. A
+  // rounded box says "card"; a diamond says "a decision is made here", which is
+  // what the sentence is about, and it is what makes the drawing read as a
+  // diagram rather than as two labels with a line between them.
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * span(local, 0, 0.24);
+  const dw = source.w * 0.52;
+  const dh = source.h * 0.58;
+  const dcx = source.x + source.w * 0.5;
+  ctx.beginPath();
+  ctx.moveTo(dcx - dw, midY);
+  ctx.lineTo(dcx, midY - dh);
+  ctx.lineTo(dcx + dw, midY);
+  ctx.lineTo(dcx, midY + dh);
+  ctx.closePath();
+  ctx.fillStyle = tint(0.08);
+  ctx.fill();
+  ctx.strokeStyle = hair(0.4);
+  ctx.lineWidth = Math.max(2, box.h * 0.006);
+  ctx.stroke();
+  // Three bars inside it: the diff being decided about.
+  ctx.fillStyle = colour;
   for (let i = 0; i < 3; i += 1) {
-    const appear = span(local, 0.06 + i * 0.05, 0.16 + i * 0.05);
-    slab(ctx, {
-      x: source.x + source.w * 0.16, y: source.y + source.h * (0.24 + i * 0.2),
-      w: source.w * (0.62 - i * 0.1), h: source.h * 0.09, r: 4,
-      fill: colour, alpha: appear * 0.55,
-    });
+    ctx.globalAlpha = ctx.globalAlpha * 0;
   }
+  ctx.restore();
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * span(local, 0.06, 0.30);
+  ctx.fillStyle = colour;
+  for (let i = 0; i < 3; i += 1) {
+    const w = dw * (0.9 - i * 0.2);
+    ctx.globalAlpha = ctx.globalAlpha;
+    ctx.fillRect(dcx - w / 2, midY - dh * 0.42 + i * dh * 0.30, w, Math.max(2, dh * 0.10));
+  }
+  ctx.restore();
 
   [0, 1].forEach((branch) => {
     const y = branch === 0 ? topY : bottomY;
@@ -191,10 +217,11 @@ function forkPaths(ctx, {
     const x = endX + (1 - e) * box.w * 0.04;
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * e;
+    const terminal = branch === 0 ? (leftColour || accent) : (rightColour || colour);
     if (branch === 0) {
       // Closed: a solid block, shut. The tick says the branch ends here.
       slab(ctx, { x, y: y - endH / 2, w: endW, h: endH, r: 12, fill: tint(0.12), stroke: hair(0.34) });
-      slab(ctx, { x: x + endW * 0.72, y: y - endH * 0.34, w: endW * 0.22, h: endH * 0.68, r: 6, fill: accent });
+      slab(ctx, { x: x + endW * 0.72, y: y - endH * 0.34, w: endW * 0.22, h: endH * 0.68, r: 6, fill: terminal });
       ctx.save();
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = Math.max(3, endH * 0.09);
@@ -225,7 +252,7 @@ function forkPaths(ctx, {
       });
       ctx.save();
       ctx.globalAlpha = ctx.globalAlpha * 0.7;
-      ctx.strokeStyle = colour;
+      ctx.strokeStyle = terminal;
       ctx.lineWidth = Math.max(3, endH * 0.06);
       ctx.beginPath();
       ctx.moveTo(x + endW * 0.52, y);
@@ -284,19 +311,32 @@ function matrixGrid(ctx, {
   ctx.fillRect(box.x, top + tileH * gridRows + gapY * 0.4, box.w * spineP, Math.max(2, box.h * 0.008));
   ctx.restore();
 
+  // Which tile the narration is on. The grid is not three equal cards: the tile
+  // being spoken is lifted and inked, the ones already spoken have stepped back,
+  // and the ones not yet said are waiting. That focus shift is what makes a
+  // three-second hold on a grid still be a new arrangement every second.
+  let active = 0;
   rows.forEach((row, i) => {
     const at = typeof row.at === 'number' ? row.at : (seconds * 0.55) * (i / Math.max(count, 1));
-    const p = span(local, at, at + Math.min(0.5, seconds * 0.24));
+    if (local >= at) active = i;
+  });
+  rows.forEach((row, i) => {
+    const at = typeof row.at === 'number' ? row.at : (seconds * 0.55) * (i / Math.max(count, 1));
+    const p = Math.min(1, span(local, at, at + Math.min(0.5, seconds * 0.24)));
     if (p <= 0) return;
     const e = ease.outCubic(p);
     const { x, y } = positions[i];
     const lift = (1 - e) * tileH * 0.22;
+    // Spoken tiles stay at full strength - a recap is three things, not one
+    // thing and two ghosts. The tile being spoken is the one that takes the
+    // accent, and it hands the accent on as the narration moves.
+    const focus = i === active ? 1 : 0.9;
     ctx.save();
-    ctx.globalAlpha = ctx.globalAlpha * clamp(p * 1.6);
+    ctx.globalAlpha = ctx.globalAlpha * clamp(p * 1.6) * focus;
     slab(ctx, {
       x, y: y + lift, w: tileW, h: tileH, r: 18,
-      fill: i === rows.length - 1 ? 'rgba(180,118,42,0.12)' : 'rgba(255,255,255,0.55)',
-      stroke: i === rows.length - 1 ? accent : hair(0.22),
+      fill: i === active ? 'rgba(180,118,42,0.14)' : 'rgba(255,255,255,0.55)',
+      stroke: i === active ? accent : hair(0.22),
     });
     // The number chip, set in the corner like a plate number.
     const chip = Math.min(tileW, tileH) * 0.20;
@@ -495,22 +535,36 @@ function budgetRail(ctx, {
 
   let cursor = x0;
   let lastAt = 0;
+  let activeIndex = 0;
+  rows.forEach((row, i) => {
+    if (typeof row.at === 'number' && local >= row.at) activeIndex = i;
+  });
   rows.forEach((row, i) => {
     const width = (usable * (Number(row.value) || 0)) / scale;
     const at = typeof row.at === 'number' ? row.at : 0;
     lastAt = at;
-    const p = span(local, at, at + Math.min(0.55, Math.max(0.3, (seconds * 0.6) / rows.length)));
+    const p = Math.min(1, span(local, at, at + Math.min(0.55, Math.max(0.3, (seconds * 0.6) / rows.length))));
     if (p <= 0) { cursor += width; return; }
     const e = ease.outCubic(p);
-    const h = railH * (0.72 + (i % 2) * 0.24);
+    // The segment being spoken is the tallest thing on the rail; the others sit
+    // back. Listening to the narration and watching the bar agree is the point.
+    const nextAt = rows[i + 1] && typeof rows[i + 1].at === 'number' ? rows[i + 1].at : Infinity;
+    const isActive = local >= at && local < nextAt;
+    const h = railH * (isActive ? 1.0 : 0.68);
     const y = railY + railH - h;
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * clamp(p * 2.2);
-    // Grown from the left: the block takes its part of the rail.
+    // Grown from the left: the block takes its part of the rail. Spoken
+    // segments are the accent and unspoken ones are a grey outline, so the rail
+    // reads as how far the minute has been spent, as well as how it is divided.
+    // The biggest share keeps the accent - it is what the sentence is about -
+    // and the segment being spoken is inked in, so the rail reads as a division
+    // of the minute and as where the narration has got to, without either one
+    // washing the other out.
     slab(ctx, {
       x: cursor, y, w: Math.max(4, width * e), h, r: 10,
-      fill: i === 0 ? accent : tint(0.30 + Math.min(0.34, (i - 1) * 0.12)),
-      alpha: i === 0 ? 0.92 : 1,
+      fill: i === 0 ? accent : tint(isActive ? 0.52 : 0.30),
+      alpha: i === 0 ? 0.95 : 1,
     });
     const value = Math.round(Number(row.value) || 0);
     text(ctx, String(value), cursor + width * 0.5, y - box.h * 0.055, {

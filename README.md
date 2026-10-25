@@ -12,16 +12,17 @@ neural voice over, a music bed, burned-in captions, and the numbers that say
 whether the result is worth publishing.
 
 **▶ [How to Review AI-Written Code in 60 Seconds](docs/media/review-ai-code-720p.mp4)** —
-0:59, 1280×720, 30 fps, 7.7 MB, Kokoro-82M narration, subtitles in
+0:59, 1280×720, 30 fps, 9.6 MB, Kokoro-82M narration, subtitles in
 [review-ai-code.srt](docs/media/review-ai-code.srt). Every gate passed on it:
 motion, composition, holds, narration and all eighteen craft rules.
 
-It is built from shapes, not sentences. The fork for *rubber stamp or rewrite*,
-the grid of three checks, the dial for sixty seconds, the rail divided 40/10/10,
-the console that types `npm test` — each one arrives as its own sentence is
-spoken, and nothing is printed that the narration does not say. Six of the nine
-sections are diagrams; the other three are the opening claim, the payoff and the
-closing line, which are statements and stay as type. **[The plan beside the film](docs/media/review-ai-code-plan.json)**
+It is built from shapes, not sentences. A diamond decision node forking into
+*rubber stamp* or *rewrite the whole thing*, a grid of three checks that takes
+the accent in turn, a dial for sixty seconds, a rail divided 40/10/10, a console
+that types `npm test`, and the same fork again for *green means merge / red means
+send it back*. Seven of the nine sections are diagrams. Each arrives as its own
+sentence is spoken, nothing is printed that the narration does not say, and the
+picture keeps a slow push and a light sweep behind it so no frame is dead. **[The plan beside the film](docs/media/review-ai-code-plan.json)**
 records what every beat draws. Voice: **[the two reads back to back](docs/media/voice-ab.mp4)**.
 
 There is no API key anywhere in it and nothing to pay for. The voice is
