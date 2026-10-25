@@ -221,6 +221,47 @@ class DeliveryLevelTests(unittest.TestCase):
             if result["status"] == "corrected":
                 self.assertLess(abs(result["lufs"] - render_authored_film.TARGET_LUFS), 1.5)
 
+    def test_a_24k_mix_is_mastered_at_48k_and_lands_on_the_target(self):
+        """The stems speak at 24 kHz; the upload must not.
+
+        A 24 kHz bed limited near full scale turns into inter-sample peaks above
+        0 dBFS the moment an encoder resamples it, loudnorm refuses to lift it,
+        and the film ships half a decibel quiet. This checks the master pass ends
+        at 48 kHz stereo, on the target, under the true-peak ceiling.
+        """
+        import wave
+        import numpy as np
+        ffmpeg = self._ffmpeg()
+        if not ffmpeg:
+            self.skipTest("FFmpeg is not installed")
+        sys.path.insert(0, str(ROOT / "tools"))
+        import render_authored_film
+
+        with tempfile.TemporaryDirectory() as tmp:
+            mix = Path(tmp) / "mix.wav"
+            rate = 24000
+            time_axis = np.arange(int(rate * 5)) / rate
+            # A dense, peaky bed: a tone with a pulse, close to full scale.
+            signal = 0.94 * np.sin(2 * np.pi * 220 * time_axis) * (0.6 + 0.4 * np.sin(2 * np.pi * 3 * time_axis))
+            with wave.open(str(mix), "wb") as handle:
+                handle.setnchannels(1)
+                handle.setsampwidth(2)
+                handle.setframerate(rate)
+                handle.writeframes((signal * 32767).astype("<i2").tobytes())
+
+            result = render_authored_film.master_audio(mix, ffmpeg)
+            self.assertEqual(result["status"], "mastered")
+            self.assertEqual(result["sample_rate"], 48000)
+            self.assertEqual(result["channels"], 2)
+            self.assertLessEqual(abs(result["lufs"] - render_authored_film.TARGET_LUFS), 1.0,
+                                 "mastered to %.1f LUFS" % result["lufs"])
+            self.assertLessEqual(result["true_peak_db"], render_authored_film.TARGET_TRUE_PEAK,
+                                 "true peak %.2f dBFS" % result["true_peak_db"])
+
+            with wave.open(result["path"], "rb") as handle:
+                self.assertEqual(handle.getframerate(), 48000)
+                self.assertEqual(handle.getnchannels(), 2)
+
 
 if __name__ == "__main__":
     unittest.main()

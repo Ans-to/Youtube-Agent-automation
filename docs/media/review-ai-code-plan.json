@@ -6,7 +6,7 @@
     "promise": "You will review AI-written code in about a minute, before it ships.",
     "hookType": "result",
     "thumbnail": {
-      "line": "60 SECOND REVIEW",
+      "line": "AI CODE REVIEW",
       "section": "number"
     }
   },

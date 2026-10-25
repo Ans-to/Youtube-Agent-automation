@@ -303,7 +303,11 @@ function matrixGrid(ctx, {
   // Tiles are a card, not a wall: capped in height and centred in the region, so
   // a wide region gives a row of tiles with air around them rather than three
   // tall empty panels.
-  const tileH = Math.min((box.h - gapY * (gridRows - 1)) / gridRows, box.h * 0.62);
+  // Tiles fill most of the region's height. At 62% of it, a three-column row on a
+  // 1080p frame left the cards 228 px tall with 35 px labels - readable on a
+  // monitor, a caption-sized blur on a phone. The cards are the picture; let them
+  // be the picture.
+  const tileH = Math.min((box.h - gapY * (gridRows - 1)) / gridRows, box.h * 0.76);
   const top = box.y + (box.h - (tileH * gridRows + gapY * (gridRows - 1))) / 2;
   const positions = rows.map((row, i) => ({
     x: box.x + (i % columns) * (tileW + gapX),
@@ -386,8 +390,8 @@ function matrixGrid(ctx, {
 
     const value = row.name ?? row.text ?? '';
     labelBlock(ctx, value, x + tileW * 0.06, y + lift + tileH * 0.46, {
-      maxWidth: tileW * 0.86, cap: tileH * 0.155, minSize: 20, colour, align: 'left', max: 3,
-      lineGap: 1.10,
+      maxWidth: tileW * 0.84, cap: tileH * 0.18, minSize: 20, colour, align: 'left', max: 3,
+      lineGap: 1.08,
     });
     ctx.restore();
   });
@@ -482,14 +486,19 @@ function ringGauge(ctx, {
     });
   }
 
-  // The scale, written around the dial: zero, half, full. A gauge without a scale
-  // is an ornament; the three numbers are what make it a measurement.
-  [[0, '0'], [0.5, String(Math.round(value / 2))], [1, String(value)]].forEach(([fraction, text0]) => {
+  // The scale, written around the dial: half and full.
+  //
+  // There used to be three labels, and the first one was printed on top of the
+  // last: a full turn starts and ends at the top of the ring, so "0" and "60"
+  // landed in the same place as two illegible specks. What is left is the two
+  // number a viewer can actually use - halfway, and the whole - set at a size
+  // that survives being scaled down to a phone.
+  [[0.5, String(Math.round(value / 2))], [1, String(value)]].forEach(([fraction, text0]) => {
     const a = -Math.PI * 0.5 + Math.PI * 2 * fraction;
-    const rr = r + r * 0.18;
+    const rr = r + r * 0.20;
     const on = sweep >= fraction - 0.02;
-    label(ctx, text0, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr + r * 0.05, {
-      size: Math.round(r * 0.13), colour: on ? accent : tint(0.45), align: 'center', tracking: 1,
+    label(ctx, text0, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr + r * 0.07, {
+      size: Math.round(r * 0.19), colour: on ? accent : tint(0.45), align: 'center', tracking: 1,
       alpha: on ? 0.95 : 0.6,
     });
   });

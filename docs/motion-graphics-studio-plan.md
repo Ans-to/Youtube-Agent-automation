@@ -239,15 +239,15 @@ deterministic: the same script renders the same audio every time.
 ### Measured on the delivered file
 
 `docs/media/review-ai-code-720p.mp4`: 0:59, 1280x720, 30 fps, Kokoro
-`am_michael`, 10.0 MB.
+`am_michael`, 10.3 MB, 48 kHz stereo.
 
 | Gate | Result |
 | --- | --- |
-| motion | PASSED - mean frame delta 1.32, 2.1% near-static (limit 15%) |
-| composition | PASSED - 49 arrangements, longest 3.5 s (limit 12 s) |
+| motion | PASSED - mean frame delta 1.28, 13.4% near-static (limit 15%) |
+| composition | PASSED - 65 arrangements, longest 2.0 s (limit 12 s) |
 | holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
-| narration | PASSED - 144 words per minute, 11.2 audible rests per minute |
-| delivery level | -14.7 LUFS, true peak -1.7 dBFS |
+| narration | PASSED - 150 words per minute, 12.1 audible rests per minute |
+| delivery level | -14.2 LUFS, true peak -1.7 dBFS, 48 kHz stereo |
 | craft | PASSED - 18/18 rules |
 | first claim | 0.12 s (was 0.87 s) |
 
@@ -506,3 +506,66 @@ which shifted every heading by one - the chapter called "How the minute is spent
 was timed to the three checks. The plan's own `sections` array is now the only
 source of timing; `tests/test_upload_pack.py` checks each chapter against a real
 section start and against the floor.
+
+## 17. Taking things out, and what that cost
+
+The last round added. This one removed, and every removal had to be paid for.
+
+**Three progress bars became one.** The chapter rule across the top fills as the
+section runs. Underneath it, two other layers had each grown their own copy: a
+rail of ticks in the bottom-left of the second unit, and another rail in the
+motion field. At 720p they were two stray dashes in an empty corner, and they
+said exactly what the rule said. They are gone; the rule keeps the job, and the
+beat that is playing now marks its own start on it - a tick standing proud of the
+line. One timeline, and every mark on it means something.
+
+**The scanner went.** A full-height accent bar crossed the frame every 1.15 s,
+and a gold parallelogram swept it at an angle. Behind a diagram they read as a
+scanner passing over the picture, and on a beat whose subject is already gold -
+the dial, the rail - they were a third gold object arguing with the one the
+sentence was about. What is left is light: two soft columns, a moving bloom, and
+the section's own ambient layer.
+
+**The dots were not scattered.** The scattered fields were built as
+`(seed * 977 + i * 61) % 1000`, which is not a hash. Multiplying one seed by two
+large primes and taking a modulus puts the results on a lattice, and the "dust"
+came out as dotted diagonals - visible in the ring gauge chapter as a dirty
+streak down the right of the frame. A real hash fixed it, and the field now looks
+like what it is.
+
+**The dial was printing two numbers in the same place.** A full turn starts and
+ends at the top, so the scale's "0" and "60" landed on the same pixel as two
+illegible specks. Half and full are what a viewer can use; they are now set at a
+size that survives a phone.
+
+**The cards were the size of captions.** A three-tile row filled 62% of its
+region's height, which at 1080p meant 228 px cards with 35 px labels - fine on a
+monitor, a blur on a phone. At 76% the labels are 50 px and the type is the size
+of the type in the rest of the film.
+
+That is a lot of moving area removed, and the motion gate noticed: **1.01 mean
+frame delta, 21.5% near-static frames, FAILED**, against a floor of 1.2 and a
+ceiling of 15%. The temptation is to put the clutter back. The gate was paid
+instead with *speed*: the light sweeps run on 0.74 s and 1.22 s periods, the bloom
+on 2.35 s and 1.85 s, the ambient families drift at roughly twice their old rate,
+the whole ambient layer pushes 9.5% across a section instead of 6%, and the
+artwork dollies 8.5% instead of 5.5%. Same shapes, same contrast, more movement -
+**1.28 mean delta, 13.4% near-static, PASSED**, and composition improved on the
+way (65 arrangements, longest 2.0 s, against 49 and 3.5 s).
+
+### The audio was 24 kHz, and that is why it was quiet
+
+The stems are 24 kHz because the narrator speaks at 24 kHz, and the mix inherited
+a sample peak at -0.45 dBFS. Resampling that up to 48 kHz - which the encoder was
+doing, out of sight - puts inter-sample peaks about 1.5 dB above the samples, and
+loudnorm will not lift a file past its true-peak ceiling. So the delivered film
+sat at -14.7 LUFS when it was asked for -14.0, and every earlier pass was
+guessing at peaks that only exist between the samples.
+
+The mix is now mastered before it is encoded: limited on a four-times oversampled
+copy, dropped to 48 kHz stereo, then normalised in two passes from a measurement
+of the real file. The delivered file measures **-14.2 LUFS at -1.7 dBFS true
+peak**, and the audio a viewer gets is 48 kHz stereo instead of 24 kHz mono - a
+full octave of top end the encoder had been throwing away. The narration gate is
+also judged on the mix now rather than on the master, because a limiter's
+stereo fold-down reports rests the listener never hears.

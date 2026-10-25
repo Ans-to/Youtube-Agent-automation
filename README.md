@@ -12,7 +12,7 @@ neural voice over, a music bed, burned-in captions, and the numbers that say
 whether the result is worth publishing.
 
 **▶ [How to Review AI-Written Code in 60 Seconds](docs/media/review-ai-code-720p.mp4)** —
-0:59, 1280×720, 30 fps, 10.0 MB, Kokoro-82M narration, subtitles in
+0:59, 1280×720, 30 fps, 10.3 MB, Kokoro-82M narration at 48 kHz, subtitles in
 [review-ai-code.srt](docs/media/review-ai-code.srt). Every gate passed on it:
 motion, composition, holds, narration and all eighteen craft rules.
 

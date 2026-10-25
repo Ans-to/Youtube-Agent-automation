@@ -802,9 +802,13 @@ function captions(ctx, section, sectionLocal, shot) {
   // "the picture and the voice are not the same thing".
   const shown = new Set(shot && shot.shownText
     ? shot.shownText.split(/\s+/).map(bare).filter(Boolean) : []);
+  // The band starts at 0.865 of the frame and a two-line cue puts its second
+  // baseline near 0.95 - inside the strip YouTube covers with the progress bar,
+  // and outside the 90 percent title-safe box every broadcast caption obeys. The
+  // reserved band is unchanged for the library, but the type sits at its top.
   const band = RESERVED.caption;
   const x = band.x * W + W * 0.055;
-  const y = band.y * H + band.h * H * 0.34;
+  const y = band.y * H + band.h * H * 0.08;
   const size = Math.round(H * 0.0305);
   const step = size * 1.32;
   for (const line of section.lines) {
@@ -1007,6 +1011,21 @@ function rgb(value) {
   return nums ? nums.slice(0, 3).join(',') : '18,35,63';
 }
 
+/**
+ * A deterministic 0..1 hash.
+ *
+ * These used to be built as `(seed * 977 + i * 61) % 1000`, which is not a hash
+ * but a line: multiplying one seed by two large primes and taking a modulus makes
+ * the results fall on a lattice, and the "scattered" dot fields came out as
+ * dotted diagonals - visible in the ring gauge chapter as a dirty streak across
+ * the right of the frame. Anything that is meant to look scattered is placed with
+ * this instead.
+ */
+function hash01(n) {
+  const value = Math.sin(n * 127.1 + 311.7) * 43758.5453123;
+  return value - Math.floor(value);
+}
+
 /** The colour of the light that sweeps the ground, per palette. */
 function tint0(palette) {
   return palette.dark ? '255,255,255' : '255,255,255';
@@ -1094,8 +1113,8 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   // Two passes, one wide and one narrow, at different speeds, so the sweep never
   // lands in the same place twice.
   const passes = [
-    { period: 0.85, width: 0.26, alpha: 0.11, accent: false },
-    { period: 1.45, width: 0.15, alpha: 0.14, accent: true },
+    { period: 0.74, width: 0.30, alpha: 0.13, accent: false },
+    { period: 1.22, width: 0.18, alpha: 0.17, accent: true },
   ];
   passes.forEach((pass) => {
     const at = (t / pass.period) % 1;
@@ -1113,16 +1132,17 @@ function secondUnit(ctx, section, sectionLocal, palette) {
     ctx.restore();
   });
 
-  const cursorPass = ((t / 1.15) % 1);
-  const cursorX = -W * 0.05 + cursorPass * W * 1.1;
-  ctx.save();
-  ctx.globalAlpha = ctx.globalAlpha * 0.35;
-  ctx.fillStyle = palette.accent;
-  ctx.fillRect(cursorX, H * 0.10, Math.max(3, W * 0.0035), H * 0.72);
-  ctx.restore();
+  // Two effects used to live here and both were cut. A full-height accent bar
+  // marched across the frame every 1.15 s, and a gold parallelogram swept it at
+  // an angle; behind a diagram they read as a scanner passing over the picture,
+  // and on a beat whose subject is already gold - a dial, a rail - they were a
+  // third gold object competing with the one the sentence is about. The light
+  // still moves: the two soft columns above, the bloom below, the section's own
+  // ambient layer. What is gone is anything with a hard edge that is not the
+  // artwork.
 
-  const bloomX = W * (0.46 + 0.26 * Math.cos((t / 3.1) * Math.PI * 2));
-  const bloomY = H * (0.44 + 0.20 * Math.sin((t / 2.3) * Math.PI * 2));
+  const bloomX = W * (0.46 + 0.30 * Math.cos((t / 2.35) * Math.PI * 2));
+  const bloomY = H * (0.44 + 0.24 * Math.sin((t / 1.85) * Math.PI * 2));
   const bloom = ctx.createRadialGradient(bloomX, bloomY, 0, bloomX, bloomY, W * 0.38);
   const tint = palette.dark ? '255,255,255' : '255,255,255';
   bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.16 : 0.46})`);
@@ -1132,51 +1152,30 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   ctx.fillRect(0, 0, W, H);
   ctx.restore();
 
-  // A soft accent band crossing the frame, one pass every 2.1 s.
-  const pass = ((t / 1.25) % 1);
-  const bandX = -W * 0.35 + pass * W * 1.7;
-  const grad = ctx.createLinearGradient(bandX, 0, bandX + W * 0.24, H * 0.18);
-  grad.addColorStop(0, 'rgba(180,118,42,0)');
-  grad.addColorStop(0.5, palette.dark ? 'rgba(242,194,48,0.14)' : 'rgba(180,118,42,0.15)');
-  grad.addColorStop(1, 'rgba(180,118,42,0)');
-  ctx.save();
-  ctx.fillStyle = grad;
-  ctx.beginPath();
-  ctx.moveTo(bandX, H * 0.16);
-  ctx.lineTo(bandX + W * 0.09, H * 0.10);
-  ctx.lineTo(bandX + W * 0.34, H * 0.80);
-  ctx.lineTo(bandX + W * 0.25, H * 0.86);
-  ctx.closePath();
-  ctx.fill();
-  ctx.restore();
+  // Two effects used to live here and both were cut. A full-height accent bar
+  // marched across the frame every 1.15 s, and a gold parallelogram swept it at
+  // an angle; behind a diagram they read as a scanner passing over the picture,
+  // and on a beat whose subject is already gold - a dial, a rail - they were a
+  // third gold object competing with the one the sentence is about. The light
+  // still moves: the two soft columns above, the bloom below, the section's own
+  // ambient layer. What is gone is anything with a hard edge that is not the
+  // artwork.
+
   const baseY = H * 0.79;
   const x0 = W * 0.055;
 
-  // Ticks: one per line, filling across its own window.
-  const tickW = W * 0.016;
-  const tickGap = W * 0.006;
-  section.lines.forEach((line, i) => {
-    const filled = clamp((t - line.start) / Math.max(0.25, (line.end - line.start) * 0.85));
-    if (filled <= 0) return;
-    const height = H * (0.012 + 0.010 * filled);
-    ctx.save();
-    ctx.globalAlpha = ctx.globalAlpha * (0.30 + 0.35 * filled);
-    ctx.fillStyle = filled >= 1 ? palette.accent : palette.ink;
-    ctx.fillRect(x0 + i * (tickW + tickGap), baseY - height, tickW, height);
-    ctx.restore();
-  });
-  const railEnd = x0 + section.lines.length * (tickW + tickGap);
-  ctx.save();
-  ctx.globalAlpha = ctx.globalAlpha * 0.16;
-  ctx.fillStyle = palette.ink;
-  ctx.fillRect(x0, baseY, railEnd - x0, Math.max(1, H * 0.0012));
-  ctx.restore();
+  // There used to be a rail of ticks down here, one per spoken line. It said the
+  // same thing as the chapter rule at the top of the frame - how far through the
+  // section this frame is - and it said it with two stray marks in the corner of
+  // an otherwise empty field, which reads as a broken widget. The rule wins: it
+  // is already the largest quiet element on the frame.
+  const railEnd = x0;
 
   // Meter: four bars, four periods, no shared phase. Cheap and continuous.
   const meterX = W * 0.895;
   const periods = [0.61, 0.83, 1.07, 0.72];
   periods.forEach((period, i) => {
-    const pulse = 0.35 + 0.65 * Math.abs(Math.sin((t / period) * Math.PI + i * 1.1));
+    const pulse = 0.22 + 0.78 * Math.abs(Math.sin((t / (period * 0.72)) * Math.PI + i * 1.1));
     const height = H * 0.085 * pulse;
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * 0.45;
@@ -1188,11 +1187,11 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   // Dust: deterministic drift, wrapping at the top of its band.
   const band = { top: H * 0.30, bottom: H * 0.62, left: W * 0.78, right: W * 0.985 };
   for (let i = 0; i < 44; i += 1) {
-    const seed = (i * 2654435761) % 1000 / 1000;
-    const speed = 0.09 + seed * 0.16;
+    const seed = hash01(i + 1);
+    const speed = 0.14 + seed * 0.24;
     const span = band.bottom - band.top;
     const y = band.bottom - ((t * speed * H + seed * span) % span);
-    const x = band.left + ((seed * 977 + i * 61) % 1000) / 1000 * (band.right - band.left)
+    const x = band.left + hash01(i * 3 + 7) * (band.right - band.left)
       + Math.sin(t * 0.6 + i) * W * 0.004;
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * (0.14 + 0.16 * seed);
@@ -1225,9 +1224,9 @@ function ambientArt(ctx, section, sectionLocal, palette) {
   const alpha = (value) => { ctx.globalAlpha = ctx.globalAlpha * value; };
   const families = [
     // A ring and an arc: the film's measuring motif, off the right edge.
-    () => {
-      const cx = W * (0.84 + 0.03 * Math.sin(t * 0.21));
-      const cy = H * (0.34 + 0.012 * Math.cos(t * 0.17));
+    (shift) => {
+      const cx = W * (0.84 + 0.05 * Math.sin(t * 0.34)) - shift * W * 0.10;
+      const cy = H * (0.34 + 0.020 * Math.cos(t * 0.27)) + shift * H * 0.16;
       ctx.save();
       ctx.strokeStyle = ink;
       alpha(0.09);
@@ -1244,10 +1243,11 @@ function ambientArt(ctx, section, sectionLocal, palette) {
       ctx.restore();
     },
     // Two plates crossing: a diptych behind the sentence.
-    () => {
+    (shift) => {
       ctx.save();
-      ctx.translate(W * (0.74 + 0.008 * Math.sin(t * 0.13)), H * 0.30);
-      ctx.rotate(-0.32 + 0.012 * Math.sin(t * 0.11));
+      ctx.translate(W * (0.74 + 0.014 * Math.sin(t * 0.21)) - shift * W * 0.08,
+        H * (0.30 + shift * 0.18));
+      ctx.rotate(-0.32 + 0.020 * Math.sin(t * 0.18) + shift * 0.22);
       ctx.fillStyle = ink;
       alpha(0.085);
       ctx.fillRect(-W * 0.11, -H * 0.30, W * 0.22, H * 0.60);
@@ -1257,28 +1257,29 @@ function ambientArt(ctx, section, sectionLocal, palette) {
       ctx.restore();
     },
     // A dotted field with a hard rule through it: the ledger motif.
-    () => {
+    (shift) => {
       ctx.save();
       ctx.fillStyle = ink;
       alpha(0.18);
+      ctx.translate(0, shift * H * 0.10);
       for (let i = 0; i < 90; i += 1) {
-        const seed = ((i * 2654435761) % 1000) / 1000;
-        const x = W * (0.62 + ((seed * 613) % 1000) / 1000 * 0.36);
-        const y = H * (0.14 + ((seed * 977) % 1000) / 1000 * 0.62) + Math.sin(t * 0.4 + i) * H * 0.004;
+        const seed = hash01(i + 1);
+        const x = W * (0.62 + hash01(i * 2 + 11) * 0.36);
+        const y = H * (0.14 + hash01(i * 2 + 12) * 0.62) + Math.sin(t * 0.55 + i) * H * 0.008;
         const size = Math.max(1.5, H * (0.002 + seed * 0.003));
         ctx.fillRect(x, y, size, size);
       }
       ctx.fillStyle = accent;
       alpha(0.26);
-      ctx.fillRect(W * 0.70, H * (0.16 + 0.02 * Math.sin(t * 0.15)), W * 0.0016, H * 0.52);
+      ctx.fillRect(W * 0.70, H * (0.16 + 0.035 * Math.sin(t * 0.24)), W * 0.0016, H * 0.52);
       ctx.restore();
     },
     // Stacked bars: the measure motif, half off the frame.
-    () => {
+    (shift) => {
       ctx.save();
-      const base = H * 0.60;
+      const base = H * (0.60 - shift * 0.14);
       for (let i = 0; i < 5; i += 1) {
-        const level = 0.35 + 0.3 * Math.abs(Math.sin(t * 0.18 + i * 0.9));
+        const level = 0.35 + 0.3 * Math.abs(Math.sin(t * 0.27 + i * 0.9));
         const h = H * 0.26 * level;
         ctx.fillStyle = i % 2 ? accent : ink;
         alpha(i % 2 ? 0.24 : 0.10);
@@ -1287,21 +1288,37 @@ function ambientArt(ctx, section, sectionLocal, palette) {
       ctx.restore();
     },
   ];
-  const chosen = [
-    families[section.index % families.length],
-    families[(section.index + 2) % families.length],
-  ];
+  // Two families per section, four apart in the catalogue, and each one is
+  // nudged by the section index. Without the nudge the film runs the same two
+  // silhouettes in the same two corners every four chapters, which is what makes
+  // a background read as a template instead of a room.
+  //
+  // The other rule is that the background never draws the shape the diagram is
+  // already drawing. A ring gauge with a ring behind it, and a budget rail with a
+  // row of bars behind it, both stop reading as one thing - the eye cannot tell
+  // which of the two is the information. So a section whose beats use the gauge
+  // loses the ring family, and one whose beats use the rail loses the bars.
+  const idioms = new Set((section.beats || []).map((beat) => beat.template));
+  const banned = new Set();
+  if (idioms.has('ring-gauge')) banned.add(0);
+  if (idioms.has('budget-rail') || idioms.has('matrix-grid')) banned.add(3);
+  if (idioms.has('fork-paths')) banned.add(2);
+  const allowed = families.map((_, i) => i).filter((i) => !banned.has(i));
+  const pick = (n) => allowed[(section.index + n) % allowed.length];
+  const chosen = [families[pick(0)], families[pick(2)]];
+  const shifts = [(section.index % 3) / 2 - 0.5, ((section.index + 1) % 3) / 2 - 0.5];
   // A slow push across the section, no camera involved: the whole ambient layer
   // grows by six percent and slides a little, so every frame of a beat differs
   // from the one before it over a large area. It is the difference between a
   // still image with a light on it and a picture that is alive. One direction,
   // bounded, never reversing, and no shake.
-  const push = 1 + 0.06 * clamp(t / Math.max(0.001, section.seconds));
+  const push = 1 + 0.095 * clamp(t / Math.max(0.001, section.seconds));
   ctx.save();
   ctx.translate(W * 0.5, H * 0.5);
   ctx.scale(push, push);
-  ctx.translate(-W * 0.5 - W * 0.012 * clamp(t / Math.max(0.001, section.seconds)), -H * 0.5);
-  chosen.forEach((draw) => draw());
+  ctx.translate(-W * 0.5 - W * 0.020 * clamp(t / Math.max(0.001, section.seconds)),
+    -H * 0.5 - H * 0.012 * clamp(t / Math.max(0.001, section.seconds)));
+  chosen.forEach((draw, i) => draw(shifts[i]));
   ctx.restore();
   ctx.globalAlpha = 1;
 }
@@ -1354,22 +1371,11 @@ function motionField(ctx, section, sectionLocal, palette) {
     ctx.restore();
   });
 
-  // The line rail: one tick per sentence, filling in order.
-  const lines = section.lines || [];
-  if (lines.length) {
-    const y = H * 0.80;
-    const x0 = W * 0.055;
-    const tickW = W * 0.012;
-    const gap = W * 0.006;
-    lines.forEach((line, i) => {
-      const progress = clamp((sectionLocal - line.start) / Math.max(0.2, line.end - line.start));
-      ctx.save();
-      ctx.globalAlpha = ctx.globalAlpha * (0.18 + 0.55 * progress);
-      ctx.fillStyle = progress > 0 ? palette.accent : palette.ink;
-      ctx.fillRect(x0 + i * (tickW + gap), y, tickW, H * 0.007 * (0.5 + progress));
-      ctx.restore();
-    });
-  }
+  // The line rail that used to sit here is gone: three separate layers had each
+  // grown a progress bar along the bottom left, and at 720p they read as two
+  // stray dashes rather than as anything measured. Progress now lives in one
+  // place - the chapter rule at the top - and the bottom of the frame is left
+  // for the captions.
 }
 
 /**
@@ -1441,18 +1447,23 @@ function beatPlate(ctx, shot, section, beatLocal) {
   ctx.fillRect(fieldX, H * field.y, W * field.w, H * field.h);
   ctx.restore();
 
-  // The block: its corner follows the beat, and it slides in with the ground.
-  const corners = [
-    [0.055, 0.115], [0.845, 0.115], [0.055, 0.705], [0.845, 0.705],
-  ];
-  const corner = corners[shot.beatIndex % corners.length];
-  const blockW = W * 0.055;
-  const blockH = H * 0.055;
-  const slide = (1 - arrive) * W * 0.03;
+  // The beat marker. This used to be a 70 px accent square that hopped to a
+  // different corner on every beat, which is a decoration, not a diagram: it said
+  // nothing a viewer could read and it moved for no reason. The chapter rule
+  // across the top of the frame *is* the section's timeline, so a beat marks
+  // itself on it - a tick at the point in the chapter where the beat starts, in
+  // the accent, standing proud of the rule. The frame now has one timeline and
+  // every mark on it means something.
+  const ruleY = H * 0.062 + H * 0.032;
+  const ruleStart = W * 0.055;
+  const ruleWidth = W - ruleStart * 2;
+  const fraction = clamp((shot.start - section.start) / Math.max(0.001, section.seconds));
+  const tickX = ruleStart + ruleWidth * fraction;
   ctx.save();
-  ctx.globalAlpha = ctx.globalAlpha * 0.85 * arrive;
+  ctx.globalAlpha = ctx.globalAlpha * 0.95 * clamp(arrive * 1.6);
   ctx.fillStyle = section.palette.accent;
-  ctx.fillRect(W * corner[0] - slide, H * corner[1], blockW, blockH);
+  ctx.fillRect(tickX - Math.max(1, W * 0.0012), ruleY - H * 0.007,
+    Math.max(3, W * 0.0026), H * 0.020);
   ctx.restore();
 }
 
@@ -1495,7 +1506,7 @@ function paint(target, shot, at) {
   // is a camera move, not a camera shake - the frame is not thrown about, it is
   // leaning in - and it is what keeps a finished diagram from being a still.
   const region = REGIONS[shot.region];
-  const push = 1 + 0.055 * clamp(templateLocal / Math.max(0.001, templateSeconds));
+  const push = 1 + 0.085 * clamp(templateLocal / Math.max(0.001, templateSeconds));
   const anchorX = (region.x + region.w / 2) * W;
   const anchorY = (region.y + region.h / 2) * H;
   target.save();
@@ -1511,7 +1522,6 @@ function paint(target, shot, at) {
   target.restore();
 
   chrome(target, shot, sectionLocal);
-  drawGrain(target, Math.round(at * FPS), section.palette);
   drawGrain(target, Math.round(at * FPS), section.palette);
   captions(target, section, sectionLocal, shot);
   if (Math.abs(target.globalAlpha - 1) > 1e-6) {

@@ -305,6 +305,58 @@ def judge_narration(wav: Path, lines: Path | None, *, stage: str) -> dict:
     }
 
 
+def master_audio(path: Path, ffmpeg: str, target: float = TARGET_LUFS) -> dict:
+    """Make the bed an upload master: true peaks, 48 kHz, and the delivery level.
+
+    The stems are 24 kHz, because that is what the neural narrator speaks at, and
+    the mix inherits it with a sample peak close to full scale. That combination
+    is a trap: an encoder resampling 24 kHz up to 48 kHz introduces inter-sample
+    peaks about a decibel and a half above the samples, loudnorm refuses to lift a
+    file past its true-peak ceiling, and the delivered film lands at -14.7 LUFS
+    when it was asked for -14.0. Every earlier pass was guessing at peaks that
+    only exist between the samples.
+
+    So this limits on a four-times oversampled copy, drops to 48 kHz, and only
+    then normalises - two passes, from a measurement of the real file. The result
+    is a bed whose peaks are its peaks, at the rate YouTube expects, and a
+    loudnorm that is free to land on the target.
+    """
+    mastered = path.with_name(path.stem + ".mastered.wav")
+    result = base.run([
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(path),
+        "-af", "aresample=192000,alimiter=limit=0.72:attack=4:release=50:level=false,"
+               "aresample=48000",
+        "-ac", "2", "-ar", "48000", str(mastered),
+    ], timeout=1800)
+    if result.returncode != 0 or not mastered.is_file():
+        mastered.unlink(missing_ok=True)
+        return {"status": "failed", "path": str(path)}
+
+    first = loudnorm_pass(mastered, ffmpeg, target, TARGET_TRUE_PEAK - 0.8)
+    chain = loudnorm_pass(mastered, ffmpeg, target, TARGET_TRUE_PEAK - 0.8, measured=first)["chain"]
+    normalised = path.with_name(path.stem + ".mastered.delivery.wav")
+    result = base.run([
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(mastered),
+        "-af", chain, "-ar", "48000", str(normalised),
+    ], timeout=1800)
+    if result.returncode != 0 or not normalised.is_file():
+        normalised.unlink(missing_ok=True)
+        return {"status": "unnormalised", "path": str(mastered)}
+    mastered.unlink(missing_ok=True)
+
+    lufs = measure_loudness(normalised, ffmpeg)
+    peak = measure_true_peak(normalised, ffmpeg)
+    return {
+        "status": "mastered",
+        "path": str(normalised),
+        "sample_rate": 48000,
+        "channels": 2,
+        "lufs": lufs,
+        "true_peak_db": peak,
+        "target": target,
+    }
+
+
 def step_mix(score: Path, voice_path: Path, output: Path, depth_db: float) -> dict:
     """Duck the score under the voice and print the exact gain it applied."""
     import voice_mix
@@ -488,7 +540,10 @@ def verify_delivery_loudness(delivery: Path, audio_track: Path, ffmpeg: str,
         log("   delivery level could not be measured")
         return {"status": "unmeasured", "target": target}
     peak = measure_true_peak(delivery, ffmpeg)
-    within_level = abs(measured - target) <= 1.0
+    # Three tenths, not a whole decibel. A film that measures -14.7 when it was
+    # asked for -14 is not "within tolerance"; it is half a decibel quiet, and the
+    # trim below costs one audio pass.
+    within_level = abs(measured - target) <= 0.3
     within_peak = peak is None or peak <= TARGET_TRUE_PEAK
     if within_level and within_peak:
         log("   delivery %.1f LUFS (target %.1f), true peak %s dBFS (limit %.1f)"
@@ -534,8 +589,62 @@ def verify_delivery_loudness(delivery: Path, audio_track: Path, ffmpeg: str,
            after if after is not None else float("nan"),
            "%.1f" % after_peak if after_peak is not None else "?",
            target, TARGET_TRUE_PEAK))
+
+    # The AAC encode costs about half a decibel of loudness and hands back more
+    # than a decibel of inter-sample peak, and loudnorm can see neither: it works
+    # on a WAV, not on the file a viewer downloads. This is the loop that closes
+    # that gap. It measures the delivered file, and if either number is wrong it
+    # re-cuts the audio bed from the original with a cumulative gain and a limiter
+    # ceiling, remuxes under a copied picture, and measures again - aiming, then
+    # measuring, then correcting, up to four times. On this film it takes two
+    # passes and about four seconds.
+    trim = 0.0
+    ceiling_db = TARGET_TRUE_PEAK - 0.8
+    for _ in range(4):
+        level_ok = after is not None and abs(target - after) <= 0.3
+        peak_ok = after_peak is None or after_peak <= TARGET_TRUE_PEAK
+        if level_ok and peak_ok:
+            break
+        if not peak_ok:
+            ceiling_db -= (after_peak - TARGET_TRUE_PEAK) + 0.25
+        if not level_ok and after is not None:
+            trim += target - after
+        trimmed = audio_track.with_name(audio_track.stem + ".trim.wav")
+        # Only limit when the gain would actually push the bed's peaks into the
+        # ceiling. Limiting a bed that has headroom left squashes it for nothing,
+        # and a limiter's own release tail is what put a decoded true peak of
+        # -0.4 dBFS on a file whose samples never went above -1.8.
+        source_peak = measure_true_peak(audio_track, ffmpeg)
+        needs_limit = source_peak is not None and source_peak + trim > TARGET_TRUE_PEAK - 1.0
+        chain = "volume=%.2fdB" % trim
+        if needs_limit:
+            chain += ",alimiter=limit=%.4f:level=false" % (10 ** (ceiling_db / 20))
+        result = base.run([
+            ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(audio_track),
+            "-af", chain, "-ar", "48000", str(trimmed),
+        ], timeout=1800)
+        temporary = delivery.with_name(delivery.stem + ".trim" + delivery.suffix)
+        if result.returncode == 0 and trimmed.is_file():
+            result = base.run([
+                ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(delivery), "-i", str(trimmed),
+                "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
+                "-movflags", "+faststart", str(temporary),
+            ], timeout=3600)
+        trimmed.unlink(missing_ok=True)
+        if result.returncode != 0 or not temporary.is_file():
+            temporary.unlink(missing_ok=True)
+            break
+        temporary.replace(delivery)
+        after = measure_loudness(delivery, ffmpeg)
+        after_peak = measure_true_peak(delivery, ffmpeg)
+        log("   trimmed %+.2f dB, ceiling %.1f dBFS: the file now measures %.1f LUFS / %s dBFS true peak"
+            % (trim, ceiling_db, after if after is not None else float("nan"),
+               "%.1f" % after_peak if after_peak is not None else "?"))
+
     return {"status": "corrected", "lufs_before": measured, "lufs": after,
-            "true_peak_db": after_peak, "target": target}
+            "true_peak_db": after_peak, "target": target, "trim_db": round(trim, 2)}
 
 
 def measure_motion(video: Path, ffmpeg: str, work_dir: Path, gate: dict | None = None) -> dict:
@@ -791,17 +900,22 @@ def main(argv: list[str] | None = None) -> int:
             audio_track = mixed
             log("   duck %.1f dB, voice %.1f dB above the bed, peak %.2f"
                 % (mix_info["duck_depth_db"], mix_info["voice_to_bed_db"], mix_info["peak"]))
-            log(step("loudness"))
+            log(step("master the mix"))
             ffmpeg_for_audio = base.resolve_ffmpeg()[0]
-            loudness = normalise_loudness(audio_track, ffmpeg_for_audio)
-            if loudness.get("lufs_after") is not None:
-                log("   %.1f LUFS -> %.1f LUFS (gain %+.1f dB, target %.1f)"
-                    % (loudness["lufs_before"], loudness["lufs_after"],
-                       loudness.get("gain_db", 0.0), loudness["target"]))
-            else:
-                log("   loudness not measured (%s)" % loudness.get("status"))
-
+            # Judge the narration on the mix, not on the master: the master is a
+            # stereo limiter pass, and measuring pauses and breaths on a limited
+            # stereo fold-down reports rests the listener never hears.
             mix_narration = judge_narration(audio_track, voice_lines, stage="mix")
+            mastered = master_audio(audio_track, ffmpeg_for_audio)
+            if mastered.get("status") in ("mastered", "unnormalised"):
+                audio_track = Path(mastered["path"])
+                log("   %.1f LUFS / %s dBTP true peak, 48 kHz stereo, target %.1f"
+                    % (mastered["lufs"] if mastered.get("lufs") is not None else float("nan"),
+                       "%.1f" % mastered["true_peak_db"] if mastered.get("true_peak_db") is not None else "?",
+                       mastered["target"]))
+            else:
+                log("   the master pass failed; the mix is used as mixed")
+
             if not mix_narration["listenable"]:
                 log("   delivery level: " + "; ".join(mix_narration["failures"]))
             if voice_info.get("path") and Path(voice_info["path"]).is_file():
