@@ -36,6 +36,7 @@
  */
 import { UI, clamp, span, ease, text, measure, panel, rule } from './ui.mjs';
 import { kineticWords } from './kinetic.mjs';
+import { STRUCTURES } from './structure.mjs';
 
 /**
  * Areas of the frame that belong to something else, and must stay empty.
@@ -69,6 +70,10 @@ export const REGIONS = {
   band: { x: 0.06, y: 0.46, w: 0.70, h: 0.10 },
   split: { x: 0.06, y: 0.22, w: 0.70, h: 0.42 },
   ledger: { x: 0.08, y: 0.12, w: 0.44, h: 0.52 },
+  // The diagram regions. A shape needs room the type templates never asked for:
+  // a rail that stops at two-thirds of the frame reads as a card, not a chart.
+  spread: { x: 0.06, y: 0.16, w: 0.88, h: 0.46 },
+  wide: { x: 0.06, y: 0.30, w: 0.88, h: 0.34 },
 };
 
 /** A region in pixels, for a frame of ``w`` by ``h``. */
@@ -471,7 +476,7 @@ function stackPush(ctx, {
  * as situations, not as adjectives, because "use it for a list" is actionable
  * and "use it for energy" is not.
  */
-export const TEMPLATES = [
+const TYPE_TEMPLATES = [
   {
     id: 'kinetic-headline',
     name: 'Kinetic headline',
@@ -609,6 +614,16 @@ export const TEMPLATES = [
     draw: stackPush,
   },
 ];
+
+/**
+ * Everything a brief can choose from: the type templates above, and the
+ * structure templates (shapes, diagrams, rails, rings) from structure.mjs.
+ *
+ * They are one catalogue on purpose. A chooser that only knows type will put
+ * type on every beat; the point of the structure layer is that the same
+ * situation can be answered with a picture instead of a paragraph.
+ */
+export const TEMPLATES = [...TYPE_TEMPLATES, ...STRUCTURES];
 
 /** Look a template up, or throw. */
 export function templateById(id) {

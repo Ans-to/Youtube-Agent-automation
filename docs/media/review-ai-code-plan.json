@@ -35,7 +35,7 @@
       "index": 2,
       "heading": "Why it matters",
       "kind": "stake",
-      "situation": "state-the-thesis",
+      "situation": "make-a-comparison",
       "start": 5.889,
       "end": 10.671,
       "seconds": 4.782,
@@ -47,7 +47,7 @@
       "index": 3,
       "heading": "The three checks",
       "kind": "section",
-      "situation": "show-a-sequence",
+      "situation": "show-criteria",
       "start": 11.521,
       "end": 19.977,
       "seconds": 8.456,
@@ -172,8 +172,8 @@
       "start": 5.889,
       "end": 10.671,
       "seconds": 4.782,
-      "template": "compare-pair",
-      "region": "split",
+      "template": "fork-paths",
+      "region": "spread",
       "shows": "Rubber stamp | Rewrite the whole thing"
     },
     {
@@ -182,46 +182,10 @@
       "section_index": 3,
       "beat": 1,
       "start": 11.521,
-      "end": 13.635,
-      "seconds": 2.114,
-      "template": "list-build",
-      "region": "ledger",
-      "shows": "Read the diff, not the summary"
-    },
-    {
-      "id": "checks-2",
-      "section": "checks",
-      "section_index": 3,
-      "beat": 2,
-      "start": 13.635,
-      "end": 15.749,
-      "seconds": 2.114,
-      "template": "list-build",
-      "region": "ledger",
-      "shows": "Read the diff, not the summary | Run it once yourself"
-    },
-    {
-      "id": "checks-3",
-      "section": "checks",
-      "section_index": 3,
-      "beat": 3,
-      "start": 15.749,
-      "end": 17.863,
-      "seconds": 2.114,
-      "template": "list-build",
-      "region": "ledger",
-      "shows": "Read the diff, not the summary | Run it once yourself | Ask what it does not handle"
-    },
-    {
-      "id": "checks-4",
-      "section": "checks",
-      "section_index": 3,
-      "beat": 4,
-      "start": 17.863,
       "end": 19.977,
-      "seconds": 2.114,
-      "template": "list-build",
-      "region": "ledger",
+      "seconds": 8.456,
+      "template": "matrix-grid",
+      "region": "wide",
       "shows": "Read the diff, not the summary | Run it once yourself | Ask what it does not handle"
     },
     {
@@ -232,9 +196,9 @@
       "start": 20.827,
       "end": 24.738,
       "seconds": 3.911,
-      "template": "count-up",
-      "region": "stage",
-      "shows": "SIXTY SECONDS."
+      "template": "ring-gauge",
+      "region": "spread",
+      "shows": "60 SECONDS"
     },
     {
       "id": "mechanism-1",
@@ -242,58 +206,22 @@
       "section_index": 5,
       "beat": 1,
       "start": 25.588,
-      "end": 27.698,
-      "seconds": 2.11,
-      "template": "stack-push",
-      "region": "stage",
-      "shows": "Forty seconds reading the diff"
+      "end": 30.864,
+      "seconds": 5.276,
+      "template": "budget-rail",
+      "region": "wide",
+      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
     },
     {
       "id": "mechanism-2",
       "section": "mechanism",
       "section_index": 5,
       "beat": 2,
-      "start": 27.698,
-      "end": 29.808,
-      "seconds": 2.11,
-      "template": "stack-push",
-      "region": "stage",
-      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
-    },
-    {
-      "id": "mechanism-3",
-      "section": "mechanism",
-      "section_index": 5,
-      "beat": 3,
-      "start": 29.808,
-      "end": 31.919,
-      "seconds": 2.11,
-      "template": "stack-push",
-      "region": "stage",
-      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
-    },
-    {
-      "id": "mechanism-4",
-      "section": "mechanism",
-      "section_index": 5,
-      "beat": 4,
-      "start": 31.919,
-      "end": 34.029,
-      "seconds": 2.11,
-      "template": "stack-push",
-      "region": "stage",
-      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
-    },
-    {
-      "id": "mechanism-5",
-      "section": "mechanism",
-      "section_index": 5,
-      "beat": 5,
-      "start": 34.029,
+      "start": 30.864,
       "end": 36.139,
-      "seconds": 2.11,
-      "template": "stack-push",
-      "region": "stage",
+      "seconds": 5.276,
+      "template": "budget-rail",
+      "region": "wide",
       "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
     },
     {
@@ -304,8 +232,8 @@
       "start": 36.989,
       "end": 41.452,
       "seconds": 4.463,
-      "template": "code-typing",
-      "region": "stage",
+      "template": "command-console",
+      "region": "wide",
       "shows": "npm test"
     },
     {
@@ -338,34 +266,10 @@
       "section_index": 8,
       "beat": 1,
       "start": 47.289,
-      "end": 49.005,
-      "seconds": 1.716,
-      "template": "list-build",
-      "region": "ledger",
-      "shows": "Three checks | One command"
-    },
-    {
-      "id": "recap-2",
-      "section": "recap",
-      "section_index": 8,
-      "beat": 2,
-      "start": 49.005,
-      "end": 50.722,
-      "seconds": 1.716,
-      "template": "list-build",
-      "region": "ledger",
-      "shows": "Three checks | One command | A minute of your time"
-    },
-    {
-      "id": "recap-3",
-      "section": "recap",
-      "section_index": 8,
-      "beat": 3,
-      "start": 50.722,
       "end": 52.438,
-      "seconds": 1.716,
-      "template": "list-build",
-      "region": "ledger",
+      "seconds": 5.149,
+      "template": "matrix-grid",
+      "region": "wide",
       "shows": "Three checks | One command | A minute of your time"
     },
     {
@@ -537,24 +441,6 @@
       "length": 0.6
     },
     {
-      "at": 13.655,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 15.769,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 17.883,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
       "at": 20.847,
       "kind": "whoosh",
       "gain": 0.5,
@@ -567,25 +453,7 @@
       "length": 0.6
     },
     {
-      "at": 27.718,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 29.828,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 31.939,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 34.049,
+      "at": 30.884,
       "kind": "pop",
       "gain": 0.3,
       "length": 0.3
@@ -631,18 +499,6 @@
       "kind": "riser",
       "gain": 0.4,
       "length": 0.8
-    },
-    {
-      "at": 49.025,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
-    },
-    {
-      "at": 50.742,
-      "kind": "pop",
-      "gain": 0.3,
-      "length": 0.3
     },
     {
       "at": 53.308,

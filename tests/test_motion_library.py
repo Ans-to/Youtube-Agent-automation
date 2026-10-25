@@ -194,13 +194,15 @@ class ChooserTests(unittest.TestCase):
     def test_each_situation_picks_a_template_that_belongs_to_it(self):
         cases = [
             ("opening-claim", 2.4, "title", "kinetic-headline"),
-            ("explain-a-number", 2.0, "stage", "count-up"),
+            ("explain-a-number", 2.0, "stage", "ring-gauge"),
             ("show-a-sequence", 3.0, "ledger", "list-build"),
-            ("recap", 3.0, "stage", "list-build"),
-            ("make-a-comparison", 3.0, "split", "compare-pair"),
-            ("show-the-mechanism", 3.0, "stage", "code-typing"),
+            ("recap", 3.0, "stage", "matrix-grid"),
+            ("make-a-comparison", 3.0, "split", "fork-paths"),
+            ("show-the-mechanism", 3.0, "stage", "budget-rail"),
+            ("show-the-command", 3.0, "stage", "command-console"),
+            ("state-the-thesis", 3.0, "split", "fork-paths"),
             ("hold-a-beat", 0.8, "band", "sweep-rule"),
-            ("build-an-argument", 3.0, "stage", "stack-push"),
+            ("build-an-argument", 3.0, "stage", "matrix-grid"),
         ]
         for situation, seconds, region, expected in cases:
             payload = self.choose(situation, seconds, region)

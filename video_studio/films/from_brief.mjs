@@ -64,7 +64,7 @@ const WORDS_PER_SECOND = 2.6;  // measured narration pace; used only without a v
 // section, not a beat: the rows stay where they arrived, so swapping the layout
 // halfway through the list (list-build to stack-push and back) makes the whole
 // list jump between two arrangements every two seconds.
-const ROW_TEMPLATES = new Set(['list-build', 'stack-push', 'code-typing']);
+const ROW_TEMPLATES = new Set(['list-build', 'stack-push', 'code-typing', 'matrix-grid', 'budget-rail']);
 const TARGET_BEAT = 1.8;
 const MAX_BEAT = 2.4;
 const PAD_HEAD = 0.28;
@@ -350,6 +350,10 @@ function beatLengths(seconds, candidates, maxBeats = Infinity) {
 
 // Templates that can reveal their content a piece at a time as the beats pass.
 // A comparison or a number has no "next piece": repeating it is a frozen frame.
+// A template that builds its rows across a section (matrix-grid, budget-rail) is
+// not on this list on purpose: it is one picture for the whole section, drawn on
+// the section's clock, so cutting the section into 2-second beats would only
+// re-draw the same diagram five times.
 const PROGRESSIVE = new Set(['kinetic-headline', 'list-build', 'stack-push', 'code-typing']);
 
 function withinBand(id, seconds) {
@@ -370,8 +374,20 @@ function withinBand(id, seconds) {
  * that made the first generated cut fail its composition and hold gates.
  */
 function templateForBeat(section, candidates, seconds, previous, recent, beatIndex) {
-  if (beatIndex === 0 && section.template
-      && candidates.includes(section.template) && withinBand(section.template, seconds)) {
+  // A section that named its template gets that template on every beat. Swapping
+  // the picture halfway through a section is not variety, it is a jump cut inside
+  // a thought: the diagram grows, it does not become a different diagram.
+  if (section.template) {
+    if (!candidates.includes(section.template)) {
+      throw new Error(`section ${section.id}: ${section.template} cannot draw with the props given`);
+    }
+    if (!withinBand(section.template, seconds)) {
+      const meta = TEMPLATES.get(section.template);
+      throw new Error(
+        `section ${section.id}: ${section.template} takes ${meta.minSeconds}-${meta.maxSeconds}s beats, `
+        + `and this one is ${seconds.toFixed(2)}s. Retime the narration or choose another template.`,
+      );
+    }
     return section.template;
   }
   const ranked = rankTemplates({
@@ -449,6 +465,9 @@ function buildSections(brief, timings) {
     if (section.props?.left) authored.push(section.props.left);
     if (section.props?.right) authored.push(section.props.right);
     if (section.props?.label) authored.push(section.props.label);
+    if (Array.isArray(section.props?.segments)) {
+      authored.push(...section.props.segments.map((segment) => segment.label).filter(Boolean));
+    }
     const unsaid = authored.filter((phrase) => firstSpokenAt(phrase, speech) === null);
     if (unsaid.length) {
       throw new Error(
@@ -471,6 +490,9 @@ function buildSections(brief, timings) {
     const progressive = section.template
       ? PROGRESSIVE.has(section.template)
       : candidates.some((id) => PROGRESSIVE.has(id));
+    // A named template is also the only template whose band matters: cutting a
+    // section into beats that this template cannot carry is the failure mode.
+    const bandCandidates = section.template ? [section.template] : candidates;
     const byWords = Math.max(1, Math.floor(words / 2));
     let lengths;
     const codeLines = section.template === 'code-typing' && Array.isArray(section.props?.lines)
@@ -480,7 +502,7 @@ function buildSections(brief, timings) {
       // on the next beat, and a typing animation that restarts reads as a glitch.
       lengths = [seconds];
     } else if (progressive) {
-      lengths = beatLengths(seconds, candidates, byWords);
+      lengths = beatLengths(seconds, bandCandidates, byWords);
     } else {
       // A comparison or a number cannot show a new piece on each beat, so the
       // section is cut into the fewest beats that still fit the template's
@@ -488,7 +510,9 @@ function buildSections(brief, timings) {
       // three times, which is the frozen frame the repeat gate exists to catch.
       const meta = TEMPLATES.get(section.template || candidates[0]);
       const fewest = Math.max(1, Math.ceil(seconds / (meta.maxSeconds - 0.02)));
-      lengths = Array.from({ length: fewest }, () => seconds / fewest);
+      // ...and never so many that a beat falls under the template's floor.
+      const usable = Math.max(1, Math.min(fewest, Math.floor(seconds / meta.minSeconds) || 1));
+      lengths = Array.from({ length: usable }, () => seconds / usable);
     }
     const beats = [];
     let beatStart = start;
@@ -568,6 +592,16 @@ function shownTextOf(shot) {
   const label = (item) => (typeof item === 'string' ? item : (item.name ?? item.text ?? ''));
   const said = (item) => typeof item === 'object' && typeof item.at === 'number'
     ? item.at <= (shot.end - shot.section.start) + 0.05 : true;
+  if (Array.isArray(drawn.segments)) {
+    // Only the segments already spoken, and the label is what is read: the value
+    // is a numeral on the rail, not a word anybody says.
+    const upTo = shot.end - shot.section.start + 0.05;
+    return drawn.segments
+      .filter((segment) => typeof segment.at !== 'number' || segment.at <= upTo)
+      .map((segment) => segment.label || String(segment.value ?? ''))
+      .filter(Boolean).join(' | ');
+  }
+  if (drawn.value !== undefined) return `${drawn.value} ${drawn.label ?? ''}`.trim();
   return drawn.text
     || (Array.isArray(drawn.items)
       ? drawn.items.filter(said).map(label).filter(Boolean).join(' | ') : null)
@@ -820,7 +854,8 @@ function propsForBeat(section, beat, beatCount, palette) {
     return props;
   }
 
-  if (beat.template === 'list-build' || beat.template === 'stack-push') {
+  if (beat.template === 'list-build' || beat.template === 'stack-push'
+      || beat.template === 'matrix-grid') {
     // Both spellings: list-build reads `name`, stack-push reads `text`.
     const items = (props.items || []).map((item) => {
       if (typeof item === 'string') return { name: item, text: item };
@@ -840,6 +875,18 @@ function propsForBeat(section, beat, beatCount, palette) {
     // The section's full list decides the layout, so a row that has not been
     // said yet does not move the rows that have.
     props.slots = items.length;
+    return props;
+  }
+
+  if (beat.template === 'budget-rail') {
+    const segments = (props.segments || []).map((item) => ({ ...item }));
+    if (!speech.length) return props;
+    const start = section.start;
+    props.segments = segments.map((segment) => {
+      const at = firstSpokenAt(segment.label ?? '', speech);
+      return { ...segment, at: at === null ? null : Math.max(0, at - start) };
+    }).filter((segment) => segment.at !== null);
+    props.total = props.total ?? segments.reduce((sum, segment) => sum + (Number(segment.value) || 0), 0);
     return props;
   }
 
@@ -1010,6 +1057,72 @@ function secondUnit(ctx, section, sectionLocal, palette) {
 }
 
 /**
+ * Motion that belongs to the frame rather than to any one picture.
+ *
+ * A diagram arrives, builds, and then holds. Held is right for the thought and
+ * wrong for the medium: measured on the first cut, 72% of frames were
+ * near-static, which is a slideshow with a soundtrack. This layer keeps the
+ * frame alive underneath every template without competing with it:
+ *
+ *   - drift: small marks travelling slowly up the frame, wrapping at the top.
+ *     Deterministic from the section clock, so the render stays reproducible.
+ *   - a meter: four slim bars breathing at different periods, so no two frames a
+ *     second apart are identical even when a diagram has finished building.
+ *   - the line rail: one tick per sentence in the section, filling as each line
+ *     is spoken. It is the film's own progress bar and it moves at speech pace.
+ *
+ * All of it sits outside every template region's busy area and above the caption
+ * band, and its contrast is deliberately low: it is felt, not read.
+ */
+function motionField(ctx, section, sectionLocal, palette) {
+  const t = sectionLocal;
+  // Drift.
+  for (let i = 0; i < 26; i += 1) {
+    const seed = ((i * 2654435761) % 997) / 997;
+    const speed = H * (0.012 + seed * 0.02);
+    const spanY = H * 0.62;
+    const y = H * 0.86 - ((t * speed + seed * spanY) % spanY);
+    const x = W * (0.04 + ((seed * 631 + i * 37) % 1000) / 1000 * 0.52) + Math.sin(t * 0.5 + i) * W * 0.002;
+    const size = Math.max(2, H * (0.0022 + seed * 0.0035));
+    ctx.save();
+    ctx.globalAlpha = ctx.globalAlpha * (0.10 + seed * 0.10);
+    ctx.fillStyle = i % 5 === 0 ? palette.accent : palette.ink;
+    ctx.fillRect(x, y, size, size);
+    ctx.restore();
+  }
+
+  // The meter: four bars, four periods, never in step.
+  const periods = [0.83, 1.07, 1.31, 1.61];
+  const baseY = H * 0.70;
+  periods.forEach((period, i) => {
+    const level = 0.25 + 0.75 * Math.abs(Math.sin((t / period) * Math.PI + i * 0.7));
+    const height = H * 0.075 * level;
+    ctx.save();
+    ctx.globalAlpha = ctx.globalAlpha * 0.34;
+    ctx.fillStyle = i % 2 ? palette.ink : palette.accent;
+    ctx.fillRect(W * (0.895 + i * 0.021), baseY - height, W * 0.011, height);
+    ctx.restore();
+  });
+
+  // The line rail: one tick per sentence, filling in order.
+  const lines = section.lines || [];
+  if (lines.length) {
+    const y = H * 0.80;
+    const x0 = W * 0.055;
+    const tickW = W * 0.012;
+    const gap = W * 0.006;
+    lines.forEach((line, i) => {
+      const progress = clamp((sectionLocal - line.start) / Math.max(0.2, line.end - line.start));
+      ctx.save();
+      ctx.globalAlpha = ctx.globalAlpha * (0.18 + 0.55 * progress);
+      ctx.fillStyle = progress > 0 ? palette.accent : palette.ink;
+      ctx.fillRect(x0 + i * (tickW + gap), y, tickW, H * 0.007 * (0.5 + progress));
+      ctx.restore();
+    });
+  }
+}
+
+/**
  * The plate a beat sits on, and the block that marks which beat it is.
  *
  * Without them the film is pale type on a pale field, and at any distance that
@@ -1082,6 +1195,7 @@ function paint(target, shot, at) {
   });
   target.restore();
 
+  motionField(target, section, sectionLocal, section.palette);
   secondUnit(target, section, sectionLocal, section.palette);
   chrome(target, shot, sectionLocal);
   captions(target, section, sectionLocal, shot);

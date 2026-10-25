@@ -59,6 +59,18 @@
       "y": 0.12,
       "w": 0.44,
       "h": 0.52
+    },
+    "spread": {
+      "x": 0.06,
+      "y": 0.16,
+      "w": 0.88,
+      "h": 0.46
+    },
+    "wide": {
+      "x": 0.06,
+      "y": 0.3,
+      "w": 0.88,
+      "h": 0.34
     }
   },
   "situations": {
@@ -79,8 +91,9 @@
     "state-the-thesis": {
       "says": "State the idea the rest of the section argues for.",
       "wants": [
-        "kinetic-headline",
-        "compare-pair"
+        "fork-paths",
+        "compare-pair",
+        "kinetic-headline"
       ]
     },
     "punchline": {
@@ -92,6 +105,8 @@
     "explain-a-number": {
       "says": "Show a figure the script claims, so it can be read rather than guessed.",
       "wants": [
+        "ring-gauge",
+        "budget-rail",
         "count-up",
         "bar-compare"
       ]
@@ -99,6 +114,8 @@
     "show-a-sequence": {
       "says": "Walk through steps in the order the narration reads them.",
       "wants": [
+        "matrix-grid",
+        "budget-rail",
         "list-build",
         "stack-push"
       ]
@@ -106,12 +123,14 @@
     "show-criteria": {
       "says": "List the conditions something has to meet, one at a time.",
       "wants": [
+        "matrix-grid",
         "list-build"
       ]
     },
     "make-a-comparison": {
       "says": "Put two options or two states against each other.",
       "wants": [
+        "fork-paths",
         "compare-pair",
         "bar-compare"
       ]
@@ -125,18 +144,22 @@
     "show-the-mechanism": {
       "says": "Reveal how something works by showing the actual commands or code.",
       "wants": [
+        "budget-rail",
+        "command-console",
         "code-typing"
       ]
     },
     "show-the-command": {
       "says": "Put one command on the frame and let it type.",
       "wants": [
+        "command-console",
         "code-typing"
       ]
     },
     "build-an-argument": {
       "says": "Add one more reason to a stack, so each one is felt as an addition.",
       "wants": [
+        "matrix-grid",
         "stack-push",
         "list-build"
       ]
@@ -144,6 +167,7 @@
     "recap": {
       "says": "Bring a section back to a short list of what it said.",
       "wants": [
+        "matrix-grid",
         "list-build",
         "stack-push"
       ]
@@ -405,6 +429,173 @@
           "ON GITHUB"
         ],
         "highlight": 1
+      }
+    },
+    {
+      "id": "fork-paths",
+      "name": "Fork paths",
+      "purpose": "One thing splitting into two outcomes, drawn as a source and two branches.",
+      "when": [
+        "make-a-comparison",
+        "state-the-thesis",
+        "before-and-after"
+      ],
+      "avoid": [
+        "Two things that do not come from the same source: the fork would be a lie.",
+        "More than two branches: it becomes spaghetti."
+      ],
+      "minSeconds": 2.5,
+      "maxSeconds": 8,
+      "needs": [
+        "left",
+        "right"
+      ],
+      "regions": [
+        "spread",
+        "split",
+        "stage"
+      ],
+      "cost": "medium",
+      "sample": {
+        "left": "Rubber stamp",
+        "right": "Rewrite the whole thing"
+      }
+    },
+    {
+      "id": "matrix-grid",
+      "name": "Matrix grid",
+      "purpose": "Two to four things as tiles that fill in the order they are spoken.",
+      "when": [
+        "show-a-sequence",
+        "show-criteria",
+        "recap",
+        "build-an-argument"
+      ],
+      "avoid": [
+        "One item: that is a headline, not a grid.",
+        "Five or more: the labels stop being readable at a glance."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 9,
+      "needs": [
+        "items"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "stage",
+        "split"
+      ],
+      "cost": "medium",
+      "sample": {
+        "items": [
+          "Read the diff, not the summary",
+          "Run it once yourself",
+          "Ask what it does not handle"
+        ]
+      }
+    },
+    {
+      "id": "ring-gauge",
+      "name": "Ring gauge",
+      "purpose": "A claimed number as a dial that sweeps to it, with the unit on the ring.",
+      "when": [
+        "explain-a-number",
+        "name-the-thing"
+      ],
+      "avoid": [
+        "A number the narration does not say: the dial would be decoration.",
+        "Two numbers on one beat: one dial, one figure."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 7,
+      "needs": [
+        "value"
+      ],
+      "regions": [
+        "spread",
+        "wide",
+        "stage",
+        "hero",
+        "split"
+      ],
+      "cost": "low",
+      "sample": {
+        "value": 60,
+        "label": "Seconds"
+      }
+    },
+    {
+      "id": "budget-rail",
+      "name": "Budget rail",
+      "purpose": "A span of time divided into the parts the narration says it is spent on.",
+      "when": [
+        "show-the-mechanism",
+        "explain-a-number",
+        "show-a-sequence"
+      ],
+      "avoid": [
+        "Parts that do not sum to the whole being explained.",
+        "More than four segments: the labels collide on the rail."
+      ],
+      "minSeconds": 3,
+      "maxSeconds": 10,
+      "needs": [
+        "segments"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "split",
+        "stage"
+      ],
+      "cost": "low",
+      "sample": {
+        "segments": [
+          {
+            "label": "Forty seconds reading the diff",
+            "value": 40
+          },
+          {
+            "label": "Ten seconds running it",
+            "value": 10
+          },
+          {
+            "label": "Ten seconds asking what it refuses",
+            "value": 10
+          }
+        ],
+        "total": 60
+      }
+    },
+    {
+      "id": "command-console",
+      "name": "Command console",
+      "purpose": "A window that types one command and shows the run finishing, block by block.",
+      "when": [
+        "show-the-command",
+        "show-the-mechanism"
+      ],
+      "avoid": [
+        "More than one command: the window holds one line.",
+        "Code the film does not otherwise mention."
+      ],
+      "minSeconds": 2.5,
+      "maxSeconds": 7,
+      "needs": [
+        "lines"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "stage",
+        "split"
+      ],
+      "cost": "medium",
+      "sample": {
+        "lines": [
+          "npm test"
+        ]
       }
     }
   ]

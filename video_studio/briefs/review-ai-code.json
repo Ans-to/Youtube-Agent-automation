@@ -29,8 +29,9 @@
       "id": "stake",
       "kind": "stake",
       "heading": "Why it matters",
-      "situation": "state-the-thesis",
-      "template": "compare-pair",
+      "situation": "make-a-comparison",
+      "template": "fork-paths",
+      "region": "spread",
       "props": {
         "left": "Rubber stamp",
         "right": "Rewrite the whole thing"
@@ -45,8 +46,9 @@
       "id": "checks",
       "kind": "section",
       "heading": "The three checks",
-      "situation": "show-a-sequence",
-      "template": "list-build",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
       "props": {
         "items": [
           "Read the diff, not the summary",
@@ -71,11 +73,11 @@
       "kind": "section",
       "heading": "The budget",
       "situation": "explain-a-number",
-      "template": "count-up",
+      "template": "ring-gauge",
+      "region": "spread",
       "props": {
         "value": 60,
-        "label": "SECONDS",
-        "text": "SIXTY SECONDS."
+        "label": "SECONDS"
       },
       "lines": [
         {
@@ -88,12 +90,14 @@
       "kind": "section",
       "heading": "How the minute is spent",
       "situation": "show-the-mechanism",
-      "template": "stack-push",
+      "template": "budget-rail",
+      "region": "wide",
       "props": {
-        "items": [
-          "Forty seconds reading the diff",
-          "Ten seconds running it",
-          "Ten seconds asking what it refuses"
+        "total": 60,
+        "segments": [
+          { "label": "Forty seconds reading the diff", "value": 40 },
+          { "label": "Ten seconds running it", "value": 10 },
+          { "label": "Ten seconds asking what it refuses", "value": 10 }
         ]
       },
       "lines": [
@@ -113,7 +117,8 @@
       "kind": "section",
       "heading": "Make it one command",
       "situation": "show-the-command",
-      "template": "code-typing",
+      "template": "command-console",
+      "region": "wide",
       "props": {
         "lines": [
           "npm test"
@@ -145,7 +150,8 @@
       "kind": "recap",
       "heading": "Recap",
       "situation": "recap",
-      "template": "list-build",
+      "template": "matrix-grid",
+      "region": "wide",
       "props": {
         "items": [
           "Three checks",

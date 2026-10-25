@@ -40,7 +40,7 @@ export const SITUATIONS = {
   },
   'state-the-thesis': {
     says: 'State the idea the rest of the section argues for.',
-    wants: ['kinetic-headline', 'compare-pair'],
+    wants: ['fork-paths', 'compare-pair', 'kinetic-headline'],
   },
   'punchline': {
     says: 'Land a short line at the end of an argument, with nothing else on screen.',
@@ -48,19 +48,19 @@ export const SITUATIONS = {
   },
   'explain-a-number': {
     says: 'Show a figure the script claims, so it can be read rather than guessed.',
-    wants: ['count-up', 'bar-compare'],
+    wants: ['ring-gauge', 'budget-rail', 'count-up', 'bar-compare'],
   },
   'show-a-sequence': {
     says: 'Walk through steps in the order the narration reads them.',
-    wants: ['list-build', 'stack-push'],
+    wants: ['matrix-grid', 'budget-rail', 'list-build', 'stack-push'],
   },
   'show-criteria': {
     says: 'List the conditions something has to meet, one at a time.',
-    wants: ['list-build'],
+    wants: ['matrix-grid', 'list-build'],
   },
   'make-a-comparison': {
     says: 'Put two options or two states against each other.',
-    wants: ['compare-pair', 'bar-compare'],
+    wants: ['fork-paths', 'compare-pair', 'bar-compare'],
   },
   'before-and-after': {
     says: 'Show what the same thing looked like before, and what it looks like now.',
@@ -68,19 +68,19 @@ export const SITUATIONS = {
   },
   'show-the-mechanism': {
     says: 'Reveal how something works by showing the actual commands or code.',
-    wants: ['code-typing'],
+    wants: ['budget-rail', 'command-console', 'code-typing'],
   },
   'show-the-command': {
     says: 'Put one command on the frame and let it type.',
-    wants: ['code-typing'],
+    wants: ['command-console', 'code-typing'],
   },
   'build-an-argument': {
     says: 'Add one more reason to a stack, so each one is felt as an addition.',
-    wants: ['stack-push', 'list-build'],
+    wants: ['matrix-grid', 'stack-push', 'list-build'],
   },
   'recap': {
     says: 'Bring a section back to a short list of what it said.',
-    wants: ['list-build', 'stack-push'],
+    wants: ['matrix-grid', 'list-build', 'stack-push'],
   },
   'hold-a-beat': {
     says: 'Fill a short pause between two big beats with real motion.',

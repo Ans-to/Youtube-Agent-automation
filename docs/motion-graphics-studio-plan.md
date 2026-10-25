@@ -243,8 +243,8 @@ deterministic: the same script renders the same audio every time.
 
 | Gate | Result |
 | --- | --- |
-| motion | PASSED - mean frame delta 1.32, 0.5% near-static (limit 15%) |
-| composition | PASSED - 92 arrangements, longest 2.0 s (limit 12 s) |
+| motion | PASSED - mean frame delta 1.33, 0.6% near-static (limit 15%) |
+| composition | PASSED - 108 arrangements, longest 1.5 s (limit 12 s) |
 | holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
 | narration | PASSED - 144 words per minute, 11.2 audible rests per minute |
 | delivery level | -14.7 LUFS, true peak -1.7 dBFS |
@@ -338,3 +338,54 @@ miss: not wrong words, but right words at the wrong moment - a recap printing
 entrance on every beat, so two rows overlapped mid-slide. The timing is what the
 `word_times` fix bought; the overlap was a clock bug - the row templates were
 being handed the beat's clock when what they build is the section's picture.
+
+## 13. Shapes carry the structure
+
+The owner's note was short: *"don't use only text, use different shapes and make
+structure with them."* He was right about what the film was. Every template the
+library had drew type on a plate. A list was rows of words, a number was a
+numeral, a comparison was two headings. It read as a caption track with a
+background, which is a presentation, not a design.
+
+A diagram says what type cannot: how much, in what order, which way it forks,
+what is missing. So there is now a second layer beside the type templates,
+`video_studio/motion/structure.mjs`, registered in the same catalogue so a brief
+chooses between the two by situation:
+
+| Template | What it draws | When it is right |
+| --- | --- | --- |
+| `fork-paths` | a source block, two paths drawing out of it, and two terminals - one closed with a tick, one open with an arrow leaving | one thing splitting into two outcomes |
+| `matrix-grid` | two to four tiles with number chips and glyphs, connected, filling in the order the narrator says them | three checks, a recap, a sequence |
+| `ring-gauge` | a dial with sixty ticks, an arc that sweeps to the figure, zero/half/full on the ring, the number counting inside | a claimed number |
+| `budget-rail` | one rail, divided into the parts the sentence says, a playhead crossing it | how a span of time is spent |
+| `command-console` | a window, a prompt chevron, the command typing, and the run finishing block by block | one command |
+
+The brief now uses them for six of its nine sections: the fork for *rubber stamp
+or rewrite*, the grid for *three checks*, the dial for *sixty seconds*, the rail
+for *forty/ten/ten*, the console for *npm test*, and the grid again for the recap.
+The three statement beats - the opening claim, the two-line payoff, the closing
+line - stay as type, because a punchline is a sentence and drawing a chart behind
+it would be decoration.
+
+Three things had to change for that to work rather than merely render:
+
+- **Regions.** A diagram needs width the type templates never asked for, so the
+  library gained `spread` and `wide`. A rail that stops at two-thirds of the
+  frame reads as a card; across the full measure it reads as a chart.
+- **One template per section.** The chooser used to pick a fresh template for
+  every 1.6-second beat, which is how the comparison section became the same two
+  cards three times and the list section flipped between two layouts. A section
+  that names its template now keeps it for every beat, and the beats differ by
+  what has been built so far - the rail gains its second segment, the grid its
+  third tile.
+- **Rows on the section's clock.** A tile that arrives at 4.2 s must stay at 4.2 s
+  when the next beat starts. Handing these templates the beat's clock made every
+  stored row replay its entrance, which is the overlap the owner saw as flicker.
+  They now draw to the section's clock and to the section's full layout, so a
+  tile that has not been spoken yet does not move the ones that have.
+
+The frames are still measured, not admired. On the delivered file: 108 distinct
+arrangements (the longest held 1.5 s), mean frame delta 1.33, no span over 1.0 s,
+craft 18/18. The library's own self-check renders all 34 template/region cases
+and refuses any template that draws outside its box - which caught the dial
+overflowing its region by six pixels, before the owner could.

@@ -24,8 +24,41 @@ def bare(word: str) -> str:
     return re.sub(r"[^a-z0-9']", "", str(word).lower())
 
 
+ONES = {
+    0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+    7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
+    13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen",
+    17: "seventeen", 18: "eighteen", 19: "nineteen",
+}
+TENS = {20: "twenty", 30: "thirty", 40: "forty", 50: "fifty", 60: "sixty",
+        70: "seventy", 80: "eighty", 90: "ninety"}
+
+
+def spoken(token: str) -> list[str]:
+    """What the voice says for a token the frame may print as a numeral.
+
+    A rail prints "40" and the narrator says "forty" - that is correct film
+    practice, not a mismatch, so the comparison reads both the same way.
+    """
+    if token.isdigit():
+        value = int(token)
+        if value in ONES:
+            return [ONES[value]]
+        if value in TENS:
+            return [TENS[value]]
+        if value < 100:
+            tens, ones = divmod(value, 10)
+            if tens * 10 in TENS and ones in ONES:
+                return [TENS[tens * 10], ONES[ones]]
+    return [token]
+
+
 def tokens(text: str) -> list[str]:
-    return [token for token in (bare(part) for part in str(text).split()) if token]
+    out = []
+    for token in (bare(part) for part in str(text).split()):
+        if token:
+            out.extend(spoken(token))
+    return out
 
 
 def is_subsequence(phrase: str, spoken: list[str]) -> bool:
@@ -53,6 +86,10 @@ def authored_copy(section: dict) -> list[tuple[str, str]]:
         for index, item in enumerate(props.get(key) or []):
             if isinstance(item, str) and item.strip():
                 out.append((f"{key}[{index}]", item))
+    for index, segment in enumerate(props.get("segments") or []):
+        label = segment.get("label") if isinstance(segment, dict) else None
+        if isinstance(label, str) and label.strip():
+            out.append((f"segments[{index}]", label))
     return out
 
 
