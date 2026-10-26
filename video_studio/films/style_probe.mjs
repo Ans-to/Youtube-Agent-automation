@@ -19,7 +19,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
+import { createCanvas } from '@napi-rs/canvas';
+import { loadFonts } from '../motion/kit/fonts.mjs';
 import { drawShape } from '../motion/kit/shapes.mjs';
 import { drawMap } from '../motion/kit/world.mjs';
 import { drawType } from '../motion/kit/type.mjs';
@@ -508,19 +509,6 @@ const stanzaShots = [
 /* ------------------------------------------------------------------ cli ---- */
 
 export const STYLES = { signal: signalShots, monolith: monoShots, stanza: stanzaShots };
-
-function loadFonts() {
-  const dir = path.resolve(HERE, '..', 'assets', 'fonts');
-  if (!fs.existsSync(dir)) return 0;
-  let n = 0;
-  for (const f of fs.readdirSync(dir)) {
-    if (/\.(ttf|otf|woff2?)$/i.test(f)) {
-      GlobalFonts.registerFromPath(path.join(dir, f));
-      n += 1;
-    }
-  }
-  return n;
-}
 
 const main = async () => {
   const args = process.argv.slice(2);

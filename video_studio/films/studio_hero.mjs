@@ -12,7 +12,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
+import { createCanvas } from '@napi-rs/canvas';
+import { loadFonts } from '../motion/kit/fonts.mjs';
 import { drawHandset, drawStudio, drawReflection } from '../motion/kit/product.mjs';
 import { clamp, lerp, span, ease } from '../motion/ui.mjs';
 
@@ -193,16 +194,6 @@ export function drawRoom(ctx, t) {
   v.addColorStop(1, 'rgba(0,0,0,0.62)');
   ctx.fillStyle = v;
   ctx.fillRect(0, 0, W, H);
-}
-
-function loadFonts() {
-  const dir = path.resolve(HERE, '..', 'assets', 'fonts');
-  let n = 0;
-  if (!fs.existsSync(dir)) return n;
-  for (const f of fs.readdirSync(dir)) {
-    if (/\.(ttf|otf|woff2?)$/i.test(f)) { GlobalFonts.registerFromPath(path.join(dir, f)); n += 1; }
-  }
-  return n;
 }
 
 const main = () => {

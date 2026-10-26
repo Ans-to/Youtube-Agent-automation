@@ -85,10 +85,11 @@ export function renderShot(ctx, shot, t, W, H, options = {}) {
 
   for (const layer of layers) {
     const p = layerProgress(layer, t, dur);
-    if (p <= 0 || p >= 1) {
-      // A layer outside its window draws only at its resting state.
-      if (p <= 0) continue;
-    }
+    // A layer that is present from the start of the shot is present on the
+    // shot's *first* frame. It used to be skipped at p === 0, which meant every
+    // shot opened empty: frame 0 of the film was pure background, and every cut
+    // landed on nothing for a frame. A layer that starts later still waits.
+    if (p <= 0 && (layer.from ?? 0) > 0) continue;
     const local = { p, t, dur, W, H };
 
     // Moves call their artwork with no argument, so bind the context here

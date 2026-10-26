@@ -275,3 +275,44 @@ caps. `node films/studio_hero.mjs --frames /tmp/room --fps 30`.
 
 The rule this establishes for the rest of the kit: **if it appears on screen for
 more than two seconds and it is a real object, it gets modelled.**
+
+## Eight shots, eight worlds
+
+The film was rejected because it was one palette and one house style carried
+through every shot, with the same two glyphs doing all the work. `films/nokia_atlas.mjs`
+is the same eight lines on the same clock, drawn as eight separate worlds:
+
+| shot | world | subject |
+|---|---|---|
+| hook-01 | deep cobalt room | the handset, ringing, reflected in the floor |
+| hook-02 | amber dusk | a city in three depths, backlit |
+| hook-03 | deep teal | the world, one in three |
+| hook-04 | graphite / paper | the phone and the computer, either side of a seam |
+| hook-05 | near-black | the object alone, on a shelf, lying down |
+| history-01 | sepia dusk | a mill, turning wheel, smoke, pines |
+| history-02 | bone | paper, rubber, cable, chip, each on its own plinth |
+| history-03 | gold on black | a chart that ends in a handset |
+
+`motion/kit/objects.mjs` is the accessory library they all draw on: skyline,
+smartphone, pine, mill, paper ream, rubber sheet, cable drum, chip, plinth and
+contact shadow. Same idiom as `product.mjs` — shaded across the form, highlight
+on the lit side, shadow on the far side.
+
+## Two bugs that made the film look worse than it was
+
+**Every shot opened empty.** `stage.mjs` skipped any layer at `p <= 0`, so the
+first frame of every shot - including the first frame of the film, which is the
+frame YouTube shows - was bare background. A layer present from the start of a
+shot now draws on the shot's first frame; a layer that enters later still waits.
+
+**Every join had the same reason.** The director reads `shot.transitionRole`.
+The new film set `shot.role`, so all eight fell through to the default and the
+log printed "something changes" eight times. There is now a test that fails if a
+shot declares a role the director does not know.
+
+## Type, in one place
+
+`motion/kit/fonts.mjs` loads the shipped faces and aliases them: @fontsource
+names the 400 weight of Space Grotesk "Space Grotesk Light", so registering the
+file as-is left the family unresolvable and every call fell back to DejaVu
+again. Weights registered under one alias merge into one family.
