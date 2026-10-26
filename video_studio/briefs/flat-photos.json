@@ -7,7 +7,7 @@
   "fps": 30,
   "thumbnail": {
     "line": "FIND THE LIGHT",
-    "section": "number"
+    "section": "angle"
   },
   "tags": [
     "photography",
@@ -25,7 +25,7 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The claim",
       "situation": "opening-claim",
       "template": "kinetic-headline",
       "props": {
@@ -33,15 +33,17 @@
       },
       "lines": [
         {
-          "text": "Your photo is not boring. It is flat, and flat is a light problem."
+          "text": "Your photo is not boring. It is flat, and flat is a light problem.",
+          "id": "L001"
         },
         {
-          "text": "Shape needs a shadow."
+          "text": "Shape needs a shadow.",
+          "id": "L002"
         }
       ]
     },
     {
-      "id": "checks",
+      "id": "fixes",
       "kind": "section",
       "heading": "The three fixes",
       "situation": "show-a-sequence",
@@ -55,20 +57,23 @@
       },
       "lines": [
         {
-          "text": "One light, one direction. Something in front."
+          "text": "One light, one direction. Something in front.",
+          "id": "L003"
         },
         {
-          "text": "Nothing else in the room fighting it."
+          "text": "Nothing else in the room fighting it.",
+          "id": "L004"
         },
         {
-          "text": "Something far behind, so the depth has somewhere to go."
+          "text": "Something far behind, so the depth has somewhere to go.",
+          "id": "L005"
         }
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
-      "heading": "The difference",
+      "id": "lights",
+      "kind": "section",
+      "heading": "The two lights",
       "situation": "make-a-comparison",
       "template": "compare-pair",
       "props": {
@@ -77,15 +82,17 @@
       },
       "lines": [
         {
-          "text": "Flat light erases shape. Raking light draws it."
+          "text": "Flat light erases shape. Raking light draws it.",
+          "id": "L006"
         },
         {
-          "text": "The angle is the whole difference."
+          "text": "The angle is the whole difference.",
+          "id": "L007"
         }
       ]
     },
     {
-      "id": "number",
+      "id": "angle",
       "kind": "section",
       "heading": "The angle",
       "situation": "explain-a-number",
@@ -96,41 +103,39 @@
       },
       "lines": [
         {
-          "text": "Forty five degrees is the angle. Move until you find it."
+          "text": "Forty five degrees is the angle. Move until you find it.",
+          "id": "L008"
         },
         {
-          "text": "It is one step to the side."
+          "text": "It is one step to the side.",
+          "id": "L009"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "layers",
       "kind": "section",
-      "heading": "The layers",
-      "situation": "explain-a-number",
-      "template": "bar-compare",
+      "heading": "The layers of depth",
+      "situation": "show-the-mechanism",
+      "template": "exploded-stack",
       "props": {
-        "labels": [
+        "layers": [
           "Foreground",
           "Subject",
           "Background"
-        ],
-        "values": [
-          30,
-          40,
-          30
         ]
       },
       "lines": [
         {
-          "text": "Thirty percent foreground. Forty percent subject. Thirty percent background."
+          "text": "Thirty percent foreground. Forty percent subject. Thirty percent background.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "payoff",
+      "id": "move",
       "kind": "section",
-      "heading": "What to move",
+      "heading": "The move",
       "situation": "before-and-after",
       "template": "fork-paths",
       "props": {
@@ -139,22 +144,25 @@
       },
       "lines": [
         {
-          "text": "Move the light if you can. Move yourself if you cannot."
+          "text": "Move the light if you can. Move yourself if you cannot.",
+          "id": "L011"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "The habit",
+      "heading": "The close",
       "situation": "punchline",
       "template": "stamp-lockup",
       "props": {
-        "text": "Find the light first"
+        "text": "Find the light first",
+        "kicker": "the light"
       },
       "lines": [
         {
-          "text": "Find the light first. Then find the subject."
+          "text": "Find the light first. Then find the subject.",
+          "id": "L012"
         }
       ]
     }

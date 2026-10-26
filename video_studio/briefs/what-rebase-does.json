@@ -7,7 +7,7 @@
   "fps": 30,
   "thumbnail": {
     "line": "IT REWRITES",
-    "section": "number"
+    "section": "risk"
   },
   "tags": [
     "git rebase",
@@ -33,7 +33,8 @@
       },
       "lines": [
         {
-          "text": "Rebase is not magic. It rewrites your commits, one by one."
+          "text": "Rebase is not magic. It rewrites your commits, one by one.",
+          "id": "L001"
         }
       ]
     },
@@ -50,17 +51,19 @@
       },
       "lines": [
         {
-          "text": "The command is git rebase main. One line, no flags."
+          "text": "The command is git rebase main. One line, no flags.",
+          "id": "L002"
         },
         {
-          "text": "That is the whole incantation."
+          "text": "That is the whole incantation.",
+          "id": "L003"
         }
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
-      "heading": "Against merge",
+      "id": "history",
+      "kind": "section",
+      "heading": "What changes",
       "situation": "make-a-comparison",
       "template": "compare-pair",
       "props": {
@@ -69,15 +72,34 @@
       },
       "lines": [
         {
-          "text": "Merge keeps the history. Rebase rewrites it into a clean line."
+          "text": "Merge keeps the history. Rebase rewrites it into a clean line.",
+          "id": "L004"
         },
         {
-          "text": "Same code, new commits."
+          "text": "Same code, new commits.",
+          "id": "L005"
         }
       ]
     },
     {
-      "id": "checks",
+      "id": "risk",
+      "kind": "section",
+      "heading": "The headcount",
+      "situation": "explain-a-number",
+      "template": "count-up",
+      "props": {
+        "value": 2,
+        "label": "people"
+      },
+      "lines": [
+        {
+          "text": "It is safe with one person. It is dangerous with two people.",
+          "id": "L006"
+        }
+      ]
+    },
+    {
+      "id": "rules",
       "kind": "section",
       "heading": "The rules",
       "situation": "show-criteria",
@@ -91,33 +113,19 @@
       },
       "lines": [
         {
-          "text": "Never rebase a shared branch. Pull before you push. Push early and often."
+          "text": "Never rebase a shared branch. Pull before you push. Push early and often.",
+          "id": "L007"
         },
         {
-          "text": "And squash your own mess before anyone reads it."
+          "text": "And squash your own mess before anyone reads it.",
+          "id": "L008"
         }
       ]
     },
     {
-      "id": "number",
+      "id": "branch",
       "kind": "section",
-      "heading": "The boundary",
-      "situation": "explain-a-number",
-      "template": "count-up",
-      "props": {
-        "value": 2,
-        "label": "people"
-      },
-      "lines": [
-        {
-          "text": "It is safe with one person. It is dangerous with two people."
-        }
-      ]
-    },
-    {
-      "id": "payoff",
-      "kind": "section",
-      "heading": "Where it is safe",
+      "heading": "Whose branch",
       "situation": "before-and-after",
       "template": "fork-paths",
       "props": {
@@ -126,44 +134,29 @@
       },
       "lines": [
         {
-          "text": "Safe on your branch. Risky on main, where everyone else is standing."
+          "text": "Safe on your branch. Risky on main, where everyone else is standing.",
+          "id": "L009"
         },
         {
-          "text": "Own branch only."
+          "text": "Own branch only.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "recap",
-      "kind": "recap",
-      "heading": "The habit",
-      "situation": "recap",
-      "template": "list-build",
-      "props": {
-        "items": [
-          "Your branch",
-          "Pull first",
-          "Squash"
-        ]
-      },
-      "lines": [
-        {
-          "text": "Your branch, pull first, squash. That is the whole habit."
-        }
-      ]
-    },
-    {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "The rule",
+      "heading": "The close",
       "situation": "punchline",
       "template": "stamp-lockup",
       "props": {
-        "text": "Rebase your own branch"
+        "text": "Rebase your own branch",
+        "kicker": "your branch"
       },
       "lines": [
         {
-          "text": "Rebase your own branch. Leave the shared one alone."
+          "text": "Rebase your own branch. Leave the shared one alone.",
+          "id": "L011"
         }
       ]
     }

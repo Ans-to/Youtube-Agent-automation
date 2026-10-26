@@ -33,7 +33,8 @@
       },
       "lines": [
         {
-          "text": "Ten minutes a day beats a weekend of nothing. It sounds too small to work."
+          "text": "Ten minutes a day beats a weekend of nothing. It sounds too small to work.",
+          "id": "L001"
         }
       ]
     },
@@ -49,31 +50,16 @@
       },
       "lines": [
         {
-          "text": "The number is ten. Ten minutes, every day."
+          "text": "The number is ten. Ten minutes, every day.",
+          "id": "L002"
         }
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
-      "heading": "The comparison",
-      "situation": "before-and-after",
-      "template": "compare-pair",
-      "props": {
-        "left": "One weekend marathon",
-        "right": "Ten minutes daily"
-      },
-      "lines": [
-        {
-          "text": "One weekend marathon. Or ten minutes daily, for a month. Same hours."
-        }
-      ]
-    },
-    {
-      "id": "checks",
+      "id": "habit",
       "kind": "section",
-      "heading": "The rules",
-      "situation": "show-a-sequence",
+      "heading": "The habit",
+      "situation": "build-an-argument",
       "template": "stack-push",
       "props": {
         "items": [
@@ -84,17 +70,19 @@
       },
       "lines": [
         {
-          "text": "Pick one skill. Set a timer."
+          "text": "Pick one skill. Set a timer.",
+          "id": "L003"
         },
         {
-          "text": "And stop when it rings, even if you are enjoying it."
+          "text": "And stop when it rings, even if you are enjoying it.",
+          "id": "L004"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "split",
       "kind": "section",
-      "heading": "The block",
+      "heading": "Where the block goes",
       "situation": "show-the-mechanism",
       "template": "budget-rail",
       "props": {
@@ -116,17 +104,19 @@
       },
       "lines": [
         {
-          "text": "Fifty percent practice. Twenty percent notes. Thirty percent sleep."
+          "text": "Fifty percent practice. Twenty percent notes. Thirty percent sleep.",
+          "id": "L005"
         },
         {
-          "text": "Sleep is the practice."
+          "text": "Sleep is the practice.",
+          "id": "L006"
         }
       ]
     },
     {
-      "id": "build",
+      "id": "parts",
       "kind": "section",
-      "heading": "What stacks",
+      "heading": "The three parts",
       "situation": "build-an-argument",
       "template": "list-build",
       "props": {
@@ -138,14 +128,32 @@
       },
       "lines": [
         {
-          "text": "One rep, one note, one night. That is the whole stack."
+          "text": "One rep, one note, one night. That is the whole stack.",
+          "id": "L007"
+        }
+      ]
+    },
+    {
+      "id": "choice",
+      "kind": "section",
+      "heading": "Two ways to spend it",
+      "situation": "before-and-after",
+      "template": "compare-pair",
+      "props": {
+        "left": "One weekend marathon",
+        "right": "Ten minutes daily"
+      },
+      "lines": [
+        {
+          "text": "One weekend marathon. Or ten minutes daily, for a month. Same hours.",
+          "id": "L008"
         }
       ]
     },
     {
       "id": "payoff",
       "kind": "section",
-      "heading": "The payoff",
+      "heading": "What it buys",
       "situation": "make-a-comparison",
       "template": "fork-paths",
       "props": {
@@ -154,22 +162,25 @@
       },
       "lines": [
         {
-          "text": "Same hours. A skill in a year, or a skill in a month. One you keep."
+          "text": "Same hours. A skill in a year, or a skill in a month. One you keep.",
+          "id": "L009"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "Today",
+      "heading": "The close",
       "situation": "punchline",
       "template": "stamp-lockup",
       "props": {
-        "text": "Start the timer today"
+        "text": "Start the timer today",
+        "kicker": "the timer"
       },
       "lines": [
         {
-          "text": "Start the timer today. Ten minutes is enough."
+          "text": "Start the timer today. Ten minutes is enough.",
+          "id": "L010"
         }
       ]
     }

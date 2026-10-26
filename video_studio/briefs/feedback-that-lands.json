@@ -7,7 +7,7 @@
   "fps": 30,
   "thumbnail": {
     "line": "SAY WHAT YOU SAW",
-    "section": "number"
+    "section": "one"
   },
   "tags": [
     "feedback",
@@ -25,7 +25,7 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The problem",
       "situation": "opening-claim",
       "template": "kinetic-headline",
       "props": {
@@ -33,38 +33,48 @@
       },
       "lines": [
         {
-          "text": "Nobody remembers the feedback. They remember how it felt."
+          "text": "Nobody remembers the feedback. They remember how it felt.",
+          "id": "L001"
         },
         {
-          "text": "So start with what you saw."
+          "text": "So start with what you saw.",
+          "id": "L002"
         }
       ]
     },
     {
-      "id": "checks",
+      "id": "moves",
       "kind": "section",
       "heading": "The three moves",
       "situation": "show-a-sequence",
-      "template": "list-build",
+      "template": "timeline-rail",
       "props": {
-        "items": [
-          "Say what you saw",
-          "Say what it cost",
-          "Ask what they meant"
+        "stops": [
+          {
+            "label": "Say what you saw"
+          },
+          {
+            "label": "Say what it cost"
+          },
+          {
+            "label": "Ask what they meant"
+          }
         ]
       },
       "lines": [
         {
-          "text": "Say what you saw. Say what it cost."
+          "text": "Say what you saw. Say what it cost.",
+          "id": "L003"
         },
         {
-          "text": "Then ask what they meant, before you tell them the fix."
+          "text": "Then ask what they meant, before you tell them the fix.",
+          "id": "L004"
         }
       ]
     },
     {
       "id": "stake",
-      "kind": "stake",
+      "kind": "section",
       "heading": "The difference",
       "situation": "make-a-comparison",
       "template": "compare-pair",
@@ -74,17 +84,19 @@
       },
       "lines": [
         {
-          "text": "A judgement is about them. An observation is about the work."
+          "text": "A judgement is about them. An observation is about the work.",
+          "id": "L005"
         },
         {
-          "text": "Only one of the two can be fixed."
+          "text": "Only one of the two can be fixed.",
+          "id": "L006"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "shares",
       "kind": "section",
-      "heading": "The split",
+      "heading": "The shares",
       "situation": "explain-a-number",
       "template": "bar-compare",
       "props": {
@@ -101,36 +113,41 @@
       },
       "lines": [
         {
-          "text": "Twenty percent observed. Thirty percent impact. Fifty percent question."
+          "text": "Twenty percent observed. Thirty percent impact. Fifty percent question.",
+          "id": "L007"
         },
         {
-          "text": "Let them answer first."
+          "text": "Let them answer first.",
+          "id": "L008"
         }
       ]
     },
     {
-      "id": "number",
+      "id": "one",
       "kind": "section",
-      "heading": "One at a time",
+      "heading": "One thing",
       "situation": "name-the-thing",
-      "template": "count-up",
+      "template": "dot-gauge",
       "props": {
         "value": 1,
-        "label": "thing"
+        "of": 5,
+        "caption": "one thing"
       },
       "lines": [
         {
-          "text": "One thing at a time. Two is a review, not a conversation."
+          "text": "One thing at a time. Two is a review, not a conversation.",
+          "id": "L009"
         },
         {
-          "text": "Pick one thing, not five."
+          "text": "Pick one thing, not five.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "payoff",
+      "id": "reversal",
       "kind": "section",
-      "heading": "The order",
+      "heading": "The reversal",
       "situation": "before-and-after",
       "template": "fork-paths",
       "props": {
@@ -139,7 +156,8 @@
       },
       "lines": [
         {
-          "text": "Ask, then tell. Then try it reversed: tell, then ask."
+          "text": "Ask, then tell. Then try it reversed: tell, then ask.",
+          "id": "L011"
         }
       ]
     },
@@ -158,22 +176,25 @@
       },
       "lines": [
         {
-          "text": "Saw, cost, meant. Three sentences and a question."
+          "text": "Saw, cost, meant. Three sentences and a question.",
+          "id": "L012"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "The start",
+      "heading": "The close",
       "situation": "punchline",
-      "template": "kinetic-headline",
+      "template": "stamp-lockup",
       "props": {
-        "text": "Ask what they meant"
+        "text": "Ask what they meant",
+        "kicker": "ask"
       },
       "lines": [
         {
-          "text": "Ask what they meant. Then say what you saw."
+          "text": "Ask what they meant. Then say what you saw.",
+          "id": "L013"
         }
       ]
     }

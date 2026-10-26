@@ -1720,7 +1720,7 @@ function plan() {
       id: section.id, index: section.index, heading: section.heading, kind: section.kind,
       situation: section.situation, start: Number(section.start.toFixed(3)),
       end: Number(section.end.toFixed(3)), seconds: Number(section.seconds.toFixed(3)),
-      arrive: section.arrive, reason: section.reason,
+      arrive: section.arrive, entrance: section.fx, reason: section.reason,
     })),
     // What each beat actually puts in front of the viewer, so the picture can be
     // audited against the narration without decoding frames: the plan says what
@@ -1730,7 +1730,7 @@ function plan() {
       beat: shot.beatIndex + 1,
       start: Number(shot.start.toFixed(3)), end: Number(shot.end.toFixed(3)),
       seconds: Number(shot.seconds.toFixed(3)),
-      template: shot.template, region: shot.region,
+      template: shot.template, region: shot.region, entrance: shot.section.fx,
       shows: shot.shownText || null,
     })),
     captions: SECTIONS.flatMap((section) => section.lines.map((line) => ({

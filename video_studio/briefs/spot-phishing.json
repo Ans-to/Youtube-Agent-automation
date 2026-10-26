@@ -7,7 +7,7 @@
   "fps": 30,
   "thumbnail": {
     "line": "HOVER FIRST",
-    "section": "number"
+    "section": "seconds"
   },
   "tags": [
     "phishing",
@@ -25,7 +25,7 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The email",
       "situation": "opening-claim",
       "template": "kinetic-headline",
       "props": {
@@ -33,26 +33,8 @@
       },
       "lines": [
         {
-          "text": "That email wants your password, and it is in a hurry."
-        }
-      ]
-    },
-    {
-      "id": "number",
-      "kind": "section",
-      "heading": "The time",
-      "situation": "explain-a-number",
-      "template": "count-up",
-      "props": {
-        "value": 5,
-        "label": "seconds"
-      },
-      "lines": [
-        {
-          "text": "Five seconds is all it takes, if you check three things."
-        },
-        {
-          "text": "Sender, link, and ask."
+          "text": "That email wants your password, and it is in a hurry.",
+          "id": "L001"
         }
       ]
     },
@@ -61,29 +43,60 @@
       "kind": "section",
       "heading": "The three checks",
       "situation": "show-a-sequence",
-      "template": "list-build",
+      "template": "timeline-rail",
       "props": {
-        "items": [
-          "Check the sender domain",
-          "Hover before you click",
-          "Nobody asks for a password"
+        "stops": [
+          {
+            "label": "Check the sender domain"
+          },
+          {
+            "label": "Hover before you click"
+          },
+          {
+            "label": "Nobody legitimate asks for a password"
+          }
         ]
       },
       "lines": [
         {
-          "text": "Check the sender domain."
+          "text": "Check the sender domain.",
+          "id": "L002"
         },
         {
-          "text": "Hover before you click, and read the real address, not the label."
+          "text": "Hover before you click, and read the real address, not the label.",
+          "id": "L003"
         },
         {
-          "text": "Nobody legitimate asks for a password."
+          "text": "Nobody legitimate asks for a password.",
+          "id": "L004"
         }
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
+      "id": "seconds",
+      "kind": "section",
+      "heading": "The countdown",
+      "situation": "explain-a-number",
+      "template": "dot-gauge",
+      "props": {
+        "value": 3,
+        "of": 5,
+        "caption": "three things"
+      },
+      "lines": [
+        {
+          "text": "Five seconds is all it takes, if you check three things.",
+          "id": "L005"
+        },
+        {
+          "text": "Sender, link, and ask.",
+          "id": "L006"
+        }
+      ]
+    },
+    {
+      "id": "tell",
+      "kind": "section",
       "heading": "The tell",
       "situation": "make-a-comparison",
       "template": "compare-pair",
@@ -93,17 +106,19 @@
       },
       "lines": [
         {
-          "text": "A real invoice names you. A fake one says dear customer."
+          "text": "A real invoice names you. A fake one says dear customer.",
+          "id": "L007"
         },
         {
-          "text": "Names are cheap to fake."
+          "text": "Names are cheap to fake.",
+          "id": "L008"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "tricks",
       "kind": "section",
-      "heading": "How the trick is built",
+      "heading": "The trick",
       "situation": "explain-a-number",
       "template": "bar-compare",
       "props": {
@@ -120,17 +135,19 @@
       },
       "lines": [
         {
-          "text": "Forty percent of the trick is a deadline. Thirty is a threat."
+          "text": "Forty percent of the trick is a deadline. Thirty is a threat.",
+          "id": "L009"
         },
         {
-          "text": "Thirty is a link."
+          "text": "Thirty is a link.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "payoff",
+      "id": "do",
       "kind": "section",
-      "heading": "The decision",
+      "heading": "What to do",
       "situation": "before-and-after",
       "template": "fork-paths",
       "props": {
@@ -139,25 +156,29 @@
       },
       "lines": [
         {
-          "text": "Report it, or delete it. Never reply to it."
+          "text": "Report it, or delete it. Never reply to it.",
+          "id": "L011"
         },
         {
-          "text": "A reply tells them the address is live."
+          "text": "A reply tells them the address is live.",
+          "id": "L012"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "Every time",
+      "heading": "The close",
       "situation": "punchline",
-      "template": "kinetic-headline",
+      "template": "stamp-lockup",
       "props": {
-        "text": "Hover before you click"
+        "text": "Hover before you click",
+        "kicker": "hover"
       },
       "lines": [
         {
-          "text": "Hover before you click. Every single time."
+          "text": "Hover before you click. Every single time.",
+          "id": "L013"
         }
       ]
     }

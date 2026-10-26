@@ -242,5 +242,118 @@ console.log(JSON.stringify({ message }));
         self.assertIn("sweep-rule", result["message"])
 
 
+class EntranceTests(unittest.TestCase):
+    """The entrance vocabulary must exist, fit the pictures, and actually withhold.
+
+    An entrance is only worth having if the frame is genuinely incomplete while it
+    runs - a clip, a transform, a marker - so these tests draw the same artwork
+    through an entrance and count the ink. A move that shows the finished picture
+    and then animates a border is decoration, and the owner called that out.
+    """
+
+    @unittest.skipIf(NODE is None or not CLI.is_file(), "node is unavailable")
+    def test_the_vocabulary_is_large_enough_and_fits_every_template(self):
+        result = node_json("""
+import { ENTRANCES, FITS } from './motion/fxlab.mjs';
+import { TEMPLATES as LIBRARY } from './motion/library.mjs';
+const ids = LIBRARY.map((template) => template.id);
+console.log(JSON.stringify({
+  entrances: ENTRANCES,
+  missing: ids.filter((id) => !FITS[id]),
+  unknown: Object.values(FITS).flat().filter((kind) => !ENTRANCES.includes(kind)),
+  empty: Object.entries(FITS).filter(([, kinds]) => !kinds.length).map(([id]) => id),
+}));
+""")
+        self.assertGreaterEqual(len(result["entrances"]), 8)
+        self.assertEqual(len(set(result["entrances"])), len(result["entrances"]))
+        self.assertEqual(result["missing"], [], "every template must say what can carry it")
+        self.assertEqual(result["unknown"], [], "an entrance in FITS must exist")
+        self.assertEqual(result["empty"], [], "a template with no entrance cannot land")
+
+    @unittest.skipIf(NODE is None or not CLI.is_file(), "node is unavailable")
+    def test_an_entrance_withholds_the_picture_until_it_lands(self):
+        """At 20 % of the move, the frame is not the finished drawing.
+
+        Clip and transform families must show less ink than the settled drawing;
+        the add-on families (a marker behind type, a press, a landing) necessarily
+        draw the artwork and put a mark on top, so they are only held to not
+        flooding the frame.
+        """
+        result = node_json("""
+import { createCanvas } from '@napi-rs/canvas';
+import { applyEntrance, ENTRANCES } from './motion/fxlab.mjs';
+
+const W = 480;
+const H = 270;
+const ink = (kind, p) => {
+  const canvas = createCanvas(W, H);
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+  const artwork = () => {
+    ctx.fillStyle = '#12233f';
+    for (let i = 0; i < 3; i += 1) ctx.fillRect(40, 40 + i * 60, 400, 30);
+  };
+  applyEntrance(ctx, { kind, p, box: { x: 30, y: 30, w: 420, h: 210 }, accent: '#b4762a', ink: '#12233f' }, artwork);
+  const data = ctx.getImageData(0, 0, W, H).data;
+  let dark = 0;
+  for (let i = 0; i < data.length; i += 4) if (data[i] < 200) dark += 1;
+  return dark;
+};
+const report = {};
+for (const kind of ENTRANCES) {
+  const full = ink(kind, 1);
+  report[kind] = { settled: full, early: ink(kind, 0.2), ratio: ink(kind, 0.2) / Math.max(1, full) };
+}
+console.log(JSON.stringify(report));
+""")
+        # Clip and slide families withhold ink outright.
+        clip_families = ["draw-on", "wipe", "iris", "scan", "slit-scan", "whip"]
+        for kind in clip_families:
+            self.assertLess(result[kind]["ratio"], 0.85,
+                            f"{kind} shows the whole picture before it lands")
+        # The rest withhold something else: assembly holds the two halves apart
+        # instead of hiding them, a press and a landing put their artwork on the
+        # frame and add weight on top, and a marker sits behind live type. They
+        # are only held to not flooding the frame.
+        for kind in ["assembly", "highlighter", "stamp", "squash"]:
+            self.assertLess(result[kind]["ratio"], 1.35,
+                            f"{kind} floods the frame before it lands")
+
+    @unittest.skipIf(NODE is None or not CLI.is_file(), "node is unavailable")
+    def test_no_film_repeats_an_entrance_in_the_next_act(self):
+        result = node_json("""
+import { chooseEntrance, ENTRANCES } from './motion/fxlab.mjs';
+const situations = ['opening-claim', 'explain-a-number', 'show-criteria', 'make-a-comparison',
+  'show-the-mechanism', 'before-and-after', 'punchline'];
+const templates = ['kinetic-headline', 'count-up', 'matrix-grid', 'compare-pair',
+  'budget-rail', 'fork-paths', 'stamp-lockup'];
+const seq = [];
+for (let i = 0; i < situations.length; i += 1) {
+  seq.push(chooseEntrance(situations[i], seq.slice().reverse(), 'film:' + i, templates[i]));
+}
+console.log(JSON.stringify({ seq, vocabulary: ENTRANCES }));
+""")
+        seq = result["seq"]
+        for a, b in zip(seq, seq[1:]):
+            self.assertNotEqual(a, b, f"the same entrance twice in a row: {seq}")
+        self.assertGreaterEqual(len(set(seq)), 5, "a seven-act film should not keep landing the same way")
+
+    def test_the_agent_map_publishes_the_entrances_and_their_fit(self):
+        """An agent reading the map must be able to pick an entrance, not guess one."""
+        published = json.loads(AGENT_MAP.read_text(encoding="utf-8"))
+        entrances = published["entrances"]
+        self.assertGreaterEqual(len(entrances["kinds"]), 8)
+        self.assertEqual(len(entrances["kinds"]), len(set(entrances["kinds"])))
+        ids = {template["id"] for template in published["templates"]}
+        self.assertEqual(set(entrances["fits"]), ids,
+                         "every template must say which entrances it can carry")
+        for template, kinds in entrances["fits"].items():
+            self.assertTrue(kinds, template)
+            for kind in kinds:
+                self.assertIn(kind, entrances["kinds"], f"{template} carries {kind}")
+        self.assertIn("motion-fx-lab", entrances["source"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -87,6 +87,8 @@ const BY_SITUATION = {
  *  the picture is on screen for most of its beat. */
 export const ENTRANCE_SECONDS = 0.56;
 
+const clamp = (x, a = 0, b = 1) => (x < a ? a : x > b ? b : x);
+
 /** A stable 0..1 from a string: FNV-1a, then a fractional tail. */
 export function seedOf(text) {
   let hash = 0x811c9dc5;
@@ -275,10 +277,17 @@ export function applyEntrance(ctx, {
     // Vertical strips that snap into place. All eight start together on purpose:
     // per-strip delays tore the frame for half a second, which reads as a broken
     // encode, not as a move.
+    // Four waves of two columns. The columns of a wave start together - per-strip
+    // delays tore the frame for half a second and read as a broken encode - but
+    // the waves are late enough that the picture is genuinely incomplete while
+    // the move runs.
     const strips = 8;
     const stripW = w / strips;
-    const grow = easeOut(t);
+    const wave = Math.min(1, t * 2.2);         // all eight landed by ~45 % of the move
     for (let i = 0; i < strips; i += 1) {
+      const arrive = clamp((wave - (Math.floor(i / 2) / 4) * 0.75) / 0.25);
+      if (arrive <= 0) continue;
+      const grow = easeOut(arrive);
       const shift = (i % 2 === 0 ? -1 : 1) * h * 0.12 * (1 - grow);
       const sx = x + i * stripW;
       ctx.save();

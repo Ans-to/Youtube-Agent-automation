@@ -33,7 +33,8 @@
       },
       "lines": [
         {
-          "text": "Your money does not grow in a line. It grows in a curve."
+          "text": "Your money does not grow in a line. It grows in a curve.",
+          "id": "L001"
         }
       ]
     },
@@ -42,41 +43,46 @@
       "kind": "section",
       "heading": "The rate",
       "situation": "explain-a-number",
-      "template": "count-up",
+      "template": "ring-gauge",
       "props": {
         "value": 7,
         "label": "percent"
       },
       "lines": [
         {
-          "text": "Seven percent a year sounds small. Wait until you see thirty years."
+          "text": "Seven percent a year sounds small. Wait until you see thirty years.",
+          "id": "L002"
         },
         {
-          "text": "The curve is the point."
+          "text": "The curve is the point.",
+          "id": "L003"
         }
       ]
     },
     {
       "id": "stake",
-      "kind": "stake",
+      "kind": "section",
       "heading": "The difference",
       "situation": "make-a-comparison",
-      "template": "compare-pair",
+      "template": "overlap-pair",
       "props": {
         "left": "Simple interest",
-        "right": "Compound"
+        "right": "Compound",
+        "shared": "what you put in"
       },
       "lines": [
         {
-          "text": "Simple interest pays on what you put in. Compound pays on what you kept."
+          "text": "Simple interest pays on what you put in. Compound pays on what you kept.",
+          "id": "L004"
         },
         {
-          "text": "That is the whole gap."
+          "text": "That is the whole gap.",
+          "id": "L005"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "decades",
       "kind": "section",
       "heading": "The decades",
       "situation": "show-a-sequence",
@@ -100,18 +106,21 @@
       },
       "lines": [
         {
-          "text": "First ten years: a little. Next twenty: some."
+          "text": "First ten years: a little. Next twenty: some.",
+          "id": "L006"
         },
         {
-          "text": "Then the last ten years does the work."
+          "text": "Then the last ten years does the work.",
+          "id": "L007"
         },
         {
-          "text": "Almost all of it."
+          "text": "Almost all of it.",
+          "id": "L008"
         }
       ]
     },
     {
-      "id": "checks",
+      "id": "rules",
       "kind": "section",
       "heading": "The rules",
       "situation": "show-criteria",
@@ -125,17 +134,19 @@
       },
       "lines": [
         {
-          "text": "Start early. Do not withdraw. Two rules, and no skill required."
+          "text": "Start early. Do not withdraw. Two rules, and no skill required.",
+          "id": "L009"
         },
         {
-          "text": "And ignore the noise between the two."
+          "text": "And ignore the noise between the two.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "payoff",
+      "id": "gap",
       "kind": "section",
-      "heading": "When to start",
+      "heading": "The gap",
       "situation": "before-and-after",
       "template": "fork-paths",
       "props": {
@@ -144,22 +155,25 @@
       },
       "lines": [
         {
-          "text": "Ten years early is worth more than ten years late."
+          "text": "Ten years early is worth more than ten years late.",
+          "id": "L011"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "Today",
+      "heading": "The close",
       "situation": "punchline",
       "template": "stamp-lockup",
       "props": {
-        "text": "Start ten years ago"
+        "text": "Start ten years ago",
+        "kicker": "ten years"
       },
       "lines": [
         {
-          "text": "The best day to start was ten years ago. The second best is today."
+          "text": "The best day to start was ten years ago. The second best is today.",
+          "id": "L012"
         }
       ]
     }

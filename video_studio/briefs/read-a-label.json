@@ -7,7 +7,7 @@
   "fps": 30,
   "thumbnail": {
     "line": "READ THE BACK",
-    "section": "number"
+    "section": "order"
   },
   "tags": [
     "nutrition label",
@@ -25,7 +25,7 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The problem",
       "situation": "opening-claim",
       "template": "kinetic-headline",
       "props": {
@@ -33,14 +33,45 @@
       },
       "lines": [
         {
-          "text": "That label is built to be misread. Here is the order that works."
+          "text": "That label is built to be misread. Here is the order that works.",
+          "id": "L001"
         }
       ]
     },
     {
-      "id": "number",
+      "id": "order",
       "kind": "section",
-      "heading": "The time",
+      "heading": "The order",
+      "situation": "show-a-sequence",
+      "template": "timeline-rail",
+      "props": {
+        "stops": [
+          {
+            "label": "Serving size"
+          },
+          {
+            "label": "Sugar per serving"
+          },
+          {
+            "label": "Ignore the front"
+          }
+        ]
+      },
+      "lines": [
+        {
+          "text": "Start at the serving size. Read the sugar per serving. Two numbers, in that order.",
+          "id": "L002"
+        },
+        {
+          "text": "Ignore the front of the pack entirely.",
+          "id": "L003"
+        }
+      ]
+    },
+    {
+      "id": "seconds",
+      "kind": "section",
+      "heading": "The clock",
       "situation": "explain-a-number",
       "template": "ring-gauge",
       "props": {
@@ -49,38 +80,18 @@
       },
       "lines": [
         {
-          "text": "Twenty seconds is enough, if you read it in the right order."
+          "text": "Twenty seconds is enough, if you read it in the right order.",
+          "id": "L004"
         },
         {
-          "text": "Back of the pack first."
+          "text": "Back of the pack first.",
+          "id": "L005"
         }
       ]
     },
     {
-      "id": "checks",
+      "id": "trap",
       "kind": "section",
-      "heading": "The order",
-      "situation": "show-a-sequence",
-      "template": "list-build",
-      "props": {
-        "items": [
-          "Start at the serving size",
-          "Read the sugar per serving",
-          "Ignore the front of the pack"
-        ]
-      },
-      "lines": [
-        {
-          "text": "Start at the serving size. Read the sugar per serving. Two numbers, in that order."
-        },
-        {
-          "text": "Ignore the front of the pack entirely."
-        }
-      ]
-    },
-    {
-      "id": "stake",
-      "kind": "stake",
       "heading": "The trap",
       "situation": "before-and-after",
       "template": "compare-pair",
@@ -90,12 +101,13 @@
       },
       "lines": [
         {
-          "text": "Per serving is a small number. Per pack is the one you eat. The pack is the trap."
+          "text": "Per serving is a small number. Per pack is the one you eat. The pack is the trap.",
+          "id": "L006"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "day",
       "kind": "section",
       "heading": "The day",
       "situation": "explain-a-number",
@@ -114,15 +126,17 @@
       },
       "lines": [
         {
-          "text": "One snack is twenty percent of your day. One drink is thirty. It adds up fast."
+          "text": "One snack is twenty percent of your day. One drink is thirty. It adds up fast.",
+          "id": "L007"
         },
         {
-          "text": "One meal is fifty."
+          "text": "One meal is fifty.",
+          "id": "L008"
         }
       ]
     },
     {
-      "id": "payoff",
+      "id": "decide",
       "kind": "section",
       "heading": "The decision",
       "situation": "make-a-comparison",
@@ -133,16 +147,17 @@
       },
       "lines": [
         {
-          "text": "Put it back, or buy one and stop at one."
+          "text": "Put it back, or buy one and stop at one.",
+          "id": "L009"
         }
       ]
     },
     {
       "id": "recap",
       "kind": "recap",
-      "heading": "The rule",
+      "heading": "The habit",
       "situation": "recap",
-      "template": "list-build",
+      "template": "matrix-grid",
       "props": {
         "items": [
           "Serving size",
@@ -152,22 +167,25 @@
       },
       "lines": [
         {
-          "text": "Serving size, sugar, then ignore the front."
+          "text": "Serving size, sugar, then ignore the front.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "The habit",
+      "heading": "The close",
       "situation": "punchline",
       "template": "stamp-lockup",
       "props": {
-        "text": "Turn the pack over"
+        "text": "Turn the pack over",
+        "kicker": "the pack"
       },
       "lines": [
         {
-          "text": "Turn the pack over. The answer is on the back."
+          "text": "Turn the pack over. The answer is on the back.",
+          "id": "L011"
         }
       ]
     }

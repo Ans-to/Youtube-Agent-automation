@@ -7,7 +7,7 @@
   "fps": 30,
   "thumbnail": {
     "line": "YOU PAY",
-    "section": "number"
+    "section": "bill"
   },
   "tags": [
     "free apps",
@@ -33,15 +33,17 @@
       },
       "lines": [
         {
-          "text": "If the app is free, you are the product. There are three prices."
+          "text": "If the app is free, you are the product. There are three prices.",
+          "id": "L001"
         },
         {
-          "text": "None of them are money."
+          "text": "None of them are money.",
+          "id": "L002"
         }
       ]
     },
     {
-      "id": "checks",
+      "id": "prices",
       "kind": "section",
       "heading": "The three prices",
       "situation": "show-a-sequence",
@@ -55,17 +57,19 @@
       },
       "lines": [
         {
-          "text": "Ads you cannot skip. Data you cannot see. Features you cannot remove."
+          "text": "Ads you cannot skip. Data you cannot see. Features you cannot remove.",
+          "id": "L003"
         },
         {
-          "text": "Features you cannot remove, unless you pay monthly."
+          "text": "Features you cannot remove, unless you pay monthly.",
+          "id": "L004"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "revenue",
       "kind": "section",
-      "heading": "Where the money is",
+      "heading": "The revenue",
       "situation": "explain-a-number",
       "template": "bar-compare",
       "props": {
@@ -82,18 +86,21 @@
       },
       "lines": [
         {
-          "text": "Fifty percent of the revenue is advertising. Thirty is data."
+          "text": "Fifty percent of the revenue is advertising. Thirty is data.",
+          "id": "L005"
         },
         {
-          "text": "The rest is storage."
+          "text": "The rest is storage.",
+          "id": "L006"
         },
         {
-          "text": "Twenty is storage."
+          "text": "Twenty is storage.",
+          "id": "L007"
         }
       ]
     },
     {
-      "id": "number",
+      "id": "bill",
       "kind": "section",
       "heading": "The bill",
       "situation": "name-the-thing",
@@ -104,16 +111,18 @@
       },
       "lines": [
         {
-          "text": "Twelve hours a year, watching ads in an app you did not choose."
+          "text": "Twelve hours a year, watching ads in an app you did not choose.",
+          "id": "L008"
         },
         {
-          "text": "That is a working day."
+          "text": "That is a working day.",
+          "id": "L009"
         }
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
+      "id": "choice",
+      "kind": "section",
       "heading": "The choice",
       "situation": "make-a-comparison",
       "template": "compare-pair",
@@ -123,14 +132,15 @@
       },
       "lines": [
         {
-          "text": "Free with ads, or paid without. There is no third option."
+          "text": "Free with ads, or paid without. There is no third option.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "payoff",
+      "id": "deal",
       "kind": "section",
-      "heading": "The decision",
+      "heading": "The deal",
       "situation": "before-and-after",
       "template": "fork-paths",
       "props": {
@@ -139,16 +149,17 @@
       },
       "lines": [
         {
-          "text": "Pay once for the tool you use daily. Pay forever for the rest."
+          "text": "Pay once for the tool you use daily. Pay forever for the rest.",
+          "id": "L011"
         }
       ]
     },
     {
       "id": "recap",
       "kind": "recap",
-      "heading": "What free means",
+      "heading": "The receipt",
       "situation": "recap",
-      "template": "matrix-grid",
+      "template": "list-build",
       "props": {
         "items": [
           "Ads",
@@ -158,22 +169,25 @@
       },
       "lines": [
         {
-          "text": "Ads, data, features. That is what free means."
+          "text": "Ads, data, features. That is what free means.",
+          "id": "L012"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "The rule",
+      "heading": "The close",
       "situation": "punchline",
       "template": "stamp-lockup",
       "props": {
-        "text": "Pay for one thing"
+        "text": "Pay for one thing",
+        "kicker": "one thing"
       },
       "lines": [
         {
-          "text": "Pay for the one thing you use every day. Not the five you might."
+          "text": "Pay for the one thing you use every day. Not the five you might.",
+          "id": "L013"
         }
       ]
     }

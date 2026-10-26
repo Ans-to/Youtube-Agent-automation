@@ -7,7 +7,7 @@
   "fps": 30,
   "thumbnail": {
     "line": "CUT THE MIDDLE",
-    "section": "number"
+    "section": "clock"
   },
   "tags": [
     "meetings",
@@ -25,7 +25,7 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The feeling",
       "situation": "opening-claim",
       "template": "kinetic-headline",
       "props": {
@@ -33,31 +33,35 @@
       },
       "lines": [
         {
-          "text": "That meeting was thirty minutes. It felt like ninety."
+          "text": "That meeting was thirty minutes. It felt like ninety.",
+          "id": "L001"
         }
       ]
     },
     {
-      "id": "number",
+      "id": "clock",
       "kind": "section",
       "heading": "The clock",
       "situation": "explain-a-number",
-      "template": "ring-gauge",
+      "template": "dot-gauge",
       "props": {
-        "value": 30,
-        "label": "minutes"
+        "value": 5,
+        "of": 30,
+        "caption": "five of them"
       },
       "lines": [
         {
-          "text": "Thirty minutes on the clock. Only five of them decided anything."
+          "text": "Thirty minutes on the clock. Only five of them decided anything.",
+          "id": "L002"
         },
         {
-          "text": "The rest was warm up."
+          "text": "The rest was warm up.",
+          "id": "L003"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "where",
       "kind": "section",
       "heading": "Where it went",
       "situation": "show-the-mechanism",
@@ -81,19 +85,42 @@
       },
       "lines": [
         {
-          "text": "Fifteen minutes of context. Ten of discussion. Five of decision."
+          "text": "Fifteen minutes of context. Ten of discussion. Five of decision.",
+          "id": "L004"
         },
         {
-          "text": "Most of it was waiting."
+          "text": "Most of it was waiting.",
+          "id": "L005"
         }
       ]
     },
     {
-      "id": "checks",
+      "id": "decide",
+      "kind": "section",
+      "heading": "The difference",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "props": {
+        "left": "A decision",
+        "right": "A conversation"
+      },
+      "lines": [
+        {
+          "text": "A decision ends. A conversation just gets booked again.",
+          "id": "L006"
+        },
+        {
+          "text": "Same room, same topic, next week.",
+          "id": "L007"
+        }
+      ]
+    },
+    {
+      "id": "rules",
       "kind": "section",
       "heading": "The rules",
       "situation": "show-criteria",
-      "template": "matrix-grid",
+      "template": "list-build",
       "props": {
         "items": [
           "No agenda, no meeting",
@@ -103,39 +130,23 @@
       },
       "lines": [
         {
-          "text": "No agenda, no meeting. One decision per meeting."
+          "text": "No agenda, no meeting. One decision per meeting.",
+          "id": "L008"
         },
         {
-          "text": "If nobody can name it, do not book it."
+          "text": "If nobody can name it, do not book it.",
+          "id": "L009"
         },
         {
-          "text": "And send the notes after, or it did not happen."
+          "text": "And send the notes after, or it did not happen.",
+          "id": "L010"
         }
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
-      "heading": "The cost",
-      "situation": "make-a-comparison",
-      "template": "compare-pair",
-      "props": {
-        "left": "A decision",
-        "right": "A conversation"
-      },
-      "lines": [
-        {
-          "text": "A decision ends. A conversation just gets booked again."
-        },
-        {
-          "text": "Same room, same topic, next week."
-        }
-      ]
-    },
-    {
-      "id": "payoff",
+      "id": "cut",
       "kind": "section",
-      "heading": "The fix",
+      "heading": "The cut",
       "situation": "before-and-after",
       "template": "fork-paths",
       "props": {
@@ -144,25 +155,29 @@
       },
       "lines": [
         {
-          "text": "Cut the middle, or cancel the whole thing and send a note."
+          "text": "Cut the middle, or cancel the whole thing and send a note.",
+          "id": "L011"
         },
         {
-          "text": "Pick one, and stop."
+          "text": "Pick one, and stop.",
+          "id": "L012"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
-      "heading": "The habit",
+      "heading": "The close",
       "situation": "punchline",
       "template": "stamp-lockup",
       "props": {
-        "text": "Name the decision"
+        "text": "Name the decision",
+        "kicker": "the decision"
       },
       "lines": [
         {
-          "text": "Name the decision before you book the room."
+          "text": "Name the decision before you book the room.",
+          "id": "L013"
         }
       ]
     }

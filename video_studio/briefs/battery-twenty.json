@@ -25,7 +25,7 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The symptom",
       "situation": "opening-claim",
       "template": "kinetic-headline",
       "props": {
@@ -33,7 +33,8 @@
       },
       "lines": [
         {
-          "text": "Your phone says twenty percent. Then it dies in a minute."
+          "text": "Your phone says twenty percent. Then it dies in a minute.",
+          "id": "L001"
         }
       ]
     },
@@ -49,31 +50,13 @@
       },
       "lines": [
         {
-          "text": "The gauge reads twenty percent. The cell is nearly empty."
+          "text": "The gauge reads twenty percent. The cell is nearly empty.",
+          "id": "L002"
         }
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
-      "heading": "The wrong blame",
-      "situation": "state-the-thesis",
-      "template": "fork-paths",
-      "props": {
-        "left": "A dying cell",
-        "right": "A lying gauge"
-      },
-      "lines": [
-        {
-          "text": "You blame a dying cell. The problem is a lying gauge."
-        },
-        {
-          "text": "The gauge reads voltage, and voltage sags under load."
-        }
-      ]
-    },
-    {
-      "id": "checks",
+      "id": "causes",
       "kind": "section",
       "heading": "The three causes",
       "situation": "show-criteria",
@@ -87,20 +70,23 @@
       },
       "lines": [
         {
-          "text": "A cheap cable drops the voltage."
+          "text": "A cheap cable drops the voltage.",
+          "id": "L003"
         },
         {
-          "text": "Cold weather slows the reaction inside the cell."
+          "text": "Cold weather slows the reaction inside the cell.",
+          "id": "L004"
         },
         {
-          "text": "A three year old cell simply holds less."
+          "text": "A three year old cell simply holds less.",
+          "id": "L005"
         }
       ]
     },
     {
-      "id": "mechanism",
+      "id": "error",
       "kind": "section",
-      "heading": "What it costs",
+      "heading": "Where the error is",
       "situation": "explain-a-number",
       "template": "bar-compare",
       "props": {
@@ -117,20 +103,44 @@
       },
       "lines": [
         {
-          "text": "Forty five percent of the error is voltage sag."
+          "text": "Forty five percent of the error is voltage sag.",
+          "id": "L006"
         },
         {
-          "text": "Twenty is cold."
+          "text": "Twenty is cold.",
+          "id": "L007"
         },
         {
-          "text": "Thirty five is age."
+          "text": "Thirty five is age.",
+          "id": "L008"
         }
       ]
     },
     {
-      "id": "command",
+      "id": "lie",
       "kind": "section",
-      "heading": "One check",
+      "heading": "So the gauge lies",
+      "situation": "state-the-thesis",
+      "template": "fork-paths",
+      "props": {
+        "left": "A lying gauge",
+        "right": "A dying cell"
+      },
+      "lines": [
+        {
+          "text": "You blame a dying cell. The problem is a lying gauge.",
+          "id": "L009"
+        },
+        {
+          "text": "The gauge reads voltage, and voltage sags under load.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "check",
+      "kind": "section",
+      "heading": "The check",
       "situation": "show-the-command",
       "template": "command-console",
       "props": {
@@ -140,25 +150,29 @@
       },
       "lines": [
         {
-          "text": "Run one check."
+          "text": "Run one check.",
+          "id": "L011"
         },
         {
-          "text": "It is called battery health."
+          "text": "It is called battery health.",
+          "id": "L012"
         }
       ]
     },
     {
-      "id": "outro",
+      "id": "close",
       "kind": "outro",
       "heading": "The fix",
       "situation": "punchline",
-      "template": "kinetic-headline",
+      "template": "stamp-lockup",
       "props": {
-        "text": "Check the cable first"
+        "text": "Check the cable first",
+        "kicker": "the cable"
       },
       "lines": [
         {
-          "text": "Check the cable first. It is the cheapest of the three."
+          "text": "Check the cable first. It is the cheapest of the three.",
+          "id": "L013"
         }
       ]
     }
