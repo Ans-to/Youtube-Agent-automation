@@ -22,6 +22,8 @@
  *     cannot animate, and an inanimate shape is a still.
  */
 import { UI, clamp, lerp, noise, roundRect } from '../ui.mjs';
+import { props } from './props.mjs';
+import { charts } from './charts.mjs';
 
 const TAU = Math.PI * 2;
 
@@ -1282,6 +1284,8 @@ export const SHAPES = {
   ...Object.fromEntries(Object.entries(objects).map(([id, draw]) => [id, { id, family: 'object', draw }])),
   ...Object.fromEntries(Object.entries(data).map(([id, draw]) => [id, { id, family: 'data', draw }])),
   ...Object.fromEntries(Object.entries(diagrams).map(([id, draw]) => [id, { id, family: 'diagram', draw }])),
+  ...Object.fromEntries(Object.entries(props).map(([id, draw]) => [id, { id, family: 'prop', draw }])),
+  ...Object.fromEntries(Object.entries(charts).map(([id, draw]) => [id, { id, family: 'chart', draw }])),
 };
 
 /** Draw one shape by id into a box, with the theme colours filled in. */
@@ -1310,5 +1314,5 @@ export function drawShape(ctx, id, {
   ctx.restore();
 }
 
-export { geometry, objects, data, diagrams };
+export { geometry, objects, data, diagrams, props, charts };
 export default SHAPES;

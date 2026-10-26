@@ -21,6 +21,7 @@ import { TYPE_MOVES, drawType } from './type.mjs';
 import { ENTRANCES, BEHAVIOURS, EXITS, applyEntrance, applyBehaviour, applyExit } from './motion.mjs';
 import { TRANSITIONS, TRANSITION_IDS } from './transitions.mjs';
 import { drawMap, CITIES, REGIONS, project } from './world.mjs';
+import { CARD_IDS, cards } from './cards.mjs';
 import { camera, withCamera, move as cameraMove, auditCamera, SHOTS } from './camera.mjs';
 import { grade } from './light.mjs';
 import { renderShot, auditShotList, totalDuration } from './stage.mjs';
@@ -133,6 +134,17 @@ check('map', 'world-arcs', (ctx) => drawMap(ctx, {
   x: 8, y: 8, w: W - 16, h: H - 16, p: 1, palette: PALETTE,
   arcs: [{ from: 'helsinki', to: 'tokyo', t: 1 }, { from: 'helsinki', to: 'newyork', t: 1 }],
 }));
+
+for (const id of CARD_IDS) {
+  check('card', id, (ctx) => {
+    cards[id](ctx, {
+      x: 20, y: 110, w: W - 40, p: 1, palette: PALETTE,
+      text: id === 'stat' ? '1 in 3' : 'The phone in every pocket',
+      label: 'Helsinki, 1998', source: 'Jorma Ollila', number: '03',
+      cta: 'Watch the story',
+    });
+  }, 0.4);
+}
 
 check('light', 'grade', (ctx) => {
   ctx.fillStyle = '#FAF8F3';

@@ -1115,9 +1115,20 @@ function propsForBeat(section, beat, beatCount, palette) {
     // with the row, because the row is drawn from the section's clock: it appears
     // once, where it will stay, and later beats do not replay its entrance.
     const start = section.start;
-    const found = spokenTimes(items.map((item) => item.name), speech);
+    // One row per narration line is the common case, and it needs no guessing:
+    // row i belongs to line i. Text search is only the fallback, because a row
+    // and its sentence do not always share every word ("...simply holds less").
+    const found = items.length === section.lines.length
+      ? section.lines.map((line) => line.start + start)
+      : spokenTimes(items.map((item) => item.name), speech);
     const timed = items.map((item, i) => ({ ...item, at: Math.max(0, found[i] - start) }));
     props.items = timed;
+    // Published with the beat so the plan can be audited against the voice
+    // without re-deriving the timing: see tools/check_picture_truth.py.
+    section.rowTimes = timed.map((item) => ({
+      text: item.name ?? item.text ?? '',
+      at: Number((start + item.at).toFixed(3)),
+    }));
     // The section's full list decides the layout, so a row that has not been
     // said yet does not move the rows that have.
     props.slots = items.length;
@@ -1128,7 +1139,9 @@ function propsForBeat(section, beat, beatCount, palette) {
     const segments = (props.segments || []).map((item) => ({ ...item }));
     if (!speech.length) return props;
     const start = section.start;
-    const foundSegments = spokenTimes(segments.map((segment) => segment.label ?? ''), speech);
+    const foundSegments = segments.length === section.lines.length
+      ? section.lines.map((line) => line.start + start)
+      : spokenTimes(segments.map((segment) => segment.label ?? ''), speech);
     props.segments = segments.map((segment, i) => ({ ...segment, at: Math.max(0, foundSegments[i] - start) }));
     props.total = props.total ?? segments.reduce((sum, segment) => sum + (Number(segment.value) || 0), 0);
     return props;
@@ -1814,6 +1827,7 @@ function plan() {
       seconds: Number(shot.seconds.toFixed(3)),
       template: shot.template, region: shot.region, entrance: shot.section.fx,
       shows: shot.shownText || null,
+      rows: shot.section.rowTimes || [],
     })),
     captions: SECTIONS.flatMap((section) => section.lines.map((line) => ({
       start: Number((section.start + line.start).toFixed(3)),

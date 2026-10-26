@@ -18,6 +18,7 @@ import { SHAPES, drawShape } from './shapes.mjs';
 import { TYPE_MOVES, drawType } from './type.mjs';
 import { ENTRANCES, BEHAVIOURS, EXITS, applyEntrance, applyBehaviour, applyExit } from './motion.mjs';
 import { TRANSITIONS, TRANSITION_IDS } from './transitions.mjs';
+import { cards, CARD_IDS } from './cards.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
@@ -83,6 +84,8 @@ const byFamily = {
   object: shapeEntries.filter((s) => s.family === 'object'),
   data: shapeEntries.filter((s) => s.family === 'data'),
   diagram: shapeEntries.filter((s) => s.family === 'diagram'),
+  prop: shapeEntries.filter((s) => s.family === 'prop'),
+  chart: shapeEntries.filter((s) => s.family === 'chart'),
 };
 
 for (const [family, entries] of Object.entries(byFamily)) {
@@ -96,6 +99,27 @@ for (const [family, entries] of Object.entries(byFamily)) {
     });
   });
   const file = path.join(OUT, `shapes-${family}.png`);
+  fs.writeFileSync(file, canvas.toBuffer('image/png'));
+  console.log(`wrote ${file}`);
+}
+
+// ----------------------------------------------------------------- card sheet
+{
+  const columns = 3;
+  const cell = { w: 500, h: 210 };
+  const entries = CARD_IDS.map((id) => ({ id }));
+  const canvas = sheet('Cards', entries, columns, cell, (ctx, entry, x, y, c) => {
+    const pad = 22;
+    cards[entry.id](ctx, {
+      x: x + pad, y: y + 62, w: c.w - pad * 3, p: 1, palette: PALETTE,
+      // Each card takes different content; the stat wants a number, the rest
+      // want a line.
+      text: entry.id === 'stat' ? '1 in 3' : 'The phone in every pocket',
+      label: entry.id === 'stat' ? 'of all phones sold, 2007' : 'Helsinki, 1998',
+      source: 'Jorma Ollila', number: '03', cta: 'Watch the full story',
+    });
+  });
+  const file = path.join(OUT, 'cards.png');
   fs.writeFileSync(file, canvas.toBuffer('image/png'));
   console.log(`wrote ${file}`);
 }
