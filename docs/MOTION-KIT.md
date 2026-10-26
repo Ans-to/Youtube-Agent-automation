@@ -227,3 +227,30 @@ from one handset to every country it was sold in), **dissolve** (the same map,
 held), **fade-paper** (a new chapter), **cut** (the hardest line in the film),
 **iris** (1865 opens), **wipe-left** (four industries travel), **push-left** (the
 film pushes on into the rise).
+
+## Type was never installed
+
+Every `family: 'Inter'` and `family: 'Space Grotesk'` call in the kit was
+rendering as **DejaVu Sans**, because there was no font file in the repo and no
+`assets/fonts` directory for the renderer to load. The whole studio has been
+setting its type in a Linux default.
+
+`assets/fonts/` now ships 13 woff2 files (240 KB, from npm `@fontsource`, all
+OFL): Inter 400–900, Space Grotesk 400/500/700, Anton, Instrument Serif, Archivo
+800/900. The renderers register everything in that directory at startup.
+
+## Three art directions, not three tints
+
+`films/style_probe.mjs` renders the same six seconds three ways, so a direction
+can be chosen by eye:
+
+    node films/style_probe.mjs --style signal --frames /tmp/sig --fps 30
+
+- **SIGNAL** — a two-colour poster. Near-black ground, cream, one signal orange.
+  Anton at 190 px, hard edges, no texture, cuts on the beat.
+- **MONOLITH** — dark and expensive. True black, old gold, hairline rules,
+  Instrument Serif. Small subject, vast space, slow push.
+- **STANZA** — kinetic type. Light ground, black type, one red. The words are the
+  picture; the phone and the map are secondary marks that move on their own clock.
+
+Each is a different *genre*, not a palette swap of one house style.
