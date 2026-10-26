@@ -1,50 +1,74 @@
 [
   {
     "shot": "hook-01-ringing",
+    "file": "00-hook-01-ringing.wav",
+    "start": 0.55,
+    "end": 4.181,
+    "vo": 3.631,
     "text": "It starts with a phone, in a dark room, ringing.",
-    "file": "/tmp/vo3/00-hook-01-ringing.wav",
-    "vo": 2.844
+    "words": 10
   },
   {
     "shot": "hook-02-cities",
+    "file": "01-hook-02-cities.wav",
+    "start": 4.831,
+    "end": 9.864,
+    "vo": 5.034,
     "text": "In a hundred countries, at the same moment, it is in someone's pocket.",
-    "file": "/tmp/vo3/01-hook-02-cities.wav",
-    "vo": 4.534
+    "words": 13
   },
   {
     "shot": "hook-03-world",
+    "file": "02-hook-03-world.wav",
+    "start": 10.514,
+    "end": 14.538,
+    "vo": 4.024,
     "text": "One in three phones sold anywhere on earth carries this name.",
-    "file": "/tmp/vo3/02-hook-03-world.wav",
-    "vo": 3.736
+    "words": 11
   },
   {
     "shot": "hook-04-turn",
+    "file": "03-hook-04-turn.wav",
+    "start": 15.188,
+    "end": 20.98,
+    "vo": 5.792,
     "text": "Then, quietly, the phone stops being a phone. It becomes a computer.",
-    "file": "/tmp/vo3/03-hook-04-turn.wav",
-    "vo": 4.455
+    "words": 12
   },
   {
     "shot": "hook-05-alone",
+    "file": "04-hook-05-alone.wav",
+    "start": 21.63,
+    "end": 25.495,
+    "vo": 3.865,
     "text": "Nokia saw it coming. It simply answered too late.",
-    "file": "/tmp/vo3/04-hook-05-alone.wav",
-    "vo": 3.276
+    "words": 9
   },
   {
     "shot": "history-01-mill",
+    "file": "05-history-01-mill.wav",
+    "start": 26.145,
+    "end": 31.851,
+    "vo": 5.706,
     "text": "The company began in eighteen sixty-five, with a paper mill in a Finnish town.",
-    "file": "/tmp/vo3/05-history-01-mill.wav",
-    "vo": 5.217
+    "words": 14
   },
   {
     "shot": "history-02-trades",
+    "file": "06-history-02-trades.wav",
+    "start": 32.501,
+    "end": 39.299,
+    "vo": 6.797,
     "text": "Paper, then rubber, cables, electronics. One company, four industries.",
-    "file": "/tmp/vo3/06-history-02-trades.wav",
-    "vo": 5.243
+    "words": 9
   },
   {
     "shot": "history-03-rise",
+    "file": "07-history-03-rise.wav",
+    "start": 39.949,
+    "end": 46.521,
+    "vo": 6.572,
     "text": "By two thousand and seven it was the largest phone maker in the world. Then the ground moved.",
-    "file": "/tmp/vo3/07-history-03-rise.wav",
-    "vo": 6.662
+    "words": 18
   }
 ]

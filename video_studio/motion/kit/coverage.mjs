@@ -42,14 +42,24 @@ function inkShare(pixels, threshold) {
   let ink = 0;
   let darkest = 255;
   let brightest = 0;
+  let sum = 0;
+  let sumSq = 0;
   for (let i = 0; i < pixels.length; i += 1) {
     if (Math.abs(pixels[i] - median) > threshold) ink += 1;
     if (pixels[i] < darkest) darkest = pixels[i];
     if (pixels[i] > brightest) brightest = pixels[i];
+    sum += pixels[i];
+    sumSq += pixels[i] * pixels[i];
   }
+  const mean = sum / pixels.length;
+  const std = Math.sqrt(Math.max(0, sumSq / pixels.length - mean * mean));
   return {
     ink: ink / pixels.length,
     range: (brightest - darkest) / 255,
+    // Spread and contrast are palette-independent; "ink" is not. On a dark shot
+    // most of the frame sits near the median and only the drawn lines leave it,
+    // so ink alone called a full chart an empty screen.
+    std: std / 255,
     median: median / 255,
   };
 }
@@ -69,7 +79,7 @@ export async function auditCoverage(dir, { step = 15, threshold = 10, fps = 30 }
     samples.push({ frame: i, t: i / fps, ...result });
   }
   const inks = samples.map((s) => s.ink).sort((a, b) => a - b);
-  const empty = samples.filter((s) => s.ink < 0.04);
+  const empty = samples.filter((s) => s.ink < 0.04 && s.range < 0.12 && s.std < 0.02);
   return {
     samples,
     frames: files.length,
@@ -92,8 +102,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const report = await auditCoverage(dir, { step });
   for (const s of report.samples) {
     const bar = '#'.repeat(Math.round(s.ink * 60));
-    console.log(`${s.t.toFixed(2).padStart(6)}s  ink ${(s.ink * 100).toFixed(1).padStart(5)}%  range ${(s.range * 100).toFixed(0).padStart(3)}%  ${bar}`);
+    console.log(`${s.t.toFixed(2).padStart(6)}s  ink ${(s.ink * 100).toFixed(1).padStart(5)}%  contrast ${(s.std * 100).toFixed(0).padStart(3)}%  range ${(s.range * 100).toFixed(0).padStart(3)}%  ${bar}`);
   }
   console.log(`\nframes ${report.frames}  median ink ${(report.medianInk * 100).toFixed(1)}%  min ${(report.minInk * 100).toFixed(1)}%`);
-  console.log(`effectively empty (under 4% ink): ${report.empty.length}${report.empty.length ? ' at ' + report.empty.join('s, ') + 's' : ''}`);
+  console.log(`effectively empty (flat and low contrast): ${report.empty.length}${report.empty.length ? ' at ' + report.empty.join('s, ') + 's' : ''}`);
 }

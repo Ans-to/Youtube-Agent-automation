@@ -55,7 +55,18 @@ export function layerWindow(layer, shotDur) {
  * the finished picture. Grading a half-built frame tints the elements that have
  * not arrived yet, which is how a shot ends up with a visible seam.
  */
+/**
+ * A hook the film uses to set state that lives above the shot - the live palette
+ * is the one that matters. Set once per film, called before every shot draws.
+ */
+let shotPrepare = null;
+
+export function setShotPrepare(fn) {
+  shotPrepare = fn;
+}
+
 export function renderShot(ctx, shot, t, W, H, options = {}) {
+  if (shotPrepare) shotPrepare(shot);
   const { frame = 0, background = '#FAFAF7', frameGrade = true, paintBackground = true } = options;
   const dur = shot.dur || 4;
   const cam = typeof shot.camera === 'function' ? shot.camera(clamp(t / dur)) : shot.camera;

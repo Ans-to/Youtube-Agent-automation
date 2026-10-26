@@ -1,21 +1,49 @@
 /**
- * The film's ink and paper, in one place.
+ * The film's two inks.
  *
- * This lived twice - once here and once inside nokia_scene1 - and the two drifted
- * far enough apart that changing the map's land colour in one of them changed
- * nothing on screen. A palette is a single fact about a film; it cannot have two
- * copies.
+ * This started as one palette - cream paper, navy ink - applied to every shot,
+ * which is why eight shots in a row looked like the same poster. A documentary
+ * needs a tonal rhythm: dark where the film is intimate or cold, paper where it
+ * is factual. So there are two palettes now, and a shot picks one.
+ *
+ * PALETTE is the live object every shot reads while it draws. Swapping a shot's
+ * palette is one Object.assign in the stage hook, which means none of the forty
+ * or so places that paint with PALETTE.text had to change.
  */
-export const PALETTE = {
-  text: '#12233F',
-  // The caption was 3.3:1 on paper, below the 4.5:1 a small label needs.
-  caption: '#8A5410',
+import { setShotPrepare } from '../motion/kit/stage.mjs';
+
+export const PAPER = {
+  text: '#16283C',
+  caption: '#A85F12',   // amber, dark enough to hold 4.5:1 on cream
   dim: '#5C6472',
-  // Land used to be #E2E6EC on #FAF8F3 - four percent apart in luma, so every map
-  // was beige mush. A screen print puts the land down in ink and lets paper be sea.
-  land: '#24374F',
-  landEdge: '#0E1B2B',
-  paper: '#F4EFE4',
+  land: '#16283C',
+  landEdge: '#0B1420',
+  paper: '#F1E7D4',
 };
+
+export const INK = {
+  text: '#F1E7D4',
+  caption: '#E8A64E',   // the same amber, lit for a dark ground
+  dim: '#8C97A6',
+  land: '#F1E7D4',
+  landEdge: '#0B1420',
+  paper: '#0C1622',
+};
+
+export const PALETTE = { ...PAPER };
+
+/** Point the live palette at whatever ink this shot is printed in. */
+export function applyShotPalette(shot) {
+  if (!shot || !shot.palette) return;
+  Object.assign(PALETTE, shot.palette);
+  // Shots were authored as `background: PALETTE.paper`, which is read once when
+  // the module loads - so a shot that switched to ink still painted cream behind
+  // itself. The background follows the palette now.
+  shot.background = shot.palette.paper;
+}
+
+// Registered here, at import time, so a caller cannot forget it. The stage calls
+// this before every shot draws, which is the moment the ink changes.
+setShotPrepare(applyShotPalette);
 
 export default PALETTE;

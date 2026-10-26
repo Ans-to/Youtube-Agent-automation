@@ -210,10 +210,15 @@ const objects = {
     roundRect(ctx, bx + body * 0.12, by + bh * 0.08, body * 0.76, bh * 0.30, body * 0.05);
     // Same correction as the smartphone: a screen is glass, so it takes a faint
     // cool tint instead of a slab of the accent colour.
+    // Save and restore rather than multiply-then-divide. The divide used a
+    // different expression from the multiply, so the screen drew at one alpha and
+    // left the context at another: the body washed out to grey and each key came
+    // out brighter than the one before it.
+    ctx.save();
     ctx.fillStyle = screen || detail;
-    ctx.globalAlpha *= 0.06 + 0.07 * clamp(p);
+    ctx.globalAlpha *= 0.12 + 0.12 * clamp(p);
     ctx.fill();
-    ctx.globalAlpha /= 0.22 + 0.3 * clamp(p);
+    ctx.restore();
     // Keypad: three rows, drawn as the shape arrives.
     const rows = 3;
     for (let r = 0; r < rows; r += 1) {
@@ -223,10 +228,11 @@ const objects = {
         const kw = body * 0.18;
         const kh = bh * 0.085;
         roundRect(ctx, bx + body * 0.15 + c * body * 0.245, by + bh * 0.48 + r * bh * 0.145, kw, kh, kw * 0.22);
+        ctx.save();
         ctx.fillStyle = detail;
-        ctx.globalAlpha *= 0.34 * shown;
+        ctx.globalAlpha *= 0.55 * shown;
         ctx.fill();
-        ctx.globalAlpha /= 0.16 + 0.14 * shown;
+        ctx.restore();
       }
     }
   },
@@ -244,7 +250,7 @@ const objects = {
     ctx.save();
     // A screen is glass: a cool tint, not the accent. Tinted with the accent it
     // read as a slab of tan cardboard with buttons on it.
-    ctx.globalAlpha *= 0.05 + 0.07 * clamp(p);
+    ctx.globalAlpha *= 0.55 + 0.4 * clamp(p);
     ctx.fillStyle = screen || ink;
     ctx.fill();
     ctx.restore();
@@ -256,7 +262,7 @@ const objects = {
       for (let c = 0; c < 3; c += 1) {
         roundRect(ctx, bx + inset * 2 + c * iw * 1.32, by + bh * 0.22 + i * iw * 1.32, iw, iw, iw * 0.28);
         ctx.save();
-        ctx.globalAlpha *= 0.55 * shown;
+        ctx.globalAlpha *= 0.8 * shown;
         ctx.fillStyle = ink;
         ctx.fill();
         ctx.restore();

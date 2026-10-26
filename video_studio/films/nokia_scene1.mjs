@@ -21,7 +21,7 @@ import { drawType } from '../motion/kit/type.mjs';
 import { drawMap } from '../motion/kit/world.mjs';
 import { camera } from '../motion/kit/camera.mjs';
 import { text } from '../motion/ui.mjs';
-import { PALETTE } from './nokia_theme.mjs';
+import { PALETTE, PAPER, INK } from './nokia_theme.mjs';
 
 
 const W = 1280;
@@ -56,6 +56,7 @@ function say(ctx, value, x, y, options = {}) {
 
 const shot1 = {
   id: 'hook-01-ringing',
+  palette: INK,
   dur: 5,
   background: PALETTE.paper,
   camera: (t) => camera({ shot: 'medium', at: [0.5, 0.52], zoom: 0.35 + t * 0.65 }),
@@ -74,7 +75,7 @@ const shot1 = {
         ctx.save();
         ctx.fillStyle = pool;
         ctx.fillRect(0, 0, W, H * 0.8);
-        ctx.strokeStyle = '#C6C1B4';
+        ctx.strokeStyle = PALETTE.dim;
         ctx.lineWidth = 2;
         ctx.globalAlpha = Math.min(1, p * 1.6);
         ctx.beginPath();
@@ -146,6 +147,7 @@ const CITIES_2 = ['newyork', 'saopaulo', 'lagos', 'cairo', 'mumbai', 'shanghai',
 
 const shot2 = {
   id: 'hook-02-cities',
+  palette: PAPER,
   dur: 7,
   background: PALETTE.paper,
   camera: (t) => camera({ shot: 'wide', at: [0.5, 0.48], zoom: 0.15 + t * 0.2 }),
@@ -194,6 +196,7 @@ const shot2 = {
 
 const shot3 = {
   id: 'hook-03-world',
+  palette: INK,
   dur: 8,
   background: PALETTE.paper,
   camera: (t) => camera({ shot: 'wide', at: [0.55, 0.45], zoom: 0.5 + t * 0.4 }),
@@ -257,6 +260,7 @@ const shot3 = {
 
 const shot4 = {
   id: 'hook-04-turn',
+  palette: PAPER,
   dur: 8,
   background: PALETTE.paper,
   camera: (t) => camera({ shot: 'medium', at: [0.5, 0.5], zoom: 0.35 + t * 0.5 }),
@@ -266,7 +270,7 @@ const shot4 = {
       id: 'axis', depth: 0.7, from: 0.03,
       draw: (ctx, { p }) => {
         ctx.save();
-        ctx.strokeStyle = '#CFCBC0';
+        ctx.strokeStyle = PALETTE.dim;
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.moveTo(W * 0.22, H * 0.16);
@@ -277,16 +281,19 @@ const shot4 = {
     },
     {
       id: 'old', depth: 1.0, from: 0.07, entrance: 'stamp',
-      box: { x: W * 0.30, y: H * 0.26, w: 132, h: 266 },
-      exit: 'fade',
+      box: { x: W * 0.24, y: H * 0.22, w: 210, h: 420 },
+      // No exit move. The dimming below is the exit, and it is timed by hand so
+      // the comparison holds long enough to be read; a `fade` exit started at
+      // half the shot and made the old phone look washed out rather than faded.
+      exit: null,
       draw: (ctx, { t }) => {
         // The old phone is pushed back and dimmed as the new one takes the
         // frame - the whole point of the shot is what replaces what.
-        const kept = 1 - Math.min(1, Math.max(0, (t - 3.4) / 2.2));
+        const kept = 1 - Math.min(1, Math.max(0, (t - 4.1) / 1.6)) * 0.55;
         ctx.save();
         ctx.globalAlpha *= 0.35 + kept * 0.65;
-        drawShape(ctx, 'phone-classic', { x: W * 0.30, y: H * 0.26, w: 132, h: 266, p: 1, palette: PALETTE,
-          params: { fill: PALETTE.text, keyInk: PALETTE.paper } });
+        drawShape(ctx, 'phone-classic', { x: W * 0.24, y: H * 0.22, w: 210, h: 420, p: 1, palette: PALETTE,
+          params: { fill: PALETTE.text, keyInk: PALETTE.paper, stroke: PALETTE.text } });
         ctx.restore();
       },
     },
@@ -294,24 +301,24 @@ const shot4 = {
       // A box, not the whole frame: `assembly` draws a seam at its box centre,
       // and with no box that seam was a full-height rule across the picture.
       id: 'new', depth: 1.0, from: 0.34, entrance: 'assembly',
-      box: { x: W * 0.56, y: H * 0.22, w: 150, h: 300 },
+      box: { x: W * 0.56, y: H * 0.18, w: 200, h: 400 },
       draw: (ctx) => {
-        drawShape(ctx, 'phone-smart', { x: W * 0.56, y: H * 0.22, w: 150, h: 300, p: 1, palette: PALETTE,
+        drawShape(ctx, 'phone-smart', { x: W * 0.56, y: H * 0.18, w: 200, h: 400, p: 1, palette: PALETTE,
           params: { fill: PALETTE.text, screen: PALETTE.paper } });
       },
     },
     {
       id: 'y1', screen: true, depth: 1.1, from: 0.2,
       draw: (ctx, { p }) => {
-        say(ctx, '1982', W * 0.30 + 66, H * 0.16 - 14, { size: 20, weight: 700, colour: PALETTE.dim, align: 'center', opacity: p });
-        say(ctx, 'the phone', W * 0.30 + 66, H * 0.72, { size: 24, weight: 600, colour: PALETTE.text, align: 'center', opacity: p });
+        say(ctx, '1982', W * 0.24 + 105, H * 0.15, { size: 26, weight: 800, colour: PALETTE.dim, align: 'center', opacity: p });
+        say(ctx, 'the phone', W * 0.24 + 105, H * 0.875, { size: 30, weight: 700, colour: PALETTE.text, align: 'center', opacity: p });
       },
     },
     {
       id: 'y2', screen: true, depth: 1.1, from: 0.62,
       draw: (ctx, { p }) => {
-        say(ctx, '2007', W * 0.56 + 75, H * 0.16 - 14, { size: 20, weight: 700, colour: PALETTE.caption, align: 'center', opacity: p });
-        say(ctx, 'a computer', W * 0.56 + 75, H * 0.75, { size: 24, weight: 600, colour: PALETTE.text, align: 'center', opacity: p });
+        say(ctx, '2007', W * 0.56 + 100, H * 0.16 - 6, { size: 20, weight: 700, colour: PALETTE.caption, align: 'center', opacity: p });
+        say(ctx, 'a computer', W * 0.56 + 100, H * 0.74, { size: 24, weight: 600, colour: PALETTE.text, align: 'center', opacity: p });
       },
     },
   ],
@@ -323,8 +330,9 @@ const shot4 = {
 
 const shot5 = {
   id: 'hook-05-alone',
+  palette: INK,
   dur: 7,
-  background: '#F6F3EA',
+  background: PALETTE.paper,
   camera: (t) => camera({ shot: 'close', at: [0.5, 0.48], zoom: 0.12 + t * 0.28 }),
   grade: { vignetteStrength: 0.46, bloomAt: [0.5, 0.44], bloomStrength: 0.11 },
   layers: [
@@ -333,7 +341,7 @@ const shot5 = {
       id: 'table', depth: 0.6, from: 0.0,
       draw: (ctx, { p }) => {
         ctx.save();
-        ctx.strokeStyle = '#C8C3B6';
+        ctx.strokeStyle = PALETTE.dim;
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.moveTo(W * 0.5 - (W * 0.18) * p, H * 0.70);
@@ -370,7 +378,7 @@ const shot5 = {
       box: { x: W * 0.25, y: H * 0.755, w: W * 0.5, h: 50 },
       draw: (ctx, { p }) => {
         say(ctx, 'and then it stopped', W * 0.5, H * 0.80, {
-          size: 30, weight: 500, colour: '#3A4150', align: 'center', opacity: p,
+          size: 30, weight: 500, colour: PALETTE.dim, align: 'center', opacity: p,
         });
       },
     },

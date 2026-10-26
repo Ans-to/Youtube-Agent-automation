@@ -19,7 +19,7 @@ import { camera } from '../motion/kit/camera.mjs';
 import { text } from '../motion/ui.mjs';
 import { SCENE1 } from './nokia_scene1.mjs';
 import { allocate, allocateLayers, auditNoRepeat } from '../motion/kit/budget.mjs';
-import { PALETTE } from '../films/nokia_theme.mjs';
+import { PALETTE, PAPER, INK } from '../films/nokia_theme.mjs';
 
 const W = 1280;
 const H = 720;
@@ -52,6 +52,7 @@ function say(ctx, value, x, y, options = {}) {
 
 const shot6 = {
   id: 'history-01-mill',
+  palette: PAPER,
   dur: 6,
   background: PALETTE.paper,
   camera: (t) => camera({ shot: 'wide', at: [0.46, 0.52], zoom: 0.2 + t * 0.55 }),
@@ -64,7 +65,7 @@ const shot6 = {
       id: 'ground', depth: 0.65, from: 0.0,
       draw: (ctx, { p }) => {
         const k = Math.min(1, p * 2.2);
-        ctx.strokeStyle = '#C9C5BA';
+        ctx.strokeStyle = PALETTE.dim;
         ctx.lineWidth = 2;
         ctx.globalAlpha = k;
         ctx.beginPath();
@@ -100,7 +101,7 @@ const shot6 = {
           const r = 16 + phase * 54;
           ctx.save();
           ctx.globalAlpha = (1 - phase) * 0.14;
-          ctx.fillStyle = '#A9A69E';
+          ctx.fillStyle = PALETTE.dim;
           ctx.beginPath();
           ctx.arc(W * 0.30 + phase * 92 - 20, H * 0.24 - phase * 130, r, 0, Math.PI * 2);
           ctx.fill();
@@ -129,7 +130,7 @@ const shot6 = {
       id: 'claim', screen: true, depth: 1.2, from: 0.52,
       draw: (ctx, { p }) => {
         say(ctx, 'A paper mill in a Finnish town.', W * 0.07, H * 0.88, {
-          size: 26, weight: 500, colour: '#2A3140', opacity: Math.min(1, p * 1.6),
+          size: 26, weight: 500, colour: PALETTE.text, opacity: Math.min(1, p * 1.6),
         });
       },
     },
@@ -149,6 +150,7 @@ const TRADES = [
 
 const shot7 = {
   id: 'history-02-trades',
+  palette: PAPER,
   dur: 5,
   background: PALETTE.paper,
   camera: (t) => camera({ shot: 'wide', at: [0.5, 0.5], zoom: 0.1 + t * 0.3 }),
@@ -201,6 +203,7 @@ const shot7 = {
 
 const shot8 = {
   id: 'history-03-rise',
+  palette: INK,
   dur: 4,
   background: PALETTE.paper,
   camera: (t) => camera({ shot: 'medium', at: [0.42, 0.44], zoom: 0.25 + t * 0.6 }),
@@ -233,7 +236,7 @@ const shot8 = {
       id: 'note', screen: true, depth: 1.1, from: 0.55,
       draw: (ctx, { p }) => {
         say(ctx, 'and then the ground moved.', W * 0.08, H * 0.92, {
-          size: 21, weight: 500, colour: '#3A4150', opacity: Math.min(1, p * 1.6),
+          size: 21, weight: 500, colour: PALETTE.dim, opacity: Math.min(1, p * 1.6),
         });
       },
     },
@@ -264,9 +267,13 @@ export const SCENE2 = [shot6, shot7, shot8];
 // the opening is tight, the map holds, the phone alone holds longest, and the
 // last shot is allowed to settle.
 const PAD = {
-  'hook-01-ringing': 0.6, 'hook-02-cities': 0.9, 'hook-03-world': 2.1,
-  'hook-04-turn': 1.4, 'hook-05-alone': 2.5, 'history-01-mill': 1.5,
-  'history-02-trades': 1.2, 'history-03-rise': 1.5,
+  // Short now, because the performance carries its own pauses: voice.py puts
+  // 140 ms at a comma and 420 ms at a full stop inside every line. What is left
+  // here is the beat an editor chooses - a little longer where the film wants the
+  // viewer to sit with something, shorter everywhere else.
+  'hook-01-ringing': 0.45, 'hook-02-cities': 0.65, 'hook-03-world': 1.15,
+  'hook-04-turn': 0.80, 'hook-05-alone': 1.55, 'history-01-mill': 0.80,
+  'history-02-trades': 0.70, 'history-03-rise': 1.60,
 };
 const MIN_SECONDS = { 'hook-01-ringing': 3.2 };
 

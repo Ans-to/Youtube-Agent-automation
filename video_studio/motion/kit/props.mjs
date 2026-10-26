@@ -134,10 +134,11 @@ export const props = {
     ctx.fill();
     // A laptop, closed, and a cup: two props are enough to read as a desk.
     box(ctx, x + w * 0.46, top - h * 0.10, w * 0.20, h * 0.10, h * 0.01);
+    ctx.save();
     ctx.fillStyle = ink;
     ctx.globalAlpha *= 0.18 * clamp(p * 1.5);
     ctx.fill();
-    ctx.globalAlpha /= Math.max(0.001, 0.18 * clamp(p * 1.5));
+    ctx.restore();
     ctx.strokeStyle = accent;
     ctx.beginPath();
     ctx.arc(x + w * 0.76, top - h * 0.05, h * 0.05, Math.PI, TAU);
@@ -719,22 +720,41 @@ export const props = {
    * about the product. Three offset slabs say "stack of material".
    */
   'rubber-sheet': (ctx, { x, y, w, h, ink, accent, p = 1 }) => {
-    const sheetW = w * 0.74;
-    const sheetH = h * 0.15;
+    // Three slabs with thickness, not three flat ellipses. Flat ellipses read as
+    // a stack of coins at any size, which is what the first attempt looked like.
+    const slabW = w * 0.70;
+    const slabH = h * 0.13;
+    const thick = slabH * 0.42;
     const cx = x + w / 2;
     ctx.save();
     ctx.globalAlpha *= clamp(p);
     for (let i = 2; i >= 0; i -= 1) {
-      const cy = y + h * 0.42 + i * sheetH * 0.62;
+      const cy = y + h * 0.44 + i * (slabH * 0.66);
+      const left = cx - slabW / 2;
+      // The barrel of the slab.
       ctx.beginPath();
-      ctx.ellipse(cx, cy, sheetW / 2, sheetH / 2, 0, 0, TAU);
+      ctx.rect(left, cy, slabW, thick);
+      ctx.fillStyle = ink;
+      ctx.globalAlpha *= i === 0 ? 0.26 : 0.12;
+      ctx.fill();
+      ctx.globalAlpha /= i === 0 ? 0.26 : 0.12;
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(left, cy);
+      ctx.lineTo(left, cy + thick);
+      ctx.moveTo(left + slabW, cy);
+      ctx.lineTo(left + slabW, cy + thick);
+      ctx.stroke();
+      // The top face.
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, slabW / 2, slabH / 2, 0, 0, TAU);
       ctx.fillStyle = i === 0 ? accent : ink;
-      const a = i === 0 ? 0.28 : 0.08 + i * 0.05;
+      const a = i === 0 ? 0.32 : 0.10 + i * 0.04;
       ctx.globalAlpha *= a;
       ctx.fill();
       ctx.globalAlpha /= a;
       ctx.strokeStyle = ink;
-      ctx.lineWidth = 1.2;
       ctx.stroke();
     }
     ctx.restore();

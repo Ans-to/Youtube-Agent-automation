@@ -143,3 +143,38 @@ its axes with sine of an index and produced a scribble, `satellite` was three
 rectangles in a row, `rubber-sheet` was a grey blob with a circle beside it, and
 `ticker` ran its copies together so the band read as one line printed twice. This is why the gallery exists and
 why it is not optional: none of those four failed a test.
+
+## The palette was one colour, and alpha leaked
+
+Two defects made every frame look the same and half of them look washed out.
+
+**One palette, eight shots.** Cream paper and navy ink, applied to the whole film.
+Every shot looked like the same poster. There are two palettes now, `PAPER` and
+`INK`, a shot declares which it is printed in, and `nokia_theme.mjs` swaps the
+live palette through a hook in the stage before each shot draws. That is one line
+per shot instead of rewriting forty `PALETTE.text` call sites, and it gives the
+film a tonal rhythm: ink for the dark-room opening, paper for the map, ink for the
+held stat, paper for the two handsets, ink for the phone alone.
+
+**Alpha multiplied, then divided by something else.** Three shapes did this:
+
+```js
+ctx.globalAlpha *= 0.06 + 0.07 * clamp(p);   // draw at one alpha
+ctx.fill();                                   // ...leaving another behind
+ctx.globalAlpha /= 0.22 + 0.3 * clamp(p);
+```
+
+The divide did not match the multiply, so the context stayed wrong for every mark
+drawn afterwards. The phone's body washed out to grey and each keypad key came out
+brighter than the one before it. All three are `save()` / `restore()` now. It is
+worth grepping for `globalAlpha /=` in any new code: in a 2D context there is no
+reason to restore alpha by hand when the context can do it.
+
+**Print texture.** `grade()` ends with a `riso()` pass: a 45° dot screen multiplied
+into the picture and a soft-light paper tooth over it. Without it the frames read
+as vector art on a clean field; with it they read as printed.
+
+**Text on artwork.** Two labels sat on top of the handset that carried them. Their
+baselines were two pixels above the phone's bottom edge, and on a dark palette the
+label disappeared into it completely. Labels now sit on the paper below the
+artwork, at 30 px, on one line, where nothing can cover them.

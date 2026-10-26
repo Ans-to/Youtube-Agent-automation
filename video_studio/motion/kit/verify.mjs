@@ -204,18 +204,32 @@ if (demos.length) {
   // was wrong both ways - it flagged a chart that animates through its own
   // progress, and it would have passed a shot whose entrance had already
   // finished. Rendering two frames and comparing them is the measurement.
+  // Render at the size the film is authored for, then compare.
+  //
+  // This used to render straight into a 320x180 canvas. Film modules size their
+  // layers against their own 1280x720 constants, so at 320 wide most of a shot
+  // landed outside the canvas and two nearly-empty frames always matched - which
+  // is how two genuinely animated shots started reporting as frozen.
   const W2 = 320;
   const H2 = 180;
-  const a = createCanvas(W2, H2);
-  const b = createCanvas(W2, H2);
+  const SHOT_W = 1280;
+  const SHOT_H = 720;
+  const a = createCanvas(SHOT_W, SHOT_H);
+  const b = createCanvas(SHOT_W, SHOT_H);
+  const smallA = createCanvas(W2, H2);
+  const smallB = createCanvas(W2, H2);
   const ax = a.getContext('2d');
   const bx = b.getContext('2d');
+  const sax = smallA.getContext('2d');
+  const sbx = smallB.getContext('2d');
   demos.forEach((shot) => {
     try {
-      renderShot(ax, shot, shot.dur * 0.15, W2, H2, { frame: Math.round(shot.dur * 0.15 * 30) });
-      renderShot(bx, shot, shot.dur * 0.85, W2, H2, { frame: Math.round(shot.dur * 0.85 * 30) });
-      const da = ax.getImageData(0, 0, W2, H2).data;
-      const db = bx.getImageData(0, 0, W2, H2).data;
+      renderShot(ax, shot, shot.dur * 0.15, SHOT_W, SHOT_H, { frame: Math.round(shot.dur * 0.15 * 30) });
+      renderShot(bx, shot, shot.dur * 0.85, SHOT_W, SHOT_H, { frame: Math.round(shot.dur * 0.85 * 30) });
+      sax.drawImage(a, 0, 0, W2, H2);
+      sbx.drawImage(b, 0, 0, W2, H2);
+      const da = sax.getImageData(0, 0, W2, H2).data;
+      const db = sbx.getImageData(0, 0, W2, H2).data;
       let changed = 0;
       for (let i = 0; i < da.length; i += 4) {
         if (Math.abs(da[i] - db[i]) > 3 || Math.abs(da[i + 1] - db[i + 1]) > 3) changed += 1;

@@ -86,15 +86,14 @@ export function createRenderer(shots, W, H, options = {}) {
       ctxA.clearRect(0, 0, W, H);
       ctxB.clearRect(0, 0, W, H);
       const held = Math.min(fromLocal, (fromShot.dur || 0) - 1 / 30);
-      // Neither shot paints its own background during a join: the frame does,
-      // once, below. Both shots are the same paper, so painting it twice only
-      // hides whichever shot is underneath.
-      renderShot(ctxA, fromShot, held, W, H, {
-        frame: Math.round(t * 30), background, paintBackground: false,
-      });
-      renderShot(ctxB, toShot, toLocal, W, H, {
-        frame: Math.round(t * 30), background, paintBackground: false,
-      });
+      // Each shot paints its own ground into its own buffer.
+      //
+      // Leaving the background to the frame looked tidier and was wrong: a shot's
+      // colours are chosen relative to its own paper, so an ink shot (cream marks
+      // on near-black) composited over another shot's cream was invisible. A frame
+      // has to be self-consistent before it can be dissolved into.
+      renderShot(ctxA, fromShot, held, W, H, { frame: Math.round(t * 30), background });
+      renderShot(ctxB, toShot, toLocal, W, H, { frame: Math.round(t * 30), background });
 
       // Hold the outgoing frame for the first third of the window, then play
       // the join. Every shot animates up from nothing, so a join that starts

@@ -67,46 +67,56 @@ export const TRANSITIONS = {
     void h;
   },
 
+  /**
+   * Wipe: a seam travels across the frame.
+   *
+   * `angle` used to rotate the whole canvas, which turned the incoming shot
+   * upside down - the film's industry labels stood on their heads at 41 s under a
+   * `wipe@180`, and at 90 degrees the picture was on its side. A wipe direction
+   * is the angle of the seam's normal, not a rotation of the artwork. The clip
+   * region is now built as a half-plane in screen space and the content is never
+   * transformed.
+   */
   wipe: (ctx, { a, b, p, w, h, direction = 'left', angle = 0, accent = UI.gold }) => {
     const k = ease.inOutCubic(clamp(p));
+    const base = { left: 0, right: Math.PI, up: -Math.PI / 2, down: Math.PI / 2 }[direction] ?? 0;
+    const theta = base + (angle * Math.PI) / 180;
+    const nx = Math.cos(theta);
+    const ny = Math.sin(theta);
+    const L = Math.hypot(w, h) * 2;
+    const cx = w / 2;
+    const cy = h / 2;
+    // Travel from fully behind the frame to fully past it.
+    const s = (k * 2 - 1) * Math.hypot(w, h) * 0.75;
+    const halfPlane = (flip) => {
+      const d = flip ? -s : s;
+      const px = cx + nx * d;
+      const py = cy + ny * d;
+      const tx = -ny * L;
+      const ty = nx * L;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(px + tx, py + ty);
+      ctx.lineTo(px - tx, py - ty);
+      ctx.lineTo(px - tx - nx * L * 2, py - ty - ny * L * 2);
+      ctx.lineTo(px + tx - nx * L * 2, py + ty - ny * L * 2);
+      ctx.closePath();
+      ctx.clip();
+    };
     both(ctx, () => {
-      // An angle turns the whole wipe inside a rotated frame. One `wipe` is
-      // then eight different transitions, which is what makes "never twice in
-      // the film" possible rather than aspirational.
-      ctx.save();
-      ctx.translate(w / 2, h / 2);
-      ctx.rotate((angle * Math.PI) / 180);
-      ctx.translate(-w / 2, -h / 2);
-      ctx.scale(1.6, 1.6);
-      ctx.translate(-w * 0.19, -h * 0.19);
       a();
-      ctx.save();
-      ctx.beginPath();
-      if (direction === 'up') ctx.rect(0, h * k, w, h);
-      else if (direction === 'down') ctx.rect(0, 0, w, h * (1 - k));
-      else if (direction === 'right') ctx.rect(0, 0, w * (1 - k), h);
-      else ctx.rect(w * k, 0, w, h);
-      ctx.clip();
-      a();
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      if (direction === 'up') ctx.rect(0, 0, w, h * k);
-      else if (direction === 'down') ctx.rect(0, h * (1 - k), w, h);
-      else if (direction === 'right') ctx.rect(w * (1 - k), 0, w, h);
-      else ctx.rect(0, 0, w * k, h);
-      ctx.clip();
+      halfPlane(false);
       b();
       ctx.restore();
-      // The seam: a thin accent line at the edge of the wipe.
+      // The seam: a bright hairline where the new shot has reached.
       ctx.save();
       ctx.globalAlpha *= 0.55;
-      ctx.fillStyle = accent;
-      if (direction === 'up') ctx.fillRect(0, h * k - 3, w, 6);
-      else if (direction === 'down') ctx.fillRect(0, h * (1 - k) - 3, w, 6);
-      else if (direction === 'right') ctx.fillRect(w * (1 - k) - 3, 0, 6, h);
-      else ctx.fillRect(w * k - 3, 0, 6, h);
-      ctx.restore();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(cx + nx * s - ny * L, cy + ny * s + nx * L);
+      ctx.lineTo(cx + nx * s + ny * L, cy + ny * s - nx * L);
+      ctx.stroke();
       ctx.restore();
     });
   },
@@ -129,33 +139,35 @@ export const TRANSITIONS = {
     });
   },
 
+  /**
+   * Push: both shots travel together, as if the camera panned sideways.
+   *
+   * Like `wipe`, this used to rotate the canvas to get its direction, which put
+   * the picture on its side at any angle other than zero. It translates now, and
+   * the angle only chooses which way.
+   */
   push: (ctx, { a, b, p, w, h, direction = 'left', angle = 0 }) => {
     const k = ease.inOutCubic(clamp(p));
+    const base = { left: 0, right: Math.PI, up: -Math.PI / 2, down: Math.PI / 2 }[direction] ?? 0;
+    const theta = base + (angle * Math.PI) / 180;
+    const ux = Math.cos(theta);
+    const uy = Math.sin(theta);
+    // How far the frame extends along the direction of travel. For an axis-aligned
+    // direction this is w or h; at an angle it is the frame's own width measured
+    // along that axis, which is what stops a corner of empty canvas appearing.
+    const reach = Math.abs(w * ux) + Math.abs(h * uy);
     both(ctx, () => {
       ctx.save();
-      ctx.translate(w / 2, h / 2);
-      ctx.rotate((angle * Math.PI) / 180);
-      ctx.translate(-w / 2, -h / 2);
-      ctx.scale(1.6, 1.6);
-      ctx.translate(-w * 0.19, -h * 0.19);
-      if (direction === 'left') ctx.translate(-w * k, 0);
-      else if (direction === 'right') ctx.translate(w * k, 0);
-      else if (direction === 'up') ctx.translate(0, -h * k);
-      else ctx.translate(0, h * k);
+      ctx.translate(-ux * reach * k, -uy * reach * k);
       a();
       ctx.restore();
       ctx.save();
-      if (direction === 'left') ctx.translate(w * (1 - k), 0);
-      else if (direction === 'right') ctx.translate(-w * (1 - k), 0);
-      else if (direction === 'up') ctx.translate(0, h * (1 - k));
-      else ctx.translate(0, -h * (1 - k));
+      ctx.translate(ux * reach * (1 - k), uy * reach * (1 - k));
       b();
-      ctx.restore();
       ctx.restore();
     });
   },
 
-  /** Blinds: the frame closes in strips. `count` is the reasoning lever. */
   blinds: (ctx, { a, b, p, w, h, count = 9, vertical = true }) => {
     const k = ease.inOutCubic(clamp(p));
     both(ctx, () => {
@@ -184,42 +196,34 @@ export const TRANSITIONS = {
     });
   },
 
-  /** Split: the two shots tear apart along a seam and swap. */
+  /**
+   * Split: the frame is cut in two, and the halves slide past each other.
+   *
+   * Written twice. The first version translated panels in six blocks with the
+   * direction encoded in nested ternaries, and the incoming shot came out
+   * mirrored - the film's industry labels stood on their heads at 41 s. This
+   * version has one rule per half: the outgoing shot slides out, the incoming
+   * slides in behind it, and only translations are involved, so nothing can flip.
+   */
   split: (ctx, { a, b, p, w, h, vertical = true }) => {
     const k = ease.inOutCubic(clamp(p));
     both(ctx, () => {
-      ctx.save();
-      ctx.beginPath();
-      if (vertical) ctx.rect(0, 0, w, h / 2);
-      else ctx.rect(0, 0, w / 2, h);
-      ctx.clip();
-      ctx.translate(vertical ? 0 : -w * k, vertical ? -h * k : 0);
-      a();
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      if (vertical) ctx.rect(0, 0, w, h / 2);
-      else ctx.rect(0, 0, w / 2, h);
-      ctx.clip();
-      ctx.translate(vertical ? 0 : w * (1 - k), vertical ? h * (1 - k) : 0);
-      b();
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      if (vertical) ctx.rect(0, h / 2, w, h / 2);
-      else ctx.rect(w / 2, 0, w / 2, h);
-      ctx.clip();
-      ctx.translate(vertical ? 0 : -w * (1 - k), vertical ? h * k : 0);
-      a();
-      ctx.restore();
-      ctx.save();
-      ctx.beginPath();
-      if (vertical) ctx.rect(0, h / 2, w, h / 2);
-      else ctx.rect(w / 2, 0, w / 2, h);
-      ctx.clip();
-      ctx.translate(vertical ? 0 : w * k, vertical ? -h * (1 - k) : 0);
-      b();
-      ctx.restore();
+      const panel = (i, fn, shift) => {
+        ctx.save();
+        ctx.beginPath();
+        if (vertical) ctx.rect(0, (h / 2) * i, w, h / 2);
+        else ctx.rect((w / 2) * i, 0, w / 2, h);
+        ctx.clip();
+        ctx.translate(vertical ? 0 : shift, vertical ? shift : 0);
+        fn();
+        ctx.restore();
+      };
+      // Top/left half: outgoing leaves, incoming follows it in.
+      panel(0, a, -h * k * (vertical ? 1 : 0) - w * k * (vertical ? 0 : 1));
+      panel(0, b, (vertical ? h : w) * (1 - k));
+      // Bottom/right half: outgoing leaves the other way, incoming follows.
+      panel(1, a, (vertical ? h : w) * k);
+      panel(1, b, -(vertical ? h : w) * (1 - k));
     });
   },
 

@@ -165,6 +165,90 @@ export function withFocus(ctx, W, H, blurPx, draw) {
  * Everything at once, in the order a real grade happens: material, then light,
  * then grain on top of both.
  */
+/* -------------------------------------------------------------------------
+ * Print: the dot screen and the paper tooth
+ * ---------------------------------------------------------------------- */
+
+let HALFTONE = null;
+let TOOTH = null;
+
+/**
+ * A dot screen, made once and tiled.
+ *
+ * Real halftone varies the dot size with the tone underneath, which needs a dot
+ * per cell per frame - twenty-five thousand fills on every one of a thousand
+ * frames. A fixed screen at low opacity does the job that matters here: it stops
+ * the picture looking like vector art on a clean field and starts it looking
+ * printed. Cached, because the tile never changes.
+ */
+function halftoneTile(cell = 5, radius = 1.35) {
+  if (HALFTONE && HALFTONE.cell === cell) return HALFTONE.canvas;
+  const size = cell * 8;
+  const canvas = createCanvas(size, size);
+  const c = canvas.getContext('2d');
+  c.clearRect(0, 0, size, size);
+  c.fillStyle = '#000';
+  // A 45 degree screen is the classic print angle: a square grid reads as a mesh.
+  for (let y = 0; y < 8; y += 1) {
+    for (let x = 0; x < 8; x += 1) {
+      const ox = (y % 2) * (cell / 2);
+      c.beginPath();
+      c.arc(x * cell + ox + cell / 2, y * cell + cell / 2, radius, 0, Math.PI * 2);
+      c.fill();
+    }
+  }
+  HALFTONE = { cell, canvas };
+  return canvas;
+}
+
+function toothTile() {
+  if (TOOTH) return TOOTH;
+  const size = 192;
+  const canvas = createCanvas(size, size);
+  const c = canvas.getContext('2d');
+  const img = c.createImageData(size, size);
+  let seed = 991;
+  for (let i = 0; i < size * size; i += 1) {
+    seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+    const v = (seed % 255);
+    img.data[i * 4] = v;
+    img.data[i * 4 + 1] = v;
+    img.data[i * 4 + 2] = v;
+    img.data[i * 4 + 3] = 255;
+  }
+  c.putImageData(img, 0, 0);
+  TOOTH = canvas;
+  return canvas;
+}
+
+/**
+ * Put the picture on paper.
+ *
+ * `screen` is the dot texture, multiplied in so it darkens evenly and the paper
+ * still shows through. `tooth` is a soft-light grain on top, which is what makes
+ * a flat fill look like ink sitting on a fibre rather than a polygon.
+ */
+export function riso(ctx, W, H, { screen = 0.10, tooth = 0.10, cell = 5 } = {}) {
+  if (screen > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'multiply';
+    ctx.globalAlpha = screen;
+    const pattern = ctx.createPattern(halftoneTile(cell), 'repeat');
+    ctx.fillStyle = pattern;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+  if (tooth > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'soft-light';
+    ctx.globalAlpha = tooth;
+    const pattern = ctx.createPattern(toothTile(), 'repeat');
+    ctx.fillStyle = pattern;
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+}
+
 export function grade(ctx, W, H, options = {}) {
   const {
     frame = 0,
@@ -174,11 +258,16 @@ export function grade(ctx, W, H, options = {}) {
     bloomStrength = 0.07,
     paper = true,
     lift = 0.02,
+    riso: risoScreen = 0.11,
+    tooth = 0.10,
+    cell = 5,
   } = options;
   if (bloomAt) bloom(ctx, W, H, bloomAt, 0.42, bloomStrength);
   vignette(ctx, W, H, vignetteStrength);
   if (paper) tone(ctx, W, H, { lift });
   grain(ctx, W, H, frame, grainAmount);
+  // Last, over the grain: the print is the topmost layer of the material.
+  if (risoScreen > 0 || tooth > 0) riso(ctx, W, H, { screen: risoScreen, tooth, cell });
 }
 
 export const LIGHT_PASSES = ['vignette', 'bloom', 'grain', 'tone', 'focus'];
