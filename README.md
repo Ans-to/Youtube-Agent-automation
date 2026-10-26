@@ -12,15 +12,17 @@ neural voice over, a music bed, burned-in captions, and the numbers that say
 whether the result is worth publishing.
 
 **▶ [How to Review AI-Written Code in 60 Seconds](docs/media/review-ai-code-720p.mp4)** —
-0:59, 1280×720, 30 fps, 10.3 MB, Kokoro-82M narration at 48 kHz stereo, subtitles in
+0:59, 1280×720, 30 fps, 11.2 MB, Kokoro-82M narration at 48 kHz stereo, subtitles in
 [review-ai-code.srt](docs/media/review-ai-code.srt). Every gate passed on it:
 motion, composition, holds, narration and all eighteen craft rules.
 
 It is built from shapes, not sentences. A diamond decision node forking into
 *rubber stamp* or *rewrite the whole thing*, a grid of three checks that takes
-the accent in turn, a dial for sixty seconds, a rail divided 40/10/10, a console
-that types `npm test`, and the same fork again for *green means merge / red means
-send it back*. Seven of the nine sections are diagrams. Each arrives as its own
+the accent in turn, a dial for sixty seconds, a rail divided 40/10/10 with a
+scale of one tick per second filling behind the playhead, a console that types
+`npm test`, and the same fork again for *green means merge / red means send it
+back* - in green and in red, because a sentence that names a colour and a picture
+that shows a grey box are two things arguing. Seven of the nine sections are diagrams. Each arrives as its own
 sentence is spoken, nothing is printed that the narration does not say, and the
 picture keeps a slow push and a light sweep behind it so no frame is dead. **[The plan beside the film](docs/media/review-ai-code-plan.json)**
 records what every beat draws, and the poster is drawn by the same code from the same brief: **[the thumbnail](docs/media/review-ai-code-thumbnail.png)** - 60 in the left third, *AI CODE REVIEW* stacked on the right, and the corner YouTube covers with a duration badge left empty. Voice: **[the two reads back to back](docs/media/voice-ab.mp4)**. What to publish with it: **[the upload pack](docs/media/review-ai-code-upload-pack.md)** - three titles, a description whose first two lines carry the hook, chapters that clear YouTube's ten-second floor, tags, and the four things to do before pressing publish.

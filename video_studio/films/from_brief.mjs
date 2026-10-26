@@ -1026,9 +1026,19 @@ function hash01(n) {
   return value - Math.floor(value);
 }
 
-/** The colour of the light that sweeps the ground, per palette. */
+/**
+ * The colour of the thing that crosses the ground, per palette.
+ *
+ * On the light look this used to be white, which on pale paper is nothing: a
+ * white light at 13% over a field that is already 96% white measures as no
+ * change at all, and the encoded file agreed - it scored the film at fourteen
+ * percent near-static frames. On paper, a passing shadow is what reads. It is
+ * also the better-looking answer: a slow grey band drifting over the page is a
+ * printed object being lit from elsewhere, and it gives the frame a floor of
+ * motion over the whole picture instead of in one corner.
+ */
 function tint0(palette) {
-  return palette.dark ? '255,255,255' : '255,255,255';
+  return palette.dark ? '255,255,255' : '18,35,63';
 }
 
 /**
@@ -1113,7 +1123,7 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   // Two passes, one wide and one narrow, at different speeds, so the sweep never
   // lands in the same place twice.
   const passes = [
-    { period: 0.74, width: 0.30, alpha: 0.13, accent: false },
+    { period: 0.74, width: 0.34, alpha: palette.dark ? 0.13 : 0.085, accent: false },
     { period: 1.22, width: 0.18, alpha: 0.17, accent: true },
   ];
   passes.forEach((pass) => {
@@ -1143,9 +1153,9 @@ function secondUnit(ctx, section, sectionLocal, palette) {
 
   const bloomX = W * (0.46 + 0.30 * Math.cos((t / 2.35) * Math.PI * 2));
   const bloomY = H * (0.44 + 0.24 * Math.sin((t / 1.85) * Math.PI * 2));
-  const bloom = ctx.createRadialGradient(bloomX, bloomY, 0, bloomX, bloomY, W * 0.38);
-  const tint = palette.dark ? '255,255,255' : '255,255,255';
-  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.16 : 0.46})`);
+  const bloom = ctx.createRadialGradient(bloomX, bloomY, 0, bloomX, bloomY, W * 0.44);
+  const tint = palette.dark ? '255,255,255' : '18,35,63';
+  bloom.addColorStop(0, `rgba(${tint},${palette.dark ? 0.16 : 0.055})`);
   bloom.addColorStop(1, `rgba(${tint},0)`);
   ctx.save();
   ctx.fillStyle = bloom;
@@ -1280,6 +1290,40 @@ function ambientArt(ctx, section, sectionLocal, palette) {
       ctx.fillRect(W * 0.70, H * (0.16 + 0.035 * Math.sin(t * 0.24)), W * 0.0016, H * 0.52);
       ctx.restore();
     },
+    // A stack of rules: the ledger's page, three hairlines of different length
+    // sliding past each other. Quiet, and nothing like the plate or the ring.
+    (shift) => {
+      ctx.save();
+      ctx.fillStyle = ink;
+      for (let i = 0; i < 3; i += 1) {
+        const w = W * (0.20 - i * 0.045);
+        const x = W * (0.80 + 0.02 * Math.sin(t * 0.23 + i)) + shift * W * 0.05;
+        const y = H * (0.20 + i * 0.09) + shift * H * 0.10;
+        alpha(i === 0 ? 0.16 : 0.10);
+        ctx.fillRect(x, y, w, Math.max(2, H * 0.0035));
+      }
+      ctx.fillStyle = accent;
+      alpha(0.30);
+      ctx.fillRect(W * 0.80 + shift * W * 0.05, H * 0.20 + shift * H * 0.10,
+        W * 0.006, H * 0.026);
+      ctx.restore();
+    },
+    // An open arc and a solid square: the decision motif, without the diagram.
+    (shift) => {
+      ctx.save();
+      const cx = W * (0.93 + 0.015 * Math.sin(t * 0.19)) - shift * W * 0.06;
+      const cy = H * (0.62 + 0.02 * Math.cos(t * 0.15)) + shift * H * 0.10;
+      ctx.strokeStyle = ink;
+      alpha(0.12);
+      ctx.lineWidth = W * 0.014;
+      ctx.beginPath();
+      ctx.arc(cx, cy, W * 0.15, Math.PI * 0.15, Math.PI * 1.35);
+      ctx.stroke();
+      ctx.fillStyle = accent;
+      alpha(0.26);
+      ctx.fillRect(cx - W * 0.01, cy - W * 0.115, W * 0.02, W * 0.02);
+      ctx.restore();
+    },
     // Stacked bars: the measure motif, half off the frame.
     (shift) => {
       ctx.save();
@@ -1307,8 +1351,15 @@ function ambientArt(ctx, section, sectionLocal, palette) {
   const idioms = new Set((section.beats || []).map((beat) => beat.template));
   const banned = new Set();
   if (idioms.has('ring-gauge')) banned.add(0);
-  if (idioms.has('budget-rail') || idioms.has('matrix-grid')) banned.add(3);
-  if (idioms.has('fork-paths')) banned.add(2);
+  if (idioms.has('budget-rail') || idioms.has('matrix-grid')) banned.add(5);
+  if (idioms.has('fork-paths')) banned.add(4);
+  // A ring behind everything is fine on a card beat and wrong on a beat whose
+  // subject is a dial or a rail: the guide ring then reads as part of the measure
+  // and there are two circles or two bars in the picture. Ambient art is scenery;
+  // it must never compete with the object the sentence is about.
+  if (idioms.has('ring-gauge') || idioms.has('budget-rail') || idioms.has('stamp-lockup')) {
+    banned.add(0);
+  }
   const allowed = families.map((_, i) => i).filter((i) => !banned.has(i));
   const pick = (n) => allowed[(section.index + n) % allowed.length];
   const chosen = [families[pick(0)], families[pick(2)]];
@@ -1571,6 +1622,20 @@ function render(t) {
     ctx.save();
     ctx.globalAlpha = fadeIn;
     ctx.fillStyle = SHOTS[0].section.palette.field[0];
+    ctx.fillRect(0, 0, W, H);
+    ctx.restore();
+  }
+
+  // The end. A film that stops on a hard cut to nothing reads as a broken file;
+  // the closing card sinks into the paper it was printed on over the last three
+  // tenths of a second, so the last thing a viewer sees is the film deciding it
+  // is finished. It is only a tenth of a second of the picture, and it is the
+  // difference between "the video ended" and "the video was cut off".
+  const fadeOut = span(t, DURATION - 0.34, DURATION);
+  if (fadeOut > 0) {
+    ctx.save();
+    ctx.globalAlpha = fadeOut;
+    ctx.fillStyle = SHOTS[SHOTS.length - 1].section.palette.field[0];
     ctx.fillRect(0, 0, W, H);
     ctx.restore();
   }

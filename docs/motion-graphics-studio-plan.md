@@ -243,8 +243,8 @@ deterministic: the same script renders the same audio every time.
 
 | Gate | Result |
 | --- | --- |
-| motion | PASSED - mean frame delta 1.25, 13.2% near-static (limit 15%) |
-| composition | PASSED - 56 arrangements, longest 8.0 s (limit 12 s) |
+| motion | PASSED - mean frame delta 2.10, 0.3% near-static (limit 15%) |
+| composition | PASSED - 88 arrangements, longest 1.5 s (limit 12 s) |
 | holds | PASSED - no frozen span over 1.0 s (longest 0.0 s) |
 | narration | PASSED - 150 words per minute, 12.1 audible rests per minute |
 | delivery level | -14.2 LUFS, true peak -1.7 dBFS, 48 kHz stereo |
@@ -614,3 +614,55 @@ for 7.0 seconds, and that is honest - the template draws once, on purpose, becau
 a rail that rebuilds itself three times is the frozen frame in a different
 costume. Seven seconds inside a 10.5-second chapter, under a 12-second limit, with
 the scale filling tick by tick underneath it.
+
+## 19. The light was white on white
+
+The best measurement of the round came from looking, not from a gate: the film was
+scoring 13-14% near-static frames, and every one of them was a frame where the
+light was supposed to be moving. On the light look the two sweeping columns and
+the bloom were **white** - a white gradient at 13% over a field that is already 96%
+white changes nothing a viewer or an encoder can see. Invisible motion is not
+motion; it is a rate-limit on a gate.
+
+On paper, a passing shadow is what reads. Both sweeps are now soft grey, the bloom
+is a grey field with the highlight inside it, and the light is darker than the page
+instead of lighter than it. That is also the better-looking answer: a slow band of
+shade drifting across a printed page is a lit object, and it gives the whole frame
+a floor of motion instead of one corner.
+
+The result is not a marginal improvement. **13.2% near-static became 0.3%**, and
+the mean frame delta went from 1.24 to **2.10** - and composition, which is the
+measurement that actually correlates with a viewer believing the picture is
+alive, went from 54 arrangements with a 8.0-second hold to **88 arrangements with a
+1.5-second longest hold**. The chapter that was one held arrangement for seven
+seconds is now five.
+
+### The rest of the round, in order of how much it was worth
+
+**The decision carried no colour.** "Green means merge" and "Red means send it
+back" were drawn as a grey terminal, a grey plate and a gold tick - the sentence
+said colours the picture never showed. The terminals now take the verdict's own
+colour, and the arrow that used to run off the end of the plate into the
+background is drawn on the plate that is falling out of the bracket.
+
+**The console had scribbles for ticks.** The done-tick in each of the six check
+blocks was sized from the block's *width*, which on a wide window is several times
+its height, so every tick overflowed its block and the row read as a row of
+scratches. Ticks are sized to the height they live in. The window itself was 1280
+by 220 - a search bar with a third of its region empty underneath; it is a window
+now.
+
+**The gauge printed its scale on its own ticks.** Two numbers outside the ring at
+r*1.20 sat on the tick ring itself. At r*1.34, with the dial regrown to fit, the
+scale reads. The self-check caught the first attempt at this - the art left its
+region - which is the check doing its job.
+
+**The ambient ring competed with the diagram.** The circle sat behind the ring
+gauge, the bars behind the rail, the arc behind the stamp. Scenery must never be
+the same shape as the subject, so a section whose beats use the gauge, the rail or
+the stamp now bans the ring family, and the catalogue grew two more families (a
+stack of rules, an open arc with a solid square) so banning one still leaves a
+choice.
+
+**The end was a hard cut to nothing.** The closing card now sinks into the paper
+over the last three tenths of a second.

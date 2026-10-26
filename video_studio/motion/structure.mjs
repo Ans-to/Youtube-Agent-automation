@@ -32,6 +32,20 @@ const SOLID = {
 };
 
 const hair = (alpha = 0.16) => `rgba(18,35,63,${alpha})`;
+
+/**
+ * A colour, as an rgba string, mixed toward paper by `lighten` (0 = the colour
+ * itself, 1 = white). The terminals in a fork are the one place in this film
+ * where a diagram carries a verdict, and a verdict drawn as a grey wash is a
+ * verdict nobody reads: "Green means merge" was printed beside a colourless box.
+ */
+function mixToWhite(hex, lighten, alpha = 1) {
+  const text = String(hex || '#78848F').replace('#', '');
+  const full = text.length === 3 ? text.split('').map((c) => c + c).join('') : text;
+  const parts = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16));
+  const mixed = parts.map((value) => Math.round(value + (255 - value) * lighten));
+  return `rgba(${mixed.join(',')},${alpha})`;
+}
 const tint = (alpha) => `rgba(18,35,63,${alpha})`;
 
 /** Shrink a label until it fits, never below the floor. */
@@ -226,9 +240,13 @@ function forkPaths(ctx, {
     ctx.globalAlpha = ctx.globalAlpha * e;
     const terminal = branch === 0 ? (leftColour || accent) : (rightColour || colour);
     if (branch === 0) {
-      // Closed: a solid block, shut. The tick says the branch ends here.
-      slab(ctx, { x, y: y - endH / 2, w: endW, h: endH, r: 12, fill: tint(0.12), stroke: hair(0.34) });
-      slab(ctx, { x: x + endW * 0.72, y: y - endH * 0.34, w: endW * 0.22, h: endH * 0.68, r: 6, fill: terminal });
+      // Closed: a solid plate in the verdict's own colour, shut. The tint is the
+      // colour, not a grey wash: the sentence says "green means merge" and the
+      // picture has to be green, or the words are doing all the work.
+      slab(ctx, { x, y: y - endH / 2, w: endW, h: endH, r: 12,
+        fill: mixToWhite(terminal, 0.78), stroke: mixToWhite(terminal, 0.30) });
+      slab(ctx, { x: x + endW * 0.72, y: y - endH * 0.34, w: endW * 0.22, h: endH * 0.68, r: 6,
+        fill: terminal });
       ctx.save();
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = Math.max(3, endH * 0.09);
@@ -255,18 +273,22 @@ function forkPaths(ctx, {
       const fall = ease.outCubic(clamp((local - at) / 0.6));
       slab(ctx, {
         x: x + endW * 0.10 + fall * endW * 0.16, y: y - endH * 0.28,
-        w: endW * 0.34, h: endH * 0.56, r: 10, fill: tint(0.08), stroke: hair(0.3),
+        w: endW * 0.34, h: endH * 0.56, r: 10,
+        fill: mixToWhite(terminal, 0.80), stroke: mixToWhite(terminal, 0.34),
       });
       ctx.save();
       ctx.globalAlpha = ctx.globalAlpha * 0.7;
       ctx.strokeStyle = terminal;
       ctx.lineWidth = Math.max(3, endH * 0.06);
+      // The arrow is drawn on the plate that is falling out of the bracket, so it
+      // never runs off the end of the terminal and into the background.
+      const ax = x + endW * 0.10 + fall * endW * 0.16;
       ctx.beginPath();
-      ctx.moveTo(x + endW * 0.52, y);
-      ctx.lineTo(x + endW * 0.92, y);
-      ctx.moveTo(x + endW * 0.84, y - endH * 0.10);
-      ctx.lineTo(x + endW * 0.92, y);
-      ctx.lineTo(x + endW * 0.84, y + endH * 0.10);
+      ctx.moveTo(ax + endW * 0.12, y);
+      ctx.lineTo(ax + endW * 0.30, y);
+      ctx.moveTo(ax + endW * 0.24, y - endH * 0.10);
+      ctx.lineTo(ax + endW * 0.30, y);
+      ctx.lineTo(ax + endW * 0.24, y + endH * 0.10);
       ctx.stroke();
       ctx.restore();
     }
@@ -434,10 +456,14 @@ function ringGauge(ctx, {
   colour = UI.white, accent = UI.gold,
 }) {
   const cx = box.x + box.w * 0.50;
-  const cy = box.y + box.h * 0.52;
+  const cy = box.y + box.h * 0.48;
   // The dial plus its ticks and scale has to fit the region height: 0.36 of the
   // box radius, ticks at 1.08, scale at 1.18 - 0.85 of the box, inside it.
-  const r = Math.min(box.h * 0.36, box.w * 0.22);
+  // The whole gauge, including the scale numbers outside the ticks, spans about
+  // 2.9r vertically, so r is bounded by the *region height* - and the self-check
+  // fails the template if its ink leaves the region, which is what caught this
+  // when the number sizes were raised.
+  const r = Math.min(box.h * 0.325, box.w * 0.22);
   const sweep = ease.outCubic(clamp(local / Math.min(seconds * 0.7, 1.6)));
 
   // Ticks: sixty of them, so the ring reads as a measure and not an ornament.
@@ -493,12 +519,14 @@ function ringGauge(ctx, {
   // landed in the same place as two illegible specks. What is left is the two
   // number a viewer can actually use - halfway, and the whole - set at a size
   // that survives being scaled down to a phone.
+  // The scale numbers sit clear of the ticks. At r*1.20 they were printed on top
+  // of them - a "60" over the top of the ring is a smudge, not a measurement.
   [[0.5, String(Math.round(value / 2))], [1, String(value)]].forEach(([fraction, text0]) => {
     const a = -Math.PI * 0.5 + Math.PI * 2 * fraction;
-    const rr = r + r * 0.20;
+    const rr = r + r * 0.34;
     const on = sweep >= fraction - 0.02;
-    label(ctx, text0, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr + r * 0.07, {
-      size: Math.round(r * 0.19), colour: on ? accent : tint(0.45), align: 'center', tracking: 1,
+    label(ctx, text0, cx + Math.cos(a) * rr, cy + Math.sin(a) * rr + r * 0.06, {
+      size: Math.round(r * 0.17), colour: on ? accent : tint(0.45), align: 'center', tracking: 1,
       alpha: on ? 0.95 : 0.6,
     });
   });
@@ -572,7 +600,7 @@ function budgetRail(ctx, {
     // Left end of the dimension, not the middle: the readout below it is the big
     // figure, and the two collided when the whole were set centred over the rail.
     labelBlock(ctx, `${Math.round(scale)} seconds, all in`, x0, box.y + box.h * 0.12, {
-      maxWidth: usable * 0.34, cap: box.h * 0.092, minSize: 16, colour: tint(0.62),
+      maxWidth: usable * 0.34, cap: box.h * 0.092, minSize: 16, colour: tint(0.80),
       align: 'left', max: 1, weight: 600, family: 'Inter', lineGap: 1.1, alpha: dimP,
     });
   }
@@ -663,8 +691,10 @@ function budgetRail(ctx, {
     // second, unreadable copy of the sentence the caption is already saying. The
     // rail's job is proportion; the words belong to the band.
     if (row.label && width > box.w * 0.22) {
+      // Inked, not tinted: this label sits over whatever the frame's light is
+      // doing, and a 72% grey over a passing shadow is unreadable.
       labelBlock(ctx, row.label, cursor + width * 0.02, railY + railH + box.h * 0.18, {
-        maxWidth: width * 0.92, cap: box.h * 0.095, minSize: 20, colour: tint(0.72),
+        maxWidth: width * 0.92, cap: box.h * 0.095, minSize: 20, colour,
         align: 'left', max: 2, weight: 600, family: 'Inter', lineGap: 1.15,
       });
     }
@@ -717,9 +747,13 @@ function commandConsole(ctx, {
   box, local, seconds, lines = [], colour = UI.white, accent = UI.gold,
 }) {
   if (!lines.length) return;
+  // A terminal is a tall object, not a search bar. At 0.6 of the region's height
+  // the window was 1280 by 220 - wide, flat, and with a third of the region empty
+  // underneath it. At 0.80 with a narrower width it reads as a window, which is
+  // what the sentence ("make it one command") is showing.
   const win = {
-    x: box.x, y: box.y + box.h * 0.06,
-    w: box.w * 0.92, h: Math.min(box.h * 0.6, box.h - box.h * 0.06),
+    x: box.x, y: box.y + box.h * 0.04,
+    w: box.w * 0.82, h: Math.min(box.h * 0.80, box.h - box.h * 0.04),
   };
   const appear = ease.outCubic(clamp(local / 0.4));
   ctx.save();
@@ -787,15 +821,22 @@ function commandConsole(ctx, {
     if (done) {
       ctx.save();
       ctx.globalAlpha = ctx.globalAlpha * p;
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = Math.max(2, win.h * 0.012);
-      ctx.lineCap = 'round';
-      ctx.beginPath();
+      // The tick is sized to the block that holds it, not to the block's width.
+      // It used to be drawn from the block's width - which on a wide window is
+      // several times the block's height - so every tick overflowed its block and
+      // the run read as a row of scribbles.
+      const bh = win.h * 0.135;
       const cx = win.x + win.w * 0.07 + i * bw + bw * 0.43;
-      const cy = blockY + win.h * 0.05;
-      ctx.moveTo(cx - bw * 0.12, cy);
-      ctx.lineTo(cx - bw * 0.02, cy + bw * 0.12);
-      ctx.lineTo(cx + bw * 0.16, cy - bw * 0.12);
+      const cy = blockY + bh * 0.52;
+      const unit = bh * 0.30;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = Math.max(2, bh * 0.16);
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(cx - unit, cy);
+      ctx.lineTo(cx - unit * 0.25, cy + unit);
+      ctx.lineTo(cx + unit * 1.05, cy - unit);
       ctx.stroke();
       ctx.restore();
     }
