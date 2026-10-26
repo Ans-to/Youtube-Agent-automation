@@ -11,6 +11,12 @@
  */
 import { roundRect, clamp, lerp, noise } from '../ui.mjs';
 
+/** Brightness scale on a hex colour - a liquid-crystal panel, dimming. */
+const scale = (hex, k) => {
+  const v = [1, 3, 5].map((i) => Math.min(255, Math.round(parseInt(hex.slice(i, i + 2), 16) * k)));
+  return `#${v.map((x) => x.toString(16).padStart(2, '0')).join('')}`;
+};
+
 /* ------------------------------------------------------------ the body ---- */
 
 /**
@@ -154,10 +160,13 @@ export function drawHandset(ctx, {
   roundRect(ctx, dx - W * 0.045, dy - H * 0.014, dw + W * 0.09, dh + H * 0.028, W * 0.045);
   ctx.fill();
 
+  // The panel's gradient is built *from* `lcd`, so a caller can take the screen
+  // dark - it was three hard-coded greens and the panel stayed lit no matter what
+  // colour was asked for.
   const lg = ctx.createLinearGradient(0, dy, 0, dy + dh);
-  lg.addColorStop(0, '#4C5C46');
+  lg.addColorStop(0, scale(lcd, 0.78));
   lg.addColorStop(0.18, lcd);
-  lg.addColorStop(1, '#6E8269');
+  lg.addColorStop(1, scale(lcd, 1.14));
   ctx.fillStyle = lg;
   roundRect(ctx, dx, dy, dw, dh, W * 0.02);
   ctx.fill();

@@ -118,6 +118,34 @@ def high_shelf(x: np.ndarray, hz: float, gain_db: float) -> np.ndarray:
 
 PAUSE = {'comma': 0.14, 'stop': 0.42, 'dash': 0.26, 'colon': 0.22}
 
+# A performance is a choice, not a constant.
+#
+# The first narration was rejected as *too dramatic*, and the drama was not in the
+# voice alone - it was in the direction: every sentence dipped six percent on its
+# last phrase, every full stop held for nearly half a second, and a 2.5:1
+# compressor with 4 dB of makeup pushed each clause forward. That is a trailer
+# read. A documentary narrator explains: the read stays at the pitch the sentence
+# put it at, the pauses are grammatical rather than theatrical, and the compressor
+# is there so a word does not disappear, not to add weight.
+PERFORMANCE = {
+    'dramatic': {
+        'pause': 1.00, 'first': 0.97, 'mid': 1.02, 'last': 0.94,
+        'compress': {'ratio': 2.5, 'threshold_db': -20.0, 'makeup_db': 4.0},
+    },
+    'calm': {
+        'pause': 0.68, 'first': 1.00, 'mid': 1.005, 'last': 0.995,
+        'compress': {'ratio': 1.8, 'threshold_db': -18.0, 'makeup_db': 1.6},
+    },
+}
+PROFILE = 'calm'
+
+
+def set_profile(name: str) -> None:
+    global PROFILE
+    if name not in PERFORMANCE:
+        raise SystemExit(f'no performance called {name!r}; have {sorted(PERFORMANCE)}')
+    PROFILE = name
+
 
 def phrases(line: str) -> list[tuple[str, str]]:
     """Cut a line where a speaker breathes, and remember why they stopped."""
@@ -145,19 +173,20 @@ def phrases(line: str) -> list[tuple[str, str]]:
 
 
 def shape_rate(index: int, count: int) -> float:
-    """How fast to say phrase `index` of `count`.
+    """How fast to say phrase `index` of `count`, under the current profile.
 
-    The last phrase of a sentence lands a little slower - a full stop is a
-    deceleration, not a stop. The first is slightly slower too, so the line does
-    not rush its own opening.
+    Under `dramatic` the last phrase of a sentence lands six percent slower - a
+    deceleration at every full stop. Under `calm` the line keeps its own pace and
+    the punctuation does the work, which is what reading to picture sounds like.
     """
+    perf = PERFORMANCE[PROFILE]
     if count == 1:
         return 1.0
     if index == count - 1:
-        return 0.94
+        return perf['last']
     if index == 0:
-        return 0.97
-    return 1.02
+        return perf['first']
+    return perf['mid']
 
 
 def compress(x: np.ndarray, ratio=2.5, threshold_db=-20.0, attack=0.008,
@@ -231,7 +260,7 @@ def room(x: np.ndarray, wet=0.09, decay=0.42) -> np.ndarray:
 def master(x: np.ndarray) -> np.ndarray:
     x = highpass(x, 88.0)
     x = peaking(x, 320, 0.9, -2.5)        # boxiness out of the low mids
-    x = compress(x)
+    x = compress(x, **PERFORMANCE[PROFILE]['compress'])
     x = deess(x)                          # dynamic, not a static cut
     x = peaking(x, 7200, 1.4, -1.5)
     x = peaking(x, 2600, 1.0, 1.2)        # presence, where intelligibility lives
@@ -353,7 +382,8 @@ def synth(text: str, voice: str, base_rate: float = 1.0) -> np.ndarray:
         audio[-n:] *= np.linspace(1, 0, n)
         parts.append(audio)
         if stop != 'none':
-            parts.append(np.zeros(int(PAUSE[stop] * SR), dtype=np.float32))
+            gap = PAUSE[stop] * PERFORMANCE[PROFILE]['pause']
+            parts.append(np.zeros(int(gap * SR), dtype=np.float32))
     out = np.concatenate(parts) if parts else np.zeros(1, dtype=np.float32)
     return master(out)
 

@@ -1,0 +1,50 @@
+[
+  {
+    "id": "hook-01-ringing",
+    "dur": 5.9,
+    "transition": "cut",
+    "transitionWhy": "opening frame"
+  },
+  {
+    "id": "hook-02-cities",
+    "dur": 7.0,
+    "transition": "rack",
+    "transitionWhy": "the camera moves while the subject changes"
+  },
+  {
+    "id": "hook-03-world",
+    "dur": 5.8,
+    "transition": "dissolve",
+    "transitionWhy": "time passes in the same place"
+  },
+  {
+    "id": "hook-04-turn",
+    "dur": 7.7,
+    "transition": "fade-paper",
+    "transitionWhy": "a new section begins"
+  },
+  {
+    "id": "hook-05-alone",
+    "dur": 6.0,
+    "transition": "cut",
+    "transitionWhy": "something changes"
+  },
+  {
+    "id": "history-01-mill",
+    "dur": 7.6,
+    "transition": "iris",
+    "transitionWhy": "a period opens"
+  },
+  {
+    "id": "history-02-trades",
+    "dur": 8.7,
+    "transition": "wipe-left",
+    "transitionWhy": "the film continues in one direction"
+  },
+  {
+    "id": "history-03-rise",
+    "dur": 8.5,
+    "transition": "push-left",
+    "transitionWhy": "the film pushes on and does not stop"
+  }
+]

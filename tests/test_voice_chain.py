@@ -66,9 +66,42 @@ class PhrasingTest(unittest.TestCase):
         self.assertEqual(cuts[0][0], 'One company')
 
     def test_a_sentence_ends_slower_than_it_starts(self):
-        self.assertEqual(V.shape_rate(0, 3), 0.97)
-        self.assertEqual(V.shape_rate(2, 3), 0.94)
-        self.assertEqual(V.shape_rate(1, 3), 1.02)
+        """The drama profile decelerates into a full stop; the calm one does not.
+
+        This used to assert 0.97 / 1.02 / 0.94 outright, which pinned one
+        performance as the only performance. The read was then rejected as too
+        dramatic and the constant had to move - the property worth testing is
+        that the shaping *follows the profile*, not which profile is in favour.
+        """
+        was = V.PROFILE
+        try:
+            V.set_profile('dramatic')
+            self.assertEqual(V.shape_rate(0, 3), 0.97)
+            self.assertEqual(V.shape_rate(2, 3), 0.94)
+            self.assertEqual(V.shape_rate(1, 3), 1.02)
+
+            V.set_profile('calm')
+            self.assertEqual(V.shape_rate(0, 3), 1.0)
+            self.assertLess(V.shape_rate(2, 3), 1.0)
+            self.assertGreater(V.shape_rate(2, 3), 0.98)
+        finally:
+            V.set_profile(was)
+
+    def test_calm_pauses_are_shorter_than_dramatic_ones(self):
+        """A 420 ms full stop is a trailer beat; a narrator breathes for less."""
+        was = V.PROFILE
+        try:
+            V.set_profile('dramatic')
+            dramatic = V.PAUSE['stop'] * V.PERFORMANCE['dramatic']['pause']
+            V.set_profile('calm')
+            calm = V.PAUSE['stop'] * V.PERFORMANCE['calm']['pause']
+        finally:
+            V.set_profile(was)
+        self.assertLess(calm, dramatic * 0.8)
+
+    def test_an_unknown_profile_is_refused(self):
+        with self.assertRaises(SystemExit):
+            V.set_profile('shouty')
 
     def test_engines_declare_themselves(self):
         """An unavailable engine must say why, not disappear."""

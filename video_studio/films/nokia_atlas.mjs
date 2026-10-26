@@ -104,6 +104,14 @@ function rule(ctx, x, y, len, p, colour = '#C9A227', thickness = 1) {
   ctx.restore();
 }
 
+/** Mix two hex colours; used for a liquid-crystal panel going dark. */
+function mix(a, b, t) {
+  const pa = [1, 3, 5].map((i) => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map((i) => parseInt(b.slice(i, i + 2), 16));
+  const v = pa.map((x, i) => Math.round(x + (pb[i] - x) * clamp(t)));
+  return `#${v.map((x) => x.toString(16).padStart(2, '0')).join('')}`;
+}
+
 /* ------------------------------------------------------------- palette ---- */
 
 const P = {
@@ -368,7 +376,7 @@ const SCRIPT = [
           ctx.fillStyle = '#060607';
           ctx.fillRect(0, 0, W, H);
           const g = ctx.createRadialGradient(W * 0.30, H * 0.42, 0, W * 0.34, H * 0.5, H * 0.72);
-          g.addColorStop(0, 'rgba(58,56,52,0.55)');
+          g.addColorStop(0, 'rgba(74,72,66,0.70)');
           g.addColorStop(1, 'rgba(6,6,7,0)');
           ctx.fillStyle = g;
           ctx.fillRect(0, 0, W, H);
@@ -376,21 +384,45 @@ const SCRIPT = [
       },
       {
         id: 'shelf', depth: 1,
-        draw: (ctx, { p }) => {
-          /* lying on its side on a shelf: the object that was the whole film,
-             now just an object */
+        draw: (ctx, { p, t }) => {
+          /* Lying on its side on a shelf: the object that was the whole film, now
+             just an object.
+
+             The shot used to be a still of that idea for six seconds. It has a
+             beat now, and the beat is the line: the display dims, and goes out
+             before the cut. A phone answering too late is a screen with nothing
+             left on it. */
           const pw = 196;
           const ph = pw * 1.87;
           const px = W * 0.145;
           const py = H * 0.665;
+          /* settles the last two degrees, rather than sitting dead still */
+          const settle = Math.PI / 2 - 0.035 * (1 - ease.outCubic(clamp(p * 3)));
+          const dying = clamp(span(p, 0.34, 0.94));
+          const glow = 0.45 * (1 - dying);
+          const lcd = mix('#8FA88A', '#151A16', dying);
           ctx.save();
           ctx.globalAlpha *= clamp(p * 3);
           contact(ctx, px + ph / 2, H * 0.945, ph * 0.60, H * 0.030, 0.60);
           ctx.translate(px + ph / 2, py);
-          ctx.rotate(-Math.PI / 2);
-          drawHandset(ctx, { x: -pw / 2, y: -ph / 2, w: pw, h: ph, facing: 0.2, screen: 'menu', glow: 0.35, shadow: false });
+          ctx.rotate(-settle);
+          drawHandset(ctx, {
+            x: -pw / 2, y: -ph / 2, w: pw, h: ph, facing: 0.2,
+            screen: 'menu', glow, lcd, shadow: false,
+          });
           ctx.restore();
           rule(ctx, W * 0.115, H * 0.958, W * 0.34, span(p, 0.3, 0.8), 'rgba(237,234,226,0.18)');
+
+          /* the room loses its key light as the screen does, so the shot is
+             darker at its cut than at its start without anything moving */
+          const dim = dying * 0.42;
+          if (dim > 0) {
+            ctx.save();
+            ctx.globalAlpha *= dim;
+            ctx.fillStyle = '#04040A';
+            ctx.fillRect(-W, -H, W * 3, H * 3);
+            ctx.restore();
+          }
         },
       },
       {
@@ -612,15 +644,46 @@ function readTiming() {
   }
 }
 
+/**
+ * The picture can be locked.
+ *
+ * `nokia_atlas.lock.json` records the duration of every shot in a cut that has
+ * already been approved. When it is present, a re-recorded voice is *conformed*
+ * to that cut instead of re-cutting the film around the new read - which is what
+ * happens in a real edit, and what stops a calmer narrator from silently
+ * changing the pacing of a picture nobody complained about.
+ *
+ * A line that no longer fits the locked shot is an error, not a warning: the
+ * alternative is a cut that lands in the middle of a word.
+ */
+function readLock() {
+  try {
+    const rows = JSON.parse(fs.readFileSync(new URL('./nokia_atlas.lock.json', import.meta.url), 'utf8'));
+    return Object.fromEntries(rows.map((r) => [r.id, r.dur]));
+  } catch {
+    return null;
+  }
+}
+
 function retime(shots, timing) {
   if (!timing) return shots;
+  const lock = readLock();
   const spoken = Object.fromEntries(timing.map((r) => [r.shot, r.vo]));
   return shots.map((shot, i) => {
     const vo = spoken[shot.id];
     if (vo === undefined) return shot;
     const lead = i === 0 ? LEAD_FIRST : LEAD;
-    const dur = Math.max(shot.seconds, lead + vo + (PAD[shot.id] ?? 1.2));
-    return { ...shot, dur: Math.round(dur * 10) / 10 };
+    const natural = Math.max(shot.seconds, lead + vo + (PAD[shot.id] ?? 1.2));
+    if (lock && lock[shot.id] !== undefined) {
+      const dur = lock[shot.id];
+      if (lead + vo > dur + 1e-6) {
+        throw new Error(
+          `${shot.id}: the line needs ${(lead + vo).toFixed(2)}s but the locked shot is ${dur.toFixed(2)}s`,
+        );
+      }
+      return { ...shot, dur, conformed: true };
+    }
+    return { ...shot, dur: Math.round(natural * 10) / 10 };
   });
 }
 
@@ -704,7 +767,11 @@ const main = () => {
     return;
   }
 
-  console.log(`${FILM.length} shots, ${totalSeconds().toFixed(1)}s, ${fonts} fonts`);
+  const conformed = FILM.filter((s) => s.conformed).length;
+  console.log(
+    `${FILM.length} shots, ${totalSeconds().toFixed(1)}s, ${fonts} fonts` +
+    (conformed ? ` (${conformed} conformed to the locked picture)` : ''),
+  );
   shotStarts().forEach((s) => console.log(
     `  ${s.start.toFixed(1)}s  ${s.id.padEnd(20)} ${(s.end - s.start).toFixed(1)}s  [${s.transition}] ${s.transitionWhy}`,
   ));

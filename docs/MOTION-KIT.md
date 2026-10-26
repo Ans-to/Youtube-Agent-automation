@@ -316,3 +316,46 @@ shot declares a role the director does not know.
 names the 400 weight of Space Grotesk "Space Grotesk Light", so registering the
 file as-is left the family unresolvable and every call fell back to DejaVu
 again. Weights registered under one alias merge into one family.
+
+## The narration was overacting, and it was in the direction
+
+"Too dramatic" was not the model's fault alone. The read was being *directed*
+like a trailer:
+
+| | before | now |
+|---|---|---|
+| last phrase of a sentence | 6 % slower | 0.5 % slower |
+| first phrase | 3 % slower | 1.0 (neutral) |
+| pause at a full stop | 420 ms | 286 ms |
+| pause at a comma | 140 ms | 95 ms |
+| compressor | 2.5:1, +4 dB makeup | 1.8:1, +1.6 dB |
+
+Both performances are kept, as profiles: `dramatic` is the old read, `calm` is
+the documentary read. `narrate.py synth --profile calm` selects one.
+
+Picking the voice was a measurement rather than a preference. Five candidates,
+same two lines, same profile, scored on pitch spread, pace and pause total:
+
+| voice | wpm | f0 | pitch spread | pauses |
+|---|---|---|---|---|
+| am_echo | 146.8 | 112 Hz | 6.15 st | 0.98 s |
+| bm_fable | 139.0 | 118 Hz | 7.46 st | 2.17 s |
+| am_onyx | 158.2 | 86 Hz | 4.12 st | 0.95 s |
+| bf_emma | 169.6 | 180 Hz | 3.48 st | 0.63 s |
+| bm_george (old) | 147.5 | 150 Hz | 5.63 st | 0.70 s |
+
+`am_echo` is the neutral-broadcast read; `bm_fable` was the most theatrical of
+the set. The full audition is `docs/media/nokia/voice-audition.mp3`, in that
+order.
+
+## Conforming a voice to a locked picture
+
+`films/nokia_atlas.lock.json` holds the duration of every shot in the approved
+cut. With it present, `retime()` keeps those durations and refuses to build if a
+new line no longer fits - instead of silently re-cutting the film around a
+shorter read. A picture nobody complained about should not change because the
+narrator did.
+
+`node reframe.mjs --film films/nokia_atlas.mjs --frames /tmp/atlas-frames \
+  --from 26.4 --to 32.4` re-renders one shot into an existing frame directory, so
+a single shot can be improved after delivery without re-rendering the film.

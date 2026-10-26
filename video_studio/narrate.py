@@ -155,6 +155,9 @@ def main() -> None:
     s.add_argument('--voice', default='bm_george')
     s.add_argument('--rate', type=float, default=0.95)
     s.add_argument('--engine', default='kokoro')
+    s.add_argument('--profile', default='calm',
+                   choices=['calm', 'dramatic'],
+                   help="how the line is performed; 'dramatic' is the old trailer read")
 
     m = sub.add_parser('mix')
     m.add_argument('--vo', required=True)
@@ -166,6 +169,8 @@ def main() -> None:
 
     args = ap.parse_args()
     if args.cmd == 'synth':
+        if hasattr(V, 'set_profile'):
+            V.set_profile(args.profile)
         rows = synth(json.loads(Path(args.lines).read_text()), Path(args.out),
                      voice=args.voice, rate=args.rate, engine=args.engine)
         for row in rows:
