@@ -1,0 +1,219 @@
+name: Ten films
+
+# Render a set of briefs on GitHub runners and publish the review copies back
+# into the repository, so the films have permanent public URLs instead of living
+# in an artifact that expires and needs a login.
+#
+# Why this exists: the studio was being rendered on a sandbox and on the owner's
+# machine, and both of those get wiped. A render that only exists in a temporary
+# directory is not a deliverable. Here the picture is drawn by a standard
+# `ubuntu-24.04` runner - free and unlimited on a public repository - and the
+# result is committed, which is the only copy that survives.
+#
+# Each film is its own job, so ten films take about as long as the slowest one
+# rather than ten times the fastest. Everything is public: the renderer comes
+# from npm, the voice from PyPI and npm, the music is synthesised by this
+# repository's own code. No API key, no hosted service, no money.
+
+on:
+  workflow_dispatch:
+    inputs:
+      films:
+        description: Comma-separated brief slugs (no .json), or "all"
+        required: true
+        default: all
+        type: string
+      publish:
+        description: Commit the 720p review copies to docs/media/demos
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+env:
+  PYTHONUNBUFFERED: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  plan:
+    name: Work out which films to render
+    runs-on: ubuntu-24.04
+    outputs:
+      matrix: ${{ steps.list.outputs.matrix }}
+      count: ${{ steps.list.outputs.count }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: List the briefs
+        id: list
+        run: |
+          # "all" is every brief in the folder; anything else is taken literally.
+          # The list lives in the folder, not in this file: adding a script should
+          # not mean editing a workflow.
+          matrix="$(python3 tools/brief_slugs.py --matrix --films "${{ github.event.inputs.films }}")"
+          count="$(python3 tools/brief_slugs.py --films "${{ github.event.inputs.films }}" | wc -l)"
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "$matrix"
+
+  render:
+    name: ${{ matrix.slug }}
+    needs: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+
+      - name: Install the renderer
+        working-directory: video_studio
+        run: npm ci --no-audit --no-fund
+
+      - name: Install the voice and the media tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install numpy pillow imageio-ffmpeg
+          pip install kokoro-onnx onnxruntime
+
+      - name: Fetch the narrator's weights
+        run: python video_studio/kokoro_voice.py --dir "$HOME/.cache/agent-hq/kokoro"
+
+      - name: Write the narration script
+        run: |
+          python tools/brief_to_voice.py \
+            --brief "video_studio/briefs/${{ matrix.slug }}.json" \
+            --out "build/${{ matrix.slug }}/voice.json"
+
+      - name: Preflight the brief before drawing a frame
+        run: |
+          python tools/preflight_brief.py \
+            --brief "video_studio/briefs/${{ matrix.slug }}.json" \
+            --work "build/${{ matrix.slug }}/preflight"
+
+      - name: Render the film, mix the sound, and measure it
+        env:
+          AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro
+        run: |
+          python tools/render_authored_film.py \
+            --script video_studio/films/from_brief.mjs \
+            --script-args "--brief video_studio/briefs/${{ matrix.slug }}.json" \
+            --voice-script "build/${{ matrix.slug }}/voice.json" \
+            --voice-backend kokoro \
+            --voice am_michael \
+            --out "build/${{ matrix.slug }}/film" \
+            --width 1920 --height 1080 \
+            --skip-4k --delivery-height 720
+
+      - name: Craft gate
+        run: |
+          python tools/check_craft.py \
+            --script "build/${{ matrix.slug }}/film/voice/lines.json" \
+            --srt "build/${{ matrix.slug }}/film/film.srt" \
+            --title "$(python -c "import json;print(json.load(open('video_studio/briefs/${{ matrix.slug }}.json'))['title'])")" \
+            --thumbnail-text "$(python -c "import json;print((json.load(open('video_studio/briefs/${{ matrix.slug }}.json')).get('thumbnail') or {}).get('line',''))")" \
+            --json > "build/${{ matrix.slug }}/craft.json"
+          cat "build/${{ matrix.slug }}/craft.json"
+
+      - name: Note what each act drew and how it arrived
+        run: |
+          python tools/plan_summary.py \
+            --plan "build/${{ matrix.slug }}/film/build/frames/plan.json" \
+            --slug "${{ matrix.slug }}" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload the film
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: film-${{ matrix.slug }}
+          path: |
+            build/${{ matrix.slug }}/film/film-720p.mp4
+            build/${{ matrix.slug }}/film/film.srt
+            build/${{ matrix.slug }}/film/contact-sheet.jpg
+            build/${{ matrix.slug }}/film/build/frames/plan.json
+            build/${{ matrix.slug }}/craft.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish the review copies
+    needs: [plan, render]
+    if: ${{ github.event.inputs.publish == 'true' || github.event.inputs.publish == '' }}
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out the branch that asked for the render
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Collect the renders
+        uses: actions/download-artifact@v4
+        with:
+          path: build/artifacts
+          pattern: film-*
+
+      - name: Put them where the repository serves them
+        run: |
+          # One directory, one file per film, named after the brief. These are the
+          # copies the ten-films page links to: 720p, from the render's own
+          # delivery pass, and small enough that ten of them fit in the repo.
+          mkdir -p docs/media/demos
+          for dir in build/artifacts/film-*; do
+            slug="$(basename "$dir" | sed 's/^film-//')"
+            cp "$dir/film-720p.mp4" "docs/media/demos/$slug.mp4"
+            cp "$dir/film.srt" "docs/media/demos/$slug.srt"
+            if [ -f "$dir/contact-sheet.jpg" ]; then
+              cp "$dir/contact-sheet.jpg" "docs/media/demos/$slug-contact-sheet.jpg"
+            fi
+            echo "$slug: $(du -h "docs/media/demos/$slug.mp4" | cut -f1)"
+          done
+          du -cm docs/media/demos/*.mp4 | tail -1
+
+      - name: Commit them, so the links outlive the run
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/media/demos
+          if git diff --cached --quiet; then
+            echo "nothing changed"
+            exit 0
+          fi
+          git commit -m "Publish the review copies rendered on a GitHub runner
+
+          Rendered by .github/workflows/ten-films.yml from ${GITHUB_SHA}.
+          Each film is 720p, 30 fps, H.264 High + AAC, +faststart."
+          git push
+
+      - name: Report
+        if: always()
+        run: |
+          {
+            echo "### Ten films"
+            echo ""
+            echo "Rendered **${{ needs.plan.outputs.count }}** films on standard runners, \$0."
+            echo ""
+            echo "| film | download |"
+            echo "|---|---|"
+            for f in docs/media/demos/*.mp4; do
+              slug="$(basename "$f" .mp4)"
+              echo "| $slug | [mp4](../raw/${{ github.ref_name }}/$f) |"
+            done
+          } >> "$GITHUB_STEP_SUMMARY"
