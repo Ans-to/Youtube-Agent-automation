@@ -254,3 +254,24 @@ can be chosen by eye:
   picture; the phone and the map are secondary marks that move on their own clock.
 
 Each is a different *genre*, not a palette swap of one house style.
+
+## The object has to be built, not iconified
+
+`phone-classic` is a rounded rectangle with a grid: an icon. Any film made of
+icons reads as a slide deck however well it is timed. `motion/kit/product.mjs`
+models the handset instead — a tapered slab shaded across its width, a specular
+band that slides with the camera, a recessed display with glass and bloom, keys
+with bevelled caps and real labels, a contact shadow, and a floor reflection
+mirrored about the point where the object meets the ground (mirroring about the
+horizon makes a standing object hover).
+
+`drawStudio()` builds the room: gradient wall, floor plane, a practical lamp
+behind the subject, a soft light shaft, dust that drifts deterministically in
+`t`, and one gold hairline on the horizon.
+
+`films/studio_hero.mjs` is twenty seconds of that craft: three beats, a tripod
+camera that moves once per shot, and type in Instrument Serif with tracked Inter
+caps. `node films/studio_hero.mjs --frames /tmp/room --fps 30`.
+
+The rule this establishes for the rest of the kit: **if it appears on screen for
+more than two seconds and it is a real object, it gets modelled.**
