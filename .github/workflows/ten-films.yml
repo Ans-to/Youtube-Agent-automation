@@ -135,6 +135,13 @@ jobs:
           AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro-cache
         run: python video_studio/kokoro_voice.py --dir "$AGENTHQ_KOKORO_DIR"
 
+      - name: Check the action pins and the product invariants
+        run: |
+          # The same two rules Project checks enforces, run before the expensive
+          # steps: a render job is the wrong place to discover that an action was
+          # pinned to a tag, or that a paid provider crept back in.
+          python tools/check_invariants.py
+
       - name: Smoke-test the narrator before spending the budget
         timeout-minutes: 8
         env:
