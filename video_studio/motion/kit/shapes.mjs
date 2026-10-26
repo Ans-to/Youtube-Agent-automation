@@ -109,11 +109,19 @@ const geometry = {
     const cx = x + w / 2;
     const cy = y + h / 2;
     const radius = Math.min(w, h) / 2;
+    // The sweep starts at zero and the context is rotated, never the reverse.
+    // @napi-rs/canvas silently draws *nothing* for an arc that begins at a
+    // negative angle and sweeps a full turn, which is why this shape was blank
+    // at p=1 in every render and looked fine at every p below it.
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(-Math.PI / 2);
     ctx.beginPath();
-    ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + TAU * clamp(p));
-    if (p < 1) ctx.lineTo(cx, cy);
+    ctx.arc(0, 0, radius, 0, TAU * clamp(p));
+    if (p < 1) ctx.lineTo(0, 0);
     ctx.closePath();
     paint(ctx, { fill, stroke, line });
+    ctx.restore();
   },
 
   triangle: (ctx, { x, y, w, h, fill, stroke, line }) => {
@@ -185,7 +193,7 @@ const geometry = {
 // -------------------------------------------------------------------- objects
 const objects = {
   /** A brick: the classic handset. Screen, keypad, soft body. */
-  'phone-classic': (ctx, { x, y, w, h, ink, accent, fill, stroke, p = 1 }) => {
+  'phone-classic': (ctx, { x, y, w, h, ink, accent, fill, stroke, screen, p = 1 }) => {
     const body = Math.min(w, h * 0.42);
     const bx = x + (w - body) / 2;
     const by = y + (h - body * 2) / 2;
@@ -194,8 +202,10 @@ const objects = {
     paint(ctx, { fill: fill || 'rgba(255,255,255,0.92)', stroke: stroke || ink, line: Math.max(2, body * 0.018) });
     // Screen
     roundRect(ctx, bx + body * 0.12, by + bh * 0.08, body * 0.76, bh * 0.30, body * 0.05);
-    ctx.fillStyle = accent;
-    ctx.globalAlpha *= 0.22 + 0.3 * clamp(p);
+    // Same correction as the smartphone: a screen is glass, so it takes a faint
+    // cool tint instead of a slab of the accent colour.
+    ctx.fillStyle = screen || ink;
+    ctx.globalAlpha *= 0.06 + 0.07 * clamp(p);
     ctx.fill();
     ctx.globalAlpha /= 0.22 + 0.3 * clamp(p);
     // Keypad: three rows, drawn as the shape arrives.
@@ -208,7 +218,7 @@ const objects = {
         const kh = bh * 0.085;
         roundRect(ctx, bx + body * 0.15 + c * body * 0.245, by + bh * 0.48 + r * bh * 0.145, kw, kh, kw * 0.22);
         ctx.fillStyle = ink;
-        ctx.globalAlpha *= 0.16 + 0.14 * shown;
+        ctx.globalAlpha *= 0.34 * shown;
         ctx.fill();
         ctx.globalAlpha /= 0.16 + 0.14 * shown;
       }
@@ -216,7 +226,7 @@ const objects = {
   },
 
   /** A slab: the modern handset. Rounded body, screen, home bar. */
-  'phone-smart': (ctx, { x, y, w, h, ink, accent, fill, stroke, p = 1 }) => {
+  'phone-smart': (ctx, { x, y, w, h, ink, accent, fill, stroke, screen, p = 1 }) => {
     const body = Math.min(w * 0.92, h * 0.44);
     const bh = body * 2.02;
     const bx = x + (w - body) / 2;
@@ -226,8 +236,10 @@ const objects = {
     const inset = body * 0.07;
     roundRect(ctx, bx + inset, by + inset, body - inset * 2, bh - inset * 2, body * 0.10);
     ctx.save();
-    ctx.globalAlpha *= 0.10 + 0.24 * clamp(p);
-    ctx.fillStyle = accent;
+    // A screen is glass: a cool tint, not the accent. Tinted with the accent it
+    // read as a slab of tan cardboard with buttons on it.
+    ctx.globalAlpha *= 0.05 + 0.07 * clamp(p);
+    ctx.fillStyle = screen || ink;
     ctx.fill();
     ctx.restore();
     // Three app rows, appearing in order - a screen filling with a system.
@@ -238,7 +250,7 @@ const objects = {
       for (let c = 0; c < 3; c += 1) {
         roundRect(ctx, bx + inset * 2 + c * iw * 1.32, by + bh * 0.22 + i * iw * 1.32, iw, iw, iw * 0.28);
         ctx.save();
-        ctx.globalAlpha *= 0.30 * shown;
+        ctx.globalAlpha *= 0.55 * shown;
         ctx.fillStyle = ink;
         ctx.fill();
         ctx.restore();
