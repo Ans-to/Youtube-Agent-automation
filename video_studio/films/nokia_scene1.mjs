@@ -367,7 +367,7 @@ const shot5 = {
       },
     },
     {
-      id: 'last', screen: true, depth: 1.15, from: 0.50, entrance: 'rise',
+      id: 'last', screen: true, depth: 1.15, from: 0.50, entrance: 'squash',
       box: { x: W * 0.25, y: H * 0.755, w: W * 0.5, h: 50 },
       draw: (ctx, { p }) => {
         say(ctx, 'and then it stopped', W * 0.5, H * 0.80, {

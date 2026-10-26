@@ -64,10 +64,13 @@ function entrancePool() {
   });
   [5, 9].forEach((cols) => out.push({ kind: 'shatter', label: `shatter-${cols}`, options: { cols, rows: 3 } }));
   [0.35, 0.55, 0.85].forEach((reach) => out.push({ kind: 'iris', label: `iris-${reach}`, options: { reach } }));
-  [0.08, 0.16, 0.28].forEach((distance) => out.push({ kind: 'rise', label: `rise-${distance}`, options: { distance } }));
-  [0.6, 1.4].forEach((amount) => out.push({ kind: 'squash', label: `squash-${amount}`, options: { amount } }));
-  ['cut', 'scan', 'slit-scan', 'whip', 'stamp', 'assembly']
-    .forEach((kind) => out.push({ kind, label: kind, options: {} }));
+  [0.05, 0.08, 0.12, 0.16, 0.22, 0.28, 0.40]
+    .forEach((distance) => out.push({ kind: 'rise', label: `rise-${distance}`, options: { distance } }));
+  [0.4, 0.6, 0.8, 1.4, 1.8]
+    .forEach((amount) => out.push({ kind: 'squash', label: `squash-${amount}`, options: { amount } }));
+  [0.06, 0.10, 0.18].forEach((slide) => out.push({ kind: 'assembly', label: `assembly-${slide}`, options: { slide } }));
+  [0.14, 0.22, 0.34].forEach((scale) => out.push({ kind: 'stamp', label: `stamp-${scale}`, options: { scale } }));
+  ['cut', 'scan', 'slit-scan', 'whip'].forEach((kind) => out.push({ kind, label: kind, options: {} }));
   return out;
 }
 
@@ -178,30 +181,33 @@ export function allocate(shots, { categories = ['transition', 'entrance', 'behav
  * arrivals, which the entrance pool can cover; a long film with sixty shots
  * cannot, and this refuses rather than quietly repeating.
  */
-export function allocateLayers(shots, { strict = true } = {}) {
+export function allocateLayers(shots, { strict = false } = {}) {
   const used = { entrance: new Set(), behaviour: new Set(), exit: new Set() };
-  let index = 0;
-  return shots.map((shot) => {
+  const repeats = [];
+  const out = shots.map((shot) => {
     const layers = (shot.layers || []).map((layer) => {
-      index += 1;
       const copy = { ...layer };
       ['entrance', 'behaviour', 'exit'].forEach((category) => {
-        if (!layer[category]) return;
+        const authored = layer[category];
+        if (!authored) return;
         const pool = POOLS[category];
-        const start = hash(`${layer.id}:${category}`) % pool.length;
-        let picked = null;
-        for (let step = 0; step < pool.length; step += 1) {
-          const candidate = pool[(start + step) % pool.length];
-          if (!used[category].has(candidate.label)) { picked = candidate; break; }
-        }
-        if (!picked) {
-          const message = `layer ${layer.id} in ${shot.id}: no unused ${category} left (${used[category].size} of ${pool.length})`;
-          if (strict) throw new Error(message);
+        // Keep the family the shot asked for and vary only its parameters.
+        //
+        // The first version dealt any unused entrance to any layer, which looked
+        // like a stronger rule and was a worse film: a caption got a circle mask,
+        // and a phone got an entrance that clipped to its box while the drawing
+        // overflowed it, so the phone appeared sliced down one side. Motion is
+        // grammar here - a rise belongs on a caption - so uniqueness is arranged
+        // inside a family, not across them.
+        const variants = pool.filter((candidate) => candidate.kind === authored && !used[category].has(candidate.label));
+        if (!variants.length) {
+          repeats.push(`${layer.id}: ${category} "${authored}" could not be varied`);
+          copy[`_${category}Label`] = authored;
+          copy[`_${category}Repeat`] = true;
           return;
         }
+        const picked = variants[0];
         used[category].add(picked.label);
-        // Keep the family's own options (a wipe still needs its direction), and
-        // keep the layer's authored extras on top.
         copy[category] = picked.kind;
         const optionsKey = category === 'behaviour' ? 'behaviourOptions' : `${category}Options`;
         copy[optionsKey] = { ...(copy[optionsKey] || {}), ...picked.options };
@@ -211,6 +217,9 @@ export function allocateLayers(shots, { strict = true } = {}) {
     });
     return { ...shot, layers };
   });
+  if (strict && repeats.length) throw new Error(`layer motion could not be made unique:\n${repeats.join('\n')}`);
+  out.repeats = repeats;
+  return out;
 }
 
 /**

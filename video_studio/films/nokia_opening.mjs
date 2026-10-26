@@ -116,7 +116,7 @@ const shot6 = {
       },
     },
     {
-      id: 'rolls', depth: 1.05, from: 0.40, entrance: 'rise',
+      id: 'rolls', depth: 1.05, from: 0.40, entrance: 'iris',
       box: { x: W * 0.64, y: H * 0.40, w: W * 0.24, h: H * 0.30 },
       draw: (ctx, { p }) => {
         drawShape(ctx, 'paper-roll', {
@@ -174,7 +174,9 @@ const shot7 = {
       },
     },
     ...TRADES.map((trade, i) => ({
-      id: `trade-${i}`, depth: 1.0, from: 0.14 + i * 0.12, entrance: 'rise',
+      id: `trade-${i}`, depth: 1.0, from: 0.14 + i * 0.12,
+      entrance: ['wipe', 'rise', 'squash', 'assembly'][i],
+      entranceOptions: i === 0 ? { direction: 'right' } : {},
       box: { x: W * (0.08 + i * 0.21), y: H * 0.30, w: W * 0.18, h: H * 0.30 },
       draw: (ctx, { p }) => {
         const x = W * (0.08 + i * 0.21);

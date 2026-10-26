@@ -166,8 +166,8 @@ export const ENTRANCES = {
     ctx.restore();
   },
 
-  stamp: (ctx, { p, box, accent }, draw) => {
-    const s = 1 + 0.22 * (1 - back(p));
+  stamp: (ctx, { p, box, accent, scale = 0.22 }, draw) => {
+    const s = 1 + scale * (1 - back(p));
     ctx.save();
     ctx.translate(box.x + box.w / 2, box.y + box.h / 2);
     ctx.scale(s, s);
@@ -184,8 +184,8 @@ export const ENTRANCES = {
     ctx.restore();
   },
 
-  assembly: (ctx, { p, box, accent }, draw) => {
-    const slide = (1 - out(p)) * box.w * 0.10;
+  assembly: (ctx, { p, box, accent, slide: reach = 0.10 }, draw) => {
+    const slide = (1 - out(p)) * box.w * reach;
     clipped(ctx, box.x, box.y, box.w / 2 + 1, box.h, () => {
       ctx.save();
       ctx.translate(-slide, 0);
