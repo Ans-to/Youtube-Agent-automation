@@ -147,6 +147,8 @@ const CITIES_2 = ['newyork', 'saopaulo', 'lagos', 'cairo', 'mumbai', 'shanghai',
 
 const shot2 = {
   id: 'hook-02-cities',
+  transitionRole: 'rack',
+  // The camera pulls back from one handset to every country it was sold in.
   palette: PAPER,
   dur: 7,
   background: PALETTE.paper,
@@ -196,6 +198,8 @@ const shot2 = {
 
 const shot3 = {
   id: 'hook-03-world',
+  transitionRole: 'time',
+  // The same map, held: the number arrives on it.
   palette: INK,
   dur: 8,
   background: PALETTE.paper,
@@ -260,6 +264,8 @@ const shot3 = {
 
 const shot4 = {
   id: 'hook-04-turn',
+  transitionRole: 'chapter',
+  // A new chapter: the phone stops being a phone.
   palette: PAPER,
   dur: 8,
   background: PALETTE.paper,
@@ -330,6 +336,8 @@ const shot4 = {
 
 const shot5 = {
   id: 'hook-05-alone',
+  transitionRole: 'beat',
+  // The hardest line in the film gets the hardest cut.
   palette: INK,
   dur: 7,
   background: PALETTE.paper,

@@ -19,6 +19,7 @@ import { camera } from '../motion/kit/camera.mjs';
 import { text } from '../motion/ui.mjs';
 import { SCENE1 } from './nokia_scene1.mjs';
 import { allocate, allocateLayers, auditNoRepeat } from '../motion/kit/budget.mjs';
+import { direct } from '../motion/kit/direction.mjs';
 import { PALETTE, PAPER, INK } from '../films/nokia_theme.mjs';
 
 const W = 1280;
@@ -52,6 +53,8 @@ function say(ctx, value, x, y, options = {}) {
 
 const shot6 = {
   id: 'history-01-mill',
+  transitionRole: 'era',
+  // A period opens: 1865, a paper mill.
   palette: PAPER,
   dur: 6,
   background: PALETTE.paper,
@@ -150,6 +153,8 @@ const TRADES = [
 
 const shot7 = {
   id: 'history-02-trades',
+  transitionRole: 'motion',
+  // Four industries travel left to right along the rule.
   palette: PAPER,
   dur: 5,
   background: PALETTE.paper,
@@ -203,6 +208,8 @@ const shot7 = {
 
 const shot8 = {
   id: 'history-03-rise',
+  transitionRole: 'momentum',
+  // The film pushes on into the rise.
   palette: INK,
   dur: 4,
   background: PALETTE.paper,
@@ -277,6 +284,15 @@ const PAD = {
 };
 const MIN_SECONDS = { 'hook-01-ringing': 3.2 };
 
+// The picture leads the voice. A shot lands, and a beat later the line starts -
+// cutting and speaking on the same frame sounds like a slideshow with a
+// commentary. Reserved *inside* the shot's own length, so a line can never run
+// past its cut, and published in the starts file so the mixer does not have to
+// keep a second copy of this number and drift away from it.
+const LEAD = 0.30;
+const LEAD_FIRST = 0.55;
+const leadFor = (index) => (index === 0 ? LEAD_FIRST : LEAD);
+
 function readTiming() {
   try {
     const path = new URL('./vo-timing.json', import.meta.url);
@@ -289,10 +305,11 @@ function readTiming() {
 function retime(shots, timing, pad = 1.5) {  // eslint-disable-line no-unused-vars
   if (!timing) return shots;
   const spoken = Object.fromEntries(timing.map((row) => [row.shot, row.vo]));
-  return shots.map((shot) => {
+  return shots.map((shot, index) => {
     const vo = spoken[shot.id];
     if (vo === undefined) return shot;
-    const dur = Math.max(MIN_SECONDS[shot.id] || 3, vo + (PAD[shot.id] ?? 1.2));
+    const lead = leadFor(index);
+    const dur = Math.max(MIN_SECONDS[shot.id] || 3.2, lead + vo + (PAD[shot.id] ?? 1.2));
     return { ...shot, dur: Math.round(dur * 10) / 10 };
   });
 }
@@ -300,8 +317,10 @@ function retime(shots, timing, pad = 1.5) {  // eslint-disable-line no-unused-va
 const AUTHORED = retime([...SCENE1, ...SCENE2], readTiming());
 
 function deal(shots) {
-  const withTransitions = allocate(shots, { categories: ['transition'] });
-  return allocateLayers(withTransitions);
+  // Transitions come from the director, not from the pool. The pool has sixteen
+  // kinds and nothing in it knows what a cut is for; `direct()` does, and it
+  // picks from a vocabulary an editor would actually use.
+  return allocateLayers(direct(shots));
 }
 
 export const FILM = deal(AUTHORED);
@@ -310,8 +329,16 @@ export const REPEATS = auditNoRepeat(FILM);
 /** The clock in seconds at which each shot starts, for the score's cues. */
 export function shotStarts(shots = FILM) {
   let at = 0;
-  return shots.map((s) => {
-    const row = { id: s.id, start: at, end: at + s.dur, transition: s.transition ? s.transition.label : '-' };
+  return shots.map((s, index) => {
+    const row = {
+      id: s.id,
+      start: at,
+      end: at + s.dur,
+      // Where the narrator begins, decided by the film and handed to the mixer.
+      voStart: Math.round((at + leadFor(index)) * 1000) / 1000,
+      transition: s.transition ? s.transition.label : '-',
+      transitionWhy: s.transitionWhy || '',
+    };
     at += s.dur;
     return row;
   });

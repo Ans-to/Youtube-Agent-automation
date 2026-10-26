@@ -14,8 +14,12 @@ from pathlib import Path
 
 import numpy as np
 
-import voice as V
-from voice import SR
+try:                      # run as a script: `python narrate.py ...`
+    import voice as V
+except ModuleNotFoundError:  # imported as a package, by the tests
+    from . import voice as V
+
+SR = V.SR
 
 
 def read_wav(path: Path) -> tuple[np.ndarray, int]:
@@ -53,9 +57,52 @@ def synth(lines: list[dict], out_dir: Path, voice: str = 'bm_george',
     return timing
 
 
-def mix(vo_dir: Path, score_path: Path, out_path: Path, duck: float = 0.42) -> Path:
+# The picture leads the voice by this much. An edit that cuts and speaks on the
+# same frame sounds like a slideshow with a commentary; letting the new shot land
+# a beat before the line starts is what makes the voice sound *in* the film.
+LEAD = 0.30
+LEAD_FIRST = 0.55
+
+
+def place_in_film(timing: list[dict], starts: list[dict]) -> list[dict]:
+    """Put every line in its own shot, on the film's clock.
+
+    This is the fix for the film being out of sync. The voice track used to be
+    built by adding up its own gaps (0.30 lead + 0.35 between lines) while the
+    picture added up `vo + PAD`, which is a different sum - the two clocks drifted
+    a second apart by the end. There is one clock now: the film's, which is
+    computed from these same voice lengths, and a line starts LEAD seconds after
+    its own shot does.
+    """
+    # The film's file calls the field `id`; the voice's calls it `shot`.
+    by_shot = {(row.get('shot') or row.get('id')): row for row in starts}
+    out = []
+    for i, row in enumerate(timing):
+        shot = by_shot.get(row['shot'])
+        if shot is None:
+            raise SystemExit(f"no shot called {row['shot']!r} in the starts file")
+        # The film publishes voStart. Fall back to this module's own constants only
+        # for a starts file that predates it - two independent numbers is exactly
+        # what made the film drift a second out of sync.
+        start = shot.get('voStart', shot['start'] + (LEAD_FIRST if i == 0 else LEAD))
+        end = start + row['vo']
+        # A line may not run past its own shot: the cut would happen mid-word.
+        if end > shot['end'] + 1e-6:
+            raise SystemExit(
+                f"{row['shot']}: the line ends at {end:.2f}s but the shot ends at "
+                f"{shot['end']:.2f}s - increase that shot's PAD")
+        out.append({**row, 'start': round(start, 3), 'end': round(end, 3)})
+    return out
+
+
+def mix(vo_dir: Path, score_path: Path, out_path: Path, duck: float = 0.42,
+        starts_path: Path | None = None) -> Path:
     """Voice over the score, with the score ducking under the words."""
     timing = json.loads((vo_dir / 'timing.json').read_text())
+    if starts_path is not None:
+        timing = place_in_film(timing, json.loads(starts_path.read_text()))
+    else:
+        print('warning: no --starts given, so the voice is on its own clock')
     # As long as the film, always. The score is cut to the film's exact length, so
     # the voice track may not be shorter than it - `-shortest` at mux time would
     # then cut the last shot off to match the audio.
@@ -114,6 +161,8 @@ def main() -> None:
     m.add_argument('--score', required=True)
     m.add_argument('--out', required=True)
     m.add_argument('--duck', type=float, default=0.42)
+    m.add_argument('--starts', default=None,
+                   help="the film's starts.json; the voice is placed shot by shot")
 
     args = ap.parse_args()
     if args.cmd == 'synth':
@@ -123,7 +172,8 @@ def main() -> None:
             print(f"  {row['shot']:<18} {row['vo']:5.2f}s  {row['text'][:52]}")
         print(f"spoken: {sum(r['vo'] for r in rows):.1f}s across {len(rows)} lines")
     else:
-        mix(Path(args.vo), Path(args.score), Path(args.out), duck=args.duck)
+        mix(Path(args.vo), Path(args.score), Path(args.out), duck=args.duck,
+            starts_path=Path(args.starts) if args.starts else None)
 
 
 if __name__ == '__main__':

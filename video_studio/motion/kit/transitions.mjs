@@ -168,6 +168,32 @@ export const TRANSITIONS = {
     });
   },
 
+  /**
+   * Rack: a zoom dissolve.
+   *
+   * The camera keeps moving while the subject changes - the outgoing shot pushes
+   * in as it goes, the incoming settles from slightly larger. Used where the film
+   * changes scale on purpose (a handset, then the world it is sold into) and where
+   * a plain dissolve would read as two pictures fading rather than one camera
+   * travelling.
+   */
+  rack: (ctx, { a, b, p, w, h }) => {
+    const k = ease.inOutCubic(clamp(p));
+    const about = (fn, scale, alpha) => {
+      ctx.save();
+      ctx.globalAlpha *= alpha;
+      ctx.translate(w / 2, h / 2);
+      ctx.scale(scale, scale);
+      ctx.translate(-w / 2, -h / 2);
+      fn();
+      ctx.restore();
+    };
+    both(ctx, () => {
+      about(a, 1 + 0.06 * k, Math.max(0, 1 - k * 1.35));
+      about(b, 1 + 0.06 * (1 - k), Math.min(1, k * 1.35));
+    });
+  },
+
   blinds: (ctx, { a, b, p, w, h, count = 9, vertical = true }) => {
     const k = ease.inOutCubic(clamp(p));
     both(ctx, () => {

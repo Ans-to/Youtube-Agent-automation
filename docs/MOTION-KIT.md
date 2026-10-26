@@ -178,3 +178,52 @@ as vector art on a clean field; with it they read as printed.
 baselines were two pixels above the phone's bottom edge, and on a dark palette the
 label disappeared into it completely. Labels now sit on the paper below the
 artwork, at 30 px, on one line, where nothing can cover them.
+
+## Two clocks is one too many
+
+The film and its narration were each adding up their own gaps. The picture used
+`vo + PAD` per shot; the voice track used a 0.30 s lead and a 0.35 s gap between
+lines. By the eighth shot the voice was **1.05 s** behind the picture, and at 33 s
+the picture had cut to the trades while the previous line was still being spoken.
+Measured drift across eight shots: -0.73 s to +1.05 s.
+
+There is one clock now, and it is the film's:
+
+- a shot's length is `lead + vo + breath`, so the lead is reserved *inside* the
+  shot — a line can never outlive its cut;
+- `shotStarts()` publishes `voStart` for every shot;
+- `narrate.py mix --starts` reads that number and does not keep a copy of it.
+
+`tests/test_sync.py` re-derives the whole thing from both files and fails if either
+side ever keeps a private clock again. Measured on the finished master, every
+line lands within 0.02 s of its cut.
+
+## Transitions have a reason, or they are noise
+
+The film was dealt transitions from a pool of sixteen. The pool cannot know what a
+cut is *for*, so it deals novelty, and novelty is what reads as amateur: horizontal
+blinds, a luma-keyed grid of cells, a two-panel split.
+
+`motion/kit/direction.mjs` is the grammar. A shot declares a **role**, and a role
+names the transitions an editor would use for that reason:
+
+| role | why | kinds |
+| --- | --- | --- |
+| `beat` | something changes | cut |
+| `time` | time passes in the same place | dissolve |
+| `chapter` | a new section begins | dip to paper |
+| `era` | a period opens | iris |
+| `motion` | the film continues in one direction | wipe, push |
+| `rack` | the camera moves while the subject changes | zoom dissolve |
+| `momentum` | the film pushes on | push |
+
+`direct()` takes the next unused kind, so the owner's rule — never the same
+technique twice — still holds, and now it holds *inside* a professional
+vocabulary instead of across sixteen gimmicks. The kit keeps all sixteen; the
+director only chooses from the seven an editor would.
+
+This film's seven joins, each with its reason: **rack** (the camera pulls back
+from one handset to every country it was sold in), **dissolve** (the same map,
+held), **fade-paper** (a new chapter), **cut** (the hardest line in the film),
+**iris** (1865 opens), **wipe-left** (four industries travel), **push-left** (the
+film pushes on into the rise).
