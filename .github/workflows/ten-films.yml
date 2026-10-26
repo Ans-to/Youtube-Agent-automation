@@ -16,6 +16,13 @@ name: Ten films
 # repository's own code. No API key, no hosted service, no money.
 
 on:
+  # A push renders only when the commit message asks for it with [render].
+  # Two reasons: the publish job commits the encodes back to the branch, so an
+  # unguarded push trigger would render forever; and rendering ten films on every
+  # commit would spend ten runner-hours on a typo fix.
+  push:
+    branches:
+      - "**"
   workflow_dispatch:
     inputs:
       films:
@@ -39,6 +46,9 @@ env:
 jobs:
   plan:
     name: Work out which films to render
+    if: >-
+      github.event_name == 'workflow_dispatch'
+      || contains(github.event.head_commit.message, '[render]')
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.list.outputs.matrix }}
@@ -51,12 +61,14 @@ jobs:
 
       - name: List the briefs
         id: list
+        env:
+          FILMS: ${{ github.event.inputs.films || 'all' }}
         run: |
           # "all" is every brief in the folder; anything else is taken literally.
           # The list lives in the folder, not in this file: adding a script should
           # not mean editing a workflow.
-          matrix="$(python3 tools/brief_slugs.py --matrix --films "${{ github.event.inputs.films }}")"
-          count="$(python3 tools/brief_slugs.py --films "${{ github.event.inputs.films }}" | wc -l)"
+          matrix="$(python3 tools/brief_slugs.py --matrix --films "$FILMS")"
+          count="$(python3 tools/brief_slugs.py --films "$FILMS" | wc -l)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "$matrix"
@@ -156,7 +168,11 @@ jobs:
   publish:
     name: Publish the review copies
     needs: [plan, render]
-    if: ${{ github.event.inputs.publish == 'true' || github.event.inputs.publish == '' }}
+    # A push render publishes by default; a manual run says so explicitly.
+    if: >-
+      github.event_name == 'push'
+      || github.event.inputs.publish == 'true'
+      || github.event.inputs.publish == ''
     runs-on: ubuntu-24.04
     permissions:
       contents: write
