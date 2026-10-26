@@ -39,12 +39,15 @@ on:
 permissions:
   contents: read
 
-# One render at a time for the whole repository. Two runs racing each other is
-# not hypothetical: the commit that added this workflow mentioned the trigger
-# marker in its own message, so a second run started four seconds after the
-# first and both rendered the same ten films.
+# Only render requests share this group. A run that was never going to render -
+# any ordinary commit - must not be able to cancel one that was: with the group
+# unqualified, a plain commit cancelled a live render and then skipped itself.
 concurrency:
-  group: ten-films
+  group: >-
+    ten-films-${{
+      (github.event_name == 'workflow_dispatch'
+       || contains(github.event.head_commit.message, '[render')) && 'render' || 'other'
+    }}
   cancel-in-progress: true
 
 env:
@@ -102,7 +105,10 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
-      max-parallel: 4
+      # Three at a time. A free account runs twenty jobs at once *in total*, for
+      # every workflow in the repository, so a wide matrix does not go faster -
+      # it starves the repository's own checks and then sits in a queue.
+      max-parallel: 3
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - name: Check out repository
