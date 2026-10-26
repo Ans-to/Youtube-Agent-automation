@@ -1,0 +1,199 @@
+{
+  "passed": true,
+  "metrics": {
+    "cues": 13,
+    "duration_s": 52.899,
+    "first_claim_s": 0.12,
+    "intro_words": 59,
+    "mean_beat_s": 2.897,
+    "beat_sd_ratio": 0.41,
+    "longest_beat_s": 4.242,
+    "longest_gap_s": 1.55,
+    "words_per_minute": 111.2,
+    "interrupts": 7,
+    "interrupts_per_10min": 79.4,
+    "interrupts_first_minute": 7,
+    "chapters": [
+      {
+        "scene": "open",
+        "start": 0.12
+      },
+      {
+        "scene": "number",
+        "start": 5.575
+      },
+      {
+        "scene": "causes",
+        "start": 11.367
+      },
+      {
+        "scene": "error",
+        "start": 22.797
+      },
+      {
+        "scene": "lie",
+        "start": 32.689
+      },
+      {
+        "scene": "check",
+        "start": 43.613
+      },
+      {
+        "scene": "close",
+        "start": 48.941
+      }
+    ],
+    "mean_section_s": 7.54,
+    "caption_problems": {
+      "too_long": 0,
+      "too_short": 0,
+      "respellings": []
+    }
+  },
+  "rules": [
+    {
+      "id": "hook-window",
+      "ok": true,
+      "detail": "first claim at 0.12s (max 3.0s)",
+      "value": 0.12,
+      "limit": 3.0,
+      "section": "s2"
+    },
+    {
+      "id": "hook-length",
+      "ok": true,
+      "detail": "11 words, 3.91s (max 18 / 7.0s)",
+      "value": 11,
+      "limit": 18,
+      "section": "s2"
+    },
+    {
+      "id": "intro-density",
+      "ok": true,
+      "detail": "59 words in the first 30s (want 45-105)",
+      "value": 59,
+      "limit": "45-105",
+      "section": "s2"
+    },
+    {
+      "id": "beat-max",
+      "ok": true,
+      "detail": "longest beat 4.24s (max 12.0)",
+      "value": 4.24,
+      "limit": 12.0,
+      "section": "s3"
+    },
+    {
+      "id": "beat-mean",
+      "ok": true,
+      "detail": "mean beat 2.90s (max 6.0)",
+      "value": 2.9,
+      "limit": 6.0,
+      "section": "s3"
+    },
+    {
+      "id": "pacing-variation",
+      "ok": true,
+      "detail": "sd/mean 0.41 (min 0.35)",
+      "value": 0.41,
+      "limit": 0.35,
+      "section": "s3"
+    },
+    {
+      "id": "no-dead-air",
+      "ok": true,
+      "detail": "longest silence 1.55s (max 3.0)",
+      "value": 1.55,
+      "limit": 3.0,
+      "section": "s3"
+    },
+    {
+      "id": "beat-cadence",
+      "ok": true,
+      "detail": "slowest change every 5.79s (max 8.0)",
+      "value": 5.79,
+      "limit": 8.0,
+      "section": "s3"
+    },
+    {
+      "id": "section-length",
+      "ok": true,
+      "detail": "mean section 7.5s (want 3-12s for a short film)",
+      "value": 7.5,
+      "limit": "3-12",
+      "section": "s3"
+    },
+    {
+      "id": "interrupt-first-minute",
+      "ok": true,
+      "detail": "7 scene changes in the first minute (min 2)",
+      "value": 7,
+      "limit": 2,
+      "section": "s3"
+    },
+    {
+      "id": "chapter-count",
+      "ok": true,
+      "detail": "7 chapters (min 4)",
+      "value": 7,
+      "limit": 4,
+      "section": "s8"
+    },
+    {
+      "id": "chapter-length",
+      "ok": true,
+      "detail": "shortest chapter 4.0s (min 2.5)",
+      "value": 4.0,
+      "limit": 2.5,
+      "section": "s8"
+    },
+    {
+      "id": "chapters-from-zero",
+      "ok": true,
+      "detail": "first scene at 0.12s (publishes as 00:00; max 3.5s)",
+      "value": 0.12,
+      "limit": 3.5,
+      "section": "s8"
+    },
+    {
+      "id": "caption-chars",
+      "ok": true,
+      "detail": "all captions within 42 chars/line",
+      "value": 0,
+      "limit": 0,
+      "section": "s6"
+    },
+    {
+      "id": "caption-read",
+      "ok": true,
+      "detail": "all captions hold 18 chars/s or slower",
+      "value": 0,
+      "limit": 0,
+      "section": "s6"
+    },
+    {
+      "id": "caption-clean",
+      "ok": true,
+      "detail": "no phonetic respellings in captions",
+      "value": 0,
+      "limit": 0,
+      "section": "s6"
+    },
+    {
+      "id": "title-length",
+      "ok": true,
+      "detail": "title 37 chars (max 60)",
+      "value": 37,
+      "limit": 60,
+      "section": "s5"
+    },
+    {
+      "id": "thumb-words",
+      "ok": true,
+      "detail": "thumbnail says 3 words (want 2-5)",
+      "value": 3,
+      "limit": "2-5",
+      "section": "s5"
+    }
+  ]
+}

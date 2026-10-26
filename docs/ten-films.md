@@ -21,7 +21,7 @@ briefs, the plans and the renders that sit in this repository -
 
 | film | length | acts | craft | review copy |
 |---|---|---|---|---|
-| [Why Your Phone Dies at Twenty Percent](media/demos/battery-twenty.mp4) | - | 0 | - | [mp4](media/demos/battery-twenty.mp4) - 3.2 MB |
+| [Why Your Phone Dies at Twenty Percent](media/demos/battery-twenty.mp4) | 53.3 s | 7 | 18/18 | [mp4](media/demos/battery-twenty.mp4) - 9.7 MB |
 | [How Compound Interest Actually Works](media/demos/compound-interest.mp4) | - | 0 | - | [mp4](media/demos/compound-interest.mp4) - 3.4 MB |
 | [How to Give Feedback That Lands](media/demos/feedback-that-lands.mp4) | - | 0 | - | [mp4](media/demos/feedback-that-lands.mp4) - 3.8 MB |
 | [Why Your Photos Look Flat](media/demos/flat-photos.mp4) | - | 0 | - | [mp4](media/demos/flat-photos.mp4) - 3.5 MB |
@@ -44,11 +44,23 @@ and each is chosen by the beat, not by habit.
 
 | picture | what it draws | films | which |
 |---|---|---|---|
-
+| `bar-compare` | bars grown to their values, for a share of a whole | 1 | battery-twenty |
+| `command-console` | a window that types a command and shows it finish | 1 | battery-twenty |
+| `count-up` | a figure the script claims, counted out under its label | 1 | battery-twenty |
+| `fork-paths` | one thing splitting into two outcomes | 1 | battery-twenty |
+| `kinetic-headline` | one spoken sentence, set as type that performs itself | 1 | battery-twenty |
+| `matrix-grid` | tiles that fill in the order they are spoken | 1 | battery-twenty |
+| `stamp-lockup` | the closing phrase impressed on the frame | 1 | battery-twenty |
 
 | entrance | how the picture lands | films |
 |---|---|---|
-
+| `assembly` | two halves arriving from opposite sides and meeting | 1 |
+| `draw-on` | drafted in from one side, a pen line at the edge | 1 |
+| `iris` | a circle opening on the subject | 1 |
+| `scan` | a scanner band passes and the figure lands behind it | 1 |
+| `slit-scan` | vertical strips snapping into place in waves | 1 |
+| `squash` | landing with squash and stretch | 1 |
+| `whip` | sliding in with a short motion trail | 1 |
 
 The entrances are ports of motion basics from
 [howardc38/motion-fx-lab](https://github.com/howardc38/motion-fx-lab) (0BSD):
@@ -87,7 +99,15 @@ python tools/render_authored_film.py \
 
 [watch](media/demos/battery-twenty.mp4) - [captions](media/demos/battery-twenty.srt) - [contact sheet](media/demos/battery-twenty-contact-sheet.jpg) - brief `video_studio/briefs/battery-twenty.json`
 
-*This film has not been rendered, so there is no schedule yet.*
+| act | picture | entrance | length |
+|---|---|---|---|
+| open | `kinetic-headline` | `whip` | 4.4 s |
+| number | `count-up` | `squash` | 4.9 s |
+| causes | `matrix-grid` | `slit-scan` | 10.6 s |
+| error | `bar-compare` | `draw-on` | 9.0 s |
+| lie | `fork-paths` | `assembly` | 10.1 s |
+| check | `command-console` | `scan` | 4.5 s |
+| close | `stamp-lockup` | `iris` | 4.7 s |
 
 ### How Compound Interest Actually Works
 

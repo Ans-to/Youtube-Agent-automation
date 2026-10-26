@@ -1009,10 +1009,25 @@ function propsForBeat(section, beat, beatCount, palette) {
   const props = themedProps(beat.template, section, palette);
   const speech = section.speech || [];
 
-  if (beat.template === 'kinetic-headline' || beat.template === 'stamp-lockup') {
+  if (beat.template === 'kinetic-headline') {
+    // A headline *is* the sentence, cut into pieces: each beat shows the clause
+    // being spoken, so the type moves with the voice.
     const fromSpeech = speech.length ? headlineForBeat(section, beat) : null;
     props.text = fromSpeech || props.text;
     props.subtext = fromSpeech ? '' : props.subtext;
+    return props;
+  }
+
+  if (beat.template === 'stamp-lockup') {
+    // A stamp is a verdict, not a transcript. It was sharing the headline's rule
+    // and so stamped whichever clause happened to land on the last beat - the
+    // battery film closed on "It is the cheapest" when the brief asked for
+    // "Check the cable first". The authored claim wins; the speech only fills in
+    // when the brief gave none.
+    if (!props.text && speech.length) {
+      props.text = headlineForBeat(section, beat) || '';
+      props.subtext = '';
+    }
     return props;
   }
 

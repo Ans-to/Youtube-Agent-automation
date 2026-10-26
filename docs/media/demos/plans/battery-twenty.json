@@ -1,0 +1,401 @@
+{
+  "generator": "video_studio/films/from_brief.mjs",
+  "brief": {
+    "slug": "battery-twenty",
+    "title": "Why Your Phone Dies at Twenty Percent",
+    "promise": "You will know which of the three parts is lying before you buy anything.",
+    "hookType": "opening-claim",
+    "thumbnail": {
+      "line": "IT IS LYING",
+      "section": "number"
+    }
+  },
+  "look": "light",
+  "fps": 30,
+  "width": 3840,
+  "height": 2160,
+  "duration_seconds": 53.319,
+  "frames": 1600,
+  "voiced": true,
+  "sections": [
+    {
+      "id": "open",
+      "index": 1,
+      "heading": "The symptom",
+      "kind": "hook",
+      "situation": "opening-claim",
+      "start": 0,
+      "end": 4.445,
+      "seconds": 4.445,
+      "arrive": "wipe",
+      "entrance": "whip",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "number",
+      "index": 2,
+      "heading": "The readout",
+      "kind": "section",
+      "situation": "explain-a-number",
+      "start": 5.295,
+      "end": 10.237,
+      "seconds": 4.942,
+      "arrive": "push",
+      "entrance": "squash",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "causes",
+      "index": 3,
+      "heading": "The three causes",
+      "kind": "section",
+      "situation": "show-criteria",
+      "start": 11.087,
+      "end": 21.667,
+      "seconds": 10.58,
+      "arrive": "cut",
+      "entrance": "slit-scan",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "error",
+      "index": 4,
+      "heading": "Where the error is",
+      "kind": "section",
+      "situation": "explain-a-number",
+      "start": 22.517,
+      "end": 31.559,
+      "seconds": 9.042,
+      "arrive": "wipe",
+      "entrance": "draw-on",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "lie",
+      "index": 5,
+      "heading": "So the gauge lies",
+      "kind": "section",
+      "situation": "state-the-thesis",
+      "start": 32.409,
+      "end": 42.483,
+      "seconds": 10.074,
+      "arrive": "cut",
+      "entrance": "assembly",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "check",
+      "index": 6,
+      "heading": "The check",
+      "kind": "section",
+      "situation": "show-the-command",
+      "start": 43.333,
+      "end": 47.811,
+      "seconds": 4.478,
+      "arrive": "wipe",
+      "entrance": "scan",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "close",
+      "index": 7,
+      "heading": "The fix",
+      "kind": "outro",
+      "situation": "punchline",
+      "start": 48.661,
+      "end": 53.319,
+      "seconds": 4.658,
+      "arrive": "flash",
+      "entrance": "iris",
+      "reason": "named by the brief"
+    }
+  ],
+  "shots": [
+    {
+      "id": "open-1",
+      "section": "open",
+      "section_index": 1,
+      "beat": 1,
+      "start": 0,
+      "end": 2.223,
+      "seconds": 2.223,
+      "template": "kinetic-headline",
+      "region": "title",
+      "entrance": "whip",
+      "shows": "Your phone says twenty percent"
+    },
+    {
+      "id": "open-2",
+      "section": "open",
+      "section_index": 1,
+      "beat": 2,
+      "start": 2.223,
+      "end": 4.445,
+      "seconds": 2.223,
+      "template": "kinetic-headline",
+      "region": "title",
+      "entrance": "whip",
+      "shows": "Then it dies in a minute"
+    },
+    {
+      "id": "number-1",
+      "section": "number",
+      "section_index": 2,
+      "beat": 1,
+      "start": 5.295,
+      "end": 10.237,
+      "seconds": 4.942,
+      "template": "count-up",
+      "region": "stage",
+      "entrance": "squash",
+      "shows": "20 percent"
+    },
+    {
+      "id": "causes-1",
+      "section": "causes",
+      "section_index": 3,
+      "beat": 1,
+      "start": 11.087,
+      "end": 16.377,
+      "seconds": 5.29,
+      "template": "matrix-grid",
+      "region": "wide",
+      "entrance": "slit-scan",
+      "shows": "A cheap cable drops the voltage | Cold weather slows the reaction | A three year old cell holds less"
+    },
+    {
+      "id": "causes-2",
+      "section": "causes",
+      "section_index": 3,
+      "beat": 2,
+      "start": 16.377,
+      "end": 21.667,
+      "seconds": 5.29,
+      "template": "matrix-grid",
+      "region": "wide",
+      "entrance": "slit-scan",
+      "shows": "A cheap cable drops the voltage | Cold weather slows the reaction | A three year old cell holds less"
+    },
+    {
+      "id": "error-1",
+      "section": "error",
+      "section_index": 4,
+      "beat": 1,
+      "start": 22.517,
+      "end": 31.559,
+      "seconds": 9.042,
+      "template": "bar-compare",
+      "region": "stage",
+      "entrance": "draw-on",
+      "shows": null
+    },
+    {
+      "id": "lie-1",
+      "section": "lie",
+      "section_index": 5,
+      "beat": 1,
+      "start": 32.409,
+      "end": 42.483,
+      "seconds": 10.074,
+      "template": "fork-paths",
+      "region": "spread",
+      "entrance": "assembly",
+      "shows": "A lying gauge | A dying cell"
+    },
+    {
+      "id": "check-1",
+      "section": "check",
+      "section_index": 6,
+      "beat": 1,
+      "start": 43.333,
+      "end": 47.811,
+      "seconds": 4.478,
+      "template": "command-console",
+      "region": "wide",
+      "entrance": "scan",
+      "shows": "battery health"
+    },
+    {
+      "id": "close-1",
+      "section": "close",
+      "section_index": 7,
+      "beat": 1,
+      "start": 48.661,
+      "end": 53.319,
+      "seconds": 4.658,
+      "template": "stamp-lockup",
+      "region": "statement",
+      "entrance": "iris",
+      "shows": "Check the cable first"
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.12,
+      "end": 4.025,
+      "lines": [
+        "Your phone says twenty percent. Then it",
+        "dies in a minute."
+      ],
+      "text": "Your phone says twenty percent. Then it dies in a minute."
+    },
+    {
+      "start": 5.575,
+      "end": 9.817,
+      "lines": [
+        "The gauge reads twenty percent. The cell",
+        "is nearly empty."
+      ],
+      "text": "The gauge reads twenty percent. The cell is nearly empty."
+    },
+    {
+      "start": 11.367,
+      "end": 13.642,
+      "lines": [
+        "A cheap cable drops the voltage."
+      ],
+      "text": "A cheap cable drops the voltage."
+    },
+    {
+      "start": 14.612,
+      "end": 17.716,
+      "lines": [
+        "Cold weather slows the reaction inside the",
+        "cell."
+      ],
+      "text": "Cold weather slows the reaction inside the cell."
+    },
+    {
+      "start": 18.686,
+      "end": 21.247,
+      "lines": [
+        "A three year old cell simply holds less."
+      ],
+      "text": "A three year old cell simply holds less."
+    },
+    {
+      "start": 22.797,
+      "end": 26.27,
+      "lines": [
+        "Forty five percent of the error is voltage",
+        "sag."
+      ],
+      "text": "Forty five percent of the error is voltage sag."
+    },
+    {
+      "start": 27.24,
+      "end": 28.635,
+      "lines": [
+        "Twenty is cold."
+      ],
+      "text": "Twenty is cold."
+    },
+    {
+      "start": 29.605,
+      "end": 31.139,
+      "lines": [
+        "Thirty five is age."
+      ],
+      "text": "Thirty five is age."
+    },
+    {
+      "start": 32.689,
+      "end": 36.924,
+      "lines": [
+        "You blame a dying cell. The problem is a",
+        "lying gauge."
+      ],
+      "text": "You blame a dying cell. The problem is a lying gauge."
+    },
+    {
+      "start": 37.894,
+      "end": 42.063,
+      "lines": [
+        "The gauge reads voltage, and voltage sags",
+        "under load."
+      ],
+      "text": "The gauge reads voltage, and voltage sags under load."
+    },
+    {
+      "start": 43.613,
+      "end": 44.737,
+      "lines": [
+        "Run one check."
+      ],
+      "text": "Run one check."
+    },
+    {
+      "start": 45.707,
+      "end": 47.391,
+      "lines": [
+        "It is called battery health."
+      ],
+      "text": "It is called battery health."
+    },
+    {
+      "start": 48.941,
+      "end": 52.899,
+      "lines": [
+        "Check the cable first. It is the cheapest",
+        "of the three."
+      ],
+      "text": "Check the cable first. It is the cheapest of the three."
+    }
+  ],
+  "score": [
+    {
+      "at": 0.02,
+      "kind": "swell",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 2.243,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 5.315,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 11.107,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 16.397,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 22.537,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 32.429,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 43.353,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 48.681,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    }
+  ]
+}
