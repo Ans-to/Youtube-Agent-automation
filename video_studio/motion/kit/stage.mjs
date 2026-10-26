@@ -67,11 +67,19 @@ export function setShotPrepare(fn) {
 
 export function renderShot(ctx, shot, t, W, H, options = {}) {
   if (shotPrepare) shotPrepare(shot);
-  const { frame = 0, background = '#FAFAF7', frameGrade = true, paintBackground = true } = options;
+  const {
+    frame = 0, background = '#FAFAF7', frameGrade = true, paintBackground = true,
+    // `scale` renders the shot at a higher device resolution without the film
+    // having to know: every coordinate stays in design pixels, and the context
+    // is scaled once here. Without it, a 1080p deliverable is a 720p drawing
+    // enlarged, and the type is the first thing that shows it.
+    scale = 1,
+  } = options;
   const dur = shot.dur || 4;
   const cam = typeof shot.camera === 'function' ? shot.camera(clamp(t / dur)) : shot.camera;
 
   ctx.save();
+  if (scale !== 1) ctx.setTransform(scale, 0, 0, scale, 0, 0);
   // A shot is a background plus layers. When a join composites two shots, the
   // frame supplies the paper and each shot supplies only its content - otherwise
   // the incoming shot's opaque background covers the outgoing shot completely,

@@ -190,157 +190,343 @@ export function drawSmartphone(ctx, {
 
 /* ------------------------------------------------ a 1865 paper mill ---- */
 
-/** A pine, as three stacked skirts over a trunk. */
-export function drawPine(ctx, { x, y, w, h, colour = '#1D3B32', rim = 'rgba(255,255,255,0.10)' }) {
+/**
+ * A pine, as a stack of skirts over a trunk.
+ *
+ * Three flat triangles read as a triangle. The tier edges are what make it a
+ * tree, so each skirt is a shaded cone with a lit left edge, a dark right side,
+ * and a small scallop where it meets the one below.
+ */
+export function drawPine(ctx, {
+  x, y, w, h,
+  colour = '#1D3B32', dark = '#0A1512', rim = 'rgba(190,214,180,0.22)',
+}) {
   ctx.save();
-  ctx.fillStyle = '#241C14';
-  ctx.fillRect(x + w * 0.44, y + h * 0.72, w * 0.12, h * 0.28);
-  const tiers = [
-    [0.00, 0.62, 1.00],
-    [0.22, 0.56, 0.74],
-    [0.44, 0.44, 0.48],
-  ];
-  for (const [top, widthF, heightF] of tiers) {
-    const tw = w * widthF;
-    const th = h * heightF;
-    const ty = y + h * top;
-    const g = shade(ctx, x + w * 0.5 - tw / 2, ty, x + w * 0.5 + tw / 2, ty, [
-      [0, colour], [0.6, colour], [1, 'rgba(0,0,0,0.55)'],
+  /* trunk */
+  const tg = shade(ctx, x + w * 0.46, 0, x + w * 0.56, 0, [
+    [0, '#2A2119'], [1, '#120D09'],
+  ]);
+  ctx.fillStyle = tg;
+  ctx.fillRect(x + w * 0.455, y + h * 0.74, w * 0.09, h * 0.26);
+
+  const tiers = 5;
+  for (let i = 0; i < tiers; i += 1) {
+    const k = i / (tiers - 1);
+    const top = y + h * (0.02 + k * 0.62);
+    const bot = y + h * (0.26 + k * 0.62);
+    const half = w * (0.16 + k * 0.34);
+    const cx = x + w * 0.5;
+    const g = shade(ctx, cx - half, 0, cx + half, 0, [
+      [0, colour],
+      [0.45, colour],
+      [1, dark],
     ]);
     ctx.fillStyle = g;
     ctx.beginPath();
-    ctx.moveTo(x + w * 0.5, ty);
-    ctx.lineTo(x + w * 0.5 + tw / 2, ty + th);
-    ctx.lineTo(x + w * 0.5 - tw / 2, ty + th);
+    ctx.moveTo(cx, top);
+    /* the underside scallops outward, which is what a fir does */
+    ctx.quadraticCurveTo(cx + half * 0.45, bot - (bot - top) * 0.30, cx + half, bot - (bot - top) * 0.10);
+    ctx.quadraticCurveTo(cx + half * 0.30, bot + (bot - top) * 0.04, cx, bot + (bot - top) * 0.02);
+    ctx.quadraticCurveTo(cx - half * 0.30, bot + (bot - top) * 0.04, cx - half, bot - (bot - top) * 0.10);
+    ctx.quadraticCurveTo(cx - half * 0.45, bot - (bot - top) * 0.30, cx, top);
     ctx.closePath();
     ctx.fill();
+    /* rim light on the left of each skirt */
+    ctx.strokeStyle = rim;
+    ctx.lineWidth = Math.max(0.8, w * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(cx, top);
+    ctx.quadraticCurveTo(cx - half * 0.45, bot - (bot - top) * 0.30, cx - half, bot - (bot - top) * 0.10);
+    ctx.stroke();
   }
-  /* rim light down the left edge of the silhouette */
-  ctx.strokeStyle = rim;
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.moveTo(x + w * 0.5, y);
-  ctx.lineTo(x + w * 0.5 - w * 0.31, y + h * 0.62);
-  ctx.stroke();
   ctx.restore();
 }
 
 /**
- * The mill: a long shed with a pitched roof, a chimney that smokes, a water
- * wheel turning, and windows lit from inside. `t` drives the smoke and the wheel.
+ * The mill, at night, in 1865.
+ *
+ * The first version was a light grey box with a triangle on top and a row of
+ * glowing rectangles; it read at thumbnail size and fell apart at 1080p. A
+ * building seen at night has a stone foot, board walls with a grain, a roof with
+ * two planes and an eave that throws a shadow, a chimney that tapers and smokes,
+ * windows set back behind frames, and a wet forecourt that catches their light.
+ *
+ * `t` drives the wheel, the smoke and the water.
  */
-export function drawMill(ctx, { x, y, w, h, t = 0, smoke = 1, wheel = 1 }) {
-  const wall = '#3B3229';
-  const roof = '#241E19';
+export function drawMill(ctx, { x, y, w, h, t = 0, smoke = 1, wheel = 1, lit = 1 }) {
+  const bodyTop = y + h * 0.34;
+  const bodyBot = y + h * 0.93;
+  const bx = x + w * 0.10;
+  const bw = w * 0.72;
+  const cx = bx + bw * 0.5;
+  const roofH = h * 0.22;
 
-  /* chimney, behind the shed */
-  const chX = x + w * 0.70;
-  const chW = w * 0.062;
-  const chH = h * 0.92;
+  /* water in front of the building, before anything stands on it */
   ctx.save();
-  ctx.fillStyle = shade(ctx, chX, 0, chX + chW, 0, [
-    [0, '#4A4038'], [0.5, '#2E2721'], [1, '#1A1613'],
-  ]);
-  ctx.fillRect(chX, y + h - chH, chW, chH);
-  /* banding */
-  for (let i = 0; i < 4; i += 1) {
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.fillRect(chX, y + h - chH + chH * (0.18 + i * 0.2), chW, h * 0.012);
+  const waterTop = bodyBot - h * 0.02;
+  const water = ctx.createLinearGradient(0, waterTop, 0, y + h);
+  water.addColorStop(0, '#101A1C');
+  water.addColorStop(0.4, '#080F11');
+  water.addColorStop(1, '#04080A');
+  ctx.fillStyle = water;
+  ctx.fillRect(x - w * 1.4, waterTop, w * 3.8, h * 0.16);
+  for (let i = 0; i < 11; i += 1) {
+    const wy = waterTop + h * (0.006 + i * 0.012);
+    const wobble = Math.sin(t * 0.8 + i) * w * 0.01;
+    ctx.strokeStyle = `rgba(226,180,92,${0.05 - i * 0.004})`;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(x - w * 1.4 + wobble, wy);
+    ctx.lineTo(x + w * 2.4 + wobble, wy);
+    ctx.stroke();
   }
-  ctx.fillStyle = '#15120F';
-  ctx.fillRect(chX - chW * 0.12, y + h - chH - h * 0.018, chW * 1.24, h * 0.022);
   ctx.restore();
 
-  /* smoke: puffs that rise, spread and die */
+  /* ---------------------------------------------------------- chimney -- */
+  const chW = w * 0.055;
+  const chX = cx + bw * 0.24;
+  const chTop = y + h * 0.02;
+  const chH = bodyTop - chTop + h * 0.06;
+  ctx.save();
+  /* the stack tapers a little, as brick stacks do */
+  const cg = shade(ctx, chX, 0, chX + chW, 0, [
+    [0, '#4A3B2E'], [0.35, '#2E241B'], [0.75, '#1A140F'], [1, '#100C09'],
+  ]);
+  ctx.fillStyle = cg;
+  ctx.beginPath();
+  ctx.moveTo(chX + chW * 0.10, chTop);
+  ctx.lineTo(chX + chW * 0.90, chTop);
+  ctx.lineTo(chX + chW, bodyTop + h * 0.04);
+  ctx.lineTo(chX, bodyTop + h * 0.04);
+  ctx.closePath();
+  ctx.fill();
+  /* courses */
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 16; i += 1) {
+    const ly = chTop + (chH * i) / 16;
+    const inset = (chW * 0.05) * (i / 16);
+    ctx.beginPath();
+    ctx.moveTo(chX + inset, ly);
+    ctx.lineTo(chX + chW - inset, ly);
+    ctx.stroke();
+  }
+  /* a lighter course now and then, so the brick is not a stripe sequence */
+  for (let i = 0; i < 16; i += 3) {
+    const ly = chTop + (chH * i) / 16;
+    ctx.fillStyle = 'rgba(255,220,170,0.05)';
+    ctx.fillRect(chX + chW * 0.08, ly, chW * 0.84, chH / 32);
+  }
+  /* cap */
+  ctx.fillStyle = '#0D0A08';
+  ctx.fillRect(chX - chW * 0.14, chTop - h * 0.012, chW * 1.28, h * 0.018);
+  ctx.fillStyle = 'rgba(255,210,150,0.10)';
+  ctx.fillRect(chX - chW * 0.14, chTop - h * 0.012, chW * 1.28, h * 0.004);
+  ctx.restore();
+
+  /* smoke: hotter and tighter at the mouth, wide and thin above */
   if (smoke > 0) {
     ctx.save();
-    for (let i = 0; i < 9; i += 1) {
-      const age = ((t * 0.22 + i * 0.13) % 1);
-      const px = chX + chW / 2 + Math.sin(age * 3 + i) * w * 0.06 + age * w * 0.10;
-      const py = y + h - chH - h * 0.02 - age * h * 0.55;
-      const r = w * (0.02 + age * 0.075);
-      const a = (1 - age) * 0.30 * smoke;
-      const g = ctx.createRadialGradient(px, py, 0, px, py, r * 2.2);
-      g.addColorStop(0, `rgba(214,206,194,${a})`);
-      g.addColorStop(1, 'rgba(214,206,194,0)');
+    for (let i = 0; i < 14; i += 1) {
+      const age = (t * 0.16 + i * 0.083) % 1;
+      const px = chX + chW / 2 + Math.sin(age * 2.4 + i * 0.7) * w * 0.05 + age * w * 0.16;
+      const py = chTop - age * h * 0.62;
+      const r = w * (0.012 + age * 0.085);
+      const a = (1 - age) * 0.16 * smoke;
+      const g = ctx.createRadialGradient(px, py, 0, px, py, r * 2.4);
+      g.addColorStop(0, `rgba(206,198,186,${a})`);
+      g.addColorStop(0.5, `rgba(180,172,160,${a * 0.5})`);
+      g.addColorStop(1, 'rgba(160,152,142,0)');
       ctx.fillStyle = g;
       ctx.beginPath();
-      ctx.arc(px, py, r * 2.2, 0, Math.PI * 2);
+      ctx.arc(px, py, r * 2.4, 0, Math.PI * 2);
       ctx.fill();
     }
     ctx.restore();
   }
 
-  /* the shed */
-  const bx = x + w * 0.06;
-  const bw = w * 0.78;
-  const by = y + h * 0.42;
-  const bh = h * 0.58;
+  /* ------------------------------------------------------------- shed -- */
   ctx.save();
-  ctx.fillStyle = shade(ctx, bx, 0, bx + bw, 0, [
-    [0, '#4C4239'], [0.55, wall], [1, '#221C17'],
-  ]);
-  ctx.fillRect(bx, by, bw, bh);
-  /* pitched roof with an overhang */
-  ctx.fillStyle = roof;
-  ctx.beginPath();
-  ctx.moveTo(bx - w * 0.03, by);
-  ctx.lineTo(bx + bw * 0.5, by - h * 0.17);
-  ctx.lineTo(bx + bw + w * 0.03, by);
-  ctx.closePath();
-  ctx.fill();
-  /* roof rim light */
-  ctx.strokeStyle = 'rgba(255,226,180,0.18)';
-  ctx.lineWidth = 1.4;
-  ctx.stroke();
-  /* windows */
-  for (let i = 0; i < 7; i += 1) {
-    const wx = bx + bw * (0.06 + i * 0.135);
-    const wy = by + bh * 0.26;
-    ctx.fillStyle = 'rgba(255,196,104,0.72)';
-    ctx.fillRect(wx, wy, bw * 0.055, bh * 0.26);
-    ctx.fillStyle = 'rgba(0,0,0,0.35)';
-    ctx.fillRect(wx, wy + bh * 0.12, bw * 0.055, bh * 0.012);
-    const wg = ctx.createRadialGradient(wx + bw * 0.028, wy + bh * 0.13, 0, wx + bw * 0.028, wy + bh * 0.13, bw * 0.09);
-    wg.addColorStop(0, 'rgba(255,196,104,0.22)');
-    wg.addColorStop(1, 'rgba(255,196,104,0)');
-    ctx.fillStyle = wg;
-    ctx.fillRect(wx - bw * 0.04, wy - bh * 0.08, bw * 0.14, bh * 0.44);
+  /* stone foot */
+  const foot = bodyBot - h * 0.10;
+  const sg = shade(ctx, bx, foot, bx, bodyBot, [[0, '#2A2723'], [1, '#141210']]);
+  ctx.fillStyle = sg;
+  ctx.fillRect(bx, foot, bw, bodyBot - foot);
+  ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 5; i += 1) {
+    const rowY = foot + (bodyBot - foot) * (i / 5);
+    ctx.beginPath(); ctx.moveTo(bx, rowY); ctx.lineTo(bx + bw, rowY); ctx.stroke();
+    for (let j = 0; j < 9; j += 1) {
+      const jx = bx + bw * ((j + (i % 2) * 0.5) / 9);
+      ctx.beginPath(); ctx.moveTo(jx, rowY); ctx.lineTo(jx, rowY + (bodyBot - foot) / 5); ctx.stroke();
+    }
   }
-  /* plinth */
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  ctx.fillRect(bx - w * 0.02, y + h * 0.985, bw + w * 0.04, h * 0.015);
+
+  /* boarded wall: vertical boards under a raking light */
+  const wallG = shade(ctx, bx, 0, bx + bw, 0, [
+    [0, '#524434'], [0.28, '#3E3327'], [0.72, '#2A221A'], [1, '#191410'],
+  ]);
+  ctx.fillStyle = wallG;
+  ctx.fillRect(bx, bodyTop, bw, foot - bodyTop);
+  ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+  ctx.lineWidth = 1;
+  const boards = 22;
+  for (let i = 1; i < boards; i += 1) {
+    const bx2 = bx + (bw * i) / boards;
+    ctx.beginPath(); ctx.moveTo(bx2, bodyTop); ctx.lineTo(bx2, foot); ctx.stroke();
+  }
+  /* two or three boards catch the light differently */
+  for (const i of [3, 11, 17]) {
+    ctx.fillStyle = 'rgba(255,214,160,0.045)';
+    ctx.fillRect(bx + (bw * i) / boards, bodyTop, bw / boards, foot - bodyTop);
+  }
+
+  /* eave shadow across the top of the wall */
+  const eave = ctx.createLinearGradient(0, bodyTop, 0, bodyTop + h * 0.10);
+  eave.addColorStop(0, 'rgba(0,0,0,0.65)');
+  eave.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = eave;
+  ctx.fillRect(bx, bodyTop, bw, h * 0.10);
   ctx.restore();
 
-  /* water wheel */
+  /* ------------------------------------------------------------- roof -- */
+  ctx.save();
+  /* two planes: the slope toward the moon is lighter than the one away from it */
+  const leftRole = shade(ctx, bx, bodyTop - roofH, cx, bodyTop, [
+    [0, '#2C3D34'], [1, '#16211C'],
+  ]);
+  ctx.fillStyle = leftRole;
+  ctx.beginPath();
+  ctx.moveTo(bx - w * 0.055, bodyTop + h * 0.006);
+  ctx.lineTo(cx, bodyTop - roofH);
+  ctx.lineTo(cx, bodyTop + h * 0.006);
+  ctx.closePath();
+  ctx.fill();
+  const rightRole = shade(ctx, cx, bodyTop - roofH, bx + bw, bodyTop, [
+    [0, '#141E19'], [1, '#0A100D'],
+  ]);
+  ctx.fillStyle = rightRole;
+  ctx.beginPath();
+  ctx.moveTo(cx, bodyTop - roofH);
+  ctx.lineTo(bx + bw + w * 0.055, bodyTop + h * 0.006);
+  ctx.lineTo(cx, bodyTop + h * 0.006);
+  ctx.closePath();
+  ctx.fill();
+  /* shingle courses, following the pitch */
+  ctx.strokeStyle = 'rgba(0,0,0,0.30)';
+  ctx.lineWidth = 1;
+  for (let i = 1; i < 7; i += 1) {
+    const k = i / 7;
+    ctx.beginPath();
+    ctx.moveTo(bx - w * 0.055 + (cx - bx + w * 0.055) * k, bodyTop + h * 0.006 - roofH * k);
+    ctx.lineTo(cx, bodyTop + h * 0.006 - roofH * k);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx, bodyTop + h * 0.006 - roofH * k);
+    ctx.lineTo(bx + bw + w * 0.055 - (bx + bw + w * 0.055 - cx) * k, bodyTop + h * 0.006 - roofH * k);
+    ctx.stroke();
+  }
+  /* ridge and fascias */
+  ctx.strokeStyle = 'rgba(226,200,150,0.22)';
+  ctx.lineWidth = Math.max(1, w * 0.003);
+  ctx.beginPath();
+  ctx.moveTo(bx - w * 0.055, bodyTop + h * 0.006);
+  ctx.lineTo(cx, bodyTop - roofH);
+  ctx.lineTo(bx + bw + w * 0.055, bodyTop + h * 0.006);
+  ctx.stroke();
+  /* the eave board itself, with thickness */
+  ctx.fillStyle = '#0A0F0C';
+  ctx.fillRect(bx - w * 0.055, bodyTop + h * 0.004, bw + w * 0.11, h * 0.012);
+  ctx.restore();
+
+  /* ---------------------------------------------------------- windows -- */
+  const winCount = 5;
+  const winW = bw * 0.080;
+  const winH = h * 0.20;
+  const winY = bodyTop + h * 0.16;
+  for (let i = 0; i < winCount; i += 1) {
+    const wx = bx + bw * (0.065 + i * 0.152);
+    /* the reveals: the wall is thick, so the opening has an edge */
+    ctx.fillStyle = '#0A0806';
+    ctx.fillRect(wx - winW * 0.10, winY - winH * 0.06, winW * 1.2, winH * 1.12);
+    /* the light behind the glass */
+    const glow = ctx.createLinearGradient(0, winY, 0, winY + winH);
+    glow.addColorStop(0, `rgba(255,206,124,${0.95 * lit})`);
+    glow.addColorStop(1, `rgba(226,150,62,${0.85 * lit})`);
+    ctx.fillStyle = glow;
+    ctx.fillRect(wx, winY, winW, winH);
+    /* mullion and transom */
+    ctx.fillStyle = 'rgba(20,14,8,0.85)';
+    ctx.fillRect(wx + winW * 0.46, winY, winW * 0.08, winH);
+    ctx.fillRect(wx, winY + winH * 0.44, winW, winH * 0.06);
+    /* light spilling onto the boards under the sill */
+    const spill = ctx.createRadialGradient(
+      wx + winW / 2, winY + winH, 0,
+      wx + winW / 2, winY + winH, winW * 1.9,
+    );
+    spill.addColorStop(0, `rgba(255,196,110,${0.20 * lit})`);
+    spill.addColorStop(1, 'rgba(255,196,110,0)');
+    ctx.fillStyle = spill;
+    ctx.fillRect(wx - winW, winY, winW * 3, winH * 1.6);
+  }
+
+  /* the door, with a lamp over it */
+  const dw2 = bw * 0.085;
+  const dx2 = bx + bw * 0.845;
+  const dy2 = foot - h * 0.20;
+  ctx.fillStyle = '#0C0907';
+  ctx.fillRect(dx2 - dw2 * 0.08, dy2 - h * 0.012, dw2 * 1.16, h * 0.212);
+  const doorG = shade(ctx, dx2, 0, dx2 + dw2, 0, [[0, '#4A3A27'], [1, '#241B12']]);
+  ctx.fillStyle = doorG;
+  ctx.fillRect(dx2, dy2, dw2, foot - dy2);
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(dx2 + dw2 * 0.47, dy2, dw2 * 0.06, foot - dy2);
+  const lamp = ctx.createRadialGradient(dx2 + dw2 / 2, dy2 - h * 0.02, 0, dx2 + dw2 / 2, dy2 - h * 0.02, w * 0.09);
+  lamp.addColorStop(0, `rgba(255,214,140,${0.55 * lit})`);
+  lamp.addColorStop(1, 'rgba(255,214,140,0)');
+  ctx.fillStyle = lamp;
+  ctx.fillRect(dx2 - w * 0.1, dy2 - h * 0.1, w * 0.2, h * 0.2);
+
+  /* ------------------------------------------------------------- wheel -- */
   if (wheel > 0) {
-    const wx = x + w * 0.045;
-    const wy = y + h * 0.66;
-    const wr = h * 0.17;
+    const wx = bx - w * 0.015;
+    const wy = bodyBot - h * 0.12;
+    const wr = h * 0.16;
     ctx.save();
     ctx.translate(wx, wy);
-    ctx.rotate(t * 0.55);
-    ctx.strokeStyle = 'rgba(214,190,150,0.55)';
-    ctx.lineWidth = Math.max(1.2, wr * 0.09);
-    ctx.beginPath();
-    ctx.arc(0, 0, wr, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.lineWidth = Math.max(1, wr * 0.045);
-    for (let i = 0; i < 8; i += 1) {
-      const a = (i / 8) * Math.PI * 2;
+    /* the wheel is lit from the building side and dark on the far side */
+    ctx.rotate(t * 0.5);
+    ctx.strokeStyle = 'rgba(214,186,140,0.55)';
+    ctx.lineWidth = Math.max(1.4, wr * 0.085);
+    ctx.beginPath(); ctx.arc(0, 0, wr, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = Math.max(1.2, wr * 0.06);
+    ctx.beginPath(); ctx.arc(0, 0, wr * 0.72, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = Math.max(1, wr * 0.038);
+    for (let i = 0; i < 12; i += 1) {
+      const a = (i / 12) * Math.PI * 2;
       ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * wr * 0.18, Math.sin(a) * wr * 0.18);
+      ctx.moveTo(Math.cos(a) * wr * 0.14, Math.sin(a) * wr * 0.14);
       ctx.lineTo(Math.cos(a) * wr, Math.sin(a) * wr);
       ctx.stroke();
+      /* paddles */
       ctx.beginPath();
       ctx.moveTo(Math.cos(a) * wr, Math.sin(a) * wr);
-      ctx.lineTo(Math.cos(a + 0.3) * wr * 1.12, Math.sin(a + 0.3) * wr * 1.12);
+      ctx.lineTo(Math.cos(a + 0.22) * wr * 1.16, Math.sin(a + 0.22) * wr * 1.16);
       ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(214,190,150,0.7)';
-    ctx.beginPath();
-    ctx.arc(0, 0, wr * 0.14, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillStyle = 'rgba(226,200,156,0.85)';
+    ctx.beginPath(); ctx.arc(0, 0, wr * 0.10, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+
+    /* the wheel's reflection in the water */
+    ctx.save();
+    ctx.globalAlpha = 0.16;
+    ctx.translate(wx, bodyBot * 2 - wy + h * 0.02);
+    ctx.scale(1, -1);
+    ctx.strokeStyle = 'rgba(214,186,140,0.7)';
+    ctx.lineWidth = Math.max(1.2, wr * 0.07);
+    ctx.beginPath(); ctx.arc(0, 0, wr, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 }

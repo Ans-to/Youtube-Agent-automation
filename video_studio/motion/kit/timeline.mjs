@@ -58,11 +58,15 @@ export function stateAt(spans, t, join = 0.6) {
  * frame is how a 1,500-frame render turns into a memory leak.
  */
 export function createRenderer(shots, W, H, options = {}) {
-  const { join = 0.6, background = '#FAF8F3' } = options;
+  const { join = 0.6, background = '#FAF8F3', scale = 1 } = options;
   const spans = boundaries(shots);
   const dur = totalDuration(shots);
-  const bufA = createCanvas(W, H);
-  const bufB = createCanvas(W, H);
+  // The join buffers are device-sized too, so a cut does not drop to the design
+  // resolution for half a second while a transition plays.
+  const DW = Math.round(W * scale);
+  const DH = Math.round(H * scale);
+  const bufA = createCanvas(DW, DH);
+  const bufB = createCanvas(DW, DH);
   const ctxA = bufA.getContext('2d');
   const ctxB = bufB.getContext('2d');
 
@@ -75,7 +79,7 @@ export function createRenderer(shots, W, H, options = {}) {
       const fromLocal = t - spans[state.from].start;
 
       if (state.to === null) {
-        renderShot(ctx, fromShot, fromLocal, W, H, { frame: Math.round(t * 30), background });
+        renderShot(ctx, fromShot, fromLocal, W, H, { frame: Math.round(t * 30), background, scale });
         return { join: false, shot: fromShot.id };
       }
 
@@ -83,8 +87,10 @@ export function createRenderer(shots, W, H, options = {}) {
       const toLocal = Math.max(0, t - spans[state.to].start);
       // The outgoing shot is held on its final frame rather than advanced past
       // its own end, so a join never shows a shot that has already stopped.
-      ctxA.clearRect(0, 0, W, H);
-      ctxB.clearRect(0, 0, W, H);
+      ctxA.setTransform(1, 0, 0, 1, 0, 0);
+      ctxB.setTransform(1, 0, 0, 1, 0, 0);
+      ctxA.clearRect(0, 0, DW, DH);
+      ctxB.clearRect(0, 0, DW, DH);
       const held = Math.min(fromLocal, (fromShot.dur || 0) - 1 / 30);
       // Each shot paints its own ground into its own buffer.
       //
@@ -92,8 +98,8 @@ export function createRenderer(shots, W, H, options = {}) {
       // colours are chosen relative to its own paper, so an ink shot (cream marks
       // on near-black) composited over another shot's cream was invisible. A frame
       // has to be self-consistent before it can be dissolved into.
-      renderShot(ctxA, fromShot, held, W, H, { frame: Math.round(t * 30), background });
-      renderShot(ctxB, toShot, toLocal, W, H, { frame: Math.round(t * 30), background });
+      renderShot(ctxA, fromShot, held, W, H, { frame: Math.round(t * 30), background, scale });
+      renderShot(ctxB, toShot, toLocal, W, H, { frame: Math.round(t * 30), background, scale });
 
       // Hold the outgoing frame for the first third of the window, then play
       // the join. Every shot animates up from nothing, so a join that starts
@@ -104,14 +110,15 @@ export function createRenderer(shots, W, H, options = {}) {
       const token = toShot.transition || { kind: 'cut', options: {} };
       const kind = TRANSITIONS[token.kind] || TRANSITIONS.cut;
       ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = background;
-      ctx.fillRect(0, 0, W, H);
+      ctx.fillRect(0, 0, DW, DH);
       kind(ctx, {
         a: () => ctx.drawImage(bufA, 0, 0),
         b: () => ctx.drawImage(bufB, 0, 0),
         p: visual,
-        w: W,
-        h: H,
+        w: DW,
+        h: DH,
         palette: {},
         ...(token.options || {}),
       });

@@ -33,6 +33,7 @@ import {
 } from '../motion/kit/objects.mjs';
 import { drawMap } from '../motion/kit/world.mjs';
 import { direct } from '../motion/kit/direction.mjs';
+import { optics, frameBuffer, opticsFor } from '../motion/kit/optics.mjs';
 import { clamp, lerp, span, ease, noise } from '../motion/ui.mjs';
 
 const W = 1280;
@@ -81,12 +82,18 @@ function caps(ctx, value, x, y, p, { size = 12, colour = '#C9A227', align = 'lef
 function rise(ctx, value, x, y, p, {
   size = 76, family = SERIF, colour = '#fff', weight = 400, align = 'left', from = 1.1,
 } = {}) {
-  const k = ease.outQuint(clamp(p));
+  // A line of type that stops dead at its final position looks pasted on. Two
+  // percent of overshoot and a settle reads as weight, and nothing else in the
+  // frame has to move for it.
+  const x0 = clamp(p);
+  const back = 1.7;
+  const k = x0 <= 0 ? 0 : x0 >= 1 ? 1
+    : 1 + (back + 1) * Math.pow(x0 - 1, 3) + back * Math.pow(x0 - 1, 2);
   ctx.save();
   const w = 1200;
-  const x0 = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x - 24;
+  const left = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x - 24;
   ctx.beginPath();
-  ctx.rect(x0, y - size * 1.18, w, size * 1.32);
+  ctx.rect(left, y - size * 1.18, w, size * 1.32);
   ctx.clip();
   ctx.globalAlpha *= clamp(p * 2.2);
   ctx.translate(0, (1 - k) * size * from);
@@ -134,6 +141,7 @@ const SCRIPT = [
   /* 1 ------------------------------------------------------------------- */
   {
     id: 'hook-01-ringing',
+    optics: { bloom: 0.55, halation: 0.42, grain: 0.22, vignette: 0.30, threshold: 0.52 },
     palette: { paper: P.cobalt.ground },
     role: 'beat',
     seconds: 3.2,
@@ -179,6 +187,7 @@ const SCRIPT = [
   /* 2 ------------------------------------------------------------------- */
   {
     id: 'hook-02-cities',
+    optics: { bloom: 0.62, halation: 0.55, grain: 0.24, vignette: 0.26, threshold: 0.44, tint: { r: 1.0, g: 0.62, b: 0.34 } },
     palette: { paper: P.amber.ground },
     role: 'rack',
     seconds: 4,
@@ -247,6 +256,7 @@ const SCRIPT = [
   /* 3 ------------------------------------------------------------------- */
   {
     id: 'hook-03-world',
+    optics: { bloom: 0.34, halation: 0.16, grain: 0.18, vignette: 0.34, threshold: 0.62 },
     palette: { paper: P.teal.ground },
     role: 'time',
     seconds: 4,
@@ -297,6 +307,7 @@ const SCRIPT = [
   /* 4 ------------------------------------------------------------------- */
   {
     id: 'hook-04-turn',
+    optics: { bloom: 0.48, halation: 0.24, grain: 0.20, vignette: 0.30, threshold: 0.55 },
     palette: { paper: P.graphite.ground },
     role: 'chapter',
     seconds: 4.6,
@@ -363,6 +374,7 @@ const SCRIPT = [
   /* 5 ------------------------------------------------------------------- */
   {
     id: 'hook-05-alone',
+    optics: { bloom: 0.40, halation: 0.30, grain: 0.26, vignette: 0.46, threshold: 0.48 },
     palette: { paper: '#060607' },
     role: 'beat',
     seconds: 3.4,
@@ -445,6 +457,7 @@ const SCRIPT = [
   /* 6 ------------------------------------------------------------------- */
   {
     id: 'history-01-mill',
+    optics: { bloom: 0.58, halation: 0.50, grain: 0.26, vignette: 0.34, threshold: 0.42, tint: { r: 1.0, g: 0.66, b: 0.36 } },
     palette: { paper: P.sepia.ground },
     role: 'era',
     seconds: 4.6,
@@ -482,14 +495,12 @@ const SCRIPT = [
       {
         id: 'words', screen: true, depth: 1,
         draw: (ctx, { p }) => {
-          /* the year, enormous, behind the mill - it is a date, not a caption */
-          ctx.save();
-          ctx.globalAlpha *= 0.085 * clamp(span(p, 0.15, 0.6));
-          text(ctx, '1865', W * 0.52, H * 0.505, {
-            size: 300, family: SERIF, colour: '#F2E6CC', align: 'center',
-          });
-          ctx.restore();
           caps(ctx, 'TAMPERE · FINLAND', W * 0.075, H * 0.175, span(p, 0.22, 0.55), { colour: P.sepia.gold });
+          /* The year is set, not sprayed over the picture. As a 300px ghost it
+             covered the roof and made the building look like a mistake. */
+          rise(ctx, '1865', W * 0.074, H * 0.795, span(p, 0.30, 0.68), {
+            size: 46, colour: P.sepia.gold,
+          });
           rise(ctx, 'It began with', W * 0.072, H * 0.255, span(p, 0.28, 0.66), { size: 50, colour: P.sepia.ink });
           rise(ctx, 'a paper mill.', W * 0.072, H * 0.335, span(p, 0.38, 0.76), { size: 50, colour: P.sepia.ink });
         },
@@ -500,6 +511,7 @@ const SCRIPT = [
   /* 7 ------------------------------------------------------------------- */
   {
     id: 'history-02-trades',
+    optics: { bloom: 0.22, halation: 0.10, grain: 0.16, vignette: 0.18, threshold: 0.72 },
     palette: { paper: P.bone.ground },
     role: 'motion',
     seconds: 4.6,
@@ -567,6 +579,7 @@ const SCRIPT = [
   /* 8 ------------------------------------------------------------------- */
   {
     id: 'history-03-rise',
+    optics: { bloom: 0.66, halation: 0.42, grain: 0.20, vignette: 0.28, threshold: 0.46, tint: { r: 1.0, g: 0.74, b: 0.40 } },
     palette: { paper: P.rise.ground },
     role: 'momentum',
     seconds: 4.4,
@@ -715,6 +728,16 @@ export function shotStarts(shots = FILM) {
   });
 }
 
+/** The shot that owns time `t`, for per-shot light. */
+export function shotAt(t, shots = FILM) {
+  let at = 0;
+  for (const shot of shots) {
+    if (t < at + shot.dur) return shot;
+    at += shot.dur;
+  }
+  return shots[shots.length - 1];
+}
+
 export function totalSeconds(shots = FILM) {
   return shots.reduce((a, s) => a + s.dur, 0);
 }
@@ -728,9 +751,12 @@ const main = () => {
   const flag = (k) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
   const fonts = loadFonts();
   const fps = Number(flag('--fps') || 30);
+  const scale = Number(flag('--scale') || 1);
   const framesDir = flag('--frames');
   const stills = flag('--stills');
   const startsPath = flag('--starts');
+  const dw = Math.round(W * scale);
+  const dh = Math.round(H * scale);
 
   if (startsPath) {
     const rows = shotStarts().map((row, i) => ({ ...row, vo: (readTiming() || [])[i]?.vo ?? null }));
@@ -738,17 +764,32 @@ const main = () => {
     console.log(`wrote ${startsPath} (${totalSeconds().toFixed(1)}s total)`);
   }
 
-  const canvas = createCanvas(W, H);
+  const canvas = createCanvas(dw, dh);
   const ctx = canvas.getContext('2d');
-  const renderer = createRenderer(FILM, W, H, { join: 0.45, background: FILM[0].background });
+  const renderer = createRenderer(FILM, W, H, { join: 0.45, background: FILM[0].background, scale });
+  /* The optics need the finished frame to measure; this buffer is that copy. */
+  const fb = frameBuffer(dw, dh);
+
+  const paint = (t) => {
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, dw, dh);
+    renderer.render(ctx, t);
+    fb.ctx.setTransform(1, 0, 0, 1, 0, 0);
+    fb.ctx.clearRect(0, 0, dw, dh);
+    fb.ctx.drawImage(canvas, 0, 0);
+    const shot = shotAt(t);
+    optics(ctx, {
+      source: fb.canvas, w: dw, h: dh, frame: Math.round(t * fps),
+      ...opticsFor(shot),
+    });
+  };
 
   if (stills) {
     fs.mkdirSync(stills, { recursive: true });
     const rows = shotStarts();
     rows.forEach((row, i) => {
       const t = row.start + (row.end - row.start) * 0.78;
-      ctx.clearRect(0, 0, W, H);
-      renderer.render(ctx, t);
+      paint(t);
       fs.writeFileSync(path.join(stills, `${String(i).padStart(2, '0')}-${FILM[i].id}.png`), canvas.toBuffer('image/png'));
     });
     console.log(`wrote ${rows.length} stills to ${stills}`);
@@ -759,8 +800,7 @@ const main = () => {
     fs.mkdirSync(framesDir, { recursive: true });
     const total = Math.round(renderer.duration * fps);
     for (let i = 0; i < total; i += 1) {
-      ctx.clearRect(0, 0, W, H);
-      renderer.render(ctx, i / fps);
+      paint(i / fps);
       fs.writeFileSync(path.join(framesDir, `${String(i).padStart(5, '0')}.png`), canvas.toBuffer('image/png'));
     }
     console.log(`wrote ${total} frames to ${framesDir}`);

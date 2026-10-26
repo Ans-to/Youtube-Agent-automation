@@ -359,3 +359,53 @@ narrator did.
 `node reframe.mjs --film films/nokia_atlas.mjs --frames /tmp/atlas-frames \
   --from 26.4 --to 32.4` re-renders one shot into an existing frame directory, so
 a single shot can be improved after delivery without re-rendering the film.
+
+## Optics: the difference between a drawing and a photograph
+
+The film was clean in the wrong way. Every edge was a hard vector edge, every
+highlight stopped dead at the colour it was given, and the frame had no light in
+it beyond what each layer painted. That is a rendering problem, and no number of
+extra props fixes it.
+
+`motion/kit/optics.mjs` runs on the finished frame:
+
+- **bloom** — a bright pass at quarter resolution (a bloom is a low-frequency
+  effect; paying for it at full resolution buys detail nobody can see), blurred,
+  added back with `lighter`.
+- **halation** — the same energy blurred wider and pushed warm, because that is
+  what scatters off the back of film.
+- **falloff** — an optical vignette, not a linear ramp.
+- **grain** — a tile of deterministic noise drawn with `overlay`, offset per
+  frame, so it moves. It sits in the mid-tones and leaves black alone.
+
+Each shot declares its own light: the mill and the city bloom hard and warm
+because they are lit windows at dusk; the trades on bone barely bloom at all.
+
+**The blur is hand-written.** `ctx.filter = 'blur(...)'` does nothing in this
+canvas build — it assigns, it does not throw, and the frame comes out unchanged.
+That is the third time this studio has been bitten by a library failing quietly,
+so `tests/test_optics.py` measures the effect: a patch of black beside a
+highlight must get lighter, the corner must be dimmer than the centre, and the
+grain must differ between two frames.
+
+## 1080p, and why it got faster
+
+`stage.mjs` and `timeline.mjs` take a `scale`: every coordinate stays in design
+pixels and the context is scaled once, so a 1080p frame is a 1080p drawing rather
+than a 720p drawing enlarged. Join buffers are device-sized too, or every cut
+would drop to the design resolution for half a second.
+
+The first attempt rendered 1716 PNGs to disk and had ffmpeg read them back: four
+gigabytes of still-image encoding for frames that were about to be thrown away.
+`render_to_video.mjs` pipes raw frames into the encoder instead.
+
+| | frames/min |
+|---|---|
+| 1080p PNGs to disk | 18 |
+| 1080p piped to x264 | 340 |
+
+The mill was also rebuilt. At thumbnail size it was a grey box with a triangle
+on it; at 1080p it had to be a building — board walls, a roof with two planes and
+an eave that throws a shadow, a stone foot, chimney courses, windows set back
+behind reveals with light spilling under the sills, a door with a lamp, and water
+that catches the wheel.
