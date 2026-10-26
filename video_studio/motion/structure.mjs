@@ -951,6 +951,289 @@ function H_UNIT(box) {
  * overrides the library's contract: same props discipline, same duration bands,
  * same regions.
  */
+/**
+ * A proportion as countable marks.
+ *
+ * The dial says "twenty percent"; this says "four of twenty", and the viewer can
+ * count them. That is the difference between a number that is asserted and a
+ * number that is shown - and it is the one picture in this library where the
+ * *quantity of ink* is the message.
+ */
+function dotGauge(ctx, {
+  box, local, seconds, value = 2, of = 20, caption = '', colour = UI.text, accent = UI.gold,
+}) {
+  const total = Math.max(2, Math.min(40, Math.round(of)));
+  const lit = Math.max(0, Math.min(total, Math.round(value)));
+  const cols = total <= 10 ? total : total <= 20 ? 10 : Math.ceil(total / 4);
+  const rows = Math.ceil(total / cols);
+  // A cell is capped in both directions: twenty discs across the whole frame read
+  // as decoration, a grid you can take in at a glance reads as a quantity.
+  const cellW = Math.min(box.w / cols, box.h * 0.30);
+  const cellH = Math.min(box.h * 0.55 / rows, cellW * 1.30);
+  const r = Math.min(cellW * 0.40, cellH * 0.44);
+  const gridW = cols * cellW;
+  const x0 = box.x + (box.w - gridW) / 2 + cellW / 2;
+  const y0 = box.y + box.h * 0.05 + cellH / 2;
+  const land = Math.min(seconds * 0.62, 1.5);
+  for (let i = 0; i < total; i += 1) {
+    const cx = x0 + (i % cols) * cellW;
+    const cy = y0 + Math.floor(i / cols) * cellH;
+    const on = i < lit;
+    const arrive = ease.outCubic(clamp((local - (i / total) * land * 0.8) / 0.18));
+    ctx.save();
+    if (on) {
+      ctx.globalAlpha = ctx.globalAlpha * arrive;
+      ctx.fillStyle = i >= lit - 1 ? accent : colour;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.globalAlpha = ctx.globalAlpha * 0.30 * ease.outCubic(clamp(local / 0.3));
+      ctx.strokeStyle = hair(0.55);
+      ctx.lineWidth = Math.max(1.5, r * 0.14);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.92, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // The count, spelled the way it is spoken. Every size here is a fraction of the
+  // region: an absolute pixel ceiling is a two-percent label on a 4K master, which
+  // is what the first stills looked like.
+  const countSize = Math.round(box.h * 0.20);
+  const countY = box.y + box.h * (caption ? 0.80 : 0.92);
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * span(local, 0.16, 0.42);
+  text(ctx, `${lit} of ${total}`, box.x + box.w * 0.5, countY, {
+    size: countSize, weight: 700, family: 'Space Grotesk', color: colour, align: 'center', tracking: 0.5,
+  });
+  ctx.restore();
+  if (caption) {
+    const size = Math.round(box.h * 0.12);
+    labelBlock(ctx, String(caption), box.x + box.w * 0.5, box.y + box.h * 0.95, {
+      maxWidth: box.w * 0.9, cap: size, minSize: Math.round(size * 0.7), colour, max: 1,
+      alpha: span(local, 0.30, 0.60),
+    });
+  }
+}
+
+/**
+ * A sequence on one axis.
+ *
+ * Time is the one structure a list cannot draw: four rows say "these things
+ * exist", a rail says "in this order, this far apart". The marker travels to the
+ * last stop with the sentence, and the rail fills behind it, so the picture is
+ * never a finished diagram being held.
+ */
+function timelineRail(ctx, {
+  box, local, seconds, stops = [], colour = UI.text, accent = UI.gold,
+}) {
+  const list = (Array.isArray(stops) ? stops : []).slice(0, 6);
+  if (!list.length) return;
+  const count = list.length;
+  const y = box.y + box.h * 0.52;
+  // Labels are centred on their tick, so the rail starts and ends a label's
+  // half-width inside the region; without that inset the ends hang off the edge.
+  const inset = Math.min(box.w * 0.13, box.w * 0.30);
+  const left = box.x + inset;
+  const right = box.x + box.w - inset;
+  const railW = right - left;
+  const grow = ease.outCubic(clamp(local / Math.min(seconds * 0.4, 0.9)));
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * span(local, 0, 0.22);
+  ctx.fillStyle = hair(0.30);
+  ctx.fillRect(left, y - Math.max(1.5, box.h * 0.006) / 2, railW, Math.max(1.5, box.h * 0.006));
+  ctx.restore();
+  const atOf = (stop, i) => (typeof stop.at === 'number' ? clamp(stop.at) : count === 1 ? 0.5 : i / (count - 1));
+  list.forEach((stop, i) => {
+    const at = atOf(stop, i);
+    const x = left + railW * at * grow;
+    if (i < count - 1) {
+      const next = atOf(list[i + 1], i + 1);
+      ctx.save();
+      ctx.globalAlpha = ctx.globalAlpha * 0.75;
+      ctx.fillStyle = accent;
+      ctx.fillRect(x, y - Math.max(1.5, box.h * 0.006) * 1.6,
+        Math.max(0, railW * (next - at) * grow), Math.max(3, box.h * 0.012));
+      ctx.restore();
+    }
+    // A rail that fills in one second and then sits is a diagram; on a section
+    // clock it should arrive as the narrator reaches each stop.
+    const arrive = ease.outCubic(clamp((local - (i / count) * Math.min(seconds * 0.62, 8)) / 0.2));
+    const up = i % 2 === 0;
+    const stem = box.h * 0.085;
+    ctx.save();
+    ctx.globalAlpha = ctx.globalAlpha * arrive;
+    ctx.fillStyle = i === count - 1 ? accent : colour;
+    ctx.fillRect(x - Math.max(1.5, box.h * 0.005), up ? y - stem : y, Math.max(3, box.h * 0.010), stem);
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(4, box.h * 0.016), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+    // A centred label on the last stop runs off the frame edge, so the block is
+    // clamped back inside the region and the type is sized to the slot, not the
+    // region: three stops on one rail want a third of the rail each.
+    const labelW = Math.min(railW / Math.max(2, count) * 1.45, box.w * 0.30);
+    const labelY = up ? y - stem - box.h * 0.085 : y + stem + box.h * 0.185;
+    const cap = Math.round(box.h * 0.175);
+    const labelX = Math.max(box.x + labelW * 0.5, Math.min(x, box.x + box.w - labelW * 0.5));
+    labelBlock(ctx, stop.label || '', labelX, labelY, {
+      maxWidth: labelW, cap, minSize: Math.round(cap * 0.62), colour, max: 2, alpha: arrive,
+    });
+  });
+}
+
+/**
+ * Two things with a shared middle.
+ *
+ * A comparison with no overlap is two cards. The lens is the point: what the two
+ * have in common is drawn, hatched, and named, and the circles move into each
+ * other as the sentence gets to the overlap.
+ */
+function overlapPair(ctx, {
+  box, local, seconds, left = '', right = '', shared = '', colour = UI.text, accent = UI.gold,
+}) {
+  const r = Math.min(box.h * 0.36, box.w * 0.19);
+  const gap = r * 0.55;          // centre-to-centre is twice this: a lens, not a kiss
+  const cx = box.x + box.w * 0.5;
+  const cy = box.y + box.h * 0.42;
+  const draw = ease.outCubic(clamp(local / Math.min(seconds * 0.5, 1.2)));
+  const ax = cx - gap * draw;
+  const bx = cx + gap * draw;
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * 0.50;
+  ctx.strokeStyle = hair(0.75);
+  ctx.lineWidth = Math.max(2, r * 0.035);
+  for (const x of [ax, bx]) {
+    ctx.beginPath();
+    ctx.arc(x, cy, r, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
+  // The lens: each circle clipped to the other, hatched once the two have met.
+  const hatch = span(draw, 0.6, 1);
+  if (hatch > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(ax, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.beginPath();
+    ctx.arc(bx, cy, r, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.globalAlpha = ctx.globalAlpha * 0.75 * hatch;
+    ctx.strokeStyle = accent;
+    ctx.lineWidth = Math.max(2, r * 0.03);
+    for (let k = -r; k < r * 2; k += Math.max(7, r * 0.062)) {
+      ctx.beginPath();
+      ctx.moveTo(cx - r + k, cy - r);
+      ctx.lineTo(cx - r + k + r * 1.6, cy + r);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+  // The labels live *outside* the circles, with a leader into the lobe. Centred
+  // inside the lobes, a word like "Simple interest" either overflowed or shrank
+  // past the legibility floor and vanished.
+  const size = Math.round(box.h * 0.155);
+  const sideW = Math.min(box.w * 0.30, (box.w - 2 * r * 1.55) * 0.5);
+  const leader = Math.max(10, box.w * 0.012);
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * 0.42 * span(local, 0.2, 0.5);
+  ctx.strokeStyle = hair(0.8);
+  ctx.lineWidth = Math.max(2, r * 0.012);
+  ctx.beginPath();
+  ctx.moveTo(ax - r, cy - size * 0.35);
+  ctx.lineTo(ax - r - leader, cy - size * 0.35);
+  ctx.moveTo(bx + r, cy - size * 0.35);
+  ctx.lineTo(bx + r + leader, cy - size * 0.35);
+  ctx.stroke();
+  ctx.restore();
+  labelBlock(ctx, left, ax - r - leader, cy - size * 0.9, {
+    maxWidth: sideW, cap: size, minSize: Math.round(size * 0.62), colour, align: 'right', max: 2,
+  });
+  labelBlock(ctx, right, bx + r + leader, cy - size * 0.9, {
+    maxWidth: sideW, cap: size, minSize: Math.round(size * 0.62), colour, align: 'left', max: 2,
+  });
+  if (shared) {
+    labelBlock(ctx, shared, cx, cy + r + box.h * 0.16, {
+      maxWidth: box.w * 0.7, cap: Math.round(size * 0.82), minSize: Math.round(size * 0.52),
+      colour, max: 1, alpha: span(local, 0.5, 0.9),
+    });
+  }
+}
+
+/**
+ * A whole taken apart.
+ *
+ * The exploded assembly: the layers separate as the narration names them, each
+ * with a leader line to its label. It is the one picture here that says "this
+ * thing is made of these", which is what a mechanism beat is always saying.
+ */
+function explodedStack(ctx, {
+  box, local, seconds, layers = [], colour = UI.text, accent = UI.gold,
+}) {
+  const list = (Array.isArray(layers) ? layers : []).slice(0, 4);
+  if (!list.length) return;
+  const count = list.length;
+  // Narrower than the region on purpose: a stack of wide thin bars is a bar
+  // chart, and the layer that has to be read here is the *thickness* of each
+  // slab - that is what makes it an object taken apart.
+  const plateW = box.w * 0.32;
+  const plateH = Math.min(box.h * 0.19, (box.h * 0.78) / (count + (count - 1) * 0.95));
+  const x = box.x + box.w * 0.02;
+  const open = ease.outCubic(clamp((local - 0.10) / Math.min(seconds * 0.60, 4.0)));
+  const spread = plateH * 0.95 * open;
+  const stackH = plateH * count + spread * (count - 1);
+  const top = box.y + (box.h - stackH) / 2;
+  const labelX = x + plateW + box.w * 0.07;
+  // The spine every exploded drawing has: one line the parts were taken off, so
+  // the picture reads as one object in pieces rather than three loose cards.
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * 0.55 * open;
+  ctx.strokeStyle = hair(0.9);
+  ctx.lineWidth = Math.max(2, plateH * 0.035);
+  ctx.beginPath();
+  ctx.moveTo(x + plateW * 0.08, top - plateH * 0.22);
+  ctx.lineTo(x + plateW * 0.08, top + stackH + plateH * 0.22);
+  ctx.stroke();
+  ctx.restore();
+  list.forEach((label, i) => {
+    const y = top + i * (plateH + spread);
+    const arrive = ease.outCubic(clamp((local - (i / count) * Math.min(seconds * 0.55, 3.0)) / 0.30));
+    ctx.save();
+    ctx.globalAlpha = ctx.globalAlpha * arrive;
+    // A stepped edge: each layer sits a hair further in than the one below, so
+    // the stack reads as a drawing of an object rather than a bar chart.
+    const insetX = i * plateW * 0.035;
+    roundRect(ctx, x + insetX, y, plateW - insetX, plateH, 12);
+    ctx.fillStyle = i === count - 1 ? 'rgba(180,118,42,0.16)' : 'rgba(255,255,255,0.86)';
+    ctx.fill();
+    ctx.strokeStyle = i === count - 1 ? accent : hair(0.36);
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    // The cut edge: a heavier line along the bottom of each plate, which is what
+    // makes a flat rectangle read as a slab with thickness.
+    ctx.beginPath();
+    ctx.moveTo(x + insetX + 10, y + plateH - 3);
+    ctx.lineTo(x + plateW - 10, y + plateH - 3);
+    ctx.strokeStyle = i === count - 1 ? accent : hair(0.55);
+    ctx.lineWidth = Math.max(2, plateH * 0.045);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + plateW + 2, y + plateH * 0.5);
+    ctx.lineTo(labelX - box.w * 0.015, y + plateH * 0.5);
+    ctx.strokeStyle = hair(0.42);
+    ctx.lineWidth = Math.max(1.5, plateH * 0.024);
+    ctx.stroke();
+    ctx.restore();
+    const cap = Math.round(plateH * 0.52);
+    labelBlock(ctx, label, labelX, y + plateH * 0.5 - plateH * 0.18, {
+      maxWidth: box.w * 0.40, cap, minSize: Math.round(cap * 0.62), colour, align: 'left', max: 2,
+      alpha: arrive,
+    });
+  });
+}
+
 export const STRUCTURES = [
   {
     id: 'fork-paths',
@@ -1053,5 +1336,73 @@ export const STRUCTURES = [
     cost: 'medium',
     sample: { lines: ['npm test'] },
     draw: commandConsole,
+  },
+  {
+    id: 'dot-gauge',
+    name: 'Dot gauge',
+    purpose: 'A proportion as countable marks: the lit dots are the part the narration names.',
+    when: ['explain-a-number', 'show-criteria', 'name-the-thing'],
+    avoid: [
+      'A proportion too large to count: over forty marks and the dots read as texture.',
+      'Two proportions on one beat: one grid, one part.',
+    ],
+    minSeconds: 1.8,
+    maxSeconds: 7.0,
+    needs: ['value', 'of'],
+    regions: ['spread', 'wide', 'stage', 'hero', 'split'],
+    cost: 'low',
+    sample: { value: 2, of: 20, caption: 'two in twenty' },
+    draw: dotGauge,
+  },
+  {
+    id: 'timeline-rail',
+    name: 'Timeline rail',
+    purpose: 'A sequence of moments on one axis, with a marker that arrives where the narration arrives.',
+    when: ['show-a-sequence', 'before-and-after', 'show-the-mechanism', 'recap'],
+    avoid: [
+      'Moments that are not in time order: the rail would be a list in disguise.',
+      'More than six stops: the labels collide.',
+    ],
+    minSeconds: 2.0,
+    maxSeconds: 9.0,
+    needs: ['stops'],
+    regions: ['wide', 'spread', 'stage', 'split', 'floor'],
+    cost: 'low',
+    sample: { stops: [{ label: 'Opened' }, { label: 'Read' }, { label: 'Checked' }, { label: 'Sent' }] },
+    draw: timelineRail,
+  },
+  {
+    id: 'overlap-pair',
+    name: 'Overlap pair',
+    purpose: 'Two things that share a middle, drawn as two circles whose overlap is hatched.',
+    when: ['make-a-comparison', 'state-the-thesis', 'before-and-after'],
+    avoid: [
+      'Two things with nothing in common: the lens would be empty.',
+      'Three or more sets: two circles are the most this picture holds.',
+    ],
+    minSeconds: 2.0,
+    maxSeconds: 7.0,
+    needs: ['left', 'right'],
+    regions: ['spread', 'stage', 'split', 'wide'],
+    cost: 'low',
+    sample: { left: 'Cheap cable', right: 'Old cell', shared: 'both drop the voltage' },
+    draw: overlapPair,
+  },
+  {
+    id: 'exploded-stack',
+    name: 'Exploded stack',
+    purpose: 'A whole taken apart into the layers it is made of, each labelled as it separates.',
+    when: ['show-the-mechanism', 'build-an-argument', 'show-criteria'],
+    avoid: [
+      'Layers that are not parts of one whole.',
+      'More than four layers: the labels run out of room.',
+    ],
+    minSeconds: 2.0,
+    maxSeconds: 9.0,
+    needs: ['layers'],
+    regions: ['wide', 'spread', 'split', 'stage'],
+    cost: 'medium',
+    sample: { layers: ['The claim', 'The evidence', 'The decision'] },
+    draw: explodedStack,
   },
 ];

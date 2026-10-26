@@ -46,6 +46,7 @@ import { chooseTransition, reveal } from '../motion/transitions.mjs';
 import { REGIONS, RESERVED, describeLibrary, drawTemplate } from '../motion/library.mjs';
 import { SITUATIONS, chooseTemplate, explainChoice, rankTemplates } from '../motion/choose.mjs';
 import { seconds as houseSeconds } from '../motion/timings.mjs';
+import { ENTRANCES, chooseEntrance, applyEntrance, ENTRANCE_SECONDS, seedOf } from '../motion/fxlab.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STUDIO = path.resolve(HERE, '..');
@@ -64,7 +65,8 @@ const WORDS_PER_SECOND = 2.6;  // measured narration pace; used only without a v
 // section, not a beat: the rows stay where they arrived, so swapping the layout
 // halfway through the list (list-build to stack-push and back) makes the whole
 // list jump between two arrangements every two seconds.
-const ROW_TEMPLATES = new Set(['list-build', 'stack-push', 'code-typing', 'matrix-grid', 'budget-rail']);
+const ROW_TEMPLATES = new Set(['list-build', 'stack-push', 'code-typing', 'matrix-grid',
+  'budget-rail', 'timeline-rail', 'exploded-stack']);
 
 // Templates that draw one object and then hold it: a number, a dial, a fork, a
 // pair, a console, a stamp. None of them has a "next piece" to reveal, so a
@@ -358,6 +360,30 @@ function beatLengths(seconds, candidates, maxBeats = Infinity) {
   return Array.from({ length: count }, () => seconds / count);
 }
 
+/**
+ * One picture per staged beat.
+ *
+ * A section can name more than one template - "show me the two sides, then show
+ * me what they share" is two drawings of one thought. When it does, the section
+ * is cut into that many equal beats and each template has to be able to carry
+ * its share, so a staged section cannot smuggle a one-second picture past the
+ * library's windows.
+ */
+function stagedLengths(seconds, kinds) {
+  const each = seconds / kinds.length;
+  kinds.forEach((kind) => {
+    const meta = TEMPLATES.get(kind);
+    if (!meta) throw new Error(`beat template ${kind} is not in the library`);
+    if (each < meta.minSeconds - 0.02 || each > meta.maxSeconds + 0.02) {
+      throw new Error(
+        `a ${seconds.toFixed(2)}s section in ${kinds.length} pictures gives ${each.toFixed(2)}s each, `
+        + `and ${kind} takes ${meta.minSeconds}-${meta.maxSeconds}s. Retime the narration.`,
+      );
+    }
+  });
+  return Array.from({ length: kinds.length }, () => each);
+}
+
 // Templates that can reveal their content a piece at a time as the beats pass.
 // A comparison or a number has no "next piece": repeating it is a frozen frame.
 // A template that builds its rows across a section (matrix-grid, budget-rail) is
@@ -468,6 +494,8 @@ function arrivalSituation(from, to) {
 function buildSections(brief, timings) {
   const palette = PALETTES[brief.look || 'light'];
   let previousTransition = 'cut';
+  let previousFx = null;
+  const usedFx = [];
   const previousKinds = [];
   let cursor = 0;
 
@@ -525,6 +553,15 @@ function buildSections(brief, timings) {
     if (Array.isArray(section.props?.segments)) {
       authored.push(...section.props.segments.map((segment) => segment.label).filter(Boolean));
     }
+    // The structures added for the motion round carry their words in their own
+    // shapes - a rail of stops, a stack of layers, the caption under a count, the
+    // shared middle of two circles - and they are held to the same rule.
+    if (Array.isArray(section.props?.stops)) {
+      authored.push(...section.props.stops.map((stop) => stop.label).filter(Boolean));
+    }
+    if (Array.isArray(section.props?.layers)) authored.push(...section.props.layers);
+    if (section.props?.caption) authored.push(section.props.caption);
+    if (section.props?.shared) authored.push(section.props.shared);
     const unsaid = authored.filter((phrase) => firstSpokenAt(phrase, speech) === null);
     if (unsaid.length) {
       throw new Error(
@@ -554,7 +591,11 @@ function buildSections(brief, timings) {
     let lengths;
     const codeLines = section.template === 'code-typing' && Array.isArray(section.props?.lines)
       ? section.props.lines.length : 0;
-    if (section.template && SECTION_PICTURE.has(section.template)) {
+    if (Array.isArray(section.beats) && section.beats.length > 1) {
+      // The section says how many pictures it wants; the split is equal, and
+      // each picture has to fit its own template's window.
+      lengths = stagedLengths(seconds, section.beats);
+    } else if (section.template && SECTION_PICTURE.has(section.template)) {
       // One picture for the whole section. Its own draw phase is capped inside
       // the template, so a long section does not mean a slow drawing - it means
       // the picture arrives, says what it has to say, and is held while the
@@ -628,6 +669,22 @@ function buildSections(brief, timings) {
       beatStart += length;
     });
 
+    // The entrance is the act's own move, chosen at plan time so the film is a
+    // rule rather than a mood: the situation narrows the shortlist, the picture
+    // narrows it again, and the title of the act seeds the tie-break so two films
+    // in the same situation do not open identically.
+    const fx = chooseEntrance(
+      section.situation,
+      usedFx,
+      `${BRIEF.slug || path.basename(String(OPTS.brief), '.json')}:${section.id}:${section.heading || ''}`,
+      section.template || (beats[0] && beats[0].template) || null,
+    );
+    if (fx === previousFx && ENTRANCES.length > 2) {
+      throw new Error(`section ${section.id}: entrance ${fx} repeated the act before it`);
+    }
+    previousFx = fx;
+    usedFx.unshift(fx);
+
     const arrive = section.arrive || chooseTransition(
       arrivalSituation(previousKinds[previousKinds.length - 1], picKind(section)),
       previousTransition,
@@ -651,6 +708,7 @@ function buildSections(brief, timings) {
       palette,
       props: section.props || {},
       beats,
+      fx,
       reason: section.template ? 'named by the brief' : chooseFor(section).reason,
     };
   });
@@ -1527,11 +1585,33 @@ function paint(target, shot, at) {
   target.translate(anchorX - W * 0.004 * clamp(templateLocal / Math.max(0.001, templateSeconds)), anchorY);
   target.scale(push, push);
   target.translate(-anchorX, -anchorY);
-  drawTemplate(target, shot.template, {
+  const artwork = () => drawTemplate(target, shot.template, {
     w: W, h: H, region: shot.region, seconds: templateSeconds, local: templateLocal,
     palette: section.palette, t: templateLocal, storedRows: rowTemplate,
     ...propsForBeat(section, shot, section.beats.length, section.palette),
   });
+  // How the picture lands. The first picture of an act arrives with the act's own
+  // move; a second picture inside the same act arrives on the shared clock, and
+  // only fades, because an act is one thought and a second entrance inside it
+  // would read as two separate shots.
+  const entranceLocal = rowTemplate ? sectionLocal : beatLocal;
+  const entranceSeconds = rowTemplate ? section.seconds : shot.seconds;
+  const p = clamp(entranceLocal / ENTRANCE_SECONDS);
+  if (shot.beatIndex === 0 || rowTemplate) {
+    applyEntrance(target, {
+      kind: section.fx,
+      p: clamp(entranceLocal / Math.max(0.001, Math.min(ENTRANCE_SECONDS, entranceSeconds * 0.5))),
+      box: REGIONS[shot.region],
+      accent: section.palette.caption || '#B4762A',
+      ink: '#12233F',
+      seed: seedOf(`${section.id}:${shot.template}`),
+    }, artwork);
+  } else {
+    target.save();
+    target.globalAlpha = target.globalAlpha * span(beatLocal, 0, 0.18);
+    artwork();
+    target.restore();
+  }
   target.restore();
   target.restore();
 

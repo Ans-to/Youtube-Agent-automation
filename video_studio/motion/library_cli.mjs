@@ -33,6 +33,7 @@ import { createCanvas, GlobalFonts } from '@napi-rs/canvas';
 
 import { TEMPLATES, REGIONS, RESERVED, regionRect, drawTemplate, describeLibrary } from './library.mjs';
 import { SITUATIONS, rankTemplates, chooseTemplate, explainChoice } from './choose.mjs';
+import { ENTRANCES, FITS, ENTRANCE_SECONDS } from './fxlab.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const STUDIO = path.resolve(HERE, '..');
@@ -167,6 +168,16 @@ function agentMap() {
     regions: REGIONS,
     situations: SITUATIONS,
     templates: describeLibrary(),
+    // How an act's artwork arrives. Kept in the same map as the pictures because
+    // it is the other half of the vocabulary: a template is *what* is drawn, an
+    // entrance is *how it lands*, and a film needs both to stop looking generic.
+    entrances: {
+      kinds: ENTRANCES,
+      fits: FITS,
+      seconds: ENTRANCE_SECONDS,
+      rule: 'The act picks one entrance from the ones its template can carry, never the one the act before it used.',
+      source: 'Canvas 2D ports of the motion basics in howardc38/motion-fx-lab (0BSD).',
+    },
   };
 }
 

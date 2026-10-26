@@ -36,11 +36,11 @@ export const SITUATIONS = {
   },
   'name-the-thing': {
     says: 'Put a name or a key figure on the frame so it can be remembered.',
-    wants: ['kinetic-headline', 'count-up'],
+    wants: ['kinetic-headline', 'count-up', 'dot-gauge'],
   },
   'state-the-thesis': {
     says: 'State the idea the rest of the section argues for.',
-    wants: ['fork-paths', 'compare-pair', 'kinetic-headline'],
+    wants: ['fork-paths', 'compare-pair', 'kinetic-headline', 'overlap-pair'],
   },
   'punchline': {
     says: 'Land a short line at the end of an argument, with nothing else on screen.',
@@ -48,29 +48,29 @@ export const SITUATIONS = {
   },
   'explain-a-number': {
     says: 'Show a figure the script claims, so it can be read rather than guessed.',
-    wants: ['ring-gauge', 'budget-rail', 'count-up', 'bar-compare'],
+    wants: ['ring-gauge', 'budget-rail', 'count-up', 'bar-compare', 'dot-gauge'],
   },
   'show-a-sequence': {
     says: 'Walk through steps in the order the narration reads them.',
-    wants: ['matrix-grid', 'budget-rail', 'list-build', 'stack-push'],
+    wants: ['matrix-grid', 'budget-rail', 'list-build', 'stack-push', 'timeline-rail'],
   },
   'show-criteria': {
     says: 'List the conditions something has to meet, one at a time.',
-    wants: ['matrix-grid', 'list-build'],
+    wants: ['matrix-grid', 'list-build', 'exploded-stack', 'dot-gauge'],
   },
   'make-a-comparison': {
     says: 'Put two options or two states against each other.',
-    wants: ['fork-paths', 'compare-pair', 'bar-compare'],
+    wants: ['fork-paths', 'compare-pair', 'bar-compare', 'overlap-pair'],
   },
   'before-and-after': {
     says: 'Show what the same thing looked like before, and what it looks like now.',
     // A fork shows one thing becoming two, which is a before and an after when
     // the two branches come from the same source; a pair shows two states side by side.
-    wants: ['compare-pair', 'fork-paths'],
+    wants: ['compare-pair', 'fork-paths', 'timeline-rail', 'overlap-pair'],
   },
   'show-the-mechanism': {
     says: 'Reveal how something works by showing the actual commands or code.',
-    wants: ['budget-rail', 'command-console', 'code-typing'],
+    wants: ['budget-rail', 'command-console', 'code-typing', 'timeline-rail', 'exploded-stack'],
   },
   'show-the-command': {
     says: 'Put one command on the frame and let it type.',
@@ -78,11 +78,11 @@ export const SITUATIONS = {
   },
   'build-an-argument': {
     says: 'Add one more reason to a stack, so each one is felt as an addition.',
-    wants: ['matrix-grid', 'stack-push', 'list-build'],
+    wants: ['matrix-grid', 'stack-push', 'list-build', 'exploded-stack'],
   },
   'recap': {
     says: 'Bring a section back to a short list of what it said.',
-    wants: ['matrix-grid', 'list-build', 'stack-push'],
+    wants: ['matrix-grid', 'list-build', 'stack-push', 'timeline-rail'],
   },
   'hold-a-beat': {
     says: 'Fill a short pause between two big beats with real motion.',

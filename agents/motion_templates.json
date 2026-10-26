@@ -91,7 +91,8 @@
       "says": "Put a name or a key figure on the frame so it can be remembered.",
       "wants": [
         "kinetic-headline",
-        "count-up"
+        "count-up",
+        "dot-gauge"
       ]
     },
     "state-the-thesis": {
@@ -99,7 +100,8 @@
       "wants": [
         "fork-paths",
         "compare-pair",
-        "kinetic-headline"
+        "kinetic-headline",
+        "overlap-pair"
       ]
     },
     "punchline": {
@@ -115,7 +117,8 @@
         "ring-gauge",
         "budget-rail",
         "count-up",
-        "bar-compare"
+        "bar-compare",
+        "dot-gauge"
       ]
     },
     "show-a-sequence": {
@@ -124,14 +127,17 @@
         "matrix-grid",
         "budget-rail",
         "list-build",
-        "stack-push"
+        "stack-push",
+        "timeline-rail"
       ]
     },
     "show-criteria": {
       "says": "List the conditions something has to meet, one at a time.",
       "wants": [
         "matrix-grid",
-        "list-build"
+        "list-build",
+        "exploded-stack",
+        "dot-gauge"
       ]
     },
     "make-a-comparison": {
@@ -139,14 +145,17 @@
       "wants": [
         "fork-paths",
         "compare-pair",
-        "bar-compare"
+        "bar-compare",
+        "overlap-pair"
       ]
     },
     "before-and-after": {
       "says": "Show what the same thing looked like before, and what it looks like now.",
       "wants": [
         "compare-pair",
-        "fork-paths"
+        "fork-paths",
+        "timeline-rail",
+        "overlap-pair"
       ]
     },
     "show-the-mechanism": {
@@ -154,7 +163,9 @@
       "wants": [
         "budget-rail",
         "command-console",
-        "code-typing"
+        "code-typing",
+        "timeline-rail",
+        "exploded-stack"
       ]
     },
     "show-the-command": {
@@ -169,7 +180,8 @@
       "wants": [
         "matrix-grid",
         "stack-push",
-        "list-build"
+        "list-build",
+        "exploded-stack"
       ]
     },
     "recap": {
@@ -177,7 +189,8 @@
       "wants": [
         "matrix-grid",
         "list-build",
-        "stack-push"
+        "stack-push",
+        "timeline-rail"
       ]
     },
     "hold-a-beat": {
@@ -632,6 +645,261 @@
           "npm test"
         ]
       }
+    },
+    {
+      "id": "dot-gauge",
+      "name": "Dot gauge",
+      "purpose": "A proportion as countable marks: the lit dots are the part the narration names.",
+      "when": [
+        "explain-a-number",
+        "show-criteria",
+        "name-the-thing"
+      ],
+      "avoid": [
+        "A proportion too large to count: over forty marks and the dots read as texture.",
+        "Two proportions on one beat: one grid, one part."
+      ],
+      "minSeconds": 1.8,
+      "maxSeconds": 7,
+      "needs": [
+        "value",
+        "of"
+      ],
+      "regions": [
+        "spread",
+        "wide",
+        "stage",
+        "hero",
+        "split"
+      ],
+      "cost": "low",
+      "sample": {
+        "value": 2,
+        "of": 20,
+        "caption": "two in twenty"
+      }
+    },
+    {
+      "id": "timeline-rail",
+      "name": "Timeline rail",
+      "purpose": "A sequence of moments on one axis, with a marker that arrives where the narration arrives.",
+      "when": [
+        "show-a-sequence",
+        "before-and-after",
+        "show-the-mechanism",
+        "recap"
+      ],
+      "avoid": [
+        "Moments that are not in time order: the rail would be a list in disguise.",
+        "More than six stops: the labels collide."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 9,
+      "needs": [
+        "stops"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "stage",
+        "split",
+        "floor"
+      ],
+      "cost": "low",
+      "sample": {
+        "stops": [
+          {
+            "label": "Opened"
+          },
+          {
+            "label": "Read"
+          },
+          {
+            "label": "Checked"
+          },
+          {
+            "label": "Sent"
+          }
+        ]
+      }
+    },
+    {
+      "id": "overlap-pair",
+      "name": "Overlap pair",
+      "purpose": "Two things that share a middle, drawn as two circles whose overlap is hatched.",
+      "when": [
+        "make-a-comparison",
+        "state-the-thesis",
+        "before-and-after"
+      ],
+      "avoid": [
+        "Two things with nothing in common: the lens would be empty.",
+        "Three or more sets: two circles are the most this picture holds."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 7,
+      "needs": [
+        "left",
+        "right"
+      ],
+      "regions": [
+        "spread",
+        "stage",
+        "split",
+        "wide"
+      ],
+      "cost": "low",
+      "sample": {
+        "left": "Cheap cable",
+        "right": "Old cell",
+        "shared": "both drop the voltage"
+      }
+    },
+    {
+      "id": "exploded-stack",
+      "name": "Exploded stack",
+      "purpose": "A whole taken apart into the layers it is made of, each labelled as it separates.",
+      "when": [
+        "show-the-mechanism",
+        "build-an-argument",
+        "show-criteria"
+      ],
+      "avoid": [
+        "Layers that are not parts of one whole.",
+        "More than four layers: the labels run out of room."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 9,
+      "needs": [
+        "layers"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "split",
+        "stage"
+      ],
+      "cost": "medium",
+      "sample": {
+        "layers": [
+          "The claim",
+          "The evidence",
+          "The decision"
+        ]
+      }
     }
-  ]
+  ],
+  "entrances": {
+    "kinds": [
+      "draw-on",
+      "wipe",
+      "iris",
+      "scan",
+      "highlighter",
+      "slit-scan",
+      "whip",
+      "squash",
+      "stamp",
+      "assembly"
+    ],
+    "fits": {
+      "kinetic-headline": [
+        "highlighter",
+        "whip",
+        "slit-scan",
+        "draw-on",
+        "wipe"
+      ],
+      "stamp-lockup": [
+        "stamp",
+        "squash",
+        "iris",
+        "wipe"
+      ],
+      "count-up": [
+        "scan",
+        "squash",
+        "stamp",
+        "draw-on"
+      ],
+      "ring-gauge": [
+        "draw-on",
+        "iris",
+        "scan"
+      ],
+      "bar-compare": [
+        "draw-on",
+        "wipe",
+        "scan"
+      ],
+      "compare-pair": [
+        "assembly",
+        "wipe"
+      ],
+      "fork-paths": [
+        "assembly",
+        "draw-on",
+        "iris"
+      ],
+      "list-build": [
+        "slit-scan",
+        "assembly",
+        "wipe",
+        "scan"
+      ],
+      "stack-push": [
+        "slit-scan",
+        "assembly",
+        "wipe"
+      ],
+      "matrix-grid": [
+        "assembly",
+        "slit-scan",
+        "scan",
+        "stamp"
+      ],
+      "budget-rail": [
+        "draw-on",
+        "wipe",
+        "scan"
+      ],
+      "command-console": [
+        "scan",
+        "draw-on",
+        "wipe"
+      ],
+      "code-typing": [
+        "scan",
+        "draw-on"
+      ],
+      "sweep-rule": [
+        "squash",
+        "wipe"
+      ],
+      "dot-gauge": [
+        "draw-on",
+        "stamp",
+        "scan",
+        "squash"
+      ],
+      "timeline-rail": [
+        "draw-on",
+        "wipe",
+        "scan"
+      ],
+      "overlap-pair": [
+        "assembly",
+        "iris",
+        "draw-on"
+      ],
+      "exploded-stack": [
+        "assembly",
+        "draw-on",
+        "scan"
+      ]
+    },
+    "seconds": 0.56,
+    "rule": "The act picks one entrance from the ones its template can carry, never the one the act before it used.",
+    "source": "Canvas 2D ports of the motion basics in howardc38/motion-fx-lab (0BSD)."
+  }
 }
