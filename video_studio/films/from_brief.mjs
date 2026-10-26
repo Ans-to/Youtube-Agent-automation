@@ -307,6 +307,78 @@ function clausesOf(speech) {
 }
 
 /** The first time `phrase` is spoken inside `speech`, or null if it never is. */
+/**
+ * When each phrase is said, in the order the phrases are listed.
+ *
+ * The scanner below answers "is this phrase ever said?", which is the right
+ * question for the honesty audit: a picture may only print words the narrator
+ * says somewhere. It is the wrong question for timing, and using it for both
+ * produced the worst frame in the battery film: "A three year old cell" starts
+ * with the word "A", and so did the first cause, so the third tile was given the
+ * *first* cause's timestamp and appeared before its own sentence - the grid sat
+ * there showing causes one and three while the narrator was on cause one, with a
+ * hole where cause two belonged.
+ *
+ * So timing walks the phrases together through the speech, each one starting
+ * where the last one finished. A phrase that cannot be found after the previous
+ * one is placed at the end rather than at the start, because guessing early is
+ * how a picture ends up saying something the voice has not said yet.
+ */
+function spokenTimes(phrases, speech) {
+  const times = [];
+  let cursor = 0;
+  for (const phrase of phrases) {
+    const want = words(phrase).map(bare).filter(Boolean);
+    let at = null;
+    let after = cursor;
+    if (want.length) {
+      // Contiguous first: the exact sentence, in one piece.
+      let scan = cursor;
+      while (scan + want.length <= speech.length) {
+        let matched = true;
+        for (let i = 0; i < want.length; i += 1) {
+          if (bare(speech[scan + i].text) !== want[i]) { matched = false; break; }
+        }
+        if (matched) { at = speech[scan].start; after = scan + want.length; break; }
+        scan += 1;
+      }
+      // Then in order but with words skipped: a tile is allowed to condense the
+      // sentence ("A three year old cell holds less" for "...simply holds less"),
+      // and requiring every word to be adjacent missed it and put the tile on an
+      // earlier cause's timestamp instead.
+      if (at === null && want.length >= 2) {
+        let best = null;
+        for (let start = cursor; start < speech.length; start += 1) {
+          let i = 0;
+          let end = start;
+          for (let j = start; j < speech.length && i < want.length; j += 1) {
+            if (bare(speech[j].text) === want[i]) { i += 1; end = j + 1; }
+          }
+          if (i >= 2 && (best === null || i > best.hit
+            || (i === best.hit && start < best.start))) {
+            best = { hit: i, start, end };
+          }
+          if (best && best.hit === want.length) break;
+        }
+        // Two words in order is the floor: one word matches half the script.
+        if (best && best.hit >= Math.min(want.length, 2)) {
+          at = speech[best.start].start;
+          after = best.end;
+        }
+      }
+    }
+    if (at === null) {
+      // Not found after the previous phrase: fall back to the last known time so
+      // the row arrives late rather than early.
+      at = times.length ? times[times.length - 1] : (speech.length ? speech[0].start : 0);
+    } else {
+      cursor = after;
+    }
+    times.push(at);
+  }
+  return times;
+}
+
 function firstSpokenAt(phrase, speech) {
   const want = words(phrase).map(bare).filter(Boolean);
   if (!want.length) return 0;
@@ -1043,11 +1115,8 @@ function propsForBeat(section, beat, beatCount, palette) {
     // with the row, because the row is drawn from the section's clock: it appears
     // once, where it will stay, and later beats do not replay its entrance.
     const start = section.start;
-    const timed = items.map((item) => {
-      const at = firstSpokenAt(item.name, speech);
-      return { ...item, at: at === null ? null : Math.max(0, at - start) };
-    }).filter((item) => item.at !== null);
-    if (!timed.length) return props;
+    const found = spokenTimes(items.map((item) => item.name), speech);
+    const timed = items.map((item, i) => ({ ...item, at: Math.max(0, found[i] - start) }));
     props.items = timed;
     // The section's full list decides the layout, so a row that has not been
     // said yet does not move the rows that have.
@@ -1059,10 +1128,8 @@ function propsForBeat(section, beat, beatCount, palette) {
     const segments = (props.segments || []).map((item) => ({ ...item }));
     if (!speech.length) return props;
     const start = section.start;
-    props.segments = segments.map((segment) => {
-      const at = firstSpokenAt(segment.label ?? '', speech);
-      return { ...segment, at: at === null ? null : Math.max(0, at - start) };
-    }).filter((segment) => segment.at !== null);
+    const foundSegments = spokenTimes(segments.map((segment) => segment.label ?? ''), speech);
+    props.segments = segments.map((segment, i) => ({ ...segment, at: Math.max(0, foundSegments[i] - start) }));
     props.total = props.total ?? segments.reduce((sum, segment) => sum + (Number(segment.value) || 0), 0);
     return props;
   }

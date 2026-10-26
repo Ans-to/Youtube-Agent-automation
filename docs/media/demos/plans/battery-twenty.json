@@ -161,7 +161,7 @@
       "template": "matrix-grid",
       "region": "wide",
       "entrance": "slit-scan",
-      "shows": "A cheap cable drops the voltage | Cold weather slows the reaction | A three year old cell holds less"
+      "shows": "A cheap cable drops the voltage | Cold weather slows the reaction"
     },
     {
       "id": "causes-2",
