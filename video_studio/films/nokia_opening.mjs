@@ -10,6 +10,7 @@
  *     node films/nokia_opening.mjs --frames /tmp/frames     PNG sequence
  */
 
+import fs from 'fs';
 import { drawShape } from '../motion/kit/shapes.mjs';
 import { drawType } from '../motion/kit/type.mjs';
 import { drawMap } from '../motion/kit/world.mjs';
@@ -17,6 +18,7 @@ import { cards } from '../motion/kit/cards.mjs';
 import { camera } from '../motion/kit/camera.mjs';
 import { text } from '../motion/ui.mjs';
 import { SCENE1 } from './nokia_scene1.mjs';
+import { allocate, allocateLayers, auditNoRepeat } from '../motion/kit/budget.mjs';
 
 const W = 1280;
 const H = 720;
@@ -186,7 +188,9 @@ const shot7 = {
     {
       id: 'line', screen: true, depth: 1.1, from: 0.56,
       draw: (ctx, { p }) => {
-        drawType(ctx, 'weight-ramp', {
+        // Not weight-ramp: shot 2 already uses it, and a move may not appear
+        // twice in the film.
+        drawType(ctx, 'squeeze', {
           value: 'Four industries. One company.', x: W * 0.5, y: H * 0.86, p,
           size: 32, weight: 700, family: 'Inter', colour: PALETTE.text,
           accent: PALETTE.caption, align: 'center', span: W - 160,
@@ -242,13 +246,63 @@ const shot8 = {
 };
 
 export const SCENE2 = [shot6, shot7, shot8];
-export const FILM = [...SCENE1, ...SCENE2];
+
+/**
+ * The film, with every technique dealt exactly once.
+ *
+ * `allocate` gives each shot its own transition, and `allocateLayers` gives each
+ * layer its own entrance, behaviour and exit - across the whole film, not per
+ * shot. If the vocabulary cannot cover the film it throws, which is the point:
+ * a silent fallback would be a repeat nobody noticed.
+ */
+/**
+ * Re-cut the film to its narration.
+ *
+ * A shot is as long as its line plus a breath, with a floor: the phone-alone
+ * shot is 2.5 seconds of speech and would be over before the push was readable.
+ * The floor is the only hand-written timing left in the film.
+ */
+const MIN_SECONDS = {
+  'hook-01-ringing': 4, 'hook-02-cities': 5, 'hook-03-world': 7,
+  'hook-04-turn': 7, 'hook-05-alone': 7, 'history-01-mill': 6,
+  'history-02-trades': 6, 'history-03-rise': 6,
+};
+
+function readTiming() {
+  try {
+    const path = new URL('./vo-timing.json', import.meta.url);
+    return JSON.parse(fs.readFileSync(path, 'utf8'));
+  } catch {
+    return null;
+  }
+}
+
+function retime(shots, timing, pad = 1.5) {
+  if (!timing) return shots;
+  const spoken = Object.fromEntries(timing.map((row) => [row.shot, row.vo]));
+  return shots.map((shot) => {
+    const vo = spoken[shot.id];
+    if (vo === undefined) return shot;
+    const dur = Math.max(MIN_SECONDS[shot.id] || 3, vo + pad);
+    return { ...shot, dur: Math.round(dur * 10) / 10 };
+  });
+}
+
+const AUTHORED = retime([...SCENE1, ...SCENE2], readTiming());
+
+function deal(shots) {
+  const withTransitions = allocate(shots, { categories: ['transition'] });
+  return allocateLayers(withTransitions);
+}
+
+export const FILM = deal(AUTHORED);
+export const REPEATS = auditNoRepeat(FILM);
 
 /** The clock in seconds at which each shot starts, for the score's cues. */
 export function shotStarts(shots = FILM) {
   let at = 0;
   return shots.map((s) => {
-    const row = { id: s.id, start: at, end: at + s.dur };
+    const row = { id: s.id, start: at, end: at + s.dur, transition: s.transition ? s.transition.label : '-' };
     at += s.dur;
     return row;
   });
@@ -281,8 +335,17 @@ const main = async () => {
     return i >= 0 ? args[i + 1] : null;
   };
   const stills = flag('--stills');
+  const startsPath = flag('--starts');
   const frames = flag('--frames');
   const fps = Number(flag('--fps') || 30);
+
+  if (startsPath) {
+    // The mixer needs to know when each line is spoken in the finished cut.
+    const rows = shotStarts().map((row, i) => ({ ...row, vo: (readTiming() || [])[i]?.vo ?? null }));
+    fs.writeFileSync(path.resolve(startsPath), JSON.stringify(rows, null, 2));
+    console.log(`wrote ${startsPath} (${totalSeconds().toFixed(1)}s total)`);
+    return;
+  }
 
   if (stills) {
     const out = path.resolve(stills);
@@ -316,27 +379,31 @@ const main = async () => {
   if (frames) {
     const out = path.resolve(frames);
     fs.mkdirSync(out, { recursive: true });
+    const { createRenderer } = await import('../motion/kit/timeline.mjs');
     const frame = createCanvas(W, H);
     const ctx = frame.getContext('2d');
-    const total = Math.round(totalSeconds() * fps);
-    let written = 0;
-    for (const shot of FILM) {
-      const count = Math.round(shot.dur * fps);
-      for (let i = 0; i < count; i += 1) {
-        const t = i / fps;
-        ctx.clearRect(0, 0, W, H);
-        renderShot(ctx, shot, t, W, H, { frame: written });
-        fs.writeFileSync(path.join(out, `${String(written).padStart(5, '0')}.png`), frame.toBuffer('image/png'));
-        written += 1;
-      }
-      console.log(`  ${shot.id} done (${written}/${total})`);
+    // Frames come from the timeline, not from the shots: the joins are part of
+    // the film and a frame sequence without them is a different edit.
+    const renderer = createRenderer(FILM, W, H, { join: 0.5 });
+    const total = Math.round(renderer.duration * fps);
+    for (let i = 0; i < total; i += 1) {
+      ctx.clearRect(0, 0, W, H);
+      renderer.render(ctx, i / fps);
+      fs.writeFileSync(path.join(out, `${String(i).padStart(5, '0')}.png`), frame.toBuffer('image/png'));
+      if ((i + 1) % 300 === 0) console.log(`  ${i + 1}/${total}`);
     }
-    console.log(`wrote ${written} frames to ${out}`);
+    console.log(`wrote ${total} frames to ${out} (${renderer.duration.toFixed(1)}s)`);
     return;
   }
 
   console.log(`shots: ${FILM.length}, ${totalSeconds()}s`);
-  shotStarts().forEach((s) => console.log(`  ${s.start.toFixed(0)}s  ${s.id}`));
+  shotStarts().forEach((s) => console.log(`  ${s.start.toFixed(0)}s  ${s.id}  [${s.transition}]`));
+  if (REPEATS.length) {
+    console.log('REPEATS:');
+    REPEATS.forEach((r) => console.log(`  ${r}`));
+  } else {
+    console.log('no technique is used twice in the film');
+  }
 };
 
 if (import.meta.url === `file://${process.argv[1]}`) {

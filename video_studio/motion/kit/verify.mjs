@@ -25,6 +25,7 @@ import { CARD_IDS, cards } from './cards.mjs';
 import { camera, withCamera, move as cameraMove, auditCamera, SHOTS } from './camera.mjs';
 import { grade } from './light.mjs';
 import { renderShot, auditShotList, totalDuration } from './stage.mjs';
+import { auditNoRepeat } from './budget.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const FONT_DIR = path.resolve(HERE, '..', '..', 'assets', 'fonts');
@@ -181,23 +182,48 @@ if (auditCamera(cameraMove('wide', 'medium', 4), 4, { moving: true }).length > 0
 }
 
 // And a shot list must obey the pacing rules.
+// The film as it is actually cut: allocated, retimed to the narration, and
+// joined. Auditing the raw shot source instead would check a list nobody
+// renders - which is exactly how it reported repeats that the build had fixed.
 const demos = [];
 try {
-  const mod = await import('../../films/nokia_scene1.mjs');
-  demos.push(...(mod.SCENE1 || []));
+  const mod = await import('../../films/nokia_opening.mjs');
+  demos.push(...(mod.FILM || []));
 } catch { /* the film is optional here */ }
 if (demos.length) {
+  // The owner's main rule: no technique twice anywhere in the film.
+  const repeats = auditNoRepeat(demos);
+  repeats.forEach((r) => problems.push(`repeat: ${r}`));
   const notes = auditShotList(demos);
   notes.forEach((n) => problems.push(`scene 1: ${n}`));
-  if (totalDuration(demos) > 40) problems.push(`scene 1 runs ${totalDuration(demos)}s - the hook was written as 35`);
-  // Render each shot once: a shot that throws is worse than a blank shape.
-  const c = createCanvas(160, 90);
-  const cx = c.getContext('2d');
+  if (totalDuration(demos) > 55) problems.push(`the film runs ${totalDuration(demos)}s - longer than the 51s cut it was written as`);
+
+  // Does each shot actually change on screen?
+  //
+  // This used to be a guess: "the shot has no entrance, so it is a still". That
+  // was wrong both ways - it flagged a chart that animates through its own
+  // progress, and it would have passed a shot whose entrance had already
+  // finished. Rendering two frames and comparing them is the measurement.
+  const W2 = 320;
+  const H2 = 180;
+  const a = createCanvas(W2, H2);
+  const b = createCanvas(W2, H2);
+  const ax = a.getContext('2d');
+  const bx = b.getContext('2d');
   demos.forEach((shot) => {
     try {
-      renderShot(cx, shot, shot.dur * 0.5, 160, 90, { frame: 0 });
+      renderShot(ax, shot, shot.dur * 0.15, W2, H2, { frame: Math.round(shot.dur * 0.15 * 30) });
+      renderShot(bx, shot, shot.dur * 0.85, W2, H2, { frame: Math.round(shot.dur * 0.85 * 30) });
+      const da = ax.getImageData(0, 0, W2, H2).data;
+      const db = bx.getImageData(0, 0, W2, H2).data;
+      let changed = 0;
+      for (let i = 0; i < da.length; i += 4) {
+        if (Math.abs(da[i] - db[i]) > 3 || Math.abs(da[i + 1] - db[i + 1]) > 3) changed += 1;
+      }
+      const share = (changed / (W2 * H2)) * 100;
+      if (share < 0.5) problems.push(`shot ${shot.id} is frozen: ${share.toFixed(2)}% of pixels change across the shot`);
     } catch (err) {
-      problems.push(`shot ${shot.id} throws at half way: ${err.message}`);
+      problems.push(`shot ${shot.id} throws: ${err.message}`);
     }
   });
 }

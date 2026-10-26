@@ -65,9 +65,18 @@ export const TRANSITIONS = {
     void h;
   },
 
-  wipe: (ctx, { a, b, p, w, h, direction = 'left', accent = UI.gold }) => {
+  wipe: (ctx, { a, b, p, w, h, direction = 'left', angle = 0, accent = UI.gold }) => {
     const k = ease.inOutCubic(clamp(p));
     both(ctx, () => {
+      // An angle turns the whole wipe inside a rotated frame. One `wipe` is
+      // then eight different transitions, which is what makes "never twice in
+      // the film" possible rather than aspirational.
+      ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.translate(-w / 2, -h / 2);
+      ctx.scale(1.6, 1.6);
+      ctx.translate(-w * 0.19, -h * 0.19);
       a();
       ctx.save();
       ctx.beginPath();
@@ -96,6 +105,7 @@ export const TRANSITIONS = {
       else if (direction === 'right') ctx.fillRect(w * (1 - k) - 3, 0, 6, h);
       else ctx.fillRect(w * k - 3, 0, 6, h);
       ctx.restore();
+      ctx.restore();
     });
   },
 
@@ -117,10 +127,15 @@ export const TRANSITIONS = {
     });
   },
 
-  push: (ctx, { a, b, p, w, h, direction = 'left' }) => {
+  push: (ctx, { a, b, p, w, h, direction = 'left', angle = 0 }) => {
     const k = ease.inOutCubic(clamp(p));
     both(ctx, () => {
       ctx.save();
+      ctx.translate(w / 2, h / 2);
+      ctx.rotate((angle * Math.PI) / 180);
+      ctx.translate(-w / 2, -h / 2);
+      ctx.scale(1.6, 1.6);
+      ctx.translate(-w * 0.19, -h * 0.19);
       if (direction === 'left') ctx.translate(-w * k, 0);
       else if (direction === 'right') ctx.translate(w * k, 0);
       else if (direction === 'up') ctx.translate(0, -h * k);
@@ -132,6 +147,75 @@ export const TRANSITIONS = {
       else if (direction === 'right') ctx.translate(-w * (1 - k), 0);
       else if (direction === 'up') ctx.translate(0, h * (1 - k));
       else ctx.translate(0, -h * (1 - k));
+      b();
+      ctx.restore();
+      ctx.restore();
+    });
+  },
+
+  /** Blinds: the frame closes in strips. `count` is the reasoning lever. */
+  blinds: (ctx, { a, b, p, w, h, count = 9, vertical = true }) => {
+    const k = ease.inOutCubic(clamp(p));
+    both(ctx, () => {
+      // The outgoing shot is the frame; the strips are holes cut into it. Without
+      // this the closed strips were bare paper.
+      a();
+      const n = Math.max(3, Math.round(count));
+      for (let i = 0; i < n; i += 1) {
+        ctx.save();
+        ctx.beginPath();
+        if (vertical) {
+          const bandH = h / n;
+          const open = bandH * k;
+          if (i % 2 === 0) ctx.rect(0, i * bandH + bandH - open, w, open);
+          else ctx.rect(0, i * bandH, w, open);
+        } else {
+          const bandW = w / n;
+          const open = bandW * k;
+          if (i % 2 === 0) ctx.rect(i * bandW + bandW - open, 0, open, h);
+          else ctx.rect(i * bandW, 0, open, h);
+        }
+        ctx.clip();
+        b();
+        ctx.restore();
+      }
+    });
+  },
+
+  /** Split: the two shots tear apart along a seam and swap. */
+  split: (ctx, { a, b, p, w, h, vertical = true }) => {
+    const k = ease.inOutCubic(clamp(p));
+    both(ctx, () => {
+      ctx.save();
+      ctx.beginPath();
+      if (vertical) ctx.rect(0, 0, w, h / 2);
+      else ctx.rect(0, 0, w / 2, h);
+      ctx.clip();
+      ctx.translate(vertical ? 0 : -w * k, vertical ? -h * k : 0);
+      a();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      if (vertical) ctx.rect(0, 0, w, h / 2);
+      else ctx.rect(0, 0, w / 2, h);
+      ctx.clip();
+      ctx.translate(vertical ? 0 : w * (1 - k), vertical ? h * (1 - k) : 0);
+      b();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      if (vertical) ctx.rect(0, h / 2, w, h / 2);
+      else ctx.rect(w / 2, 0, w / 2, h);
+      ctx.clip();
+      ctx.translate(vertical ? 0 : -w * (1 - k), vertical ? h * k : 0);
+      a();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      if (vertical) ctx.rect(0, h / 2, w, h / 2);
+      else ctx.rect(w / 2, 0, w / 2, h);
+      ctx.clip();
+      ctx.translate(vertical ? 0 : w * k, vertical ? -h * (1 - k) : 0);
       b();
       ctx.restore();
     });

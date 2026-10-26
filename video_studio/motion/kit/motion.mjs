@@ -83,10 +83,12 @@ export const ENTRANCES = {
     ctx.restore();
   },
 
-  iris: (ctx, { p, box, accent, centre = null }, draw) => {
+  iris: (ctx, { p, box, accent, centre = null, reach = 0.55 }, draw) => {
     const cx = centre ? centre.x : box.x + box.w / 2;
     const cy = centre ? centre.y : box.y + box.h / 2;
-    const radius = Math.hypot(box.w, box.h) * 0.55 * out(p);
+    // `reach` is the reasoning lever: an opening that just clears the artwork
+    // and one that sweeps well past it are different arrivals.
+    const radius = Math.hypot(box.w, box.h) * reach * out(p);
     ctx.save();
     ctx.beginPath();
     ctx.arc(cx, cy, Math.max(1, radius), 0, TAU);
@@ -154,11 +156,11 @@ export const ENTRANCES = {
     ctx.restore();
   },
 
-  squash: (ctx, { p, box }, draw) => {
+  squash: (ctx, { p, box, amount = 1 }, draw) => {
     const k = back(p);
     ctx.save();
     ctx.translate(box.x + box.w / 2, box.y + box.h);
-    ctx.scale(0.90 + 0.10 * k, 0.94 + 0.06 * k);
+    ctx.scale(1 - (0.10 * amount) * (1 - k), 1 - (0.06 * amount) * (1 - k));
     ctx.translate(-(box.x + box.w / 2), -(box.y + box.h));
     wrapped(ctx, draw);
     ctx.restore();
@@ -230,10 +232,10 @@ export const ENTRANCES = {
   },
 
   /** Rise from below with a soft fade: the calmest arrival, for reflection. */
-  rise: (ctx, { p, box }, draw) => {
+  rise: (ctx, { p, box, distance = 0.16 }, draw) => {
     ctx.save();
     ctx.globalAlpha *= clamp(p * 1.4);
-    ctx.translate(0, (1 - out(p)) * box.h * 0.16);
+    ctx.translate(0, (1 - out(p)) * box.h * distance);
     wrapped(ctx, draw);
     ctx.restore();
   },

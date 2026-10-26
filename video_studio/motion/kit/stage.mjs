@@ -146,8 +146,10 @@ export function auditShotList(shots) {
     if ((shot.dur || 0) > 12) notes.push(`${name}: ${shot.dur}s is over the 12s ceiling`);
 
     const windows = (shot.layers || []).map((l) => layerWindow(l, shot.dur || 0));
-    const anyMoving = (shot.layers || []).some((l) => l.behaviour || l.entrance);
-    if (!anyMoving && (shot.dur || 0) > 1.0) notes.push(`${name}: nothing moves - it is a still held for ${shot.dur}s`);
+    // Whether a shot is frozen is a question about pixels, not about which
+    // layers carry an entrance label: a chart that draws itself through its own
+    // progress is in motion with no entrance at all. verify.mjs renders two
+    // frames of every shot and compares them, which is the honest test.
 
     if (shot.transitionIn && shot.transitionIn === lastTransition) {
       notes.push(`${name}: repeats the "${shot.transitionIn}" transition`);
