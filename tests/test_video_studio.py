@@ -294,14 +294,33 @@ class VideoStudioTests(unittest.TestCase):
             self.assertGreater(scene["duration_seconds"], 0)
             self.assertIn("headline", scene)
 
-    def test_roster_has_fifty_two_unique_role_profiles(self):
+    def test_roster_is_a_tree_with_one_human_gate(self):
         data = json.loads((ROOT / "agents" / "roster.json").read_text(encoding="utf-8"))
         agents = data["agents"]
-        self.assertEqual(len(agents), 52)
-        self.assertEqual(len({agent["id"] for agent in agents}), 52)
-        self.assertIn("Motion Graphics Creative Director", {agent["name"] for agent in agents})
+        by_id = {agent["id"]: agent for agent in agents}
+        self.assertEqual(len(agents), 40)
+        self.assertEqual(len(by_id), 40, "role ids must be unique")
+        parents = {aid for aid, agent in by_id.items() if agent.get("parent") is None}
+        children = set(by_id) - parents
+        self.assertEqual(len(parents), 11)
+        self.assertEqual(len(children), 29)
+        for aid in children:
+            self.assertIn(by_id[aid]["parent"], by_id, aid + " must have a parent that exists")
+        # The gate and the CEO direct nobody; the caption builder does its own
+        # craft. Every other parent must actually have sub-agents to direct.
+        own_craft = {"AGENT-01", "AGENT-26", "AGENT-50"}
+        for aid in parents:
+            directs = [c for c in agents if c.get("parent") == aid]
+            if aid in own_craft:
+                self.assertEqual(directs, [], aid + " must direct nobody")
+                continue
+            self.assertTrue(directs, aid + " is a parent with no sub-agents")
+        self.assertIn("Motion Graphics Director", {agent["name"] for agent in agents})
+        self.assertIn("Kinetic Typography Designer", {agent["name"] for agent in agents})
         self.assertIn("Motion Systems & Compositing Specialist", {agent["name"] for agent in agents})
-        self.assertTrue(any(agent["approval_required"] for agent in agents))
+        gates = [agent for agent in agents if agent["approval_required"]]
+        self.assertEqual(len(gates), 1)
+        self.assertEqual(gates[0]["id"], "AGENT-50")
 
     def test_scene_builder_validates_narration_in_the_selected_language(self):
         def scene_with(narration):

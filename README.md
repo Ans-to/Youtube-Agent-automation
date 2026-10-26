@@ -4,6 +4,81 @@
 
 The project is designed for a low-cost phone-first setup. It uses Python's standard library for the task runner, dashboard, and bridge. It does not require a paid AI API.
 
+## A YouTube studio that runs on GitHub, for nothing
+
+Give it a brief — a title, a promise, and a few sections of narration written in
+plain English — and it makes the video: motion graphics drawn frame by frame, a
+neural voice over, a music bed, burned-in captions, and the numbers that say
+whether the result is worth publishing.
+
+**▶ [How to Review AI-Written Code in 60 Seconds](docs/media/review-ai-code-720p.mp4)** —
+0:59, 1280×720, 30 fps, 11.2 MB, Kokoro-82M narration at 48 kHz stereo, subtitles in
+[review-ai-code.srt](docs/media/review-ai-code.srt). Every gate passed on it:
+motion, composition, holds, narration and all eighteen craft rules.
+
+It is built from shapes, not sentences. A diamond decision node forking into
+*rubber stamp* or *rewrite the whole thing*, a grid of three checks that takes
+the accent in turn, a dial for sixty seconds, a rail divided 40/10/10 with a
+scale of one tick per second filling behind the playhead, a console that types
+`npm test`, and the same fork again for *green means merge / red means send it
+back* - in green and in red, because a sentence that names a colour and a picture
+that shows a grey box are two things arguing. Seven of the nine sections are diagrams. Each arrives as its own
+sentence is spoken, nothing is printed that the narration does not say, and the
+picture keeps a slow push and a light sweep behind it so no frame is dead. **[The plan beside the film](docs/media/review-ai-code-plan.json)**
+records what every beat draws, and the poster is drawn by the same code from the same brief: **[the thumbnail](docs/media/review-ai-code-thumbnail.png)** - 60 in the left third, *AI CODE REVIEW* stacked on the right, and the corner YouTube covers with a duration badge left empty. Voice: **[the two reads back to back](docs/media/voice-ab.mp4)**. What to publish with it: **[the upload pack](docs/media/review-ai-code-upload-pack.md)** - three titles, a description whose first two lines carry the hook, chapters that clear YouTube's ten-second floor, tags, and the four things to do before pressing publish.
+
+There is no API key anywhere in it and nothing to pay for. The voice is
+Kokoro-82M under Apache-2.0: the runtime is a PyPI package, the weights are two
+npm tarballs checked against the registry's own SHA-512, and Piper stays as the
+offline fallback. The music and sound effects are synthesised by the
+repository's own code; the picture is drawn by its own Canvas2D renderer; and
+the compute is a GitHub-hosted runner, which is free and unlimited on a public
+repository and has the 16 GB a 1080p master needs.
+
+| Piece | Where |
+| --- | --- |
+| What makes a video get watched, with sources and numbers | [docs/youtube-craft.md](docs/youtube-craft.md) |
+| How the studio is put together, and what it costs | [docs/motion-graphics-studio-plan.md](docs/motion-graphics-studio-plan.md) |
+| **Ten different one-minute films from the same pipeline** | [docs/ten-films.md](docs/ten-films.md) |
+| A brief to copy | [video_studio/briefs/review-ai-code.json](video_studio/briefs/review-ai-code.json) |
+| The generator: brief → film | `video_studio/films/from_brief.mjs` |
+| The craft gate: hook, pacing, captions, chapters, packaging | `video_studio/craft.py`, `tools/check_craft.py` |
+| The preflight: reject an unshippable script in 40 s, before a frame is drawn | `tools/preflight_brief.py` |
+| The zero-key build | [.github/workflows/motion-studio.yml](.github/workflows/motion-studio.yml) |
+
+Run it locally:
+
+```bash
+python -m venv .venv && .venv/bin/pip install numpy pillow imageio-ffmpeg kokoro-onnx onnxruntime piper-tts joe-us-piper-voice
+python video_studio/kokoro_voice.py          # one-time: fetch and verify the voice weights (90 MB)
+npm --prefix video_studio ci
+python tools/brief_to_voice.py --brief video_studio/briefs/review-ai-code.json --out build/voice.json
+python tools/render_authored_film.py --script video_studio/films/from_brief.mjs \
+  --script-args "--brief video_studio/briefs/review-ai-code.json" \
+  --voice-script build/voice.json --out build/film \
+  --width 1920 --height 1080 --delivery-height 720 --skip-4k \
+  --voice-backend kokoro --voice am_michael
+python tools/check_craft.py --script build/film/voice/lines.json --srt build/film/film.srt \
+  --title "How to Review AI-Written Code in 60 Seconds" --thumbnail-text "AI CODE REVIEW"
+```
+
+On GitHub: **Actions → Motion graphics studio → Run workflow**, pick the brief.
+No secret has to exist, and a missing secret cannot break it.
+
+**What it will not do.** It cannot invent a good idea, and it does not judge
+taste; it refuses to ship a film that breaks the measurable rules in the craft
+note and prints the number that failed. The first generated cut failed its own
+gates — 89% near-static frames, a 17-second hold — and the fixes are in the
+history rather than in a promise.
+
+## The film this pipeline made
+
+A finished twelve-minute film, drawn frame by frame by `video_studio/films/vibe_coding.mjs`:
+
+**▶ [Vibe Coding on Arena, through GitHub](docs/media/vibe-coding-720p-web.mp4)** — 12:02, 1280×720, 30 fps, 155 subtitle cues. Play it in the page that link opens, or press **Download** there. Subtitles: [vibe-coding.srt](docs/media/vibe-coding.srt). What to publish with it: [the upload pack](docs/media/vibe-coding-upload-pack.md) — titles, description, chapters, tags.
+
+The file is 86 MB because git refuses any single file over 100 MB; the 469 MB delivery master stays outside the repository and is re-created by the render command in the upload pack. The narration is an `espeak-ng` preview voice: correct in timing, not a voice to publish.
+
 ## Start on Windows PC or Android
 
 - **VS Code:** open the repository folder, press `F5`, and choose **Agent HQ: Dashboard**. The browser opens at `http://127.0.0.1:8765`. Requirements, debugging notes, and troubleshooting are in [docs/VSCODE.md](docs/VSCODE.md).
@@ -51,7 +126,7 @@ See the [roadmap](docs/ROADMAP.md) for the honest gap to professional motion des
 - **Offline content auditor:** `video_studio/audit_video.py` checks a finished video for content safety, brand safety, legal, and technical QA — black frames, dead air, freezes, strobing, A/V drift, profanity rate, competitor mentions, disclosure legibility, and more. Every rule declares the evidence it needs: a check that did not run is reported as unverified, never as a pass. It reads local vision observations (objects, faces, actions, scenes, logos) for temporal, context-aware judgement — a knife in a kitchen is downgraded, a gun without context is not. `python video_studio/audit_video.py video.mp4 --report audit.md`. See [docs/AUDITOR.md](docs/AUDITOR.md).
 - **Professional motion direction:** `video_studio/motion_director.py` turns a brief into a tone-aware direction sheet and a render-ready storyboard: 4K UHD (landscape or portrait) at 30/60 fps, five art-directed palettes with measured WCAG contrast, a bundled Inter/Space Grotesk type system, 7 cubic-Bezier curves (linear is rejected), anticipation/follow-through/overshoot, six designed transitions, nine camera moves with parallax and deterministic shake, procedural SFX cues snapped to detected beats, and a shot timeline with computed hold windows. The same command audits any storyboard against the spec and reports `MOTION SPEC: PASSED` or the exact clause that failed. `python video_studio/motion_director.py --brief video_studio/brief.example.json --out-dir build`. Production runs attach this automatically: `video_studio/production.py` upgrades the storyboard, writes `motion-report.json`/`motion-report.txt` beside it, records the result in `status.json`, and can fail the run with `--strict-motion`. A complete 20-second 4K film built by this pipeline — frames, procedural soundtrack, encode and audit — lives in `workspace/generated/motion-film/`. See [docs/MOTION.md](docs/MOTION.md).
 - **A character drawn in code, as a solid silhouette:** the channel's stickman is filled volumes — a chest mass, capsule limbs, a hooked cloak, a solid head — generated from the animation rig every frame, with no outline and no joint dots — no art file, nothing traced or licensed, so there is nothing to strike. `resolveInk()` throws if either colour is not exactly neutral grey and refuses the accent unless it is asked for by name; the backdrop, floor and captions switch to paper and ink with it. The face acts: ten named expressions, blended between lines, over a mouth shape measured from the rendered voice. `--boil 1` adds deterministic hand-inked line boil. `node video_studio/character/selfcheck.mjs` publishes ninety-two checks — thirteen about the pen, the rest about the walk, the acting and the smoothness of the motion — and a test decodes a rendered frame to prove the accent stays under limit. The finished 28-second cut is in `docs/media/stickman-film.mp4`, and it is narrated: `video_studio/espeak_lib.py` synthesises the voice from a Python wheel, with no system package, no download and no API key. See [docs/CHARACTER.md](docs/CHARACTER.md).
-- **Specialist execution:** 52 configured role profiles (51 executable specialists plus AGENT-50 human approval) share one configured local model. Role profiles guide delegation; they are not separate model processes.
+- **Specialist execution:** 40 configured roles — 10 parent roles that each own a deliverable, 29 sub-agents that each own one craft under a parent, and AGENT-50, a human approval gate — share one configured local model. The CEO assigns work to parents; a parent directs its own sub-agents. Role profiles guide delegation; they are not separate model processes.
 - **Optional local model:** uses an OpenAI-compatible endpoint on loopback only. With the model disabled, the CEO uses deterministic keyword-based routing and specialists produce limited template/checklist outputs; this is not general-purpose AI.
 - **GitHub bridge:** polls approved JSON requests from `bridge/requests/`; supported actions are `status`, `self_test`, and guarded `run_task`.
 - **Sanitized result reporting:** attempts to write minimal result metadata to `bridge/results/<request-id>.json`. Task prompts, generated output, raw logs, local paths, and configuration values are not included in the GitHub report.
@@ -262,7 +337,7 @@ write a chapter list YouTube would silently ignore.
 
 ## Specialist roster and orchestration
 
-`agents/roster.json` defines 52 profiles: 51 specialist roles plus `AGENT-50`, the human approval gate. `agents/skillbooks.json` gives every role a field-specific workflow, quality gates, failure modes, deliverable contract, and practice drill. `agents/dispatch.py` injects that playbook into each specialist prompt, and reports a concise quality-gate check. This is prompt-level guidance and evaluation scaffolding, not fine-tuning of model weights or a guarantee of expert performance. `agents/orchestrate.py` lets the CEO choose a task-specific team when a local model is enabled; without a model, it uses an explicitly labelled deterministic keyword router. Specialists receive distinct subtasks, research before work, save source reports, and pass outputs forward as unverified context. The CEO may invoke fixed local video and digital-product/app prototype builders. The manifest under `workspace/orchestration/` records assignments, stage results, research-report paths, tool status, and the final reviewer gate. An explicit reviewer FAIL or a blocked required artifact is surfaced as needing human follow-up. Retrieved pages are not automatically fact-checked; review citations and claims manually.
+`agents/roster.json` defines 40 profiles in a tree: 10 parent roles that each own a deliverable and direct the 29 sub-agents beneath them, plus `AGENT-50`, the human approval gate. `agents/skillbooks.json` gives every role a field-specific workflow, quality gates, failure modes, deliverable contract, and practice drill. `agents/dispatch.py` injects that playbook into each specialist prompt, and reports a concise quality-gate check. This is prompt-level guidance and evaluation scaffolding, not fine-tuning of model weights or a guarantee of expert performance. `agents/orchestrate.py` lets the CEO choose a task-specific team when a local model is enabled; without a model, it uses an explicitly labelled deterministic keyword router. Specialists receive distinct subtasks, research before work, save source reports, and pass outputs forward as unverified context. The CEO may invoke fixed local video and digital-product/app prototype builders. The manifest under `workspace/orchestration/` records assignments, stage results, research-report paths, tool status, and the final reviewer gate. An explicit reviewer FAIL or a blocked required artifact is surfaced as needing human follow-up. Retrieved pages are not automatically fact-checked; review citations and claims manually.
 
 
 The video module also includes a separate optional YouTube uploader. It requires Google OAuth setup, a local approval record tied to the MP4 hash, and explicit upload confirmation; it defaults to private visibility and never publishes automatically without those checks. See video_studio/README.md.
@@ -290,7 +365,7 @@ The dashboard includes a Specialist practice lab. Choose a role and submit a con
     python agents/practice.py practice --agent AGENT-51 --task "Create an art-direction brief for a 60-second technology explainer"
     python agents/practice.py assess --report "workspace/training/runs/AGENT-51/<run-id>/assessment.json"
 
-To create practice artifacts for all 51 executable roles (CEO plus 50 specialists), run python agents/practice.py practice --all. On a phone, start with --all --limit 5 to avoid a large queue of model work. With model.enabled=false, the output is template-only playbook material, not AI-generated practice work. Enable a compatible local model before expecting generated artifacts.
+To create practice artifacts for all 39 executable roles (the CEO, 9 other parents and 29 sub-agents), run python agents/practice.py practice --all. On a phone, start with --all --limit 5 to avoid a large queue of model work. With model.enabled=false, the output is template-only playbook material, not AI-generated practice work. Enable a compatible local model before expecting generated artifacts.
 
 Only human-reviewed notes from actual local-model outputs are injected into later runs. Template-only reviews are marked as template reviews and are excluded from the model-feedback loop. These assessments measure a particular practice attempt; they do not certify universal mastery or update model weights. AGENT-50 is reserved for human approval and cannot be run automatically. See agents/TRAINING.md for the review loop and agents/MOTION_DESIGN_SYSTEM.md for visual scene and transition rules.
 
@@ -309,7 +384,7 @@ python agents/orchestrate.py --task "Prepare a fact-checkable technology video s
 
 The source-notes file is optional. Without an enabled local model, the pipeline produces transparent template/checklist outputs. With a local model, it can use retrieved page text and source URLs supplied by the research module. Research is not automatic fact verification; important claims still require corroboration and human review. Review `pipeline-status.json` and all stage outputs before using them.
 
-Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 52 role profiles: AGENT-01 is the CEO, 50 are specialist workers, and AGENT-50 is the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
+Run a configured specialist role locally with `python agents/dispatch.py --agent AGENT-09 --task "Draft a clear script outline"`. Add `--context-file path/to/source-notes.md` to supply local evidence. With the model disabled, the dispatcher returns a transparent template checklist, not AI-generated work. There are 40 role profiles in one tree: AGENT-01 is the CEO, 10 roles own a deliverable and direct the 29 sub-agents beneath them, and AGENT-50 is the human approval boundary. They share the same configured local model endpoint; they are not separate model processes.
 
 ## CEO-led execution and research reports
 

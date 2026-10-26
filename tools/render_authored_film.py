@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shlex
 import shutil
 import statistics
 import sys
@@ -61,6 +62,10 @@ STATIC_BELOW = 0.5
 # before it decides. One second is already long enough for a viewer to think the
 # video has stalled.
 MAX_STILL_SECONDS = 1.0
+# The bar for a picture that actually changes. See ``video_studio/composition.py``:
+# measured on this repository's films, the character film's longest arrangement
+# is 10.5 s and this tutorial film's is 79.5 s. Twelve seconds is generous.
+MAX_COMPOSITION_HOLD_SECONDS = 12.0
 
 # The contact sheet is a 5x2 tile: this many frames spans the whole film.
 CONTACT_TILES = 10
@@ -82,7 +87,7 @@ def log(message: str) -> None:
 
 def step_frames(
     script: Path, frames_dir: Path, width: int, height: int, fps: int, quality: int,
-    voice_lines: Path | None = None, slice_frames: int = 0,
+    voice_lines: Path | None = None, slice_frames: int = 0, script_args: list[str] | None = None,
 ) -> dict:
     """Draw the film, in slices of `slice_frames` when asked.
 
@@ -110,6 +115,11 @@ def step_frames(
         ]
         if voice_lines is not None:
             command += ["--voice-lines", str(voice_lines)]
+        # A generated film needs its brief; a hand-authored one has none. Both
+        # are the same renderer, so the extra arguments are passed through
+        # rather than forking the tool.
+        if script_args:
+            command += list(script_args)
         if slice_frames:
             command += ["--from", str(start), "--to", str(stop)]
         return command
@@ -145,6 +155,8 @@ def step_frames(
 # never a guess, and never a second encode of the picture.
 TARGET_LUFS = -14.0
 LOUDNESS_CEILING_DB = 18.0
+# A delivery above -1.0 dBFS true peak crackles on headphones once it is AAC.
+TARGET_TRUE_PEAK = -1.0
 
 
 def measure_loudness(path: Path, ffmpeg: str) -> float | None:
@@ -162,6 +174,29 @@ def measure_loudness(path: Path, ffmpeg: str) -> float | None:
     except ValueError:
         return None
     return value if -70.0 < value < 0.0 else None
+
+
+def measure_true_peak(path: Path, ffmpeg: str) -> float | None:
+    """True peak of a file in dBFS, or None if it cannot be measured.
+
+    True peak, not sample peak: the AAC encoder the delivery is written with can
+    put an inter-sample overshoot between two samples that were both inside the
+    limiter. It is inaudible on speakers and audible as a crackle on headphones,
+    which is exactly why it is measured on the finished file.
+    """
+    result = base.run([
+        ffmpeg, "-hide_banner", "-nostats", "-i", str(path),
+        "-af", "loudnorm=print_format=json", "-f", "null", "-",
+    ], timeout=1800)
+    text = (result.stderr or "") + (result.stdout or "")
+    match = re.search(r'"input_tp"\s*:\s*"?(-?[0-9.]+)"?', text)
+    if not match:
+        return None
+    try:
+        value = float(match.group(1))
+    except ValueError:
+        return None
+    return value
 
 
 def normalise_loudness(path: Path, ffmpeg: str, target: float = TARGET_LUFS) -> dict:
@@ -270,6 +305,58 @@ def judge_narration(wav: Path, lines: Path | None, *, stage: str) -> dict:
     }
 
 
+def master_audio(path: Path, ffmpeg: str, target: float = TARGET_LUFS) -> dict:
+    """Make the bed an upload master: true peaks, 48 kHz, and the delivery level.
+
+    The stems are 24 kHz, because that is what the neural narrator speaks at, and
+    the mix inherits it with a sample peak close to full scale. That combination
+    is a trap: an encoder resampling 24 kHz up to 48 kHz introduces inter-sample
+    peaks about a decibel and a half above the samples, loudnorm refuses to lift a
+    file past its true-peak ceiling, and the delivered film lands at -14.7 LUFS
+    when it was asked for -14.0. Every earlier pass was guessing at peaks that
+    only exist between the samples.
+
+    So this limits on a four-times oversampled copy, drops to 48 kHz, and only
+    then normalises - two passes, from a measurement of the real file. The result
+    is a bed whose peaks are its peaks, at the rate YouTube expects, and a
+    loudnorm that is free to land on the target.
+    """
+    mastered = path.with_name(path.stem + ".mastered.wav")
+    result = base.run([
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(path),
+        "-af", "aresample=192000,alimiter=limit=0.72:attack=4:release=50:level=false,"
+               "aresample=48000",
+        "-ac", "2", "-ar", "48000", str(mastered),
+    ], timeout=1800)
+    if result.returncode != 0 or not mastered.is_file():
+        mastered.unlink(missing_ok=True)
+        return {"status": "failed", "path": str(path)}
+
+    first = loudnorm_pass(mastered, ffmpeg, target, TARGET_TRUE_PEAK - 0.8)
+    chain = loudnorm_pass(mastered, ffmpeg, target, TARGET_TRUE_PEAK - 0.8, measured=first)["chain"]
+    normalised = path.with_name(path.stem + ".mastered.delivery.wav")
+    result = base.run([
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(mastered),
+        "-af", chain, "-ar", "48000", str(normalised),
+    ], timeout=1800)
+    if result.returncode != 0 or not normalised.is_file():
+        normalised.unlink(missing_ok=True)
+        return {"status": "unnormalised", "path": str(mastered)}
+    mastered.unlink(missing_ok=True)
+
+    lufs = measure_loudness(normalised, ffmpeg)
+    peak = measure_true_peak(normalised, ffmpeg)
+    return {
+        "status": "mastered",
+        "path": str(normalised),
+        "sample_rate": 48000,
+        "channels": 2,
+        "lufs": lufs,
+        "true_peak_db": peak,
+        "target": target,
+    }
+
+
 def step_mix(score: Path, voice_path: Path, output: Path, depth_db: float) -> dict:
     """Duck the score under the voice and print the exact gain it applied."""
     import voice_mix
@@ -355,6 +442,33 @@ def encode_segmented(frames_dir: Path, audio: Path, output: Path, ffmpeg: str, *
     }
 
 
+def write_subtitles(lines_path: Path, out_dir: Path) -> dict:
+    """Write the SRT and WebVTT a viewer needs, from the lines the voice used.
+
+    A film is not uploadable without a subtitle track, and typing one by hand is
+    how a cue drifts half a second away from the read. The cues come from
+    ``lines.json`` - the same file the voice stage timed - so the track cannot
+    disagree with what is heard.
+    """
+    if str(Path(__file__).resolve().parent) not in sys.path:
+        sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import film_subtitles  # noqa: PLC0415 - sibling tool, imported on use
+
+    hacks = film_subtitles.caption_hacks(lines_path)
+    if hacks:
+        raise RuntimeError(
+            "the narration text still spells for a synthesiser: "
+            + ", ".join("%s %r" % (hack["id"], hack["text"]) for hack in hacks))
+    cues = film_subtitles.build_cues(film_subtitles.load_lines(lines_path))
+    srt, vtt = film_subtitles.to_srt(cues), film_subtitles.to_vtt(cues)
+    film_subtitles.validate_subtitle_text(srt, vtt)
+    srt_path, vtt_path = out_dir / "film.srt", out_dir / "film.vtt"
+    srt_path.write_text(srt, encoding="utf-8")
+    vtt_path.write_text(vtt, encoding="utf-8")
+    return {"srt": str(srt_path), "vtt": str(vtt_path), "cues": len(cues),
+            "longest_cue_characters": max(len(text) for _, _, text in cues)}
+
+
 def step_validate(frames_dir: Path) -> dict:
     result = base.run(
         [
@@ -375,33 +489,89 @@ def step_validate(frames_dir: Path) -> dict:
         return {"raw": result.stdout.strip()}
 
 
+def loudnorm_pass(path: Path, ffmpeg: str, target: float, true_peak: float,
+                  measured: dict | None = None) -> dict:
+    """Measure for a loudnorm pass, or apply one with a previous measurement.
+
+    Two passes, because one is not enough: a single pass has to guess what the
+    limiter will take back, and the guess lands a decibel low. The first pass
+    reports the file's own numbers, the second lands on the target with a true
+    peak that survives an AAC encode.
+    """
+    chain = ("loudnorm=I=%.1f:TP=%.1f:LRA=11" % (target, true_peak))
+    if measured:
+        chain += (":measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s"
+                  % (measured["input_i"], measured["input_tp"], measured["input_lra"],
+                     measured["input_thresh"]))
+        if measured.get("target_offset") is not None:
+            chain += ":offset=%s" % measured["target_offset"]
+        chain += ":linear=true"
+    result = base.run([
+        ffmpeg, "-hide_banner", "-nostats", "-i", str(path),
+        "-af", chain + ":print_format=json", "-f", "null", "-",
+    ], timeout=1800)
+    text = (result.stderr or "") + (result.stdout or "")
+    if measured:
+        # The apply pass still prints a report; the caller measures the file itself.
+        return {"chain": chain}
+    values = {}
+    for key in ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset"):
+        match = re.search(r'"%s"\s*:\s*"?(-?[0-9.]+)"?' % key, text)
+        values[key] = match.group(1) if match else "0"
+    return values
+
+
 def verify_delivery_loudness(delivery: Path, audio_track: Path, ffmpeg: str,
                              log=print, target: float = TARGET_LUFS) -> dict:
-    """Measure the finished file, and correct it if the encoder changed the level.
+    """Measure the finished file, and correct it if the encoder changed it.
 
-    Every earlier step in this tool works on audio that has not been muxed yet.
-    The file a viewer downloads is the only one that matters, so its level is
-    measured here rather than assumed to have survived. When it is wrong, the
-    audio is re-encoded and the video stream is copied: a level fix never costs a
-    second picture encode.
+    Every earlier step works on audio that has not been muxed yet; the file a
+    viewer downloads is the only one that matters, so its level and its true peak
+    are measured here. When either is wrong, the narration bed is re-normalised
+    with a two-pass loudnorm and remuxed under the copied picture - a sound fix
+    never costs a second picture encode.
+
+    True peak is checked as well as loudness because the AAC encoder can put an
+    overshoot between two samples that were both inside the limiter: inaudible on
+    speakers, a crackle on headphones, and invisible to a loudness meter.
     """
     measured = measure_loudness(delivery, ffmpeg)
     if measured is None:
         log("   delivery level could not be measured")
         return {"status": "unmeasured", "target": target}
-    if abs(measured - target) <= 1.0:
-        log("   delivery %.1f LUFS (target %.1f)" % (measured, target))
-        return {"status": "ok", "lufs": measured, "target": target}
+    peak = measure_true_peak(delivery, ffmpeg)
+    # Three tenths, not a whole decibel. A film that measures -14.7 when it was
+    # asked for -14 is not "within tolerance"; it is half a decibel quiet, and the
+    # trim below costs one audio pass.
+    within_level = abs(measured - target) <= 0.3
+    within_peak = peak is None or peak <= TARGET_TRUE_PEAK
+    if within_level and within_peak:
+        log("   delivery %.1f LUFS (target %.1f), true peak %s dBFS (limit %.1f)"
+            % (measured, target,
+               "%.1f" % peak if peak is not None else "unmeasured", TARGET_TRUE_PEAK))
+        return {"status": "ok", "lufs": measured, "true_peak_db": peak, "target": target}
 
+    # Three tenths of a decibel below the limit: the AAC encode of the corrected
+    # bed adds about that much back as inter-sample peak.
+    headroom = TARGET_TRUE_PEAK - 0.8
+    first = loudnorm_pass(audio_track, ffmpeg, target, headroom)
     corrected = audio_track.with_name(audio_track.stem + ".delivery.wav")
-    shutil.copy2(audio_track, corrected)
-    fixed = normalise_loudness(corrected, ffmpeg, target=target)
+    chain = loudnorm_pass(audio_track, ffmpeg, target, headroom, measured=first)["chain"]
+    result = base.run([
+        ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(audio_track),
+        "-af", chain, "-ar", "48000", str(corrected),
+    ], timeout=1800)
+    if result.returncode != 0 or not corrected.is_file():
+        corrected.unlink(missing_ok=True)
+        log("   the delivery correction failed; the file is left as encoded")
+        return {"status": "failed", "lufs": measured, "true_peak_db": peak, "target": target}
+
     temporary = delivery.with_name(delivery.stem + ".remux" + delivery.suffix)
     result = base.run([
         ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(delivery), "-i", str(corrected),
         "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "192k", "-shortest",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
         "-movflags", "+faststart", str(temporary),
     ], timeout=3600)
     corrected.unlink(missing_ok=True)
@@ -410,11 +580,71 @@ def verify_delivery_loudness(delivery: Path, audio_track: Path, ffmpeg: str,
         log("   delivery is %.1f LUFS and the correction failed" % measured)
         return {"status": "failed", "lufs": measured, "target": target}
     temporary.replace(delivery)
+
     after = measure_loudness(delivery, ffmpeg)
-    log("   delivery was %.1f LUFS; corrected to %.1f (target %.1f, audio re-encoded,"
-        " picture copied)" % (measured, after if after is not None else float("nan"), target))
-    return {"status": "corrected", "lufs_before": measured,
-            "lufs": after, "target": target, "gain_db": fixed.get("gain_db")}
+    after_peak = measure_true_peak(delivery, ffmpeg)
+    log("   delivery was %.1f LUFS / %s dBFS true peak; corrected to %.1f LUFS / %s"
+        " (target %.1f / %.1f, two-pass loudnorm, picture copied)"
+        % (measured, "%.1f" % peak if peak is not None else "?",
+           after if after is not None else float("nan"),
+           "%.1f" % after_peak if after_peak is not None else "?",
+           target, TARGET_TRUE_PEAK))
+
+    # The AAC encode costs about half a decibel of loudness and hands back more
+    # than a decibel of inter-sample peak, and loudnorm can see neither: it works
+    # on a WAV, not on the file a viewer downloads. This is the loop that closes
+    # that gap. It measures the delivered file, and if either number is wrong it
+    # re-cuts the audio bed from the original with a cumulative gain and a limiter
+    # ceiling, remuxes under a copied picture, and measures again - aiming, then
+    # measuring, then correcting, up to four times. On this film it takes two
+    # passes and about four seconds.
+    trim = 0.0
+    ceiling_db = TARGET_TRUE_PEAK - 0.8
+    for _ in range(4):
+        level_ok = after is not None and abs(target - after) <= 0.3
+        peak_ok = after_peak is None or after_peak <= TARGET_TRUE_PEAK
+        if level_ok and peak_ok:
+            break
+        if not peak_ok:
+            ceiling_db -= (after_peak - TARGET_TRUE_PEAK) + 0.25
+        if not level_ok and after is not None:
+            trim += target - after
+        trimmed = audio_track.with_name(audio_track.stem + ".trim.wav")
+        # Only limit when the gain would actually push the bed's peaks into the
+        # ceiling. Limiting a bed that has headroom left squashes it for nothing,
+        # and a limiter's own release tail is what put a decoded true peak of
+        # -0.4 dBFS on a file whose samples never went above -1.8.
+        source_peak = measure_true_peak(audio_track, ffmpeg)
+        needs_limit = source_peak is not None and source_peak + trim > TARGET_TRUE_PEAK - 1.0
+        chain = "volume=%.2fdB" % trim
+        if needs_limit:
+            chain += ",alimiter=limit=%.4f:level=false" % (10 ** (ceiling_db / 20))
+        result = base.run([
+            ffmpeg, "-y", "-hide_banner", "-loglevel", "error", "-i", str(audio_track),
+            "-af", chain, "-ar", "48000", str(trimmed),
+        ], timeout=1800)
+        temporary = delivery.with_name(delivery.stem + ".trim" + delivery.suffix)
+        if result.returncode == 0 and trimmed.is_file():
+            result = base.run([
+                ffmpeg, "-y", "-hide_banner", "-loglevel", "error",
+                "-i", str(delivery), "-i", str(trimmed),
+                "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy",
+                "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-shortest",
+                "-movflags", "+faststart", str(temporary),
+            ], timeout=3600)
+        trimmed.unlink(missing_ok=True)
+        if result.returncode != 0 or not temporary.is_file():
+            temporary.unlink(missing_ok=True)
+            break
+        temporary.replace(delivery)
+        after = measure_loudness(delivery, ffmpeg)
+        after_peak = measure_true_peak(delivery, ffmpeg)
+        log("   trimmed %+.2f dB, ceiling %.1f dBFS: the file now measures %.1f LUFS / %s dBFS true peak"
+            % (trim, ceiling_db, after if after is not None else float("nan"),
+               "%.1f" % after_peak if after_peak is not None else "?"))
+
+    return {"status": "corrected", "lufs_before": measured, "lufs": after,
+            "true_peak_db": after_peak, "target": target, "trim_db": round(trim, 2)}
 
 
 def measure_motion(video: Path, ffmpeg: str, work_dir: Path, gate: dict | None = None) -> dict:
@@ -469,6 +699,19 @@ def mmss(seconds: float) -> str:
     return "%d:%02d" % (total // 60, total % 60)
 
 
+def measure_composition(video: Path, limit: float = MAX_COMPOSITION_HOLD_SECONDS) -> dict:
+    """How often the arrangement on screen changes. See ``video_studio/composition.py``.
+
+    ``measure_motion`` above is satisfied by grain, and the repeat-frame check is
+    satisfied by a ticking caption. This one is not satisfied by either, because
+    it compares thumbnails of the layout rather than pixels: decoration moves
+    every pixel and rearranges nothing.
+    """
+    import composition as composition_module
+
+    return composition_module.analyse_video(video, max_hold_seconds=limit)
+
+
 def measure_repeat_frames(video: Path, limit: float = MAX_STILL_SECONDS) -> dict:
     """Frozen-span check on the encoded file. See ``video_studio/repeat_frames.py``.
 
@@ -499,12 +742,14 @@ def main(argv: list[str] | None = None) -> int:
                              "(0 draws the film in a single process)")
     parser.add_argument("--frames", default=None,
                         help="reuse an existing frame directory (skips rendering)")
+    parser.add_argument("--script-args", default="",
+                        help="extra arguments for the film script, e.g. '--brief path/to/brief.json'")
     parser.add_argument("--voice-script", default=None,
                         help="JSON narration script; synthesise a voiceover and mix it in")
     parser.add_argument("--voice-dir", default=None,
                         help="where the voiceover lives (default: <out>/voice)")
     parser.add_argument("--voice", default="en_US-lessac-medium", help="Piper voice name")
-    parser.add_argument("--voice-backend", default="auto", choices=["auto", "piper", "espeak"])
+    parser.add_argument("--voice-backend", default="auto", choices=["auto", "kokoro", "piper", "espeak"])
     parser.add_argument("--voice-offline", action="store_true",
                         help="never download voice weights (fail instead)")
     parser.add_argument("--allow-voice-warnings", action="store_true",
@@ -523,6 +768,14 @@ def main(argv: list[str] | None = None) -> int:
     out_dir.mkdir(parents=True, exist_ok=True)
     frames_dir = out_dir / "build" / "frames"
     script = (ROOT / args.script).resolve()
+    script_args = shlex.split(args.script_args or "")
+    # A brief is resolved against the repository so the same command works from
+    # a checkout, from CI, and from a subdirectory.
+    for index, value in enumerate(script_args):
+        if value == "--brief" and index + 1 < len(script_args):
+            script_args[index + 1] = str((ROOT / script_args[index + 1]).resolve())
+        elif value.startswith("--brief="):
+            script_args[index] = "--brief=" + str((ROOT / value.split("=", 1)[1]).resolve())
 
     try:
         ffmpeg, ffprobe = base.resolve_ffmpeg()
@@ -547,13 +800,15 @@ def main(argv: list[str] | None = None) -> int:
         return 3
 
     voice_dir = Path(args.voice_dir).resolve() if args.voice_dir else out_dir / "voice"
-    step_count = 9 if (args.voice_script or (voice_dir / "voiceover.wav").is_file()) else 7
     step_no = 0
 
     def step(label: str) -> str:
+        # No denominator: the number of steps depends on whether a voice exists,
+        # whether subtitles can be written and whether a render is resumed, and a
+        # guessed total printed "9/9 measure motion" for four more steps.
         nonlocal step_no
         step_no += 1
-        return "== %d/%d %s" % (step_no, step_count, label)
+        return "== %d %s" % (step_no, label)
 
     try:
         voice_info = None
@@ -626,7 +881,8 @@ def main(argv: list[str] | None = None) -> int:
             log(step("render frames"))
             manifest = step_frames(script, frames_dir, args.width, args.height, args.fps, args.quality,
                                    voice_lines if voice_info else None,
-                                   slice_frames=args.slice_frames)
+                                   slice_frames=args.slice_frames,
+                                   script_args=script_args)
             log("   %d frames at %dx%d" % (manifest["frame_count"], manifest["width"], manifest["height"]))
             film_json = frames_dir / "film.json"
 
@@ -644,17 +900,22 @@ def main(argv: list[str] | None = None) -> int:
             audio_track = mixed
             log("   duck %.1f dB, voice %.1f dB above the bed, peak %.2f"
                 % (mix_info["duck_depth_db"], mix_info["voice_to_bed_db"], mix_info["peak"]))
-            log(step("loudness"))
+            log(step("master the mix"))
             ffmpeg_for_audio = base.resolve_ffmpeg()[0]
-            loudness = normalise_loudness(audio_track, ffmpeg_for_audio)
-            if loudness.get("lufs_after") is not None:
-                log("   %.1f LUFS -> %.1f LUFS (gain %+.1f dB, target %.1f)"
-                    % (loudness["lufs_before"], loudness["lufs_after"],
-                       loudness.get("gain_db", 0.0), loudness["target"]))
-            else:
-                log("   loudness not measured (%s)" % loudness.get("status"))
-
+            # Judge the narration on the mix, not on the master: the master is a
+            # stereo limiter pass, and measuring pauses and breaths on a limited
+            # stereo fold-down reports rests the listener never hears.
             mix_narration = judge_narration(audio_track, voice_lines, stage="mix")
+            mastered = master_audio(audio_track, ffmpeg_for_audio)
+            if mastered.get("status") in ("mastered", "unnormalised"):
+                audio_track = Path(mastered["path"])
+                log("   %.1f LUFS / %s dBTP true peak, 48 kHz stereo, target %.1f"
+                    % (mastered["lufs"] if mastered.get("lufs") is not None else float("nan"),
+                       "%.1f" % mastered["true_peak_db"] if mastered.get("true_peak_db") is not None else "?",
+                       mastered["target"]))
+            else:
+                log("   the master pass failed; the mix is used as mixed")
+
             if not mix_narration["listenable"]:
                 log("   delivery level: " + "; ".join(mix_narration["failures"]))
             if voice_info.get("path") and Path(voice_info["path"]).is_file():
@@ -715,11 +976,25 @@ def main(argv: list[str] | None = None) -> int:
         log("   delivery %s (%.1f MB)" % (delivery.name, delivery.stat().st_size / 1048576))
         delivery_level = verify_delivery_loudness(delivery, audio_track, ffmpeg, log=log)
 
+        subtitles = None
+        if voice_lines.is_file():
+            log(step("subtitles"))
+            subtitles = write_subtitles(voice_lines, out_dir)
+            log("   %d cues, longest %d characters -> %s"
+                % (subtitles["cues"], subtitles["longest_cue_characters"],
+                   Path(subtitles["srt"]).name))
+
         log(step("measure motion"))
         film_meta = json.loads(film_json.read_text(encoding="utf-8"))
         gate = film_meta.get("motion_gate") or DEFAULT_GATE
         motion = measure_motion(delivery, ffmpeg, out_dir / "build", gate)
         log("   " + motion["statement"])
+
+        log(step("measure composition"))
+        composition_report = measure_composition(delivery, MAX_COMPOSITION_HOLD_SECONDS)
+        log("   " + composition_report["statement"].splitlines()[0])
+        for span in composition_report.get("spans", [])[:5]:
+            log("   hold %s  %.1f s" % (span["start"], span["seconds"]))
 
         log(step("measure holds"))
         holds = measure_repeat_frames(delivery, MAX_STILL_SECONDS)
@@ -760,6 +1035,10 @@ def main(argv: list[str] | None = None) -> int:
             "frames": {"count": manifest["frame_count"]},
             "elapsed_seconds": round(time.time() - started, 1),
             "motion_spec": motion,
+            "composition": {key: composition_report[key] for key in
+                            ("status", "statement", "compositions", "longest_hold_seconds",
+                             "longest_hold_at", "share_over_limit", "spans")
+                            if key in composition_report},
             "holds": {key: holds[key] for key in
                       ("status", "statement", "limit_seconds", "longest_still_seconds",
                        "still_share_of_frames", "spans", "fix_hint")
@@ -774,6 +1053,7 @@ def main(argv: list[str] | None = None) -> int:
                             "longest_pause", "breaths_per_minute", "failures")}
                           if narration else None),
             "delivery_level": delivery_level,
+            "subtitles": subtitles,
             "validation": validation,
             "outputs": [
                 {
@@ -795,7 +1075,8 @@ def main(argv: list[str] | None = None) -> int:
                 source.replace(out_dir / name)
 
         ok = (motion["status"] == "passed" and audit.get("status") != "flagged"
-              and holds.get("status") == "passed")
+              and holds.get("status") == "passed"
+              and composition_report.get("status") == "passed")
         if args.json:
             print(json.dumps(summary, indent=2))
         else:
@@ -803,6 +1084,7 @@ def main(argv: list[str] | None = None) -> int:
             print("FILM:", summary["title"], "|", summary["frames"]["count"], "frames |",
                   summary["elapsed_seconds"], "s")
             print(motion["statement"])
+            print(composition_report["statement"])
             print(holds["statement"])
             print(audit["statement"])
             for item in summary["outputs"]:

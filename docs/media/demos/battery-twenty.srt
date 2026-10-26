@@ -1,0 +1,58 @@
+1
+00:00:00,120 --> 00:00:04,025
+Your phone says twenty percent. Then it
+dies in a minute.
+
+2
+00:00:05,575 --> 00:00:09,817
+The gauge reads twenty percent. The cell
+is nearly empty.
+
+3
+00:00:11,367 --> 00:00:15,602
+You blame a dying cell. The problem is a
+lying gauge.
+
+4
+00:00:16,572 --> 00:00:20,741
+The gauge reads voltage, and voltage sags
+under load.
+
+5
+00:00:22,291 --> 00:00:24,566
+A cheap cable drops the voltage.
+
+6
+00:00:25,536 --> 00:00:28,640
+Cold weather slows the reaction inside the
+cell.
+
+7
+00:00:29,610 --> 00:00:32,171
+A three year old cell simply holds less.
+
+8
+00:00:33,721 --> 00:00:37,194
+Forty five percent of the error is voltage
+sag.
+
+9
+00:00:38,164 --> 00:00:39,559
+Twenty is cold.
+
+10
+00:00:40,529 --> 00:00:42,063
+Thirty five is age.
+
+11
+00:00:43,613 --> 00:00:44,737
+Run one check.
+
+12
+00:00:45,707 --> 00:00:47,391
+It is called battery health.
+
+13
+00:00:48,941 --> 00:00:52,899
+Check the cable first. It is the cheapest
+of the three.

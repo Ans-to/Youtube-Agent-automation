@@ -1,0 +1,181 @@
+{
+  "slug": "compound-interest",
+  "title": "How Compound Interest Actually Works",
+  "promise": "You will see why the last ten years do more than the first twenty.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "NOT A LINE",
+    "section": "number"
+  },
+  "tags": [
+    "compound interest",
+    "investing",
+    "saving",
+    "money",
+    "personal finance"
+  ],
+  "hashtags": [
+    "compound interest",
+    "investing",
+    "money"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The claim",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "Your money does not grow in a line"
+      },
+      "lines": [
+        {
+          "text": "Your money does not grow in a line. It grows in a curve.",
+          "id": "L001"
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The rate",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "props": {
+        "value": 7,
+        "label": "percent"
+      },
+      "lines": [
+        {
+          "text": "Seven percent a year sounds small. Wait until you see thirty years.",
+          "id": "L002"
+        },
+        {
+          "text": "The curve is the point.",
+          "id": "L003"
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "section",
+      "heading": "The difference",
+      "situation": "make-a-comparison",
+      "template": "overlap-pair",
+      "props": {
+        "left": "Simple interest",
+        "right": "Compound",
+        "shared": "what you put in"
+      },
+      "lines": [
+        {
+          "text": "Simple interest pays on what you put in. Compound pays on what you kept.",
+          "id": "L004"
+        },
+        {
+          "text": "That is the whole gap.",
+          "id": "L005"
+        }
+      ]
+    },
+    {
+      "id": "decades",
+      "kind": "section",
+      "heading": "The decades",
+      "situation": "show-a-sequence",
+      "template": "budget-rail",
+      "props": {
+        "segments": [
+          {
+            "label": "First ten years",
+            "value": 10
+          },
+          {
+            "label": "Next twenty",
+            "value": 20
+          },
+          {
+            "label": "Last ten years",
+            "value": 10
+          }
+        ],
+        "total": 40
+      },
+      "lines": [
+        {
+          "text": "First ten years: a little. Next twenty: some.",
+          "id": "L006"
+        },
+        {
+          "text": "Then the last ten years does the work.",
+          "id": "L007"
+        },
+        {
+          "text": "Almost all of it.",
+          "id": "L008"
+        }
+      ]
+    },
+    {
+      "id": "rules",
+      "kind": "section",
+      "heading": "The rules",
+      "situation": "show-criteria",
+      "template": "list-build",
+      "props": {
+        "items": [
+          "Start early",
+          "Do not withdraw",
+          "Ignore the noise"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Start early. Do not withdraw. Two rules, and no skill required.",
+          "id": "L009"
+        },
+        {
+          "text": "And ignore the noise between the two.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "gap",
+      "kind": "section",
+      "heading": "The gap",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "props": {
+        "left": "Ten years early",
+        "right": "Ten years late"
+      },
+      "lines": [
+        {
+          "text": "Ten years early is worth more than ten years late.",
+          "id": "L011"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Start ten years ago",
+        "kicker": "ten years"
+      },
+      "lines": [
+        {
+          "text": "The best day to start was ten years ago. The second best is today.",
+          "id": "L012"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,180 @@
+{
+  "slug": "battery-twenty",
+  "title": "Why Your Phone Dies at Twenty Percent",
+  "promise": "You will know which of the three parts is lying before you buy anything.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "IT IS LYING",
+    "section": "number"
+  },
+  "tags": [
+    "phone battery",
+    "battery health",
+    "charging",
+    "phone dies",
+    "tech explained"
+  ],
+  "hashtags": [
+    "phone battery",
+    "battery health",
+    "tech explained"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The symptom",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "Your phone says twenty percent"
+      },
+      "lines": [
+        {
+          "text": "Your phone says twenty percent. Then it dies in a minute.",
+          "id": "L001"
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The readout",
+      "situation": "explain-a-number",
+      "template": "count-up",
+      "props": {
+        "value": 20,
+        "label": "percent"
+      },
+      "lines": [
+        {
+          "text": "The gauge reads twenty percent. The cell is nearly empty.",
+          "id": "L002"
+        }
+      ]
+    },
+    {
+      "id": "causes",
+      "kind": "section",
+      "heading": "The three causes",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "props": {
+        "items": [
+          "A cheap cable drops the voltage",
+          "Cold weather slows the reaction",
+          "A three year old cell holds less"
+        ]
+      },
+      "lines": [
+        {
+          "text": "A cheap cable drops the voltage.",
+          "id": "L003"
+        },
+        {
+          "text": "Cold weather slows the reaction inside the cell.",
+          "id": "L004"
+        },
+        {
+          "text": "A three year old cell simply holds less.",
+          "id": "L005"
+        }
+      ]
+    },
+    {
+      "id": "error",
+      "kind": "section",
+      "heading": "Where the error is",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
+      "props": {
+        "labels": [
+          "Voltage sag",
+          "Cold",
+          "Age"
+        ],
+        "values": [
+          45,
+          20,
+          35
+        ]
+      },
+      "lines": [
+        {
+          "text": "Forty five percent of the error is voltage sag.",
+          "id": "L006"
+        },
+        {
+          "text": "Twenty is cold.",
+          "id": "L007"
+        },
+        {
+          "text": "Thirty five is age.",
+          "id": "L008"
+        }
+      ]
+    },
+    {
+      "id": "lie",
+      "kind": "section",
+      "heading": "So the gauge lies",
+      "situation": "state-the-thesis",
+      "template": "fork-paths",
+      "props": {
+        "left": "A lying gauge",
+        "right": "A dying cell"
+      },
+      "lines": [
+        {
+          "text": "You blame a dying cell. The problem is a lying gauge.",
+          "id": "L009"
+        },
+        {
+          "text": "The gauge reads voltage, and voltage sags under load.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "check",
+      "kind": "section",
+      "heading": "The check",
+      "situation": "show-the-command",
+      "template": "command-console",
+      "props": {
+        "lines": [
+          "battery health"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Run one check.",
+          "id": "L011"
+        },
+        {
+          "text": "It is called battery health.",
+          "id": "L012"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The fix",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Check the cable first",
+        "kicker": "the cable"
+      },
+      "lines": [
+        {
+          "text": "Check the cable first. It is the cheapest of the three.",
+          "id": "L013"
+        }
+      ]
+    }
+  ]
+}

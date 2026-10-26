@@ -1,0 +1,188 @@
+{
+  "slug": "ten-minutes",
+  "title": "Ten Minutes a Day Beats a Weekend",
+  "promise": "You will practise in ten-minute blocks and keep what you learn.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "TEN MINUTES",
+    "section": "number"
+  },
+  "tags": [
+    "learning",
+    "study habits",
+    "practice",
+    "ten minutes",
+    "how to learn"
+  ],
+  "hashtags": [
+    "learning",
+    "study habits",
+    "practice"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The claim",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "Ten minutes beats a weekend"
+      },
+      "lines": [
+        {
+          "text": "Ten minutes a day beats a weekend of nothing. It sounds too small to work.",
+          "id": "L001"
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The number",
+      "situation": "name-the-thing",
+      "template": "count-up",
+      "props": {
+        "value": 10,
+        "label": "minutes"
+      },
+      "lines": [
+        {
+          "text": "The number is ten. Ten minutes, every day.",
+          "id": "L002"
+        }
+      ]
+    },
+    {
+      "id": "habit",
+      "kind": "section",
+      "heading": "The habit",
+      "situation": "build-an-argument",
+      "template": "stack-push",
+      "props": {
+        "items": [
+          "Pick one skill",
+          "Set a timer",
+          "Stop when it rings"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Pick one skill. Set a timer.",
+          "id": "L003"
+        },
+        {
+          "text": "And stop when it rings, even if you are enjoying it.",
+          "id": "L004"
+        }
+      ]
+    },
+    {
+      "id": "split",
+      "kind": "section",
+      "heading": "Where the block goes",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "props": {
+        "segments": [
+          {
+            "label": "Practice",
+            "value": 50
+          },
+          {
+            "label": "Notes",
+            "value": 20
+          },
+          {
+            "label": "Sleep",
+            "value": 30
+          }
+        ],
+        "total": 100
+      },
+      "lines": [
+        {
+          "text": "Fifty percent practice. Twenty percent notes. Thirty percent sleep.",
+          "id": "L005"
+        },
+        {
+          "text": "Sleep is the practice.",
+          "id": "L006"
+        }
+      ]
+    },
+    {
+      "id": "parts",
+      "kind": "section",
+      "heading": "The three parts",
+      "situation": "build-an-argument",
+      "template": "list-build",
+      "props": {
+        "items": [
+          "One rep",
+          "One note",
+          "One night"
+        ]
+      },
+      "lines": [
+        {
+          "text": "One rep, one note, one night. That is the whole stack.",
+          "id": "L007"
+        }
+      ]
+    },
+    {
+      "id": "choice",
+      "kind": "section",
+      "heading": "Two ways to spend it",
+      "situation": "before-and-after",
+      "template": "compare-pair",
+      "props": {
+        "left": "One weekend marathon",
+        "right": "Ten minutes daily"
+      },
+      "lines": [
+        {
+          "text": "One weekend marathon. Or ten minutes daily, for a month. Same hours.",
+          "id": "L008"
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "What it buys",
+      "situation": "make-a-comparison",
+      "template": "fork-paths",
+      "props": {
+        "left": "A skill in a year",
+        "right": "A skill in a month"
+      },
+      "lines": [
+        {
+          "text": "Same hours. A skill in a year, or a skill in a month. One you keep.",
+          "id": "L009"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Start the timer today",
+        "kicker": "the timer"
+      },
+      "lines": [
+        {
+          "text": "Start the timer today. Ten minutes is enough.",
+          "id": "L010"
+        }
+      ]
+    }
+  ]
+}

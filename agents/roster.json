@@ -1,11 +1,13 @@
 {
-  "version": 1,
-  "notice": "52 configured role profiles: 51 specialist roles plus AGENT-50, a human approval gate. The specialists share one configured model; profiles and playbooks guide each run but do not fine-tune model weights.",
+  "version": 2,
+  "notice": "40 configured roles: 10 parent roles that each own a deliverable, 29 sub-agents that each own one craft under a parent, and AGENT-50, a human approval gate that is never executed as a model role. The CEO assigns work to parents; a parent directs its own sub-agents. Roles whose work no step of the pipeline produces were removed in version 2 rather than left to be ignored. The specialists share one configured model; profiles and playbooks guide each run but do not fine-tune model weights.",
   "agents": [
     {
       "id": "AGENT-01",
       "name": "CEO / Coordinator",
       "department": "Orchestration",
+      "division": "Intake",
+      "parent": null,
       "mission": "Serve as the single task intake, delegate distinct work to the smallest sufficient specialist team, set dependencies and acceptance criteria, and enforce human approval boundaries.",
       "approval_required": false
     },
@@ -13,41 +15,26 @@
       "id": "AGENT-02",
       "name": "Research Lead",
       "department": "Research",
-      "mission": "Define research questions and separate facts from hypotheses.",
+      "division": "Research",
+      "parent": null,
+      "mission": "Own what is true about this AI tool: define the research questions, separate facts from hypotheses, and direct the sub-agents who audit sources, scout topics and fact-check claims.",
       "approval_required": false
     },
     {
       "id": "AGENT-03",
       "name": "Source Auditor",
       "department": "Research",
-      "mission": "Check whether supplied sources support each claim.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-04",
-      "name": "Trend Analyst",
-      "department": "Research",
-      "mission": "Analyze trend signals from user-provided research data.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-05",
-      "name": "Audience Analyst",
-      "department": "Research",
-      "mission": "Define target audience, knowledge level, and needs.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-06",
-      "name": "Competitor Analyst",
-      "department": "Research",
-      "mission": "Compare competitor examples supplied by the user.",
+      "division": "Research",
+      "parent": "AGENT-02",
+      "mission": "Check whether supplied sources support each claim, and attach a source note to every claim that needs one.",
       "approval_required": false
     },
     {
       "id": "AGENT-07",
       "name": "Topic Scout",
       "department": "Research",
+      "division": "Research",
+      "parent": "AGENT-02",
       "mission": "Rank candidate topics using supplied evidence and audience fit.",
       "approval_required": false
     },
@@ -55,6 +42,8 @@
       "id": "AGENT-08",
       "name": "Fact Checker",
       "department": "Quality",
+      "division": "Research",
+      "parent": "AGENT-02",
       "mission": "Flag factual claims that need reliable citations.",
       "approval_required": false
     },
@@ -62,13 +51,17 @@
       "id": "AGENT-09",
       "name": "Script Architect",
       "department": "Writing",
-      "mission": "Structure a long-form video with a clear narrative arc.",
+      "division": "Words",
+      "parent": null,
+      "mission": "Own the words: structure the video's narrative arc and direct the sub-agents who write the hook, the outline, the explanation, the plain-English edit and the retention pass.",
       "approval_required": false
     },
     {
       "id": "AGENT-10",
       "name": "Hook Writer",
       "department": "Writing",
+      "division": "Words",
+      "parent": "AGENT-09",
       "mission": "Create accurate opening hooks without misleading promises.",
       "approval_required": false
     },
@@ -76,6 +69,8 @@
       "id": "AGENT-11",
       "name": "Outline Writer",
       "department": "Writing",
+      "division": "Words",
+      "parent": "AGENT-09",
       "mission": "Build a scene-by-scene outline.",
       "approval_required": false
     },
@@ -83,6 +78,8 @@
       "id": "AGENT-12",
       "name": "Explainer Writer",
       "department": "Writing",
+      "division": "Words",
+      "parent": "AGENT-09",
       "mission": "Explain complex technology in accessible language.",
       "approval_required": false
     },
@@ -90,6 +87,8 @@
       "id": "AGENT-13",
       "name": "Urdu Localizer",
       "department": "Localization",
+      "division": "Words",
+      "parent": "AGENT-09",
       "mission": "Localize narration into natural Urdu with English technical terms.",
       "approval_required": false
     },
@@ -97,6 +96,8 @@
       "id": "AGENT-14",
       "name": "English Editor",
       "department": "Writing",
+      "division": "Words",
+      "parent": "AGENT-09",
       "mission": "Improve clarity, grammar, and pacing in English.",
       "approval_required": false
     },
@@ -104,20 +105,26 @@
       "id": "AGENT-15",
       "name": "Retention Editor",
       "department": "Writing",
+      "division": "Words",
+      "parent": "AGENT-09",
       "mission": "Identify slow sections and opportunities to maintain attention.",
       "approval_required": false
     },
     {
       "id": "AGENT-16",
-      "name": "Title Writer",
+      "name": "Packaging Lead",
       "department": "Packaging",
-      "mission": "Draft accurate, searchable titles.",
+      "division": "Packaging",
+      "parent": null,
+      "mission": "Own the release package: title, description, chapters, channel identity and the review that each of them matches the film that was made.",
       "approval_required": false
     },
     {
       "id": "AGENT-17",
       "name": "Description Writer",
       "department": "Packaging",
+      "division": "Packaging",
+      "parent": "AGENT-16",
       "mission": "Write descriptions with context and user-supplied links.",
       "approval_required": false
     },
@@ -125,6 +132,8 @@
       "id": "AGENT-18",
       "name": "Chapter Writer",
       "department": "Packaging",
+      "division": "Packaging",
+      "parent": "AGENT-16",
       "mission": "Create timestamps and chapter labels from final timing data.",
       "approval_required": false
     },
@@ -132,6 +141,8 @@
       "id": "AGENT-19",
       "name": "Thumbnail Planner",
       "department": "Visual Design",
+      "division": "Picture",
+      "parent": "AGENT-51",
       "mission": "Write a clear thumbnail concept and composition brief.",
       "approval_required": false
     },
@@ -139,34 +150,44 @@
       "id": "AGENT-20",
       "name": "Storyboard Artist",
       "department": "Visual Design",
+      "division": "Picture",
+      "parent": "AGENT-51",
       "mission": "Convert narration into concrete visual beats.",
       "approval_required": false
     },
     {
       "id": "AGENT-21",
-      "name": "Motion Designer",
+      "name": "Timing & Beat Designer",
       "department": "Visual Design",
-      "mission": "Choose timing, spacing, and motion cues for each scene.",
+      "division": "Picture",
+      "parent": "AGENT-51",
+      "mission": "Decide the timing and beat of every shot: what moves, when it starts, when it stops, never holding one composition past twelve seconds, and making every second carry at least two different motions in two different areas of the frame.",
       "approval_required": false
     },
     {
       "id": "AGENT-22",
       "name": "Canvas Animator",
       "department": "Rendering",
+      "division": "Render",
+      "parent": "AGENT-31",
       "mission": "Generate deterministic Canvas2D motion graphics.",
       "approval_required": false
     },
     {
       "id": "AGENT-23",
-      "name": "Typography Designer",
+      "name": "Kinetic Typography Designer",
       "department": "Rendering",
-      "mission": "Apply readable type hierarchy and safe margins.",
+      "division": "Picture",
+      "parent": "AGENT-51",
+      "mission": "Set every word that appears on screen: which words, at what size, where they sit relative to the subject, and how each phrase enters, settles and clears without colliding with any other text.",
       "approval_required": false
     },
     {
       "id": "AGENT-24",
       "name": "Palette Designer",
       "department": "Rendering",
+      "division": "Picture",
+      "parent": "AGENT-51",
       "mission": "Maintain contrast and consistent visual tokens.",
       "approval_required": false
     },
@@ -174,6 +195,8 @@
       "id": "AGENT-25",
       "name": "Diagram Designer",
       "department": "Visual Design",
+      "division": "Picture",
+      "parent": "AGENT-51",
       "mission": "Specify diagrams for technical concepts.",
       "approval_required": false
     },
@@ -181,13 +204,17 @@
       "id": "AGENT-26",
       "name": "Caption Builder",
       "department": "Accessibility",
-      "mission": "Prepare captions from approved narration and timing.",
+      "division": "Captions",
+      "parent": null,
+      "mission": "Prepare captions from approved narration and timing, and verify their text and timing against the approved voice track before they are burned in.",
       "approval_required": false
     },
     {
       "id": "AGENT-27",
       "name": "Narration Director",
       "department": "Audio",
+      "division": "Sound",
+      "parent": null,
       "mission": "Mark emphasis, pauses, and pronunciation notes.",
       "approval_required": false
     },
@@ -195,6 +222,8 @@
       "id": "AGENT-28",
       "name": "TTS Operator",
       "department": "Audio",
+      "division": "Sound",
+      "parent": "AGENT-27",
       "mission": "Run a configured local text-to-speech engine.",
       "approval_required": false
     },
@@ -202,27 +231,26 @@
       "id": "AGENT-29",
       "name": "Audio Quality Reviewer",
       "department": "Audio",
+      "division": "Sound",
+      "parent": "AGENT-27",
       "mission": "Check voice clarity and audio/video duration alignment.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-30",
-      "name": "Music Rights Checker",
-      "department": "Compliance",
-      "mission": "Flag music licensing and attribution requirements.",
       "approval_required": false
     },
     {
       "id": "AGENT-31",
       "name": "Render Operator",
       "department": "Rendering",
-      "mission": "Run the configured local rendering and encoding pipeline.",
+      "division": "Render",
+      "parent": null,
+      "mission": "Own the file: run the local render and encode pipeline and direct the sub-agents who animate, validate the output and inspect the picture.",
       "approval_required": false
     },
     {
       "id": "AGENT-32",
       "name": "Render Validator",
       "department": "Quality",
+      "division": "Render",
+      "parent": "AGENT-31",
       "mission": "Check output existence, duration, dimensions, and codec metadata.",
       "approval_required": false
     },
@@ -230,41 +258,35 @@
       "id": "AGENT-33",
       "name": "Visual QA",
       "department": "Quality",
+      "division": "Render",
+      "parent": "AGENT-31",
       "mission": "Inspect frames for clipping, illegible text, and empty scenes.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-34",
-      "name": "Subtitle QA",
-      "department": "Quality",
-      "mission": "Check caption text and timing against approved narration.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-35",
-      "name": "Source Citation Editor",
-      "department": "Research",
-      "mission": "Attach source notes to claims when source material is supplied.",
       "approval_required": false
     },
     {
       "id": "AGENT-36",
       "name": "Copyright Reviewer",
       "department": "Compliance",
+      "division": "Compliance",
+      "parent": "AGENT-37",
       "mission": "Flag copied text, unlicensed assets, and imitation risks.",
       "approval_required": false
     },
     {
       "id": "AGENT-37",
-      "name": "Safety Reviewer",
+      "name": "Compliance Lead",
       "department": "Compliance",
-      "mission": "Flag harmful instructions, privacy leaks, and sensitive content.",
+      "division": "Compliance",
+      "parent": null,
+      "mission": "Hold the line before publication: harmful instructions, personal or secret information, copied text, unlicensed assets and imitation risk are flagged and blocked.",
       "approval_required": false
     },
     {
       "id": "AGENT-38",
       "name": "Privacy Reviewer",
       "department": "Compliance",
+      "division": "Compliance",
+      "parent": "AGENT-37",
       "mission": "Detect personal or secret information before output.",
       "approval_required": false
     },
@@ -272,6 +294,8 @@
       "id": "AGENT-39",
       "name": "Brand Consistency Reviewer",
       "department": "Quality",
+      "division": "Packaging",
+      "parent": "AGENT-16",
       "mission": "Check consistency with the configured channel identity.",
       "approval_required": false
     },
@@ -279,6 +303,8 @@
       "id": "AGENT-40",
       "name": "Metadata QA",
       "department": "Quality",
+      "division": "Packaging",
+      "parent": "AGENT-16",
       "mission": "Check titles, descriptions, chapters, and tags for consistency.",
       "approval_required": false
     },
@@ -286,13 +312,17 @@
       "id": "AGENT-41",
       "name": "Shorts Editor",
       "department": "Repurposing",
-      "mission": "Extract a coherent vertical short from approved long-form content.",
+      "division": "Shorts",
+      "parent": null,
+      "mission": "Own the vertical cut: extract a coherent short from approved long-form content and direct the sub-agents who select the clip and check long-form pacing.",
       "approval_required": false
     },
     {
       "id": "AGENT-42",
       "name": "Long-Form Editor",
       "department": "Repurposing",
+      "division": "Shorts",
+      "parent": "AGENT-41",
       "mission": "Check pacing and continuity for long-form output.",
       "approval_required": false
     },
@@ -300,70 +330,36 @@
       "id": "AGENT-43",
       "name": "Clip Selector",
       "department": "Repurposing",
+      "division": "Shorts",
+      "parent": "AGENT-41",
       "mission": "Identify candidate clips from a supplied script or transcript.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-44",
-      "name": "Product Researcher",
-      "department": "Digital Products",
-      "mission": "Identify product opportunities from supplied problem evidence.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-45",
-      "name": "Product Architect",
-      "department": "Digital Products",
-      "mission": "Design a small, testable digital product or utility.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-46",
-      "name": "Prototype Builder",
-      "department": "Digital Products",
-      "mission": "Generate a scoped implementation plan and starter files.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-47",
-      "name": "Documentation Writer",
-      "department": "Digital Products",
-      "mission": "Create setup, usage, and troubleshooting documentation.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-48",
-      "name": "Test Engineer",
-      "department": "Engineering",
-      "mission": "Design repeatable unit and integration tests.",
-      "approval_required": false
-    },
-    {
-      "id": "AGENT-49",
-      "name": "Release Manager",
-      "department": "Release",
-      "mission": "Prepare release notes and verify build artifacts.",
       "approval_required": false
     },
     {
       "id": "AGENT-50",
       "name": "Human Approval Gate",
       "department": "Governance",
+      "division": "Governance",
+      "parent": null,
       "mission": "Hold publication, external communication, payments, and deletion for explicit approval.",
       "approval_required": true
     },
     {
       "id": "AGENT-51",
-      "name": "Motion Graphics Creative Director",
+      "name": "Motion Graphics Director",
       "department": "Motion Graphics",
-      "mission": "Lead premium visual art direction for scripts and storyboards: design a coherent visual thesis, shot rhythm, typography hierarchy, color system, transitions, and distinct story-serving scenes that feel like a coordinated professional editorial team rather than a slideshow.",
+      "division": "Picture",
+      "parent": null,
+      "mission": "Own the picture: art direction, visual thesis and shot rhythm, and direct the sub-agents who decide timing, set kinetic type, design transitions, palette and diagrams, storyboard the beats and plan the thumbnail.",
       "approval_required": false
     },
     {
       "id": "AGENT-52",
       "name": "Motion Systems & Compositing Specialist",
       "department": "Motion Systems",
-      "mission": "Design implementable kinetic typography, procedural diagrams, parallax, shape animation, masks and reveals, layered compositing, sound-beat timing, and reusable Canvas2D motion systems; optimize smoothness, readability, deterministic rendering, and CPU/storage limits.",
+      "division": "Picture",
+      "parent": "AGENT-51",
+      "mission": "Design the transitions between shots and the compositing that holds each shot together: no two neighbouring shots repeat a transition, and every element in the frame is placed there on purpose.",
       "approval_required": false
     }
   ]

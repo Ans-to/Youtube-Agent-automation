@@ -1,0 +1,905 @@
+{
+  "version": 1,
+  "generated_by": "video_studio/motion/library_cli.mjs --write-agent-map",
+  "notice": "Generated from the code. Do not edit by hand: edit the templates or the situations and regenerate.",
+  "rules": {
+    "pick_by_situation": "Choose the template from the situation the beat is for, never from habit or from what the last beat used.",
+    "one_region_each": "A template owns one region. Two templates may not share a region on the same frame.",
+    "type_never_overlaps_type": "Every word is masked to its own box; the self-check measures this.",
+    "no_shake": "No template translates or rotates the camera. Motion is one direction, eased, then still.",
+    "beat_length": "A template refuses a beat outside its band; pick another template rather than stretching it."
+  },
+  "reserved": {
+    "caption": {
+      "x": 0,
+      "y": 0.865,
+      "w": 1,
+      "h": 0.135
+    }
+  },
+  "regions": {
+    "title": {
+      "x": 0.1,
+      "y": 0.34,
+      "w": 0.64,
+      "h": 0.3
+    },
+    "hero": {
+      "x": 0.08,
+      "y": 0.1,
+      "w": 0.66,
+      "h": 0.24
+    },
+    "stage": {
+      "x": 0.08,
+      "y": 0.36,
+      "w": 0.66,
+      "h": 0.26
+    },
+    "floor": {
+      "x": 0.08,
+      "y": 0.64,
+      "w": 0.66,
+      "h": 0.16
+    },
+    "band": {
+      "x": 0.06,
+      "y": 0.46,
+      "w": 0.7,
+      "h": 0.1
+    },
+    "split": {
+      "x": 0.06,
+      "y": 0.22,
+      "w": 0.7,
+      "h": 0.42
+    },
+    "ledger": {
+      "x": 0.08,
+      "y": 0.12,
+      "w": 0.44,
+      "h": 0.52
+    },
+    "spread": {
+      "x": 0.06,
+      "y": 0.16,
+      "w": 0.88,
+      "h": 0.46
+    },
+    "wide": {
+      "x": 0.06,
+      "y": 0.3,
+      "w": 0.88,
+      "h": 0.34
+    },
+    "statement": {
+      "x": 0.07,
+      "y": 0.28,
+      "w": 0.76,
+      "h": 0.34
+    }
+  },
+  "situations": {
+    "opening-claim": {
+      "says": "Open the film by stating the premise in one sentence.",
+      "wants": [
+        "kinetic-headline",
+        "stack-push"
+      ]
+    },
+    "name-the-thing": {
+      "says": "Put a name or a key figure on the frame so it can be remembered.",
+      "wants": [
+        "kinetic-headline",
+        "count-up",
+        "dot-gauge"
+      ]
+    },
+    "state-the-thesis": {
+      "says": "State the idea the rest of the section argues for.",
+      "wants": [
+        "fork-paths",
+        "compare-pair",
+        "kinetic-headline",
+        "overlap-pair"
+      ]
+    },
+    "punchline": {
+      "says": "Land a short line at the end of an argument, with nothing else on screen.",
+      "wants": [
+        "stamp-lockup",
+        "kinetic-headline"
+      ]
+    },
+    "explain-a-number": {
+      "says": "Show a figure the script claims, so it can be read rather than guessed.",
+      "wants": [
+        "ring-gauge",
+        "budget-rail",
+        "count-up",
+        "bar-compare",
+        "dot-gauge"
+      ]
+    },
+    "show-a-sequence": {
+      "says": "Walk through steps in the order the narration reads them.",
+      "wants": [
+        "matrix-grid",
+        "budget-rail",
+        "list-build",
+        "stack-push",
+        "timeline-rail"
+      ]
+    },
+    "show-criteria": {
+      "says": "List the conditions something has to meet, one at a time.",
+      "wants": [
+        "matrix-grid",
+        "list-build",
+        "exploded-stack",
+        "dot-gauge"
+      ]
+    },
+    "make-a-comparison": {
+      "says": "Put two options or two states against each other.",
+      "wants": [
+        "fork-paths",
+        "compare-pair",
+        "bar-compare",
+        "overlap-pair"
+      ]
+    },
+    "before-and-after": {
+      "says": "Show what the same thing looked like before, and what it looks like now.",
+      "wants": [
+        "compare-pair",
+        "fork-paths",
+        "timeline-rail",
+        "overlap-pair"
+      ]
+    },
+    "show-the-mechanism": {
+      "says": "Reveal how something works by showing the actual commands or code.",
+      "wants": [
+        "budget-rail",
+        "command-console",
+        "code-typing",
+        "timeline-rail",
+        "exploded-stack"
+      ]
+    },
+    "show-the-command": {
+      "says": "Put one command on the frame and let it type.",
+      "wants": [
+        "command-console",
+        "code-typing"
+      ]
+    },
+    "build-an-argument": {
+      "says": "Add one more reason to a stack, so each one is felt as an addition.",
+      "wants": [
+        "matrix-grid",
+        "stack-push",
+        "list-build",
+        "exploded-stack"
+      ]
+    },
+    "recap": {
+      "says": "Bring a section back to a short list of what it said.",
+      "wants": [
+        "matrix-grid",
+        "list-build",
+        "stack-push",
+        "timeline-rail"
+      ]
+    },
+    "hold-a-beat": {
+      "says": "Fill a short pause between two big beats with real motion.",
+      "wants": [
+        "sweep-rule",
+        "kinetic-headline"
+      ]
+    },
+    "punctuation": {
+      "says": "Mark a change of section with something small and deliberate.",
+      "wants": [
+        "sweep-rule"
+      ]
+    }
+  },
+  "templates": [
+    {
+      "id": "kinetic-headline",
+      "name": "Kinetic headline",
+      "purpose": "Sets one spoken sentence as type that performs itself, word by word, with an optional second row.",
+      "when": [
+        "opening-claim",
+        "name-the-thing",
+        "state-the-thesis",
+        "punchline"
+      ],
+      "avoid": [
+        "More than twelve words: at that length the arrival outlasts the line.",
+        "A beat that also needs a diagram or a list: this template owns its whole region."
+      ],
+      "minSeconds": 0.35,
+      "maxSeconds": 3.2,
+      "needs": [
+        "text"
+      ],
+      "regions": [
+        "title",
+        "hero",
+        "statement"
+      ],
+      "cost": "low",
+      "sample": {
+        "text": "BUILD IT",
+        "subtext": "BY DESCRIBING IT",
+        "subEmphasis": {
+          "2": "#FFFFFF"
+        }
+      }
+    },
+    {
+      "id": "count-up",
+      "name": "Count up",
+      "purpose": "Counts a number the script actually claims, with its label and a rule under it.",
+      "when": [
+        "explain-a-number",
+        "name-the-thing"
+      ],
+      "avoid": [
+        "Any figure the script does not state: a counted number is a factual claim.",
+        "A beat under a second: the count is unreadable below that."
+      ],
+      "minSeconds": 1,
+      "maxSeconds": 4,
+      "needs": [
+        "value"
+      ],
+      "regions": [
+        "stage",
+        "hero"
+      ],
+      "cost": "low",
+      "sample": {
+        "value": 40,
+        "prefix": "",
+        "suffix": "",
+        "label": "LINES OF CODE"
+      }
+    },
+    {
+      "id": "list-build",
+      "name": "List build",
+      "purpose": "Builds a list one row at a time, in the order the narration reads it.",
+      "when": [
+        "show-a-sequence",
+        "show-criteria",
+        "recap"
+      ],
+      "avoid": [
+        "More than four items in a short beat: the rows arrive too fast to read.",
+        "A single item: that is a headline, not a list."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 7,
+      "needs": [
+        "items"
+      ],
+      "regions": [
+        "ledger",
+        "stage"
+      ],
+      "cost": "low",
+      "sample": {
+        "items": [
+          "Read the issue",
+          "Ask one question",
+          "Open the pull request"
+        ]
+      }
+    },
+    {
+      "id": "compare-pair",
+      "name": "Compare pair",
+      "purpose": "Puts two things side by side and draws a divider between them.",
+      "when": [
+        "make-a-comparison",
+        "before-and-after"
+      ],
+      "avoid": [
+        "Two long paragraphs: each half fits three short lines at most.",
+        "A comparison the script does not make: don't stage an argument nobody said."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 5,
+      "needs": [
+        "left",
+        "right"
+      ],
+      "regions": [
+        "split"
+      ],
+      "cost": "medium",
+      "sample": {
+        "left": "TYPING",
+        "right": "DESCRIBING",
+        "leftItems": [
+          "Syntax",
+          "Line by line"
+        ],
+        "rightItems": [
+          "Intent",
+          "Whole feature"
+        ]
+      }
+    },
+    {
+      "id": "code-typing",
+      "name": "Code typing",
+      "purpose": "Types code or commands onto the frame, with a caret.",
+      "when": [
+        "show-the-mechanism",
+        "show-the-command"
+      ],
+      "avoid": [
+        "Code the film does not show elsewhere: it dates the piece.",
+        "Long lines: they are clipped, not wrapped, by design."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 6,
+      "needs": [
+        "lines"
+      ],
+      "regions": [
+        "stage",
+        "ledger"
+      ],
+      "cost": "low",
+      "sample": {
+        "lines": [
+          "git add .",
+          "git commit -m \"first\""
+        ]
+      }
+    },
+    {
+      "id": "bar-compare",
+      "name": "Bar compare",
+      "purpose": "Grows bars to their values, so two or three numbers can be read at a glance.",
+      "when": [
+        "explain-a-number",
+        "make-a-comparison"
+      ],
+      "avoid": [
+        "More than five bars: the labels stop fitting.",
+        "Invented data. Every value must come from the script."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 6,
+      "needs": [
+        "labels",
+        "values"
+      ],
+      "regions": [
+        "stage"
+      ],
+      "cost": "medium",
+      "sample": {
+        "labels": [
+          "Before",
+          "After"
+        ],
+        "values": [
+          20,
+          40
+        ]
+      }
+    },
+    {
+      "id": "sweep-rule",
+      "name": "Sweep rule",
+      "purpose": "A rule crosses the region with a small label at its head; the beat-filler that is still motion.",
+      "when": [
+        "hold-a-beat",
+        "punctuation"
+      ],
+      "avoid": [
+        "Anything over 1.2 seconds: below that length it is a transition, above it it is a held frame with a line on it.",
+        "A beat that carries information: this template says nothing."
+      ],
+      "minSeconds": 0.3,
+      "maxSeconds": 1.2,
+      "needs": [],
+      "regions": [
+        "band",
+        "floor"
+      ],
+      "cost": "low",
+      "sample": {
+        "label": "NEXT"
+      }
+    },
+    {
+      "id": "stack-push",
+      "name": "Stack push",
+      "purpose": "Stacks labelled slabs, each arrival pushing everything already on screen.",
+      "when": [
+        "show-a-sequence",
+        "build-an-argument"
+      ],
+      "avoid": [
+        "More than four slabs: the stack runs out of region.",
+        "A beat whose items are not parallel in kind."
+      ],
+      "minSeconds": 1.5,
+      "maxSeconds": 5.5,
+      "needs": [
+        "items"
+      ],
+      "regions": [
+        "stage",
+        "floor"
+      ],
+      "cost": "medium",
+      "sample": {
+        "items": [
+          "PLAIN ENGLISH",
+          "THE AGENT WRITES",
+          "ON GITHUB"
+        ],
+        "highlight": 1
+      }
+    },
+    {
+      "id": "fork-paths",
+      "name": "Fork paths",
+      "purpose": "One thing splitting into two outcomes, drawn as a source and two branches.",
+      "when": [
+        "make-a-comparison",
+        "state-the-thesis",
+        "before-and-after"
+      ],
+      "avoid": [
+        "Two things that do not come from the same source: the fork would be a lie.",
+        "More than two branches: it becomes spaghetti."
+      ],
+      "minSeconds": 2.5,
+      "maxSeconds": 8,
+      "needs": [
+        "left",
+        "right"
+      ],
+      "regions": [
+        "spread",
+        "split",
+        "stage"
+      ],
+      "cost": "medium",
+      "sample": {
+        "left": "Rubber stamp",
+        "right": "Rewrite the whole thing"
+      }
+    },
+    {
+      "id": "matrix-grid",
+      "name": "Matrix grid",
+      "purpose": "Two to four things as tiles that fill in the order they are spoken.",
+      "when": [
+        "show-a-sequence",
+        "show-criteria",
+        "recap",
+        "build-an-argument"
+      ],
+      "avoid": [
+        "One item: that is a headline, not a grid.",
+        "Five or more: the labels stop being readable at a glance."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 9,
+      "needs": [
+        "items"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "stage",
+        "split"
+      ],
+      "cost": "medium",
+      "sample": {
+        "items": [
+          "Read the diff, not the summary",
+          "Run it once yourself",
+          "Ask what it does not handle"
+        ]
+      }
+    },
+    {
+      "id": "ring-gauge",
+      "name": "Ring gauge",
+      "purpose": "A claimed number as a dial that sweeps to it, with the unit on the ring.",
+      "when": [
+        "explain-a-number"
+      ],
+      "avoid": [
+        "A number the narration does not say: the dial would be decoration.",
+        "Two numbers on one beat: one dial, one figure."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 7,
+      "needs": [
+        "value"
+      ],
+      "regions": [
+        "spread",
+        "wide",
+        "stage",
+        "hero",
+        "split"
+      ],
+      "cost": "low",
+      "sample": {
+        "value": 60,
+        "label": "Seconds"
+      }
+    },
+    {
+      "id": "budget-rail",
+      "name": "Budget rail",
+      "purpose": "A span of time divided into the parts the narration says it is spent on.",
+      "when": [
+        "show-the-mechanism",
+        "explain-a-number",
+        "show-a-sequence"
+      ],
+      "avoid": [
+        "Parts that do not sum to the whole being explained.",
+        "More than four segments: the labels collide on the rail."
+      ],
+      "minSeconds": 3,
+      "maxSeconds": 10,
+      "needs": [
+        "segments"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "split",
+        "stage"
+      ],
+      "cost": "low",
+      "sample": {
+        "segments": [
+          {
+            "label": "Forty seconds reading the diff",
+            "value": 40
+          },
+          {
+            "label": "Ten seconds running it",
+            "value": 10
+          },
+          {
+            "label": "Ten seconds asking what it refuses",
+            "value": 10
+          }
+        ],
+        "total": 60
+      }
+    },
+    {
+      "id": "stamp-lockup",
+      "name": "Stamp lockup",
+      "purpose": "Impresses the closing phrase onto the frame as a stamped object.",
+      "when": [
+        "punchline"
+      ],
+      "avoid": [
+        "A long sentence: a stamp holds four or five words, not a clause.",
+        "Anywhere but the end of an argument: a stamp is a verdict."
+      ],
+      "minSeconds": 1.6,
+      "maxSeconds": 5,
+      "needs": [
+        "text"
+      ],
+      "regions": [
+        "statement",
+        "title",
+        "hero"
+      ],
+      "cost": "low",
+      "sample": {
+        "text": "That is the method",
+        "kicker": "the method"
+      }
+    },
+    {
+      "id": "command-console",
+      "name": "Command console",
+      "purpose": "A window that types one command and shows the run finishing, block by block.",
+      "when": [
+        "show-the-command",
+        "show-the-mechanism"
+      ],
+      "avoid": [
+        "More than one command: the window holds one line.",
+        "Code the film does not otherwise mention."
+      ],
+      "minSeconds": 2.5,
+      "maxSeconds": 7,
+      "needs": [
+        "lines"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "stage",
+        "split"
+      ],
+      "cost": "medium",
+      "sample": {
+        "lines": [
+          "npm test"
+        ]
+      }
+    },
+    {
+      "id": "dot-gauge",
+      "name": "Dot gauge",
+      "purpose": "A proportion as countable marks: the lit dots are the part the narration names.",
+      "when": [
+        "explain-a-number",
+        "show-criteria",
+        "name-the-thing"
+      ],
+      "avoid": [
+        "A proportion too large to count: over forty marks and the dots read as texture.",
+        "Two proportions on one beat: one grid, one part."
+      ],
+      "minSeconds": 1.8,
+      "maxSeconds": 7,
+      "needs": [
+        "value",
+        "of"
+      ],
+      "regions": [
+        "spread",
+        "wide",
+        "stage",
+        "hero",
+        "split"
+      ],
+      "cost": "low",
+      "sample": {
+        "value": 2,
+        "of": 20,
+        "caption": "two in twenty"
+      }
+    },
+    {
+      "id": "timeline-rail",
+      "name": "Timeline rail",
+      "purpose": "A sequence of moments on one axis, with a marker that arrives where the narration arrives.",
+      "when": [
+        "show-a-sequence",
+        "before-and-after",
+        "show-the-mechanism",
+        "recap"
+      ],
+      "avoid": [
+        "Moments that are not in time order: the rail would be a list in disguise.",
+        "More than six stops: the labels collide."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 9,
+      "needs": [
+        "stops"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "stage",
+        "split",
+        "floor"
+      ],
+      "cost": "low",
+      "sample": {
+        "stops": [
+          {
+            "label": "Opened"
+          },
+          {
+            "label": "Read"
+          },
+          {
+            "label": "Checked"
+          },
+          {
+            "label": "Sent"
+          }
+        ]
+      }
+    },
+    {
+      "id": "overlap-pair",
+      "name": "Overlap pair",
+      "purpose": "Two things that share a middle, drawn as two circles whose overlap is hatched.",
+      "when": [
+        "make-a-comparison",
+        "state-the-thesis",
+        "before-and-after"
+      ],
+      "avoid": [
+        "Two things with nothing in common: the lens would be empty.",
+        "Three or more sets: two circles are the most this picture holds."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 7,
+      "needs": [
+        "left",
+        "right"
+      ],
+      "regions": [
+        "spread",
+        "stage",
+        "split",
+        "wide"
+      ],
+      "cost": "low",
+      "sample": {
+        "left": "Cheap cable",
+        "right": "Old cell",
+        "shared": "both drop the voltage"
+      }
+    },
+    {
+      "id": "exploded-stack",
+      "name": "Exploded stack",
+      "purpose": "A whole taken apart into the layers it is made of, each labelled as it separates.",
+      "when": [
+        "show-the-mechanism",
+        "build-an-argument",
+        "show-criteria"
+      ],
+      "avoid": [
+        "Layers that are not parts of one whole.",
+        "More than four layers: the labels run out of room."
+      ],
+      "minSeconds": 2,
+      "maxSeconds": 9,
+      "needs": [
+        "layers"
+      ],
+      "regions": [
+        "wide",
+        "spread",
+        "split",
+        "stage"
+      ],
+      "cost": "medium",
+      "sample": {
+        "layers": [
+          "The claim",
+          "The evidence",
+          "The decision"
+        ]
+      }
+    }
+  ],
+  "entrances": {
+    "kinds": [
+      "draw-on",
+      "wipe",
+      "iris",
+      "scan",
+      "highlighter",
+      "slit-scan",
+      "whip",
+      "squash",
+      "stamp",
+      "assembly"
+    ],
+    "fits": {
+      "kinetic-headline": [
+        "highlighter",
+        "whip",
+        "slit-scan",
+        "draw-on",
+        "wipe"
+      ],
+      "stamp-lockup": [
+        "stamp",
+        "squash",
+        "iris",
+        "wipe"
+      ],
+      "count-up": [
+        "scan",
+        "squash",
+        "stamp",
+        "draw-on"
+      ],
+      "ring-gauge": [
+        "draw-on",
+        "iris",
+        "scan"
+      ],
+      "bar-compare": [
+        "draw-on",
+        "wipe",
+        "scan"
+      ],
+      "compare-pair": [
+        "assembly",
+        "wipe"
+      ],
+      "fork-paths": [
+        "assembly",
+        "draw-on",
+        "iris"
+      ],
+      "list-build": [
+        "slit-scan",
+        "assembly",
+        "wipe",
+        "scan"
+      ],
+      "stack-push": [
+        "slit-scan",
+        "assembly",
+        "wipe"
+      ],
+      "matrix-grid": [
+        "assembly",
+        "slit-scan",
+        "scan",
+        "stamp"
+      ],
+      "budget-rail": [
+        "draw-on",
+        "wipe",
+        "scan"
+      ],
+      "command-console": [
+        "scan",
+        "draw-on",
+        "wipe"
+      ],
+      "code-typing": [
+        "scan",
+        "draw-on"
+      ],
+      "sweep-rule": [
+        "squash",
+        "wipe"
+      ],
+      "dot-gauge": [
+        "draw-on",
+        "stamp",
+        "scan",
+        "squash"
+      ],
+      "timeline-rail": [
+        "draw-on",
+        "wipe",
+        "scan"
+      ],
+      "overlap-pair": [
+        "assembly",
+        "iris",
+        "draw-on"
+      ],
+      "exploded-stack": [
+        "assembly",
+        "draw-on",
+        "scan"
+      ]
+    },
+    "seconds": 0.56,
+    "rule": "The act picks one entrance from the ones its template can carry, never the one the act before it used.",
+    "source": "Canvas 2D ports of the motion basics in howardc38/motion-fx-lab (0BSD)."
+  }
+}

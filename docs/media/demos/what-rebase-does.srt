@@ -1,0 +1,56 @@
+1
+00:00:00,120 --> 00:00:05,094
+Rebase is not magic. It rewrites your
+commits, one by one.
+
+2
+00:00:06,644 --> 00:00:11,323
+The command is git rebase main. One line,
+no flags.
+
+3
+00:00:12,293 --> 00:00:14,249
+That is the whole incantation.
+
+4
+00:00:15,799 --> 00:00:20,484
+Merge keeps the history. Rebase rewrites
+it into a clean line.
+
+5
+00:00:21,454 --> 00:00:23,685
+Same code, new commits.
+
+6
+00:00:25,235 --> 00:00:30,919
+Never rebase a shared branch. Pull before
+you push. Push early and often.
+
+7
+00:00:31,889 --> 00:00:35,134
+And squash your own mess before anyone
+reads it.
+
+8
+00:00:36,684 --> 00:00:41,113
+It is safe with one person. It is
+dangerous with two people.
+
+9
+00:00:42,663 --> 00:00:47,843
+Safe on your branch. Risky on main, where
+everyone else is standing.
+
+10
+00:00:48,813 --> 00:00:50,193
+Own branch only.
+
+11
+00:00:51,743 --> 00:00:56,566
+Your branch, pull first, squash. That is
+the whole habit.
+
+12
+00:00:58,116 --> 00:01:02,024
+Rebase your own branch. Leave the shared
+one alone.

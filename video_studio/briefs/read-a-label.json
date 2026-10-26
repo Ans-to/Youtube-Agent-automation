@@ -1,0 +1,193 @@
+{
+  "slug": "read-a-label",
+  "title": "Read a Nutrition Label in Twenty Seconds",
+  "promise": "You will read the label the way it is designed not to be read.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "READ THE BACK",
+    "section": "order"
+  },
+  "tags": [
+    "nutrition label",
+    "food labels",
+    "sugar",
+    "healthy eating",
+    "grocery"
+  ],
+  "hashtags": [
+    "nutrition label",
+    "food labels",
+    "grocery"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The problem",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "That label is built to be misread"
+      },
+      "lines": [
+        {
+          "text": "That label is built to be misread. Here is the order that works.",
+          "id": "L001"
+        }
+      ]
+    },
+    {
+      "id": "order",
+      "kind": "section",
+      "heading": "The order",
+      "situation": "show-a-sequence",
+      "template": "timeline-rail",
+      "props": {
+        "stops": [
+          {
+            "label": "Serving size"
+          },
+          {
+            "label": "Sugar per serving"
+          },
+          {
+            "label": "Ignore the front"
+          }
+        ]
+      },
+      "lines": [
+        {
+          "text": "Start at the serving size. Read the sugar per serving. Two numbers, in that order.",
+          "id": "L002"
+        },
+        {
+          "text": "Ignore the front of the pack entirely.",
+          "id": "L003"
+        }
+      ]
+    },
+    {
+      "id": "seconds",
+      "kind": "section",
+      "heading": "The clock",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "props": {
+        "value": 20,
+        "label": "seconds"
+      },
+      "lines": [
+        {
+          "text": "Twenty seconds is enough, if you read it in the right order.",
+          "id": "L004"
+        },
+        {
+          "text": "Back of the pack first.",
+          "id": "L005"
+        }
+      ]
+    },
+    {
+      "id": "trap",
+      "kind": "section",
+      "heading": "The trap",
+      "situation": "before-and-after",
+      "template": "compare-pair",
+      "props": {
+        "left": "Per serving",
+        "right": "Per pack"
+      },
+      "lines": [
+        {
+          "text": "Per serving is a small number. Per pack is the one you eat. The pack is the trap.",
+          "id": "L006"
+        }
+      ]
+    },
+    {
+      "id": "day",
+      "kind": "section",
+      "heading": "The day",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
+      "props": {
+        "labels": [
+          "One snack",
+          "One drink",
+          "One meal"
+        ],
+        "values": [
+          20,
+          30,
+          50
+        ]
+      },
+      "lines": [
+        {
+          "text": "One snack is twenty percent of your day. One drink is thirty. It adds up fast.",
+          "id": "L007"
+        },
+        {
+          "text": "One meal is fifty.",
+          "id": "L008"
+        }
+      ]
+    },
+    {
+      "id": "decide",
+      "kind": "section",
+      "heading": "The decision",
+      "situation": "make-a-comparison",
+      "template": "fork-paths",
+      "props": {
+        "left": "Put it back",
+        "right": "Buy one"
+      },
+      "lines": [
+        {
+          "text": "Put it back, or buy one and stop at one.",
+          "id": "L009"
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "The habit",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "props": {
+        "items": [
+          "Serving size",
+          "Sugar",
+          "Ignore the front"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Serving size, sugar, then ignore the front.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Turn the pack over",
+        "kicker": "the pack"
+      },
+      "lines": [
+        {
+          "text": "Turn the pack over. The answer is on the back.",
+          "id": "L011"
+        }
+      ]
+    }
+  ]
+}

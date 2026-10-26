@@ -1,0 +1,94 @@
+# Upload pack — Vibe Coding film
+
+Built from the film's own narration (`voice/lines.json`, 151 lines, 17 scenes).
+Nothing here invents a claim the film does not make.
+
+## Title (pick one)
+
+1. **Vibe Coding: Build a Real App Without Writing the Code**
+2. I Built a Working App by Describing It — No Syntax, Just Prompts
+3. Vibe Coding, Step by Step: From Empty Repo to Live Site
+
+## Description
+
+You describe what you want in plain English. An agent writes it, on GitHub,
+while you watch. This is the whole loop, step by step, with nothing skipped.
+
+The video covers the eleven steps that actually matter: the repository, the one
+time connection, the first prompt, the branch the agent works in, how to read a
+diff, letting the checks run, merging, what to do when it goes wrong, the prompt
+patterns that work, keeping secrets out of the repository, and the habits that
+keep it fast. A second feature is built in real time so you can watch the loop
+repeat rather than take it on faith.
+
+No frameworks to install, no syntax to memorise. You need a GitHub account and a
+browser.
+
+## Chapters
+
+```
+0:00 Intro
+0:27 What vibe coding actually means
+1:07 The loop we repeat
+1:38 Step 1 — one empty repository
+2:38 Step 2 — connect GitHub to Arena
+3:25 Step 3 — the first prompt
+4:29 Step 4 — the agent works in a branch
+5:13 Step 5 — read the diff
+6:00 Step 6 — let the checks run
+6:46 Step 7 — merge and ship
+7:27 Step 8 — a second feature, in real time
+8:16 What to do when it goes wrong
+8:59 The prompt patterns that work
+9:48 Keeping secrets out of the repo
+10:22 The habits that keep this fast
+11:06 The whole loop, back together
+11:42 You don't need to know every line
+```
+
+## Tags
+
+`vibe coding, ai coding, ai agent, github, build an app with ai, no code, prompt
+engineering, ai tools, cursor alternative, claude code, ai for beginners`
+
+## Subtitles
+
+`docs/media/vibe-coding.srt` (for YouTube) and `docs/media/vibe-coding.vtt` (for a
+web player) hold the same 155 cues. They are written from `voice/lines.json` by
+`tools/film_subtitles.py`, so a cue cannot drift away from the read it describes.
+
+## What the film's own gates say about this cut
+
+Measured on the delivered file, not on the plan:
+
+- **Motion** — passed. Mean frame delta 2.23 against a 0.82 baseline; 2.1% of
+  frames near-static against a 50% limit.
+- **Composition** — passed. 321 arrangements, the longest 10.0 s against a 12 s
+  limit. Before this round one arrangement held for 37 s.
+- **Freeze** — passed. No span longer than 1.0 s anywhere in the twelve minutes.
+- **Loudness** — −14.6 LUFS, inside the −14.0 ± 1.5 dB target.
+- **Content audit** — no violations detected. 13 rules could not be checked on
+  this machine because there is no vision model or language model here; they are
+  listed at the end of the audit, and they are not passes.
+
+## Where the film file lives
+
+- `docs/media/vibe-coding-720p-web.mp4` — this repository, 86 MB, 12:02,
+  1280×720, 30 fps. It is the film re-encoded for the 100 MB file limit GitHub
+  puts on a repository file, so it is the copy you can send as a link. Raw:
+  `https://github.com/Ans-to/Youtube-Agent-automation/raw/arena/ef6d1f79-youtube-agent-automation/docs/media/vibe-coding-720p-web.mp4`
+- The delivery master (CRF 22, 469 MB) is not in the repository on purpose: git
+  refuses a single file over 100 MB. Upload that one to YouTube from the machine
+  that rendered it, or re-render it with the command below.
+
+## Honest notes for the uploader
+
+- The narration in this render is the **espeak-ng preview voice**. It is correct
+  in timing and content and wrong in tone. Re-render with
+  `--voice en_US-amy-medium` (Piper, free, offline after one download) before
+  publishing; the picture, captions and score need no other change.
+- The cut is **12:02, 1280×720, 30 fps, 530 MB**. The sandbox that drew it has
+  3.9 GB of memory and the 1080p frame render is killed by the kernel at about
+  3.6 GB, so the pixels are 720p. On a machine with more memory the same command
+  at `--width 1920 --height 1080` gives a true 1080p master with no other change.
+- Every claim in the description appears in the narration; none was added.

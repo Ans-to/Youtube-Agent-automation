@@ -64,3 +64,87 @@ Before accepting a render, inspect the actual opening, at least one middle scene
 - transitions have no sudden hidden content or long blank hold;
 - frame count, dimensions, frame rate, video codec, and requested audio pass machine checks;
 - a human review confirms visual quality. CI rendering alone does not prove aesthetics.
+
+## 6. The template library, and choosing by situation
+
+The generic visual types in section 1 are the grammar. The actual motion is drawn
+from our own template library in `video_studio/motion/library.mjs`, and the agent
+does not invent a template at the call site.
+
+**Why ours, not stock.** The owner asked whether to use copyright-free stock
+templates. Three reasons we do not: stock packs are mostly After Effects projects
+that this renderer cannot open; their licences split into CC0, attribution, and
+"free for personal use" — and the third kind is a claims risk on a monetised
+channel; and a template's text boxes are fixed, so its type collides with ours.
+Our own library keeps the visual language consistent across every film and
+carries no licence at all.
+
+**The agent's map is generated, not written.** `agents/motion_templates.json` is
+the output of `node video_studio/motion/library_cli.mjs --write-agent-map`. Never
+edit it by hand: a hand-kept catalogue drifts, and an agent acting on a stale
+catalogue is worse than no catalogue. `tools/check_motion_library.py` fails the
+build when the file and the code disagree.
+
+**Pick by situation.** Every template declares the situations it serves and the
+ones it must not be used for. The situation is the beat's purpose, not its look:
+
+| Situation | What the beat is for | First choice |
+|---|---|---|
+| `opening-claim` | state the premise in one sentence | `kinetic-headline` |
+| `name-the-thing` | put a name or key figure on the frame | `kinetic-headline` |
+| `state-the-thesis` | state the idea the section argues for | `kinetic-headline` |
+| `punchline` | land a short line with nothing else on screen | `kinetic-headline` |
+| `explain-a-number` | show a figure the script claims | `count-up` |
+| `show-a-sequence` | walk through steps in spoken order | `list-build` |
+| `show-criteria` | list the conditions something must meet | `list-build` |
+| `make-a-comparison` | put two options against each other | `compare-pair` |
+| `before-and-after` | show the same thing before and now | `compare-pair` |
+| `show-the-mechanism` | reveal how it works with real commands | `code-typing` |
+| `show-the-command` | one command, typed | `code-typing` |
+| `build-an-argument` | add one more reason to a stack | `stack-push` |
+| `recap` | bring a section back to a short list | `list-build` |
+| `hold-a-beat` | fill a short pause with real motion | `sweep-rule` |
+| `punctuation` | mark a change of section | `sweep-rule` |
+
+**How the choice is made.** `rankTemplates` in `video_studio/motion/choose.mjs`
+scores every template against the beat it has to fill and returns the reasons:
+
+1. *Situation.* Named for it `+3`, second choice `+2`, not called for `0`.
+2. *Duration.* Inside the template's own band `+1.5`; outside it the score
+   falls, and past 1.35× the band the template is refused outright.
+3. *Region.* A template can only be used where it owns the space. If the free
+   region is not one of its own, it is refused with that reason.
+4. *Props.* Missing required props are a refusal, never a default.
+5. *Novelty.* The previous beat's template is penalised `-2.5`, anything used in
+   the last three beats `-1.0`.
+6. *Weight.* Under 1.2 seconds, cheap templates are preferred.
+
+**The region rule is the anti-overlap rule.** Every template owns named regions
+of the frame (`title`, `hero`, `stage`, `floor`, `band`, `split`, `ledger`), and
+none of them may touch the live column on the right or the caption band at the
+foot. `drawTemplate` throws if a call asks for a region the template does not
+own, or a beat the template cannot carry. The self-check renders every template
+on a real canvas and measures the ink against its box, so "it stays inside its
+region" is a measurement, not a comment.
+
+**Nothing shakes.** No template translates or rotates the camera. Motion is one
+direction, eased, then still.
+
+**The camera is locked.** Not "subtle" — locked. There is no scene camera, no
+beat push, no roll and no hand-held noise layer in any film. It kept coming back
+because each version was defensible on its own: a reframe that settles like an
+operator, a two percent push on every beat, a slow drift so that no frame is
+identical to the last. On screen it is a picture that will not sit still, and the
+owner named it as shake twice.
+
+Measured on the background of the 0-30 s chunk, between consecutive frames:
+
+| Version | Worst movement of a background patch | Mean |
+|---|---|---|
+| Camera moving (reframe + push + drift) | 8.0 px per frame at 1280 wide | 0.31 px |
+| Camera locked (now) | **0.0 px** | **0.00 px** |
+
+Everything that moves now moves inside the frame: type, slabs, the live column,
+the cursor. `tools/check_motion_library.py` rule `M7 CAMERA` fails the build if a
+hand-held offset, a `shakeX`/`shakeY` pair or a noise-driven rotation returns to
+any film.

@@ -178,7 +178,7 @@
     {
       "id": "L022",
       "scene": "github",
-      "text": "Go to github dot com, sign up, and confirm your email address.",
+      "text": "Go to github.com, sign up, and confirm your email address.",
       "gap_before": 0.0,
       "pause_after": 0.4,
       "rate": 0.96
@@ -706,7 +706,7 @@
     {
       "id": "L088",
       "scene": "merge",
-      "text": "The address is your username dot github dot io, slash the repository name.",
+      "text": "The address is your username.github.io, slash the repository name.",
       "gap_before": 0.0,
       "pause_after": 0.5,
       "rate": 0.96

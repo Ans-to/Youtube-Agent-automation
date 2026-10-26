@@ -8,7 +8,7 @@ This makes behavior more consistent and testable, but capability still depends o
 
 ## Structure
 
-- `roster.json`: 52 role profiles. There are 51 specialist roles; `AGENT-50` is the human approval boundary and may not run automatically.
+- `roster.json`: 40 role profiles in a tree. Ten parent roles own a deliverable and carry a `directs` list; 29 sub-agents each carry a `parent`; `AGENT-50` is the human approval boundary and may not run automatically.
 - `skillbooks.json`: one playbook per roster role, with workflow steps, quality gates, failure modes, deliverable contracts, and a practice drill.
 - `dispatch.py`: injects the corresponding playbook into each role run. If model generation is disabled, it prints the playbook as a checklist and clearly marks that no AI work was performed.
 - `orchestrate.py`: executes selected specialist roles sequentially. Prior outputs are passed along as unverified draft context, not as trusted facts.

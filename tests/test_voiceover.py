@@ -151,14 +151,19 @@ class FormantRefusalTests(unittest.TestCase):
         self.script = self.dir / "script.json"
         self.script.write_text(json.dumps({"lines": [{"text": "One line."}]}), encoding="utf-8")
         self.originals = (voiceover.piper_available, voiceover.espeak_available,
-                          voiceover.synth_espeak_line)
+                          voiceover.synth_espeak_line, voiceover.kokoro_voice_available)
+
+    def no_kokoro(self):
+        """The backend order is tested on its own; these tests are about Piper."""
+        voiceover.kokoro_voice_available = lambda voice=None: False
 
     def tearDown(self):
         (voiceover.piper_available, voiceover.espeak_available,
-         voiceover.synth_espeak_line) = self.originals
+         voiceover.synth_espeak_line, voiceover.kokoro_voice_available) = self.originals
         self.tmp.cleanup()
 
     def test_auto_backend_refuses_to_fall_back_to_the_formant_voice(self):
+        self.no_kokoro()
         voiceover.piper_available = lambda: False
         voiceover.espeak_available = lambda: True
         with self.assertRaises(voiceover.VoiceBackendMissing) as caught:
@@ -169,6 +174,7 @@ class FormantRefusalTests(unittest.TestCase):
         self.assertIn("--voice-backend espeak", message)
 
     def test_the_formant_voice_is_allowed_when_it_is_asked_for_by_name(self):
+        self.no_kokoro()
         voiceover.piper_available = lambda: False
         voiceover.espeak_available = lambda: True
         voiceover.synth_espeak_line = lambda line, out_path: write_tone(Path(out_path), 0.5)
@@ -178,13 +184,33 @@ class FormantRefusalTests(unittest.TestCase):
         self.assertFalse(report["publishable_voice"])
 
     def test_a_preview_can_opt_in_without_renaming_the_backend(self):
+        self.no_kokoro()
         voiceover.piper_available = lambda: False
         voiceover.espeak_available = lambda: True
         voiceover.synth_espeak_line = lambda line, out_path: write_tone(Path(out_path), 0.5)
         report = voiceover.build(self.script, self.dir / "voice", allow_formant=True)
         self.assertEqual(report["backend"], "espeak")
 
+    def test_auto_prefers_kokoro_when_it_is_available(self):
+        """The best voice that is installed wins, without being named."""
+        import kokoro_voice
+        previous_session = kokoro_voice.session
+        previous_synth = voiceover.synth_lines
+        try:
+            voiceover.kokoro_voice_available = lambda voice=None: True
+            kokoro_voice.session = lambda voice=None: object()
+            voiceover.synth_lines = lambda lines, out_dir, **kwargs: [
+                write_tone(Path(out_dir) / (line.id + ".wav"), 0.5) for line in lines]
+            report = voiceover.build(self.script, self.dir / "voice")
+        finally:
+            kokoro_voice.session = previous_session
+            voiceover.synth_lines = previous_synth
+        self.assertEqual(report["backend"], "kokoro")
+        self.assertEqual(report["voice"], kokoro_voice.DEFAULT_KOKORO_VOICE)
+        self.assertTrue(report["publishable_voice"])
+
     def test_a_neural_voice_is_marked_publishable(self):
+        self.no_kokoro()
         voiceover.piper_available = lambda: True
         voiceover.piper_model_path = lambda *args, **kwargs: Path("stub.onnx")
         voiceover.synth_piper_line = lambda line, model, out_path: write_tone(Path(out_path), 0.5)
@@ -207,18 +233,19 @@ class AssemblyTests(unittest.TestCase):
             {"id": "L4", "text": "Once in code.", "pause_after": 0.25},
         ]}), encoding="utf-8")
         self.originals = (voiceover.piper_available, voiceover.piper_model_path,
-                          voiceover.synth_piper_line)
+                          voiceover.synth_piper_line, voiceover.kokoro_voice_available)
 
         def fake_synth(line, model, out_path):
             write_tone(Path(out_path), 0.8 + 0.15 * len(line.text.split()))
 
+        voiceover.kokoro_voice_available = lambda voice=None: False
         voiceover.piper_available = lambda: True
         voiceover.piper_model_path = lambda *args, **kwargs: Path("stub.onnx")
         voiceover.synth_piper_line = fake_synth
 
     def tearDown(self):
         (voiceover.piper_available, voiceover.piper_model_path,
-         voiceover.synth_piper_line) = self.originals
+         voiceover.synth_piper_line, voiceover.kokoro_voice_available) = self.originals
         self.tmp.cleanup()
 
     def test_timeline_is_contiguous_and_ordered(self):
@@ -257,6 +284,7 @@ class AssemblyTests(unittest.TestCase):
         self.assertLessEqual(float(np.max(np.abs(data))), 1.0)
 
     def test_missing_backend_explains_what_to_install(self):
+        voiceover.kokoro_voice_available = lambda voice=None: False
         voiceover.piper_available = lambda: False
         voiceover.espeak_available = lambda: False
         with self.assertRaises(voiceover.VoiceBackendMissing) as caught:

@@ -128,6 +128,31 @@ class DeterministicRoutingTest(unittest.TestCase):
         self.assertEqual(args["format"], "long")
         self.assertIn("AI agents", args["topic"])
 
+    def test_a_preposition_inside_a_clause_does_not_become_the_topic(self):
+        """The bug: "an AI model on your own laptop" made the topic "your own laptop"."""
+        route = self.route(
+            "Make a 30 second video explaining why running an AI model on your own laptop "
+            "beats paying for an API"
+        )
+        topic = route.requests[0].args["topic"]
+        self.assertIn("why running an AI model", topic)
+        self.assertIn("laptop", topic)
+        self.assertNotEqual(topic.strip().lower(), "your own laptop beats paying for an API")
+
+    def test_a_language_instruction_is_not_part_of_the_topic(self):
+        route = self.route(
+            "Make a 30 second video explaining why local models are cheaper, "
+            "narration language: English"
+        )
+        topic = route.requests[0].args["topic"]
+        self.assertNotIn("narration language", topic.lower())
+        self.assertIn("local models are cheaper", topic)
+        self.assertEqual(route.requests[0].args["language"], "en")
+
+    def test_a_production_tail_is_not_part_of_the_topic(self):
+        route = self.route("Create a video about vector databases to MP4")
+        self.assertEqual(route.requests[0].args["topic"], "vector databases")
+
     def test_shorts_and_language_override_are_carried_as_arguments(self):
         route = self.route("Create a short-form video about invoice matching, "
                            "narration language: English")

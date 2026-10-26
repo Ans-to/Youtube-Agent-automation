@@ -1,0 +1,492 @@
+{
+  "generator": "video_studio/films/from_brief.mjs",
+  "brief": {
+    "slug": "review-ai-code",
+    "title": "How to Review AI-Written Code in 60 Seconds",
+    "promise": "You will review AI-written code in about a minute, before it ships.",
+    "hookType": "result",
+    "thumbnail": {
+      "line": "AI CODE REVIEW",
+      "section": "number"
+    }
+  },
+  "look": "light",
+  "fps": 30,
+  "width": 3840,
+  "height": 2160,
+  "duration_seconds": 59.405,
+  "frames": 1782,
+  "voiced": true,
+  "sections": [
+    {
+      "id": "open",
+      "index": 1,
+      "heading": "The situation",
+      "kind": "hook",
+      "situation": "opening-claim",
+      "start": 0,
+      "end": 4.989,
+      "seconds": 4.989,
+      "arrive": "wipe",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "stake",
+      "index": 2,
+      "heading": "Why it matters",
+      "kind": "stake",
+      "situation": "make-a-comparison",
+      "start": 5.889,
+      "end": 10.671,
+      "seconds": 4.782,
+      "arrive": "push",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "checks",
+      "index": 3,
+      "heading": "The three checks",
+      "kind": "section",
+      "situation": "show-criteria",
+      "start": 11.521,
+      "end": 19.977,
+      "seconds": 8.456,
+      "arrive": "cut",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "number",
+      "index": 4,
+      "heading": "The budget",
+      "kind": "section",
+      "situation": "explain-a-number",
+      "start": 20.827,
+      "end": 24.738,
+      "seconds": 3.911,
+      "arrive": "wipe",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "mechanism",
+      "index": 5,
+      "heading": "How the minute is spent",
+      "kind": "section",
+      "situation": "show-the-mechanism",
+      "start": 25.588,
+      "end": 36.139,
+      "seconds": 10.551,
+      "arrive": "cut",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "command",
+      "index": 6,
+      "heading": "Make it one command",
+      "kind": "section",
+      "situation": "show-the-command",
+      "start": 36.989,
+      "end": 41.452,
+      "seconds": 4.463,
+      "arrive": "wipe",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "payoff",
+      "index": 7,
+      "heading": "The decision",
+      "kind": "payoff",
+      "situation": "make-a-comparison",
+      "start": 42.302,
+      "end": 46.439,
+      "seconds": 4.137,
+      "arrive": "push",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "recap",
+      "index": 8,
+      "heading": "Recap",
+      "kind": "recap",
+      "situation": "recap",
+      "start": 47.289,
+      "end": 52.438,
+      "seconds": 5.149,
+      "arrive": "focus",
+      "reason": "named by the brief"
+    },
+    {
+      "id": "outro",
+      "index": 9,
+      "heading": "Next",
+      "kind": "outro",
+      "situation": "punchline",
+      "start": 53.288,
+      "end": 59.405,
+      "seconds": 6.117,
+      "arrive": "flash",
+      "reason": "named by the brief"
+    }
+  ],
+  "shots": [
+    {
+      "id": "open-1",
+      "section": "open",
+      "section_index": 1,
+      "beat": 1,
+      "start": 0,
+      "end": 1.663,
+      "seconds": 1.663,
+      "template": "kinetic-headline",
+      "region": "statement",
+      "shows": "An agent just opened"
+    },
+    {
+      "id": "open-2",
+      "section": "open",
+      "section_index": 1,
+      "beat": 2,
+      "start": 1.663,
+      "end": 3.326,
+      "seconds": 1.663,
+      "template": "kinetic-headline",
+      "region": "statement",
+      "shows": "A pull request"
+    },
+    {
+      "id": "open-3",
+      "section": "open",
+      "section_index": 1,
+      "beat": 3,
+      "start": 3.326,
+      "end": 4.989,
+      "seconds": 1.663,
+      "template": "kinetic-headline",
+      "region": "statement",
+      "shows": "Do you ship it today"
+    },
+    {
+      "id": "stake-1",
+      "section": "stake",
+      "section_index": 2,
+      "beat": 1,
+      "start": 5.889,
+      "end": 10.671,
+      "seconds": 4.782,
+      "template": "fork-paths",
+      "region": "spread",
+      "shows": "Rubber stamp | Rewrite the whole thing"
+    },
+    {
+      "id": "checks-1",
+      "section": "checks",
+      "section_index": 3,
+      "beat": 1,
+      "start": 11.521,
+      "end": 19.977,
+      "seconds": 8.456,
+      "template": "matrix-grid",
+      "region": "wide",
+      "shows": "Read the diff, not the summary | Run it once yourself | Ask what it does not handle"
+    },
+    {
+      "id": "number-1",
+      "section": "number",
+      "section_index": 4,
+      "beat": 1,
+      "start": 20.827,
+      "end": 24.738,
+      "seconds": 3.911,
+      "template": "ring-gauge",
+      "region": "spread",
+      "shows": "60 SECONDS"
+    },
+    {
+      "id": "mechanism-1",
+      "section": "mechanism",
+      "section_index": 5,
+      "beat": 1,
+      "start": 25.588,
+      "end": 30.864,
+      "seconds": 5.276,
+      "template": "budget-rail",
+      "region": "wide",
+      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
+    },
+    {
+      "id": "mechanism-2",
+      "section": "mechanism",
+      "section_index": 5,
+      "beat": 2,
+      "start": 30.864,
+      "end": 36.139,
+      "seconds": 5.276,
+      "template": "budget-rail",
+      "region": "wide",
+      "shows": "Forty seconds reading the diff | Ten seconds running it | Ten seconds asking what it refuses"
+    },
+    {
+      "id": "command-1",
+      "section": "command",
+      "section_index": 6,
+      "beat": 1,
+      "start": 36.989,
+      "end": 41.452,
+      "seconds": 4.463,
+      "template": "command-console",
+      "region": "wide",
+      "shows": "npm test"
+    },
+    {
+      "id": "payoff-1",
+      "section": "payoff",
+      "section_index": 7,
+      "beat": 1,
+      "start": 42.302,
+      "end": 46.439,
+      "seconds": 4.137,
+      "template": "fork-paths",
+      "region": "spread",
+      "shows": "Green means merge | Red means send it back"
+    },
+    {
+      "id": "recap-1",
+      "section": "recap",
+      "section_index": 8,
+      "beat": 1,
+      "start": 47.289,
+      "end": 52.438,
+      "seconds": 5.149,
+      "template": "matrix-grid",
+      "region": "wide",
+      "shows": "Three checks | One command | A minute of your time"
+    },
+    {
+      "id": "outro-1",
+      "section": "outro",
+      "section_index": 9,
+      "beat": 1,
+      "start": 53.288,
+      "end": 56.346,
+      "seconds": 3.059,
+      "template": "kinetic-headline",
+      "region": "statement",
+      "shows": "Pick one repository this week"
+    },
+    {
+      "id": "outro-2",
+      "section": "outro",
+      "section_index": 9,
+      "beat": 2,
+      "start": 56.346,
+      "end": 59.405,
+      "seconds": 3.059,
+      "template": "stamp-lockup",
+      "region": "statement",
+      "shows": "That is the method"
+    }
+  ],
+  "captions": [
+    {
+      "start": 0.12,
+      "end": 4.569,
+      "lines": [
+        "An agent just opened a pull request. Do",
+        "you ship it today?"
+      ],
+      "text": "An agent just opened a pull request. Do you ship it today?"
+    },
+    {
+      "start": 6.169,
+      "end": 10.251,
+      "lines": [
+        "Most teams rubber stamp the diff, or",
+        "rewrite the whole thing."
+      ],
+      "text": "Most teams rubber stamp the diff, or rewrite the whole thing."
+    },
+    {
+      "start": 11.801,
+      "end": 14.226,
+      "lines": [
+        "Read the diff, not the summary."
+      ],
+      "text": "Read the diff, not the summary."
+    },
+    {
+      "start": 15.196,
+      "end": 16.77,
+      "lines": [
+        "Run it once yourself."
+      ],
+      "text": "Run it once yourself."
+    },
+    {
+      "start": 17.74,
+      "end": 19.557,
+      "lines": [
+        "Ask what it does not handle."
+      ],
+      "text": "Ask what it does not handle."
+    },
+    {
+      "start": 21.107,
+      "end": 24.318,
+      "lines": [
+        "Sixty seconds of reading is the whole",
+        "budget."
+      ],
+      "text": "Sixty seconds of reading is the whole budget."
+    },
+    {
+      "start": 25.868,
+      "end": 27.916,
+      "lines": [
+        "Forty seconds reading the diff."
+      ],
+      "text": "Forty seconds reading the diff."
+    },
+    {
+      "start": 28.886,
+      "end": 31.004,
+      "lines": [
+        "Ten seconds running it yourself."
+      ],
+      "text": "Ten seconds running it yourself."
+    },
+    {
+      "start": 31.974,
+      "end": 35.719,
+      "lines": [
+        "Ten seconds asking what it quietly refuses",
+        "to handle."
+      ],
+      "text": "Ten seconds asking what it quietly refuses to handle."
+    },
+    {
+      "start": 37.269,
+      "end": 41.032,
+      "lines": [
+        "One command runs every check: npm test."
+      ],
+      "text": "One command runs every check: npm test."
+    },
+    {
+      "start": 42.582,
+      "end": 46.019,
+      "lines": [
+        "Green means merge. Red means send it back."
+      ],
+      "text": "Green means merge. Red means send it back."
+    },
+    {
+      "start": 47.569,
+      "end": 52.018,
+      "lines": [
+        "Three checks. One command. A minute of",
+        "your time."
+      ],
+      "text": "Three checks. One command. A minute of your time."
+    },
+    {
+      "start": 53.568,
+      "end": 58.985,
+      "lines": [
+        "Pick one repository this week. Run the",
+        "checks. That is the method."
+      ],
+      "text": "Pick one repository this week. Run the checks. That is the method."
+    }
+  ],
+  "score": [
+    {
+      "at": 0.02,
+      "kind": "swell",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 1.683,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 3.346,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 5.909,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 11.541,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 20.847,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 25.608,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 30.884,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    },
+    {
+      "at": 37.009,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 42.322,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 42.602,
+      "kind": "impact",
+      "gain": 0.55,
+      "length": 0.9
+    },
+    {
+      "at": 47.309,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 47.409,
+      "kind": "riser",
+      "gain": 0.4,
+      "length": 0.8
+    },
+    {
+      "at": 53.308,
+      "kind": "whoosh",
+      "gain": 0.5,
+      "length": 0.6
+    },
+    {
+      "at": 56.367,
+      "kind": "pop",
+      "gain": 0.3,
+      "length": 0.3
+    }
+  ]
+}

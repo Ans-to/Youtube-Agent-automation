@@ -1,0 +1,281 @@
+"""The picture may only print words the narration says.
+
+The report that started this was blunt: "what we are seeing on screen and what
+is actually happening or talking about are totally different". It was true. Each
+section carried its own on-screen copy, written by hand next to the narration and
+never compared with it, so the opening frame said "SHIP IT, OR STOP IT." while
+the narrator was still saying "an agent just opened a pull request".
+
+These tests hold the rule that fixed it: every word the film prints must be a
+word of the narration, in the order it is spoken, in the section that says it.
+"""
+import json
+import re
+import sys
+import unittest
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+BRIEFS = ROOT / "video_studio" / "briefs"
+PLAN = ROOT / "docs" / "media" / "review-ai-code-plan.json"
+
+
+def bare(word: str) -> str:
+    return re.sub(r"[^a-z0-9']", "", str(word).lower())
+
+
+ONES = {
+    0: "zero", 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six",
+    7: "seven", 8: "eight", 9: "nine", 10: "ten", 11: "eleven", 12: "twelve",
+    13: "thirteen", 14: "fourteen", 15: "fifteen", 16: "sixteen",
+    17: "seventeen", 18: "eighteen", 19: "nineteen",
+}
+TENS = {20: "twenty", 30: "thirty", 40: "forty", 50: "fifty", 60: "sixty",
+        70: "seventy", 80: "eighty", 90: "ninety"}
+
+
+def spoken(token: str) -> list[str]:
+    """What the voice says for a token the frame may print as a numeral.
+
+    A rail prints "40" and the narrator says "forty" - that is correct film
+    practice, not a mismatch, so the comparison reads both the same way.
+    """
+    if token.isdigit():
+        value = int(token)
+        if value in ONES:
+            return [ONES[value]]
+        if value in TENS:
+            return [TENS[value]]
+        if value < 100:
+            tens, ones = divmod(value, 10)
+            if tens * 10 in TENS and ones in ONES:
+                return [TENS[tens * 10], ONES[ones]]
+    return [token]
+
+
+def tokens(text: str) -> list[str]:
+    out = []
+    for token in (bare(part) for part in str(text).split()):
+        if token:
+            out.extend(spoken(token))
+    return out
+
+
+def is_subsequence(phrase: str, spoken: list[str]) -> bool:
+    want = tokens(phrase)
+    if not want:
+        return True
+    cursor = 0
+    for token in want:
+        while cursor < len(spoken) and spoken[cursor] != token:
+            cursor += 1
+        if cursor >= len(spoken):
+            return False
+        cursor += 1
+    return True
+
+
+def authored_copy(section: dict) -> list[tuple[str, str]]:
+    """Every phrase this section prints, labelled with the prop it came from."""
+    props = section.get("props") or {}
+    out = []
+    for key in ("text", "left", "right", "label"):
+        if isinstance(props.get(key), str) and props[key].strip():
+            out.append((key, props[key]))
+    for key in ("items", "lines"):
+        for index, item in enumerate(props.get(key) or []):
+            if isinstance(item, str) and item.strip():
+                out.append((f"{key}[{index}]", item))
+    for index, segment in enumerate(props.get("segments") or []):
+        label = segment.get("label") if isinstance(segment, dict) else None
+        if isinstance(label, str) and label.strip():
+            out.append((f"segments[{index}]", label))
+    return out
+
+
+class BriefsOnlyPrintWhatIsSaid(unittest.TestCase):
+    def briefs(self):
+        paths = sorted(BRIEFS.glob("*.json"))
+        self.assertTrue(paths, "no briefs found")
+        return paths
+
+    def test_every_on_screen_phrase_is_in_the_narration(self):
+        failures = []
+        for path in self.briefs():
+            brief = json.loads(path.read_text(encoding="utf-8"))
+            for section in brief.get("sections", []):
+                spoken = tokens(" ".join(line.get("text", "") for line in section.get("lines", [])))
+                for prop, phrase in authored_copy(section):
+                    if not is_subsequence(phrase, spoken):
+                        failures.append(
+                            f"{path.name}: section {section.get('id')} prints {phrase!r} "
+                            f"({prop}) but never says it")
+        self.assertEqual(failures, [])
+
+    def test_a_phrase_out_of_order_is_still_refused(self):
+        spoken = tokens("One command runs every check npm test")
+        self.assertTrue(is_subsequence("runs every check", spoken))
+        self.assertFalse(is_subsequence("check every runs", spoken))
+
+    def test_the_guard_is_not_vacuous(self):
+        """A phrase nobody says must fail, or the test above proves nothing."""
+        spoken = tokens("An agent just opened a pull request Do you ship it today")
+        self.assertFalse(is_subsequence("Ship it, or stop it", spoken))
+
+
+class TheDeliveredPlanMatchesTheNarration(unittest.TestCase):
+    """The plan published with the film is checked, not the brief it came from."""
+
+    def setUp(self):
+        if not PLAN.is_file():
+            self.skipTest("the delivered plan is not in the repository")
+        self.plan = json.loads(PLAN.read_text(encoding="utf-8"))
+        if not any("shows" in shot for shot in self.plan.get("shots", [])):
+            self.skipTest("this plan predates the on-screen text record")
+
+    def section_words(self, section_id: str) -> list[str]:
+        windows = [(shot["start"], shot["end"]) for shot in self.plan["shots"]
+                   if shot["section"] == section_id]
+        first = min(start for start, _ in windows)
+        last = max(end for _, end in windows)
+        spoken = []
+        for cue in self.plan["captions"]:
+            if cue["start"] >= first - 0.5 and cue["end"] <= last + 0.5:
+                spoken.extend(tokens(cue["text"]))
+        return spoken
+
+    def test_every_beat_shows_words_from_its_own_section(self):
+        failures = []
+        cache = {}
+        for shot in self.plan["shots"]:
+            shown = shot.get("shows") or ""
+            if not shown:
+                continue
+            section = shot["section"]
+            if section not in cache:
+                cache[section] = self.section_words(section)
+            for phrase in [part.strip() for part in shown.split("|") if part.strip()]:
+                if not is_subsequence(phrase, cache[section]):
+                    failures.append(f"{shot['id']} shows {phrase!r}")
+        self.assertEqual(failures, [])
+
+    def test_the_first_beat_is_on_screen_immediately(self):
+        first = self.plan["shots"][0]
+        self.assertLessEqual(first["start"], 0.2)
+        self.assertTrue(first.get("shows"), "the opening beat has nothing on it")
+
+
+class EveryFilmIsBuiltForItsOwnScript(unittest.TestCase):
+    """Ten briefs must not be one skeleton wearing ten sets of words.
+
+    The failure this guards against is not a bug, it is a habit: the first batch
+    of ten films all opened on a headline, then a dial, then a grid, then a pair,
+    then a rail, then a fork, then a grid, then a stamp - and only the words
+    changed. Two rules stop that coming back:
+
+      * a template may only be asked for a situation the library says it answers
+        (a bar chart is not a way to show a sequence);
+      * no two briefs may share the same sequence of templates.
+    """
+
+    CATALOGUE = ROOT / "agents" / "motion_templates.json"
+
+    def briefs(self) -> dict[str, list[str]]:
+        out = {}
+        for path in sorted(BRIEFS.glob("*.json")):
+            brief = json.loads(path.read_text(encoding="utf-8"))
+            out[path.stem] = [str(section.get("template")) for section in brief.get("sections", [])
+                              if section.get("template")]
+        self.assertTrue(out, "no briefs found")
+        return out
+
+    def test_no_two_briefs_share_a_template_sequence(self):
+        seen: dict[tuple[str, ...], str] = {}
+        clashes = []
+        for name, sequence in self.briefs().items():
+            key = tuple(sequence)
+            if len(key) < 2:
+                continue
+            if key in seen:
+                clashes.append(f"{name} and {seen[key]} both run {' > '.join(key)}")
+            else:
+                seen[key] = name
+        self.assertEqual(clashes, [])
+
+    def test_a_template_only_answers_situations_it_claims(self):
+        catalogue = json.loads(self.CATALOGUE.read_text(encoding="utf-8"))
+        situations = {name: entry.get("wants") or [] for name, entry in catalogue["situations"].items()}
+        failures = []
+        for name, _ in self.briefs().items():
+            brief = json.loads((BRIEFS / f"{name}.json").read_text(encoding="utf-8"))
+            for section in brief.get("sections", []):
+                template = section.get("template")
+                situation = section.get("situation")
+                if not template:
+                    continue
+                if template not in (situations.get(situation) or []):
+                    failures.append(
+                        f"{name}: section {section.get('id')} uses {template} for "
+                        f"{situation}, which the library does not offer it for")
+        self.assertEqual(failures, [])
+
+    def test_the_set_uses_the_library_it_has(self):
+        """A library of fourteen shapes used for six of them is a template with ten scripts."""
+        used = {template for sequence in self.briefs().values() for template in sequence}
+        self.assertGreaterEqual(len(used), 10, f"only {len(used)} templates used across the briefs")
+
+
+class ABriefLineFitsTheCaptionBand(unittest.TestCase):
+    """A line the caption band cannot hold must fail here, not three minutes later.
+
+    ``from_brief.mjs`` wraps each spoken line into at most two caption lines of
+    42 characters and throws if it cannot. That throw happens *after* the voice
+    has been synthesised, so a ten-film batch paid for nine minutes of work to
+    learn that one sentence was 98 characters long. The rule is the same rule,
+    checked against the same numbers, taken from the film script itself so the
+    two cannot drift apart.
+    """
+
+    SCRIPT = ROOT / "video_studio" / "films" / "from_brief.mjs"
+
+    def band(self) -> tuple[int, int]:
+        source = self.SCRIPT.read_text(encoding="utf-8")
+        width = re.search(r"CAPTION_LINE_MAX\s*=\s*(\d+)", source)
+        rows = re.search(r"CAPTION_LINES_MAX\s*=\s*(\d+)", source)
+        self.assertIsNotNone(width, "from_brief.mjs no longer declares CAPTION_LINE_MAX")
+        self.assertIsNotNone(rows, "from_brief.mjs no longer declares CAPTION_LINES_MAX")
+        return int(width.group(1)), int(rows.group(1))
+
+    def test_every_spoken_line_wraps_into_the_band(self):
+        width, rows = self.band()
+        failures = []
+        for path in sorted(BRIEFS.glob("*.json")):
+            brief = json.loads(path.read_text(encoding="utf-8"))
+            for section in brief.get("sections", []):
+                for line in section.get("lines", []):
+                    wrapped, current = [], ""
+                    for word in str(line.get("text", "")).split():
+                        if not current:
+                            current = word
+                        elif len(current) + 1 + len(word) <= width:
+                            current = f"{current} {word}"
+                        else:
+                            wrapped.append(current)
+                            current = word
+                    if current:
+                        wrapped.append(current)
+                    if len(wrapped) > rows:
+                        failures.append(
+                            f"{path.name}: section {section.get('id')} line {line!r} needs "
+                            f"{len(wrapped)} caption rows of {width} characters")
+        self.assertEqual(failures, [])
+
+    def test_the_check_would_notice_a_line_that_does_not_fit(self):
+        """The band width has to be a real constraint, or the test above is theatre."""
+        width, rows = self.band()
+        self.assertEqual((width, rows), (42, 2))
+        self.assertLess(width * rows, 120, "the band is too wide to be a constraint")
+
+
+if __name__ == "__main__":
+    unittest.main()

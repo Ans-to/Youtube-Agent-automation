@@ -164,11 +164,52 @@ def pause_after_for(line: Line) -> float:
 
 
 def scene_gap_for(line: Line, previous_scene: str) -> float:
-    """Silence before a line, including the break between two sections."""
+    """Silence before a line, including the break between two sections.
+
+    An explicit `gap_before` is honoured, including on the first line: the
+    script is the author's, and a narrator does not overrule it. What the writer
+    of a film should not do is leave a long silence before its first word, so
+    `tools/brief_to_voice.py` writes almost none - see OPENING_GAP_SECONDS.
+    """
     gap = max(0.0, float(line.gap_before))
     if line.scene and previous_scene and line.scene != previous_scene:
         gap = max(gap, SECTION_BREAK_SECONDS)
     return gap
+
+
+def word_timings(text: str, start: float, end: float) -> list[dict]:
+    """When each word of a line is spoken, estimated from the audio window.
+
+    The models return a waveform, not an alignment, so this distributes the
+    line's own measured duration across its words - longer words take longer,
+    and a word that ends a clause carries the pause after it. It is an estimate,
+    and it is a good one: the picture uses it to decide which words are on
+    screen, and being 80 ms out on a two-second clause is not something a viewer
+    can see.
+
+    What it replaces was worse than an estimate: the beats were cut into equal
+    slices and the words were split evenly across them, so a headline could be
+    showing words the narrator had not reached yet - or had already left behind.
+    """
+    parts = [word for word in re.findall(r"\S+", str(text))]
+    if not parts or end <= start:
+        return []
+    weights = []
+    for word in parts:
+        core = re.sub(r"[^0-9A-Za-z']", "", word)
+        weight = 1.0 + 0.30 * len(core)
+        tail = word[-1] if word else ""
+        weight += 1.4 if tail in ".!?" else (0.7 if tail in ",;:" else 0.0)
+        weights.append(weight)
+    total = sum(weights) or 1.0
+    cursor = start
+    out = []
+    for word, weight in zip(parts, weights):
+        span = (end - start) * weight / total
+        out.append({"text": word, "start": round(cursor, 3),
+                    "end": round(cursor + span, 3)})
+        cursor += span
+    return out
 
 
 def emphasis_words(text: str) -> list[str]:
@@ -318,15 +359,80 @@ def espeak_available() -> bool:
         or _espeak_lib_available()
 
 
-def synth_piper_line(line: Line, model: Path, out_path: Path) -> None:
-    """Render one line with Piper and write it as 16-bit PCM."""
+def kokoro_voice_available(voice: str | None = None) -> bool:
+    """True when the Kokoro runtime is installed and its voice can be prepared.
+
+    The weights come over the network the first time, so this reports on the
+    runtime only; `kokoro_voice.session()` is what actually fetches them, and a
+    failure there falls back to Piper rather than stopping a render.
+    """
+    try:
+        import kokoro_voice as kv
+    except Exception:
+        return False
+    return kv.available()
+
+
+def kokoro_default_voice() -> str:
+    try:
+        import kokoro_voice as kv
+        return kv.DEFAULT_KOKORO_VOICE
+    except Exception:
+        return "am_michael"
+
+
+def voice_production_enabled() -> bool:
+    """Whether lines are phrased clause by clause (the default) or read flat.
+
+    A flat read is still useful for a timing preview, and for comparing what the
+    production step actually does, so it stays reachable - but it is not the
+    default, because a flat read is what made the first narrated films sound like
+    a machine reading a spreadsheet.
+    """
+    return os.environ.get("AGENTHQ_VOICE_PRODUCTION", "1").strip().lower() not in ("0", "false", "no", "off")
+
+
+def synth_piper_line(line: Line, model: Path, out_path: Path, *, production: bool | None = None) -> None:
+    """Render one line with Piper and write it as 16-bit PCM.
+
+    With production on (the default) the line is synthesised clause by clause by
+    `voice_production`, so each clause gets its own contour and the punctuation
+    becomes real silence. With it off, the model reads the whole sentence in one
+    breath, which is the raw take this step exists to improve on.
+    """
     from piper import PiperVoice
     from piper.config import SynthesisConfig
+
+    import voice_production
 
     voice = PiperVoice.load(str(model))
     text = spoken_text(line.text)
     rate = max(0.75, min(1.35, line.rate))
-    # punctuation shapes the melody; length_scale only nudges pace
+    if production is None:
+        production = voice_production_enabled()
+
+    def synth_clause(clause: str, pace: float) -> np.ndarray:
+        # punctuation shapes the melody; length_scale only nudges pace
+        config = SynthesisConfig(
+            length_scale=LENGTH_SCALE / (rate * pace),
+            noise_scale=NOISE_SCALE,
+            noise_w_scale=NOISE_W_SCALE,
+            normalize_audio=True,
+        )
+        chunks = [np.asarray(chunk.audio_float_array, dtype=np.float32)
+                  for chunk in voice.synthesize(clause, syn_config=config)]
+        if not chunks:
+            return np.zeros(0, dtype=np.float32)
+        audio = np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
+        return resample(audio, voice.config.sample_rate, SAMPLE_RATE)
+
+    if production:
+        audio = voice_production.synthesise_line(text, synth_clause, SAMPLE_RATE)
+        if audio.size == 0:
+            raise VoiceBackendMissing(f"piper produced no audio for {text!r}")
+        write_wav(out_path, audio, SAMPLE_RATE)
+        return
+
     config = SynthesisConfig(
         length_scale=LENGTH_SCALE / rate,
         noise_scale=NOISE_SCALE,
@@ -353,6 +459,71 @@ def _espeak_lib():
 def _espeak_lib_available() -> bool:
     module = _espeak_lib()
     return bool(module and module.available())
+
+
+def synth_kokoro_line(line: Line, out_path: Path, voice: str | None = None) -> None:
+    """Render one line with Kokoro, phrased clause by clause, then mastered."""
+    import kokoro_voice
+
+    kokoro_voice.synth_line(line, out_path, voice=voice or kokoro_default_voice())
+
+
+def synth_lines(lines: list[Line], out_dir: Path, *, chosen: str, voice: str,
+                model: Path | None, workers: int | None = None) -> None:
+    """Render every line to its own wav, in parallel when the backend allows.
+
+    A film is 150-200 lines and a neural voice costs roughly its own duration to
+    synthesise, so a single process spends minutes of a build on speech. Kokoro
+    phonemises through espeak-ng, which holds process-global state, so the split
+    is across processes; Piper keeps its single-process path, which is already
+    cheap.
+    """
+    if chosen == "kokoro" and len(lines) > 8:
+        # Prepare the weights and the voice pack here, once, before any worker
+        # starts: build-on-first-use inside a forked worker means N writers.
+        import kokoro_voice
+        kokoro_voice.session(voice)
+        import multiprocessing as mp
+        count = workers or min(8, max(1, (os.cpu_count() or 2)))
+        count = max(1, min(count, len(lines)))
+        payload = [
+            ([line.id, line.text, line.rate] for line in chunk)
+            for chunk in _chunks(lines, count)
+        ]
+        if count > 1:
+            try:
+                context = mp.get_context("fork")
+            except ValueError:
+                context = mp.get_context()
+            with context.Pool(count) as pool:
+                pool.map(
+                    _kokoro_batch,
+                    [([tuple(item) for item in chunk], str(out_dir), voice) for chunk in payload],
+                )
+            missing = [line.id for line in lines if not (Path(out_dir) / f"{line.id}.wav").is_file()]
+            if missing:
+                raise VoiceBackendMissing(
+                    "kokoro left %d lines unsynthesised (first: %s)" % (len(missing), missing[0]))
+            return
+    for line in lines:
+        clip_path = Path(out_dir) / f"{line.id}.wav"
+        if chosen == "kokoro":
+            synth_kokoro_line(line, clip_path, voice)
+        elif model is not None:
+            synth_piper_line(line, model, clip_path)
+        else:
+            synth_espeak_line(line, clip_path)
+
+
+def _chunks(items: list[Line], count: int) -> list[list[Line]]:
+    size = max(1, math.ceil(len(items) / count))
+    return [items[index:index + size] for index in range(0, len(items), size)]
+
+
+def _kokoro_batch(payload) -> list[str]:
+    import kokoro_voice
+
+    return kokoro_voice.synth_batch(payload)
 
 
 def synth_espeak_line(line: Line, out_path: Path) -> None:
@@ -587,6 +758,24 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
 
     chosen = backend
     model = None
+    if chosen in ("auto", "kokoro", "piper"):
+        # Kokoro first: it is the only backend here that carries its own
+        # sentence prosody. Piper stays as the fallback because its weights are
+        # on the machine, so a runner with no npm route still narrates the film.
+        requested_kokoro = chosen == "kokoro"
+        if kokoro_voice_available() or requested_kokoro:
+            kokoro_name = voice if (requested_kokoro and voice and "-" not in voice) else kokoro_default_voice()
+            try:
+                import kokoro_voice as kv
+                kv.session(kokoro_name)
+            except Exception as exc:
+                if requested_kokoro:
+                    raise VoiceBackendMissing(
+                        "the kokoro backend was requested but its weights could not be "
+                        f"prepared: {exc}") from exc
+            else:
+                chosen = "kokoro"
+                voice = kokoro_name
     if chosen in ("auto", "piper"):
         if piper_available():
             model = piper_model_path(voice=voice)
@@ -625,13 +814,11 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
             "  (a better voice, but it needs the one-time model download)"
         )
 
+    synth_lines(lines, out_dir, chosen=chosen, voice=voice, model=model)
+
     rendered: list[tuple[Line, np.ndarray]] = []
     for line in lines:
         clip_path = out_dir / f"{line.id}.wav"
-        if model is not None:
-            synth_piper_line(line, model, clip_path)
-        else:
-            synth_espeak_line(line, clip_path)
         audio, rate = read_wav(clip_path)
         audio = resample(audio, rate, SAMPLE_RATE)
         rendered.append((line, audio))
@@ -662,6 +849,7 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
             "words_per_minute": round(words / max(end - start, 1e-6) * 60.0, 1),
             "gap_before": round(gap_before, 3),
             "pause_after": round(pause_after, 3),
+            "word_times": word_timings(spoken_text(line.text), start, end),
             "prosody": prosody_note(line),
             "emphasis": emphasis_words(line.text),
         })
@@ -713,7 +901,7 @@ def build(script: Path, out_dir: Path, *, voice: str = DEFAULT_VOICE,
         "publishable_voice": chosen != "espeak",
         "words_per_minute": round(total_words / max(speech_seconds, 1e-6) * 60.0, 1),
         "fps": fps,
-        "voice": voice if chosen == "piper" else "espeak-ng formant",
+        "voice": voice if chosen in ("piper", "kokoro") else "espeak-ng formant",
         "model": str(model) if model else None,
         "sample_rate": SAMPLE_RATE,
         "duration_seconds": round(full.size / SAMPLE_RATE, 3),
@@ -735,7 +923,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--script", required=True, help="JSON file with the lines")
     parser.add_argument("--out", required=True, help="output directory")
     parser.add_argument("--voice", default=DEFAULT_VOICE)
-    parser.add_argument("--backend", default="auto", choices=["auto", "piper", "espeak"])
+    parser.add_argument("--backend", default="auto", choices=["auto", "kokoro", "piper", "espeak"])
     parser.add_argument("--allow-download", action="store_true",
                         help="download the Piper weights once if they are missing")
     parser.add_argument("--fps", type=int, default=30, help="frame rate for the lip-sync envelope")

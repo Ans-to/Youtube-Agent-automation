@@ -67,7 +67,16 @@ def resolve_node() -> str:
 
 
 def resolve_ffmpeg() -> tuple[str, str | None]:
-    """Return (ffmpeg, ffprobe), falling back to a bundled binary if present."""
+    """Return (ffmpeg, ffprobe), falling back to a bundled binary if present.
+
+    The project root goes on ``sys.path`` first: this module is imported by
+    ``tools/render_authored_film.py``, which is run as a script, so ``sys.path[0]``
+    is ``tools/`` and ``app`` was not importable. The documented render command
+    failed on a clean checkout with ModuleNotFoundError before this.
+    """
+    root = Path(__file__).resolve().parents[1]
+    if str(root) not in sys.path:
+        sys.path.insert(0, str(root))
     from app.infrastructure.ffmpeg import find_ffmpeg, find_ffprobe
 
     ffmpeg = find_ffmpeg()

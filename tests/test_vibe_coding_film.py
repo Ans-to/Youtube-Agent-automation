@@ -72,6 +72,36 @@ class VibeCodingFilmTests(unittest.TestCase):
         starts = [scene["start"] for scene in data["scenes"]]
         self.assertEqual(starts, sorted(starts))
 
+    def test_every_scene_can_actually_be_drawn(self):
+        """One still in the middle of every scene, in one run.
+
+        Both the habits and the recap scene referenced a ``punch`` variable that
+        only existed in a neighbouring scene, so the film threw as soon as it
+        reached them: the last fifty seconds of the film could not be rendered at
+        all. Every other test here parses the film's data or renders its first
+        frame, and neither notices a renderer that fails on one scene. This one
+        does, because it asks the renderer for a frame from each scene in turn.
+        """
+        with tempfile.TemporaryDirectory() as tmp:
+            lines = fake_voice(Path(tmp))
+            plan = subprocess.run([NODE, str(FILM), "--plan", "--voice-lines", str(lines)],
+                                  cwd=str(STUDIO), capture_output=True, text=True,
+                                  timeout=300, check=False)
+            self.assertEqual(plan.returncode, 0, plan.stderr[-800:])
+            scenes = json.loads(plan.stdout)["scenes"]
+            moments = [round((scene["start"] + scene["end"]) / 2, 2) for scene in scenes]
+            result = self.run_film(Path(tmp) / "stills",
+                                   ["--voice-lines", str(lines),
+                                    "--still", ",".join(str(m) for m in moments)], to=None)
+            written = {path.name: path.stat().st_size
+                       for path in sorted((Path(tmp) / "stills").glob("still-*.jpg"))}
+        self.assertEqual(result.returncode, 0,
+                         "the film crashed while drawing a scene: " + result.stderr[-900:])
+        self.assertEqual(len(written), len(scenes),
+                         "a scene produced no still: " + result.stderr[-900:])
+        for name, size in written.items():
+            self.assertGreater(size, 1000, "%s is empty" % name)
+
     def test_a_voice_track_with_the_wrong_line_count_is_rejected(self):
         with tempfile.TemporaryDirectory() as tmp:
             lines = fake_voice(Path(tmp), count=LINE_COUNT - 1)

@@ -1,0 +1,164 @@
+{
+  "slug": "what-rebase-does",
+  "title": "What Git Rebase Actually Does",
+  "promise": "You will rebase your own branch without fear, and never a shared one.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "IT REWRITES",
+    "section": "risk"
+  },
+  "tags": [
+    "git rebase",
+    "git",
+    "version control",
+    "merge",
+    "developers"
+  ],
+  "hashtags": [
+    "git rebase",
+    "version control",
+    "developers"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The claim",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "Rebase is not magic"
+      },
+      "lines": [
+        {
+          "text": "Rebase is not magic. It rewrites your commits, one by one.",
+          "id": "L001"
+        }
+      ]
+    },
+    {
+      "id": "command",
+      "kind": "section",
+      "heading": "The command",
+      "situation": "show-the-command",
+      "template": "code-typing",
+      "props": {
+        "lines": [
+          "git rebase main"
+        ]
+      },
+      "lines": [
+        {
+          "text": "The command is git rebase main. One line, no flags.",
+          "id": "L002"
+        },
+        {
+          "text": "That is the whole incantation.",
+          "id": "L003"
+        }
+      ]
+    },
+    {
+      "id": "history",
+      "kind": "section",
+      "heading": "What changes",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "props": {
+        "left": "Merge keeps the history",
+        "right": "Rebase rewrites it"
+      },
+      "lines": [
+        {
+          "text": "Merge keeps the history. Rebase rewrites it into a clean line.",
+          "id": "L004"
+        },
+        {
+          "text": "Same code, new commits.",
+          "id": "L005"
+        }
+      ]
+    },
+    {
+      "id": "risk",
+      "kind": "section",
+      "heading": "The headcount",
+      "situation": "explain-a-number",
+      "template": "count-up",
+      "props": {
+        "value": 2,
+        "label": "people"
+      },
+      "lines": [
+        {
+          "text": "It is safe with one person. It is dangerous with two people.",
+          "id": "L006"
+        }
+      ]
+    },
+    {
+      "id": "rules",
+      "kind": "section",
+      "heading": "The rules",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "props": {
+        "items": [
+          "Never rebase a shared branch",
+          "Pull before you push",
+          "Squash your own mess"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Never rebase a shared branch. Pull before you push. Push early and often.",
+          "id": "L007"
+        },
+        {
+          "text": "And squash your own mess before anyone reads it.",
+          "id": "L008"
+        }
+      ]
+    },
+    {
+      "id": "branch",
+      "kind": "section",
+      "heading": "Whose branch",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "props": {
+        "left": "Safe on your branch",
+        "right": "Risky on main"
+      },
+      "lines": [
+        {
+          "text": "Safe on your branch. Risky on main, where everyone else is standing.",
+          "id": "L009"
+        },
+        {
+          "text": "Own branch only.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Rebase your own branch",
+        "kicker": "your branch"
+      },
+      "lines": [
+        {
+          "text": "Rebase your own branch. Leave the shared one alone.",
+          "id": "L011"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,218 @@
+{
+  "slug": "review-ai-code",
+  "title": "How to Review AI-Written Code in 60 Seconds",
+  "promise": "You will review AI-written code in about a minute, before it ships.",
+  "hookType": "result",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "AI CODE REVIEW",
+    "section": "number"
+  },
+  "tags": [
+    "ai code review",
+    "code review",
+    "pull request",
+    "vibe coding",
+    "ai agents",
+    "github",
+    "reviewing ai code",
+    "merge or send back"
+  ],
+  "hashtags": [
+    "ai code review",
+    "pull request",
+    "code review"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "AN AGENT JUST OPENED A PULL REQUEST"
+      },
+      "lines": [
+        {
+          "text": "An agent just opened a pull request. Do you ship it today?"
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "Why it matters",
+      "situation": "make-a-comparison",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "Rubber stamp",
+        "right": "Rewrite the whole thing"
+      },
+      "lines": [
+        {
+          "text": "Most teams rubber stamp the diff, or rewrite the whole thing."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The three checks",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Read the diff, not the summary",
+          "Run it once yourself",
+          "Ask what it does not handle"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Read the diff, not the summary."
+        },
+        {
+          "text": "Run it once yourself."
+        },
+        {
+          "text": "Ask what it does not handle."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The budget",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "spread",
+      "props": {
+        "value": 60,
+        "label": "SECONDS"
+      },
+      "lines": [
+        {
+          "text": "Sixty seconds of reading is the whole budget."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "How the minute is spent",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "region": "wide",
+      "props": {
+        "total": 60,
+        "segments": [
+          {
+            "label": "Forty seconds reading the diff",
+            "value": 40
+          },
+          {
+            "label": "Ten seconds running it",
+            "value": 10
+          },
+          {
+            "label": "Ten seconds asking what it refuses",
+            "value": 10
+          }
+        ]
+      },
+      "lines": [
+        {
+          "text": "Forty seconds reading the diff."
+        },
+        {
+          "text": "Ten seconds running it yourself."
+        },
+        {
+          "text": "Ten seconds asking what it quietly refuses to handle."
+        }
+      ]
+    },
+    {
+      "id": "command",
+      "kind": "section",
+      "heading": "Make it one command",
+      "situation": "show-the-command",
+      "template": "command-console",
+      "region": "wide",
+      "props": {
+        "lines": [
+          "npm test"
+        ]
+      },
+      "lines": [
+        {
+          "text": "One command runs every check: npm test."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "payoff",
+      "heading": "The decision",
+      "situation": "make-a-comparison",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "Green means merge",
+        "right": "Red means send it back",
+        "leftColour": "#3F7F5A",
+        "rightColour": "#C4553B"
+      },
+      "lines": [
+        {
+          "text": "Green means merge. Red means send it back."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Three checks",
+          "One command",
+          "A minute of your time"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Three checks. One command. A minute of your time."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "kinetic-headline",
+      "beats": [
+        "kinetic-headline",
+        "stamp-lockup"
+      ],
+      "region": "statement",
+      "props": {
+        "text": "PICK ONE REPOSITORY THIS WEEK"
+      },
+      "lines": [
+        {
+          "text": "Pick one repository this week. Run the checks. That is the method."
+        }
+      ]
+    }
+  ]
+}

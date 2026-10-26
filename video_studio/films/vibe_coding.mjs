@@ -30,7 +30,13 @@ import {
   clickRing, codeBlock, checkRow, chip, rule, slash, speedLines, shards,
   rainbowStreak, roundRect,
 } from '../motion/ui.mjs';
-import { beatState, pulse, spotlight, beatTicks } from '../motion/live.mjs';
+import { beatState, spotlight, beatTicks } from '../motion/live.mjs';
+import { PALETTES, STAGE_MARGIN, SETTLE_MAX, drawField, drawPhrase, beatAt } from '../motion/wordstage.mjs';
+import { TRANSITIONS, chooseTransition, reveal } from '../motion/transitions.mjs';
+import { seconds as houseSeconds } from '../motion/timings.mjs';
+import { secondUnit } from '../motion/second_unit.mjs';
+import { kineticWords } from '../motion/kinetic.mjs';
+import { drawTemplate } from '../motion/library.mjs';
 
 // Collectors for native canvas memory, requested from inside the script so a
 // render does not depend on the caller remembering to pass node flags.
@@ -67,6 +73,11 @@ function parseArgs(argv) {
     out: 'frames', width: 1920, height: null, fps: 30, quality: 90,
     from: 0, to: null, still: null, quiet: false, plan: false,
     voiceLines: null, voiceScript: null, grain: true, probe: false,
+    // The look of the opening. 'current' is the film as it has always been;
+    // 'light' and 'dark' are the typographic stage of motion/wordstage.mjs,
+    // built from the owner's reference film. Two cuts are rendered from the same
+    // script so the owner can choose with his eyes rather than from a description.
+    look: 'current',
   };
   for (let i = 0; i < argv.length; i += 1) {
     const flag = argv[i];
@@ -85,6 +96,7 @@ function parseArgs(argv) {
     else if (flag === '--voice-script') opts.voiceScript = value();
     else if (flag === '--no-grain') opts.grain = false;
     else if (flag === '--probe') opts.probe = true;
+    else if (flag === '--look') opts.look = value();
     else if (flag === '--help' || flag === '-h') {
       console.log(fs.readFileSync(new URL(import.meta.url)).toString().split('*/')[0]);
       process.exit(0);
@@ -96,12 +108,49 @@ function parseArgs(argv) {
 
 const OPTS = parseArgs(process.argv.slice(2));
 const FPS = OPTS.fps;
+/**
+ * Which look the opening uses.
+ *
+ * 'current' keeps the film exactly as it was. 'light' and 'dark' draw the first
+ * two scenes on the typographic stage from motion/wordstage.mjs: one phrase in
+ * the frame at a time, at 35 to 50 percent of frame height, no rail, no chapter
+ * name, no timecode and no beat strip - which is what the reference film does
+ * and what our opening was not doing.
+ *
+ * Both new looks share every line of geometry; only the palette differs. That is
+ * deliberate: if the owner picks one, the other is a one-word change and there is
+ * no second implementation to drift.
+ */
+const LOOK = ['current', 'light', 'dark'].includes(OPTS.look) ? OPTS.look : 'current';
+const WORDSTAGE = LOOK !== 'current';
 const W = DESIGN_W;
 const H = DESIGN_H;
+// Scenes own the whole frame again.
+//
+// For one round these were narrowed to 2656 so nothing ran under the sidebar
+// window. That window is gone: the product card (motion/buildview.mjs) now takes
+// the entire frame on the lines that are about the product, and is absent on the
+// lines that are not. It never shares the picture, so nothing needs to keep out
+// of its way. The names stay because every call site uses them, and one place to
+// decide where content sits is worth more than four inline W / 2s.
+const CONTENT_W = 3840;
+const CONTENT_MID = CONTENT_W / 2;
 
 const canvas = createCanvas(OPTS.width, OPTS.height);
 const ctx = canvas.getContext('2d');
 const SCALE = OPTS.width / W;
+
+// Two offscreen frames, reused: the shot that is leaving and the shot that is
+// arriving. Only a cut uses them, and a cut is under half a second.
+const canvasA = createCanvas(OPTS.width, OPTS.height);
+const canvasB = createCanvas(OPTS.width, OPTS.height);
+const ctxA = canvasA.getContext('2d');
+const ctxB = canvasB.getContext('2d');
+// A detail card shows part of the frame's own drawing, enlarged. The scene is
+// painted here first and then cut out of it, so the card can never disagree
+// with the picture it came from.
+const canvasC = createCanvas(OPTS.width, OPTS.height);
+const ctxC = canvasC.getContext('2d');
 
 // -------------------------------------------------------------------- fonts
 const FACES = [
@@ -382,6 +431,86 @@ function grain(ctx, frameIndex, amount = GRAIN_ALPHA) {
 }
 
 /** The reference film's bands: a chapter on the left, a clock on the right. */
+/**
+ * The spoken line, as kinetic subtitles.
+ *
+ * Shared by the old bands and by the typographic stage, so there is one caption
+ * implementation rather than two that drift. ``palette`` is the only thing the
+ * two paths disagree about.
+ */
+function captions(ctx, scene, t, palette) {
+  //
+  // This used to be two rows of static text that swapped on the line boundary:
+  // a sentence appeared whole, sat still, then another replaced it. That is a
+  // caption, and the owner's note was that there is no kinetic typography in the
+  // film. Now each word rises into its own mask in the order it is spoken, timed
+  // across the line's real duration, so the subtitle performs the sentence at the
+  // speed of the voice.
+  //
+  // Wrapped to two rows of at most 56 characters, because the words are placed by
+  // the layout above rather than by a canvas text box, and a word wider than the
+  // frame would be clipped.
+  const line = LINES.find((l) => t >= l.start - 0.15 && t <= l.end + 0.4);
+  if (line) {
+    const limit = 46;
+    const rows = [];
+    let row = '';
+    for (const word of String(line.text).split(/\s+/)) {
+      if ((row + ' ' + word).trim().length > limit && row) {
+        rows.push(row.trim());
+        row = word;
+      } else {
+        row = (row + ' ' + word).trim();
+      }
+    }
+    if (row) rows.push(row);
+    const shown = rows.slice(-2);
+    const top = H - 96 - 46 - (shown.length - 1) * 76;
+    // The caption keeps arriving through the pause before the next line, not just
+    // through the words. A line ends, the film takes half a second of air, and in
+    // that silence the old behaviour had a finished caption on a finished picture:
+    // the last of the frozen spans the repeat check found. Speech needs the pause;
+    // the caption can use it.
+    const after = LINES[LINES.indexOf(line) + 1];
+    const tail = after ? Math.min(0.55, Math.max(0, after.start - line.end)) : 0.4;
+    const duration = Math.max(0.5, line.end - line.start + tail);
+    const words = shown.reduce((sum, value) => sum + value.split(/\s+/).length, 0);
+    // One word per beat of the sentence, so the text keeps arriving for exactly
+    // as long as the sentence lasts.
+    // 0.92, not 0.75: the last word now lands just before the line ends, so the
+    // caption is still being read when the sentence finishes. At 0.75 the text
+    // stopped arriving with a quarter of the line left, and a still picture with
+    // a still caption is the freeze the repeat check exists to find.
+    //
+    // The cap is 0.55 rather than 0.22: at 0.22 a ten-word line five seconds long
+    // had finished arriving at 2.2 s and sat still for the rest of it, which is a
+    // frozen caption on a frozen shot. One word every half second is still faster
+    // than the reader needs, and now the last word lands as the sentence ends.
+    const stagger = Math.min(0.62, (duration * 0.96) / Math.max(1, words));
+    let index = 0;
+    shown.forEach((value, i) => {
+      const wordsInRow = value.split(/\s+/).length;
+      kineticWords(ctx, {
+        text: value,
+        x: W / 2,
+        y: top + i * 76,
+        size: 64,
+        weight: 600,
+        family: 'Inter',
+        align: 'center',
+        // On a dark scene the caption is light; dark grey on near-black was
+        // technically present and practically unreadable.
+        colour: palette.caption,
+        local: t - line.start,
+        start: index * stagger + 0.05,
+        stagger,
+        duration: 0.3,
+      });
+      index += wordsInRow;
+    });
+  }
+}
+
 function bands(ctx, scene, t) {
   const topH = 108;
   const botH = 96;
@@ -406,61 +535,47 @@ function bands(ctx, scene, t) {
   ctx.fillStyle = UI.gold;
   ctx.fillRect(150, H - botH / 2 - 2, (W - 300) * p, 5);
 
-  // The current spoken line, as a broadcast subtitle.
-  //
-  // It is wrapped rather than truncated: a sentence that runs off the right edge
-  // is a reading error the viewer has to absorb, and clipping it at sixteen words
-  // cut some lines mid-thought. Two lines of at most 56 characters fit the frame
-  // at this size on every scene, dark or pale.
-  const line = LINES.find((l) => t >= l.start - 0.15 && t <= l.end + 0.4);
-  if (line) {
-    const limit = 56;
-    const words = String(line.text).split(/\s+/);
-    const rows = [];
-    let row = '';
-    for (const word of words) {
-      if ((row + ' ' + word).trim().length > limit && row) {
-        rows.push(row.trim());
-        row = word;
-      } else {
-        row = (row + ' ' + word).trim();
-      }
-    }
-    if (row) rows.push(row);
-    const top = H - botH - 34 - (rows.length - 1) * 54;
-    rows.slice(-2).forEach((value, i) => {
-      text(ctx, value, W / 2, top + i * 54, {
-        size: 44, weight: 600,
-        // On a dark scene the caption is light; dark grey on near-black was
-        // technically present and practically unreadable.
-        color: scene.dark ? 'rgba(242,242,242,0.82)' : 'rgba(12,12,14,0.66)',
-        align: 'center',
-      });
-    });
-  }
+  captions(ctx, scene, t, scene.dark ? PALETTES.dark : PALETTES.light);
   ctx.restore();
 }
 
-/** A chapter card overlay: the number and the idea, slammed in. */
+/**
+ * The chapter strap: the number and the idea, over the picture rather than instead
+ * of it.
+ *
+ * This used to cover the whole frame with 86% black, hold, and lift again, at the
+ * top of every one of the seventeen scenes. The content audit called it what it
+ * is: a strobe. Six scene openings produced three brightness transitions of more
+ * than ten percent inside one second, twice per chapter card - in and out - which
+ * is a flash rate guidance for photosensitive viewers exists to catch. The audit
+ * was right, and the quieter version is also the better one: the picture arrives
+ * underneath the strap, so the chapter announces itself without blanking the film.
+ *
+ * The strap is a plate behind its own text, so the only thing that changes
+ * brightness is the strap's own area.
+ */
 function chapterOverlay(ctx, scene, local) {
   const p = span(local, 0, 0.5);
   if (p <= 0 || local > 2.4) return;
   const out = span(local, 1.7, 2.4);
+  const enter = ease.outExpo(p);
   ctx.save();
   ctx.globalAlpha = 1 - out;
-  ctx.translate(W / 2, H / 2);
-  const zoom = lerp(1.18, 1, ease.outExpo(p));
-  ctx.scale(zoom, zoom);
-  ctx.translate(-W / 2, -H / 2);
-  ctx.fillStyle = 'rgba(10,10,10,0.86)';
-  ctx.fillRect(0, 0, W, H);
-  text(ctx, scene.chapter, W / 2, H / 2 - 90, {
-    size: 52, weight: 700, color: UI.gold, align: 'center', tracking: 10,
+  // The plate: a band across the lower third, sliding up out of the bottom edge.
+  const plateH = 300;
+  const plateY = H * 0.58 + (1 - enter) * 90;
+  ctx.fillStyle = 'rgba(10,10,10,0.92)';
+  ctx.fillRect(0, plateY, W, plateH);
+  ctx.fillStyle = UI.red;
+  ctx.fillRect(0, plateY, 26, plateH);
+  const slide = (1 - enter) * 60;
+  text(ctx, scene.chapter, 150, plateY + 96, {
+    size: 44, weight: 700, color: UI.gold, tracking: 10,
   });
-  text(ctx, scene.title, W / 2, H / 2 + 60, {
-    size: 150, weight: 700, family: 'Space Grotesk', color: UI.white, align: 'center',
+  text(ctx, scene.title, 150 + slide, plateY + 210, {
+    size: 96, weight: 700, family: 'Space Grotesk', color: UI.white,
   });
-  rule(ctx, W / 2 - 300, H / 2 + 120, 600, { progress: ease.outCubic(p), colour: UI.red, thickness: 10 });
+  rule(ctx, 150, plateY + 250, 600, { progress: enter, colour: UI.red, thickness: 8 });
   ctx.restore();
 }
 
@@ -556,7 +671,10 @@ function drawTitle(ctx, scene, t, local) {
   // and the picture is a slide. Every event below is spaced on that number,
   // and the slots are fractions of the spoken line so a slow read spreads
   // them and a fast read bunches them without ever freezing.
-  const slam1 = 0.4;
+  // The first line starts almost immediately. At 0.4 the opening quarter second
+  // was background and a console, and the first frame a viewer sees should not be
+  // a frame waiting for type.
+  const slam1 = 0.26;
   const slam2 = Math.min(Math.max(0.4 + (e0 - 0.4) * 0.12, 1.3), 1.7);
   const span1 = Math.max(0.8, b1 - slam2);
   const ev = (f) => slam2 + span1 * f;
@@ -579,11 +697,34 @@ function drawTitle(ctx, scene, t, local) {
     if (p <= 0) return;
     const e = ease.outExpo(p);
     ctx.save();
-    ctx.globalAlpha = clamp(p * 3.2) * (1 - lift * 0.5) * (1 - gone);
-    ctx.translate(0, (1 - e) * slamTravel - compact * 220 - lift * 200 - gone * 340);
-    text(ctx, entry.text, entry.x, (i === 0 ? 960 : 1150), {
-      size: 230, weight: 700, family: 'Space Grotesk',
-      color: i === 0 ? UI.white : UI.gold,
+    // Fully out, not half-lit: at 50% the title printed behind the phrase
+    // slabs that arrive next, so "BY DESCRIBING IT" was legible through
+    // "PLAIN ENGLISH" for the whole of that beat.
+    ctx.globalAlpha = (1 - lift) * (1 - gone);
+    const rise = (1 - e) * slamTravel - compact * 220 - lift * 200 - gone * 340;
+    // Drawn through the motion library, not through the primitive.
+    //
+    // The library owns the title card's region: it knows a headline belongs in
+    // `title`, that it needs a beat between 0.35 and 3.2 seconds, and that its
+    // words are masked so a line can never print through the line above it. If
+    // this call ever asks for the wrong region or a beat the template cannot
+    // carry, it throws at render time rather than quietly drawing something
+    // wrong - which is what the two rejected reviews were.
+    //
+    // The beat handed over is the *gesture* length, not the line length: a
+    // headline arrives in under two seconds and then holds while the rest of the
+    // frame carries the beat. Stretching it to a six-second line would make it
+    // crawl.
+    drawTemplate(ctx, 'kinetic-headline', {
+      w: W, h: H,
+      region: 'title',
+      seconds: Math.min(Math.max(0.4, e0), 3.2),
+      local: local - at,
+      text: entry.text,
+      size: 230,
+      colour: i === 0 ? UI.white : UI.gold,
+      emphasis: i === 0 ? {} : { 2: UI.white },
+      dy: (i === 0 ? -150 : 40) + rise,
     });
     ctx.restore();
   });
@@ -601,17 +742,30 @@ function drawTitle(ctx, scene, t, local) {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, W, H);
     }
-    // the slash leaves by travelling out of frame, not by fading: a fade
-    // moves almost nothing measurable, a 46-pixel bar crossing the picture
-    // moves half of it
-    ctx.save();
-    ctx.translate(slashOff * 900, slashOff * 420);
-    slash(ctx, {
-      x: W / 2, y: H / 2 + 40, length: W * 0.95, angle: -0.06,
-      progress: span(local, hitAt, slashEnd), width: 46, colour: UI.red,
-    });
-    ctx.restore();
-    shards(ctx, { x: W / 2, y: H / 2, progress: span(local, hitAt, hitAt + 0.9), count: 14, radius: 900, colour: UI.gold });
+    // An underline, not a slash. `slash()` draws a curved stroke across the
+    // middle of the frame, and here the middle of the frame is the title: the
+    // owner's first two notes on this cut were "text is overlapping" and "what is
+    // that red arc in the first three seconds", and they were the same object - a
+    // 46-unit red arc cutting through both lines of type.
+    //
+    // A rule that draws on beneath the second line does the same job (a hard
+    // accent on the beat, in the film's red) without ever crossing a word, and it
+    // still moves: it grows from 0 to full width in half a second, then swipes out
+    // to the left, which is a block of mass travelling.
+    {
+      const entry = lineEntries[1];
+      const yLine = 1150 - compact * 220 - lift * 200 - gone * 340;
+      const grow = ease.outQuint(clamp(span(local, hitAt, hitAt + 0.5)));
+      const width = entry.w * grow;
+      const left = entry.x + (entry.w - width) / 2 - slashOff * 900;
+      if (width > 2) {
+        rule(ctx, left, yLine + 46 + slashOff * 420, width, {
+          progress: 1, colour: UI.red, thickness: 26, alpha: 1 - slashOff,
+        });
+      }
+    }
+    // A burst of shards reads as debris over the type; the underline is the hit.
+    void shards;
   }
 
   // The card's own closing line performs itself: three phrases swapping places
@@ -621,24 +775,31 @@ function drawTitle(ctx, scene, t, local) {
   const noteOut = ease.inOutCubic(clamp(span(local, b1 + 0.1, b1 + 0.6)));
   noteBits.forEach((bit, i) => {
     const inAt = ev(0.52 + i * 0.16);
-    const swap = span(local, inAt, inAt + 0.45);
-    if (swap <= 0) return;
-    const e = ease.outExpo(swap);
-    const leave = i > 0 ? ease.inCubic(span(local, inAt, inAt + 0.45)) : 0;
+    // Each phrase is on screen only for its own window. The previous version hid
+    // the phrase before it but never the ones before that, so by the third beat
+    // all three were printed on top of each other - the "subtitles overlapping"
+    // at 0:07 was this, not the caption.
+    const outAt = i < noteBits.length - 1 ? ev(0.52 + (i + 1) * 0.16) : b1 + 0.1;
+    const inP = span(local, inAt, inAt + 0.45);
+    const out = ease.inCubic(clamp(span(local, outAt, outAt + 0.22)));
+    if (inP <= 0 || out >= 1) return;
     ctx.save();
-    ctx.globalAlpha = clamp(swap * 2.4) * (1 - noteOut);
-    if (i > 0) {
-      // the previous phrase crosses out to the left as this one comes in
-      const prev = noteBits[i - 1];
-      text(ctx, prev, W / 2 - leave * 500, 1860, {
-        size: 150, weight: 700, family: 'Space Grotesk',
-        color: 'rgba(242,242,242,0.5)', align: 'center',
-        alpha: 1 - leave,
-      });
-    }
-    text(ctx, bit, W / 2 + (1 - e) * 500, 1860, {
-      size: 150, weight: 700, family: 'Space Grotesk',
-      color: i === 1 ? UI.gold : 'rgba(242,242,242,0.85)', align: 'center',
+    ctx.globalAlpha = (1 - out) * (1 - noteOut);
+    kineticWords(ctx, {
+      text: bit,
+      x: CONTENT_MID - out * 620,
+      // Clears the caption band below it. At 1860 the phrase's descender sat on
+      // the top row of the subtitle, which is the same fault the owner found at
+      // 0:07 in a different form: two lots of type sharing one space.
+      y: 1786,
+      size: 150,
+      align: 'center',
+      colour: i === 1 ? UI.gold : 'rgba(242,242,242,0.88)',
+      local: local - inAt,
+      start: 0,
+      stagger: 0.08,
+      duration: 0.42,
+      tracking: -3,
     });
     ctx.restore();
   });
@@ -657,7 +818,12 @@ function drawTitle(ctx, scene, t, local) {
   ];
   const kStart = b1 + 0.3;
   const step2 = Math.min(Math.max((b2 - 2.1 - kStart) / 2, 0.8), 1.6);
-  const keyW = 2600;
+  // 2460, not 2600. The camera breath scales the frame by up to two percent,
+  // so a slab 2600 wide and centred ran to x 3245 on screen - five units inside
+  // the live column on the right - and the still at 0:12 showed the gold slab
+  // sitting under the ticker list. Every full-width element has to be measured
+  // with that scale already applied.
+  const keyW = 2460;
   const keyH = 260;
   // the phrases leave as the name stamps: the frame must never keep an old
   // composition and add a new one on top of it
@@ -678,8 +844,13 @@ function drawTitle(ctx, scene, t, local) {
     const scoot = i < keyPhrases.length - 1
       ? ease.outCubic(clamp(span(local, at + step2 - 0.7, at + step2))) * 120
       : 0;
-    const y = 1220 + i * 300 + (1 - e) * 260 - scoot - settleA * 90 - settleB * 90;
-    const x = W / 2 - keyW / 2;
+    // Raised from 1220: at the old height the last slab ran into the caption
+    // band, and "ON GITHUB" was printed underneath the subtitle.
+    // The stack has to fit between three things: the title above it (which
+    // is still on screen at 50% while the slabs land), the caption band below
+    // it at 1900, and its own three slabs. 1180 + 2*220 + 260 = 1880.
+    const y = 1180 + i * 220 + (1 - e) * 260 - scoot - settleA * 70 - settleB * 70;
+    const x = CONTENT_MID - keyW / 2;
 
     ctx.save();
     ctx.globalAlpha = clamp(p * 1.7) * (1 - keyOut);
@@ -690,9 +861,20 @@ function drawTitle(ctx, scene, t, local) {
     });
     ctx.fillStyle = i === 1 ? UI.gold : UI.red;
     ctx.fillRect(x, y, 22, keyH);
-    text(ctx, phrase.text, W / 2, y + keyH / 2 + phrase.size * 0.35, {
+    // The label is kinetic too: it rises into its own mask word by word as the
+    // slab arrives, so the slab lands and the sentence writes itself inside it.
+    kineticWords(ctx, {
+      text: phrase.text,
+      // Centred on the slab, not on the frame: the slab stack is centred on the
+      // frame and the type has to be centred on the slab, or a phrase longer than
+      // the panel hangs out of its own edge.
+      x: CONTENT_MID,
+      y: y + keyH / 2 + phrase.size * 0.35,
       size: phrase.size, weight: 700, family: 'Space Grotesk',
-      color: phrase.colour, align: 'center', tracking: 3,
+      colour: phrase.colour, align: 'center', tracking: 3,
+      maxWidth: keyW - 120,
+      local: local - (at + 0.18),
+      start: 0, stagger: 0.07, duration: 0.4,
     });
     ctx.restore();
   });
@@ -827,10 +1009,17 @@ function drawTitle(ctx, scene, t, local) {
   // gold and takes a check. The card ends on three things kept, not on a
   // sentence about them.
   const promises = ['A REPOSITORY', 'A PULL REQUEST', 'A LIVE SITE'];
-  const slabW = 880;
+  // The three slabs have to end before the live column on the right.
+  // Centred on the whole frame they ran to x 3320 while the ticker starts at
+  // 3240, so the third slab's gold fill and the list behind it shared a strip of
+  // frame - visible on the still of 0:12 as type sitting inside another panel.
+  // They are centred in the space that is actually free instead.
+  const slabW = 820;
   const slabH = 230;
   const slabY = 1400;
-  const slabX0 = W / 2 - (promises.length * (slabW + 80) - 80) / 2;
+  const slabLeft = 460;
+  const slabRight = 3080;
+  const slabX0 = slabLeft + (slabRight - slabLeft - (promises.length * (slabW + 80) - 80)) / 2;
   const sIn = (i) => b3 + 0.45 + i * 0.9;
   const tickSpan = Math.max(0.6, e3 - 0.25 - (b3 + 3.0));
   const tickAt = (i) => b3 + 3.0 + (i * tickSpan) / 2;
@@ -859,8 +1048,20 @@ function drawTitle(ctx, scene, t, local) {
     });
     ctx.fillStyle = UI.red;
     ctx.fillRect(x, y, 22, slabH);
-    text(ctx, label, x + 64, y + 148, {
-      size: 64, weight: 700, color: UI.ink, tracking: 2,
+    // Fit the label to the slab instead of trusting it to fit. The tick plate
+    // takes the last 270 units, and "A PULL REQUEST" at 64 px ran underneath it:
+    // seen on a still of 0:24, the plate sat on the final T.
+    const room = slabW - 64 - 268;
+    let labelSize = 64;
+    while (labelSize > 34 && measure(ctx, label, { size: labelSize, weight: 700 }) > room) {
+      labelSize -= 2;
+    }
+    kineticWords(ctx, {
+      text: label, x: x + 64, y: y + 148,
+      size: labelSize, weight: 700, colour: UI.ink, tracking: 2,
+      maxWidth: room,
+      local: local - (at + 0.2),
+      start: 0, stagger: 0.08, duration: 0.4,
     });
 
     if (plate > 0) {
@@ -918,10 +1119,15 @@ function drawStatement(ctx, scene, t, local) {
     ctx.restore();
   });
   {
+    // An underline, not a slab. This used to be a 1200x150 block of solid ink
+    // with nothing on it, which on a still at 0:46 reads as a panel whose content
+    // failed to load - an element the owner cannot identify on sight is a fault,
+    // whatever the code intended. A rule that draws on under the two lines does
+    // the same job as punctuation and cannot be mistaken for anything else.
     const p = ease.outQuint(clamp(span(local, 2.9, 3.65)));
     if (p > 0) {
       ctx.fillStyle = UI.ink;
-      ctx.fillRect(264, 860, 1200 * p, 150);
+      ctx.fillRect(264, 878, 1200 * p, 30);
     }
   }
 
@@ -1105,40 +1311,55 @@ function drawStatement(ctx, scene, t, local) {
 /** The loop: six nodes, one pulse travelling through them. */
 function drawPipeline(ctx, scene, t, local) {
   stageField(ctx, t);
-  text(ctx, scene.title, 240, 360, {
+  const b = scene.lines.map((line) => line.start - scene.start);
+  text(ctx, scene.title, 240, 340, {
     size: 132, weight: 700, family: 'Space Grotesk', color: UI.ink,
     alpha: clamp(span(local, 0.1, 0.7) * 2),
   });
-  text(ctx, scene.note, 246, 440, { size: 46, weight: 500, color: 'rgba(23,23,26,0.6)', alpha: clamp(span(local, 1.0, 1.6)) });
+  text(ctx, scene.note, 246, 418, { size: 46, weight: 500, color: 'rgba(23,23,26,0.6)', alpha: clamp(span(local, 1.0, 1.6)) });
 
   const steps = scene.steps;
-  const y = 900;
+  const y = 800;
   const x0 = 300;
   const gap = (W - 600) / (steps.length - 1);
-  const active = Math.floor(span(local, 1.2, steps.length * 0.9 + 1.2) * steps.length);
-  const travel = ((local * 0.42) % 1);
 
-  // the rail
-  ctx.save();
+  // One beat per step named in the narration, then the loop turning over, then
+  // the six read out together. The scene used to draw all six circles in the
+  // first two seconds and leave a dot travelling the rail for thirty, which the
+  // composition check scored as two arrangements in thirty-two seconds.
+  const beats = [
+    [b[1] + 0.2, 0, '01  A PROMPT', 'You say what you want, in plain words.'],
+    [b[1] + 1.8, 1, '02  A PLAN', 'The agent says how it will do it, before it does.'],
+    [b[1] + 3.6, 2, '03  A BRANCH', 'The work happens away from main, where it is safe.'],
+    [b[2] + 0.3, 3, '04  A DIFF', 'Every changed line on one page.'],
+    [b[2] + 2.0, 4, '05  THE CHECKS', 'The tests run without being asked.'],
+    [b[3] + 0.4, 5, '06  A MERGE', 'Green, then into main. One small step.'],
+  ].filter((beat) => Number.isFinite(beat[0]));
+  let current = -1;
+  beats.forEach((beat, i) => {
+    if (local >= beat[0]) current = i;
+  });
+  const reached = current < 0 ? -1 : beats[current][1];
+
   rule(ctx, x0, y - 3, W - 600, { progress: ease.outCubic(span(local, 0.3, 1.4)), colour: 'rgba(11,11,12,0.25)', thickness: 6 });
-  ctx.restore();
 
   steps.forEach((step, i) => {
     const p = span(local, 0.4 + i * 0.28, 1.1 + i * 0.28);
     if (p <= 0) return;
     const x = x0 + i * gap;
-    const on = i <= active;
+    const on = i <= reached;
+    const live = i === reached;
     ctx.save();
     ctx.globalAlpha = clamp(p * 1.6);
-    const pop = ease.outBack(p);
+    const pop = ease.outBack(p) * (live ? 1.12 : 1);
     ctx.translate(x, y);
-    ctx.scale(lerp(0.6, 1, pop), lerp(0.6, 1, pop));
+    ctx.scale(pop, pop);
     ctx.beginPath();
     ctx.arc(0, 0, 74, 0, Math.PI * 2);
     ctx.fillStyle = on ? UI.ink : UI.window;
     ctx.fill();
-    ctx.lineWidth = 5;
-    ctx.strokeStyle = UI.ink;
+    ctx.lineWidth = live ? 9 : 5;
+    ctx.strokeStyle = live ? UI.red : UI.ink;
     ctx.stroke();
     text(ctx, String(i + 1), 0, 18, {
       size: 54, weight: 700, color: on ? UI.gold : UI.ink, align: 'center',
@@ -1149,7 +1370,8 @@ function drawPipeline(ctx, scene, t, local) {
     ctx.restore();
   });
 
-  // a pulse travelling the rail, so the loop reads as a loop
+  // the pulse travelling the rail, so the loop reads as a loop
+  const travel = ((local * 0.42) % 1);
   const px = x0 + travel * (W - 600);
   ctx.save();
   ctx.globalAlpha = 0.9 * clamp(span(local, 1.4, 2.0));
@@ -1162,6 +1384,71 @@ function drawPipeline(ctx, scene, t, local) {
   ctx.arc(px, y, 54, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
+
+  // The card for the step being described, in alternating slots: a large dark
+  // block that moves across the frame is a new picture, the same block with new
+  // words on it is not.
+  if (current >= 0 && local < b[4] + 0.2) {
+    const beat = beats[current];
+    const cp = clamp(span(local, beat[0], beat[0] + 0.4));
+    const slotX = current % 2 === 0 ? 240 : W - 2240;
+    ctx.save();
+    ctx.globalAlpha = cp;
+    ctx.translate(0, (1 - ease.outCubic(cp)) * 90);
+    panel(ctx, { x: slotX, y: 1160, w: 2000, h: 300, r: 22, fill: UI.ink, stroke: null });
+    ctx.fillStyle = current === 5 ? UI.gold : UI.red;
+    ctx.fillRect(slotX, 1160, 22, 300);
+    text(ctx, beat[2], slotX + 80, 1290, {
+      size: 64, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 1820,
+    });
+    text(ctx, beat[3], slotX + 80, 1382, { size: 34, weight: 400, color: '#B9B9C4', maxWidth: 1820 });
+    ctx.restore();
+  }
+
+  // "then you go again": the loop turns over
+  const again = clamp(span(local, b[4] + 0.3, b[4] + 0.8));
+  if (again > 0) {
+    ctx.save();
+    ctx.globalAlpha = again;
+    panel(ctx, { x: 240, y: 1160, w: W - 480, h: 300, r: 22, fill: UI.ink, stroke: null });
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(240, 1160, 22, 300);
+    text(ctx, 'AND THEN AGAIN', 320, 1300, {
+      size: 78, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    text(ctx, 'One small step further, every time.', 320, 1392, {
+      size: 36, weight: 400, color: '#B9B9C4',
+    });
+    ctx.restore();
+  }
+
+  // "six parts. Prompt, plan, branch, diff, checks, merge." - the list, whole
+  const all = clamp(span(local, b[5] + 0.3, b[5] + 0.8));
+  if (all > 0) {
+    ctx.save();
+    ctx.globalAlpha = all;
+    panel(ctx, { x: 240, y: 1160, w: W - 480, h: 300, r: 22, fill: UI.white, stroke: UI.ink });
+    text(ctx, 'PROMPT · PLAN · BRANCH · DIFF · CHECKS · MERGE', 320, 1300, {
+      size: 62, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(320, 1360, 900 * ease.outCubic(all), 12);
+    ctx.restore();
+  }
+
+  // "every step in this video is one turn of that loop"
+  const close = clamp(span(local, b[6] + 0.3, b[6] + 0.8));
+  if (close > 0) {
+    ctx.save();
+    ctx.globalAlpha = close;
+    text(ctx, 'EVERY STEP IN THIS VIDEO', 240, 1300, {
+      size: 96, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    text(ctx, 'IS ONE TURN OF IT.', 240, 1410, {
+      size: 96, weight: 700, family: 'Space Grotesk', color: UI.red,
+    });
+    ctx.restore();
+  }
 }
 
 // ------------------------------------------------------------ github screen
@@ -1242,291 +1529,534 @@ function repoPage(ctx, box, { t, reveal = 1, files = ['README.md', 'books.json',
   ctx.restore();
 }
 
+/**
+ * Where in a spoken line a phrase is said, as a local time.
+ *
+ * The narration gives the scene its beats, and inside one sentence there are
+ * four things named in order - the file list, the commit history, the branches,
+ * the About panel. Timing those by hand means re-timing them every time the
+ * voice changes, so the phrase position in the text is used instead: speech runs
+ * at a roughly even rate, and the phrase is a good estimate of the moment.
+ */
+function phraseAt(scene, lineIndex, phrase, fallback) {
+  const line = scene.lines[lineIndex];
+  if (!line) return fallback;
+  const spoken = String(line.spoken || '');
+  const at = spoken.toLowerCase().indexOf(phrase.toLowerCase());
+  const length = line.end - line.start;
+  if (at < 0 || !length) return line.start - scene.start + fallback;
+  return line.start - scene.start + (at / Math.max(1, spoken.length)) * length;
+}
+
 function drawGithub(ctx, scene, t, local) {
   stageField(ctx, t);
-  const idx = lineIndexAt(scene, t);
+  // Every beat here is tied to the line that speaks it. It used to be tied to a
+  // stopwatch, and the two disagreed badly: the narration spends thirty-six
+  // seconds describing how to create a repository while the picture showed the
+  // finished page after five, so half a minute of words pointed at nothing. The
+  // composition check put a number on it - one arrangement held 46 seconds.
+  //
+  // The scene is now the three screens the words ask for, in their order: an
+  // empty profile, the create form, the finished page. On the page the callout
+  // travels to the part being named instead of printing one black panel in the
+  // same corner. Measured, those panels score 0.94 to 0.99 against each other,
+  // so nine of them were one picture with changing words.
+  const b = scene.lines.map((line) => line.start - scene.start);
+  const at = (i, offset = 0) => (b[i] ?? i * 5) + offset;
+
   const headline = span(local, 0.15, 1.1);
   text(ctx, scene.title, 240, 330, {
     size: 108, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(headline * 1.6),
   });
   rule(ctx, 244, 372, 700, { progress: ease.outCubic(headline), colour: UI.red, thickness: 8 });
 
-  // the first two lines are about signing up: show the empty front page
-  const onRepo = local > 5.2;
   const box = { x: 240, y: 470, w: W - 480, h: 1440 };
+  const formIn = at(2, 1.2);   // "press New repository, in the top right corner"
+  const pageIn = at(7, 2.2);   // "press Create repository"
 
-  if (!onRepo) {
-    const content = githubChrome(ctx, 'github.com', 'GitHub', box.x, box.y, box.w, box.h, clamp(span(local, 0.2, 0.9)));
+  // A pointer is a card and a line to the thing it names. The card is the part
+  // that carries: measured on a 16x9 thumbnail, an outlined target moves too few
+  // blocks to register as a new picture, while a filled card is a fifth of the
+  // frame. So each beat puts a card in a different slot and draws a connector to
+  // the row it is talking about - the position changes, which is what makes it a
+  // new arrangement, and the line is what keeps it a pointer rather than a label.
+  const point = (rect, label, start, slot, colour = UI.gold) => {
+    const p = span(local, start, start + 0.36);
+    if (p <= 0) return;
+    const a = ease.outCubic(clamp(p));
+    ctx.save();
+    const grow = 22 * (1 - a);
+    roundRect(ctx, rect.x - grow, rect.y - grow, rect.w + grow * 2, rect.h + grow * 2, 16);
+    ctx.fillStyle = colour;
+    ctx.globalAlpha = a * 0.16;
+    ctx.fill();
+    ctx.globalAlpha = a;
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 8;
+    ctx.stroke();
+    // the connector, from the card's near edge to the middle of the target
+    const cx = slot.x + (slot.x > rect.x ? 0 : 1120);
+    const cy = slot.y + 120;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    const ty = rect.y + rect.h / 2;
+    ctx.lineTo(rect.x + rect.w / 2, ty);
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 5;
+    ctx.globalAlpha = a * 0.7;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(rect.x + rect.w / 2, ty, 12, 0, Math.PI * 2);
+    ctx.fillStyle = colour;
+    ctx.globalAlpha = a;
+    ctx.fill();
+    ctx.globalAlpha = a;
+    panel(ctx, { x: slot.x, y: slot.y, w: 1120, h: 240, r: 20, fill: UI.ink, stroke: null });
+    ctx.fillStyle = colour;
+    ctx.fillRect(slot.x, slot.y, 20, 240);
+    text(ctx, label, slot.x + 70, slot.y + 150, {
+      size: 50, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 1000,
+    });
+    ctx.restore();
+  };
+
+  if (local < formIn + 0.5) {
+    // Screen one: an account with nothing in it, and one button.
+    const a = clamp(span(local, 0.2, 1.0));
+    const content = githubChrome(ctx, 'github.com', 'GitHub', box.x, box.y, box.w, box.h, a);
     const { x, y, w } = content;
-    panel(ctx, { x: x + 60, y: y + 60, w: w - 120, h: 1040, r: 20, fill: UI.window2, stroke: UI.line });
-    text(ctx, 'Create a new repository', x + 120, y + 190, { size: 62, weight: 700, color: UI.text, alpha: clamp(span(local, 1.0, 1.6)) });
-    text(ctx, 'Repository name', x + 120, y + 300, { size: 34, weight: 600, color: UI.dim, alpha: clamp(span(local, 1.6, 2.2)) });
-    panel(ctx, { x: x + 120, y: y + 326, w: 900, h: 92, r: 12, fill: UI.white, stroke: UI.line });
-    const typed = 'book-list'.slice(0, Math.max(0, Math.floor((local - 3.2) * 9)));
-    text(ctx, typed, x + 156, y + 388, { size: 42, weight: 500, color: UI.text });
-    if (local > 3.2 && typed.length < 9 && Math.floor(local * 3) % 2 === 0) {
-      ctx.fillStyle = UI.ink;
-      ctx.fillRect(x + 162 + ctx.measureText(typed).width, y + 350, 4, 46);
-    }
-    ['Public', 'Private'].forEach((opt, i) => {
-      const on = i === 0;
+    text(ctx, 'octocat-ana', x + 60, y + 120, {
+      size: 52, weight: 700, color: UI.text, alpha: clamp(span(local, 0.8, 1.4)),
+    });
+    const btn = { x: x + w - 640, y: y + 56, w: 580, h: 96 };
+    panel(ctx, { ...btn, r: 16, fill: UI.ink, stroke: null, alpha: clamp(span(local, 1.0, 1.6)) });
+    text(ctx, 'New repository', btn.x + btn.w / 2, btn.y + 62, {
+      size: 36, weight: 700, color: UI.white, align: 'center', alpha: clamp(span(local, 1.0, 1.6)),
+    });
+    const empty = { x: x + 60, y: y + 260, w: w - 120, h: 800 };
+    panel(ctx, { ...empty, r: 20, fill: UI.window2, stroke: UI.line, alpha: clamp(span(local, 2.4, 3.2)) });
+    text(ctx, 'No repositories yet', empty.x + empty.w / 2, empty.y + 360, {
+      size: 56, weight: 700, color: UI.dim, align: 'center', alpha: clamp(span(local, 3.4, 4.2)),
+    });
+    text(ctx, 'The repository is the whole workspace.', empty.x + empty.w / 2, empty.y + 444, {
+      size: 34, weight: 400, color: UI.faint, align: 'center', alpha: clamp(span(local, 5.6, 6.4)),
+    });
+    // The line about signing up and confirming the address had nothing to show.
+    // A card that lands, then takes a tick, is the change that line needs.
+    const cardAt = at(1, 0.9);
+    const cp = clamp(span(local, cardAt, cardAt + 0.4));
+    if (cp > 0) {
+      const cw = 1160;
+      const cx0 = x + w - cw - 80;
+      const cy0 = y + 700 + (1 - ease.outCubic(cp)) * 90;
+      ctx.save();
+      ctx.globalAlpha = cp;
+      panel(ctx, { x: cx0, y: cy0, w: cw, h: 340, r: 22, fill: UI.ink, stroke: null });
+      ctx.fillStyle = UI.gold;
+      ctx.fillRect(cx0, cy0, 20, 340);
+      text(ctx, 'CONFIRM YOUR EMAIL', cx0 + 66, cy0 + 120, {
+        size: 52, weight: 700, family: 'Space Grotesk', color: UI.white,
+      });
+      text(ctx, 'One click. Then the account exists.', cx0 + 66, cy0 + 196, {
+        size: 32, weight: 400, color: '#B9B9C4',
+      });
+      const ticked = clamp(span(local, cardAt + 2.6, cardAt + 3.0));
       ctx.beginPath();
-      ctx.arc(x + 140, y + 500 + i * 96, 18, 0, Math.PI * 2);
-      ctx.lineWidth = 5;
+      ctx.arc(cx0 + cw - 130, cy0 + 170, 62, 0, Math.PI * 2);
+      ctx.strokeStyle = ticked > 0 ? UI.gold : '#4A4A54';
+      ctx.lineWidth = 6;
+      ctx.stroke();
+      if (ticked > 0) {
+        ctx.strokeStyle = UI.gold;
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(cx0 + cw - 158, cy0 + 170);
+        ctx.lineTo(cx0 + cw - 136, cy0 + 194);
+        ctx.lineTo(cx0 + cw - 100, cy0 + 146);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+    // The pointer is the beat for the line that says the button is in the top
+    // right corner, and pressing it is what puts the form on screen.
+    const move = ease.inOutCubic(span(local, at(2, -0.8), at(2, 0.4)));
+    cursor(ctx, lerp(x + w * 0.5, btn.x + btn.w / 2, move), lerp(y + 700, btn.y + 50, move), {
+      press: span(local, at(2, 0.45), at(2, 0.65)),
+      alpha: clamp(span(local, at(2, -1.1), at(2, -0.5))),
+    });
+    clickRing(ctx, btn.x + btn.w / 2, btn.y + 50, span(local, at(2, 0.5), at(2, 1.1)));
+    return;
+  }
+
+  if (local < pageIn + 0.4) {
+    // Screen two: the form, filled in at the speed of the sentences that
+    // describe filling it in.
+    const a = clamp(span(local, formIn, formIn + 0.5));
+    const content = githubChrome(ctx, 'github.com/new', 'New repository', box.x, box.y, box.w, box.h, a);
+    const { x, y, w } = content;
+    panel(ctx, { x: x + 60, y: y + 60, w: w - 120, h: 1240, r: 20, fill: UI.window2, stroke: UI.line });
+    text(ctx, 'Create a new repository', x + 120, y + 200, { size: 62, weight: 700, color: UI.text });
+    text(ctx, 'Repository name', x + 120, y + 322, { size: 34, weight: 600, color: UI.dim });
+
+    const field = { x: x + 120, y: y + 352, w: 1300, h: 100 };
+    panel(ctx, { ...field, r: 12, fill: UI.white, stroke: UI.line });
+    const typed = 'book-list'.slice(0, Math.max(0, Math.floor((local - at(3, 0.25)) * 2.6)));
+    text(ctx, typed, field.x + 36, field.y + 66, { size: 44, weight: 500, color: UI.text });
+    if (local > at(3, 0.25) && typed.length < 9 && Math.floor(local * 3) % 2 === 0) {
+      ctx.fillStyle = UI.ink;
+      ctx.fillRect(field.x + 40 + measure(ctx, typed, { size: 44, weight: 500 }), field.y + 24, 5, 54);
+    }
+
+    [['Public', at(4, 0.4), 'Anyone can see it, and it gets free checks.'],
+      ['Private', at(5, 0.4), 'Only people you invite can see it.']].forEach(([name, start, detail], i) => {
+      const ry = y + 588 + i * 150;
+      const on = local > start;
+      ctx.beginPath();
+      ctx.arc(x + 156, ry + 30, 21, 0, Math.PI * 2);
+      ctx.lineWidth = on ? 6 : 4;
       ctx.strokeStyle = on ? UI.ink : UI.faint;
       ctx.stroke();
       if (on) {
         ctx.beginPath();
-        ctx.arc(x + 140, y + 500 + i * 96, 9, 0, Math.PI * 2);
+        ctx.arc(x + 156, ry + 30, 11, 0, Math.PI * 2);
         ctx.fillStyle = UI.ink;
         ctx.fill();
       }
-      text(ctx, opt, x + 180, y + 512 + i * 96, { size: 38, weight: 600, color: UI.text, alpha: clamp(span(local, 2.2, 2.8)) });
+      text(ctx, name, x + 210, ry + 42, { size: 42, weight: 600, color: UI.text });
+      text(ctx, detail, x + 210, ry + 96, { size: 30, weight: 400, color: UI.dim });
     });
-    // README checkbox
-    const tick = clamp(span(local, 4.0, 4.4));
-    roundRect(ctx, x + 120, y + 720, 34, 34, 6);
+
+    const tick = clamp(span(local, at(6, 0.9), at(6, 1.3)));
+    roundRect(ctx, x + 140, y + 908, 38, 38, 7);
     ctx.strokeStyle = UI.dim;
     ctx.lineWidth = 4;
     ctx.stroke();
     if (tick > 0) {
+      ctx.save();
+      ctx.globalAlpha = tick;
       ctx.strokeStyle = UI.ink;
-      ctx.lineWidth = 7;
+      ctx.lineWidth = 8;
       ctx.beginPath();
-      ctx.moveTo(x + 128, y + 738);
-      ctx.lineTo(x + 136, y + 748);
-      ctx.lineTo(x + 152, y + 726);
+      ctx.moveTo(x + 149, y + 928);
+      ctx.lineTo(x + 158, y + 939);
+      ctx.lineTo(x + 177, y + 915);
       ctx.stroke();
+      ctx.restore();
     }
-    text(ctx, 'Add a README file', x + 176, y + 750, { size: 36, weight: 500, color: UI.text, alpha: clamp(span(local, 3.8, 4.4)) });
+    text(ctx, 'Add a README file', x + 206, y + 940, { size: 38, weight: 500, color: UI.text });
 
-    // create button
-    const bp = clamp(span(local, 4.3, 4.9));
-    panel(ctx, { x: x + 120, y: y + 830, w: 430, h: 96, r: 14, fill: bp > 0.5 ? UI.ink : '#8A8A94', stroke: null, alpha: bp });
-    text(ctx, 'Create repository', x + 335, y + 890, { size: 36, weight: 700, color: UI.white, align: 'center', alpha: bp });
+    const bp = clamp(span(local, at(6, 2.4), at(6, 3.0)));
+    panel(ctx, { x: x + 140, y: y + 1030, w: 520, h: 100, r: 14, fill: bp > 0.5 ? UI.ink : '#8A8A94', stroke: null });
+    text(ctx, 'Create repository', x + 400, y + 1094, {
+      size: 36, weight: 700, color: UI.white, align: 'center',
+    });
 
-    // the pointer walks to Create and clicks
-    const move = ease.inOutCubic(span(local, 4.5, 5.2));
-    const cx = lerp(x + 1400, x + 400, move);
-    const cy = lerp(y + 300, y + 878, move);
-    cursor(ctx, cx, cy, { press: span(local, 5.15, 5.3), alpha: clamp(span(local, 3.6, 4.0)) });
-    clickRing(ctx, x + 400, y + 878, span(local, 5.15, 5.6));
+    // One pointer at a time, each on the row its sentence names.
+    if (local >= at(7, 0.9)) {
+      point({ x: x + 130, y: y + 1018, w: 540, h: 124 }, 'THEN PRESS THIS', at(7, 0.9),
+        { x: x + 1500, y: y + 300 }, UI.red);
+      cursor(ctx, x + 400, y + 1080, { press: span(local, at(7, 1.5), at(7, 1.75)), alpha: clamp(span(local, at(7, 0.4), at(7, 0.9))) });
+      clickRing(ctx, x + 400, y + 1080, span(local, at(7, 1.6), at(7, 2.2)));
+    } else if (local >= at(6, 0.9)) {
+      point({ x: x + 128, y: y + 896, w: 700, h: 70 }, 'ONE TICK, ONE FILE',
+        at(6, 0.9), { x: x + 1500, y: y + 940 });
+    } else if (local >= at(5, 0.4)) {
+      point({ x: x + 130, y: y + 716, w: 980, h: 130 }, 'PRIVATE: NOT READY YET',
+        at(5, 0.4), { x: x + 1500, y: y + 620 });
+    } else if (local >= at(4, 0.4)) {
+      point({ x: x + 130, y: y + 566, w: 980, h: 130 }, 'PUBLIC: FREE CHECKS',
+        at(4, 0.4), { x: x + 1500, y: y + 300 });
+    } else if (local >= at(3, 0.3)) {
+      point({ x: x + 120, y: y + 340, w: 1300, h: 124 }, 'LOWER CASE, WITH HYPHENS',
+        at(3, 0.3), { x: x + 1500, y: y + 300 });
+    }
     return;
   }
 
-  const content = githubChrome(ctx, 'github.com/octocat-ana/book-list', 'book-list', box.x, box.y, box.w, box.h, clamp(span(local, 5.2, 5.7)));
+  // Screen three: the finished repository, and a pointer that walks to each
+  // part as the narration names it.
+  const a = clamp(span(local, pageIn, pageIn + 0.6));
+  const content = githubChrome(ctx, 'github.com/octocat-ana/book-list', 'book-list', box.x, box.y, box.w, box.h, a);
   repoPage(ctx, content, {
-    t, reveal: clamp(span(local, 5.5, 6.6)),
+    t, reveal: clamp(span(local, pageIn, pageIn + 1.0)),
     files: ['README.md', 'books.json', 'index.html', 'style.css'],
   });
+  const { x, y, w } = content;
+  const table = { x: x + 60, y: y + 420, w: w * 0.62, h: 470 };
+  const commits = { x: x + 60, y: y + 420, w: w * 0.62, h: 90 };
+  const branches = { x: x + 60, y: y + 300, w: 420, h: 72 };
+  const about = { x: x + w * 0.66, y: y + 420, w: w * 0.32, h: 300 };
+  const tabs = { x: x + 60, y: y + 196, w: 1200, h: 90 };
 
-  // callouts for the four parts named in the narration
-  // Visibility stamps, spoken on their lines: "Choose Public" and "Choose
-  // Private". Under the fallback pacing these lines land twenty seconds into
-  // the scene, and nothing was choreographed there - measured as a freeze.
-  const vb = scene.lines.map((line) => line.start - scene.start);
-  [['PUBLIC', vb[4] ?? 16, UI.gold], ['PRIVATE', vb[5] ?? 20, UI.red]].forEach(([label, at, colour]) => {
-    const p = span(local, at + 0.25, at + 0.75);
-    if (p <= 0) return;
-    const ex = ease.outBack(clamp(p * 1.2));
-    const punch = Math.sin(Math.PI * clamp(span(local, at + 1.1, at + 1.5)));
-    ctx.save();
-    ctx.globalAlpha = clamp(p * 1.8);
-    ctx.translate((1 - ex) * -70, punch * 90);
-    panel(ctx, {
-      x: content.x + 80, y: content.y + 1180, w: 1100, h: 220, r: 20,
-      fill: UI.ink, stroke: UI.ink,
-    });
-    ctx.fillStyle = colour;
-    ctx.fillRect(content.x + 80, content.y + 1180, 20, 220);
-    text(ctx, label, content.x + 150, content.y + 1330, {
-      size: 76, weight: 700, family: 'Space Grotesk', color: UI.white,
-    });
-    ctx.restore();
-  });
-
-  // Three more beats on the lines that speak them. Measured at the delivery
-  // probe width the page between them still went quiet: the name of the thing
-  // (line 4), its first file (line 7), and the sentence that closes the scene
-  // (line 12).
-  {
-    const mark = (label, at, x0, w0, colour) => {
-      const p = span(local, at, at + 0.55);
-      if (p <= 0) return;
-      const ex = ease.outBack(clamp(p * 1.2));
-      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
-      ctx.save();
-      ctx.globalAlpha = clamp(p * 1.8);
-      ctx.translate((1 - ex) * -70, punch * 90);
-      panel(ctx, {
-        x: x0, y: content.y + 1180, w: w0, h: 210, r: 20,
-        fill: UI.ink, stroke: UI.ink,
-      });
-      ctx.fillStyle = colour;
-      ctx.fillRect(x0, content.y + 1180, 20, 210);
-      text(ctx, label, x0 + 70, content.y + 1325, {
-        size: 66, weight: 700, family: 'Space Grotesk', color: UI.white,
-      });
-      ctx.restore();
-    };
-    mark('THE NAME: book-list', (vb[3] ?? 12) + 0.3, content.x + 80, 1500, UI.gold);
-    // Landed late in their lines on purpose: the holes the delivery probe
-    // found sat mid-sentence, not at the line start.
-    mark('THE FIRST FILE: README', (vb[6] ?? 25) + 2.5, content.x + 80, 1750, UI.gold);
-    mark('THE REST IS CONVERSATION', (vb[11] ?? 48) + 1.9, content.x + 80, 1900, UI.red);
+  // Line 8 promises four parts; line 9 names them in order, so the pointer
+  // lands in the order the words do.
+  const slotA = { x: x + 60, y: y + 1000 };
+  const slotB = { x: x + w - 1180, y: y + 1000 };
+  const slotC = { x: x + 60, y: y + 640 };
+  const slotD = { x: x + w - 1180, y: y + 640 };
+  if (local >= at(10, 0.25)) {
+    point(tabs, 'THE ACTIONS TAB: THE CHECKS', at(10, 0.25), slotA, UI.red);
+  } else if (local >= phraseAt(scene, 9, 'About', at(9, 4.0))) {
+    point(about, 'AND THE ABOUT PANEL', phraseAt(scene, 9, 'About', at(9, 4.0)), slotC);
+  } else if (local >= phraseAt(scene, 9, 'branches', at(9, 2.6))) {
+    point(branches, 'THE BRANCHES', phraseAt(scene, 9, 'branches', at(9, 2.6)), slotB);
+  } else if (local >= phraseAt(scene, 9, 'commit history', at(9, 1.2))) {
+    point(commits, 'THE COMMIT HISTORY', phraseAt(scene, 9, 'commit history', at(9, 1.2)), slotA);
+  } else if (local >= at(9, 0.1)) {
+    point(table, 'THE FILE LIST', at(9, 0.1), slotD);
+  } else if (local >= at(8, 0.3)) {
+    point(table, 'FOUR PARTS, EVERY DAY', at(8, 0.3), slotC);
   }
 
-  const notes = [
-    ['THE FILES', 6.4], ['THE COMMITS', 8.2], ['THE BRANCHES', 9.4], ['THE CHECKS', 10.6],
-  ];
-  notes.forEach(([label, at], i) => {
-    const p = span(local, at, at + 0.5);
-    if (p <= 0) return;
-    // They land in the empty half of an empty repository, not on the tab row
-    // where they were printing over "Code".
-    const nx = content.x + 80 + i * 470;
-    const ny = content.y + 1010;
+  // The closing sentence gets the floor, not a corner.
+  const end = span(local, at(11, 1.0), at(11, 1.5));
+  if (end > 0) {
+    const slide = ease.outCubic(clamp(end));
     ctx.save();
-    ctx.globalAlpha = clamp(p * 1.4);
-    ctx.translate(0, (1 - ease.outCubic(p)) * 24);
-    chip(ctx, label, { x: nx, y: ny, colour: UI.gold, fill: UI.ink, size: 26 });
+    ctx.globalAlpha = clamp(end * 2);
+    // The floor belongs to the caption band from 1900 down; a card that slides in
+    // at 1780 lands on top of the subtitle. It rests above the band now.
+    panel(ctx, {
+      x: 240, y: SHOW_CARD_Y + (1 - slide) * 120, w: W - 480, h: 200, r: 20,
+      fill: UI.ink, stroke: UI.ink,
+    });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(240, SHOW_CARD_Y + (1 - slide) * 120, 24, 200);
+    text(ctx, 'THE REST IS CONVERSATION', 330, SHOW_CARD_Y + 128, {
+      size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
     ctx.restore();
-  });
-  void idx;
+  }
 }
 
 // ------------------------------------------------------------------ connect
 function drawConnect(ctx, scene, t, local) {
   stageField(ctx, t);
+  const cb = scene.lines.map((line) => line.start - scene.start);
+  const lat = (i, offset = 0) => (cb[i] ?? i * 5) + offset;
   text(ctx, scene.title, W / 2, 330, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, align: 'center',
     alpha: clamp(span(local, 0.15, 1.0) * 1.6),
   });
 
-  const left = { x: 300, y: 500, w: 1500, h: 1200 };
-  const right = { x: 2040, y: 500, w: 1500, h: 1200 };
+  // Two panels for the first six lines, one conversation for the last four, and
+  // every beat on the sentence that asks for it. This scene used to draw its
+  // whole picture in the first six seconds and hold for thirty-three, because
+  // everything in it was timed from the top of the scene rather than from the
+  // narration.
+  const conversation = lat(6, 0.2);
+  if (local < conversation) {
+    const left = { x: 300, y: 500, w: 1500, h: 1200 };
+    const right = { x: 2040, y: 500, w: 1500, h: 1200 };
 
-  // Arena panel
-  const lp = clamp(span(local, 0.3, 1.1));
-  panel(ctx, { ...left, r: 28, fill: '#141418', stroke: '#2A2A31', alpha: lp, shadow: 0.6 });
-  ctx.save();
-  ctx.globalAlpha = lp;
-  text(ctx, 'ARENA', left.x + 60, left.y + 86, { size: 38, weight: 700, color: UI.gold, tracking: 8 });
-  text(ctx, 'Connect GitHub', left.x + 60, left.y + 210, { size: 62, weight: 700, color: UI.white, family: 'Space Grotesk' });
-  text(ctx, 'One authorisation, then the agent', left.x + 60, left.y + 282, { size: 34, weight: 400, color: '#9A9AA5' });
-  text(ctx, 'works inside your repositories.', left.x + 60, left.y + 326, { size: 34, weight: 400, color: '#9A9AA5' });
-
-  // authorise button
-  const bp = clamp(span(local, 1.0, 1.6));
-  panel(ctx, { x: left.x + 60, y: left.y + 400, w: 520, h: 100, r: 14, fill: bp > 0 ? UI.gold : '#3A3A42', stroke: null, alpha: bp });
-  text(ctx, 'Authorise GitHub', left.x + 320, left.y + 464, {
-    size: 36, weight: 700, color: UI.ink, align: 'center', alpha: bp,
-  });
-  cursor(ctx, lerp(left.x + 700, left.x + 380, ease.inOutCubic(span(local, 1.2, 1.9))), left.y + 450, {
-    press: span(local, 1.9, 2.1), alpha: clamp(span(local, 0.8, 1.2)),
-  });
-  clickRing(ctx, left.x + 380, left.y + 450, span(local, 1.9, 2.4));
-
-  // permission dialog
-  const dp = clamp(span(local, 2.2, 2.8));
-  if (dp > 0) {
-    panel(ctx, { x: left.x + 60, y: left.y + 560, w: left.w - 120, h: 520, r: 20, fill: '#1E1E24', stroke: '#3A3A44', alpha: dp });
-    text(ctx, 'Choose repositories', left.x + 120, left.y + 650, { size: 46, weight: 700, color: UI.white, alpha: dp });
-    ['book-list', 'portfolio', 'scratch'].forEach((name, i) => {
-      const on = i === 0;
-      const rp = clamp(span(local, 2.6 + i * 0.2, 3.0 + i * 0.2)) * dp;
-      roundRect(ctx, left.x + 120, left.y + 700 + i * 96, 40, 40, 8);
-      ctx.strokeStyle = '#5A5A66';
-      ctx.lineWidth = 4;
-      ctx.stroke();
-      if (on && rp > 0.4) {
-        ctx.fillStyle = UI.gold;
-        ctx.fill();
-        ctx.strokeStyle = UI.ink;
-        ctx.lineWidth = 7;
-        ctx.beginPath();
-        ctx.moveTo(left.x + 129, left.y + 722);
-        ctx.lineTo(left.x + 137, left.y + 732);
-        ctx.lineTo(left.x + 153, left.y + 710);
-        ctx.stroke();
-      }
-      text(ctx, name, left.x + 190, left.y + 734 + i * 96, {
-        size: 38, weight: 500, color: i === 0 ? UI.white : '#8A8A96', alpha: rp,
-      });
-    });
-  }
-  ctx.restore();
-
-  // connector
-  const cp = clamp(span(local, 3.0, 4.2));
-  if (cp > 0) {
+    const lp = clamp(span(local, 0.3, 1.1));
+    panel(ctx, { ...left, r: 28, fill: '#141418', stroke: '#2A2A31', alpha: lp, shadow: 0.6 });
     ctx.save();
-    ctx.strokeStyle = 'rgba(11,11,12,0.35)';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    ctx.moveTo(left.x + left.w + 20, 1100);
-    ctx.lineTo(right.x - 20, 1100);
-    ctx.stroke();
-    for (let i = 0; i < 5; i += 1) {
-      const p = (local * 0.5 + i / 5) % 1;
-      if (p > cp) continue;
-      const px = lerp(left.x + left.w + 20, right.x - 20, p);
-      ctx.beginPath();
-      ctx.arc(px, 1100, 10, 0, Math.PI * 2);
-      ctx.fillStyle = UI.red;
-      ctx.globalAlpha = 0.9;
-      ctx.fill();
+    ctx.globalAlpha = lp;
+    text(ctx, 'ARENA', left.x + 60, left.y + 86, { size: 38, weight: 700, color: UI.gold, tracking: 8 });
+    text(ctx, 'Connect GitHub', left.x + 60, left.y + 210, { size: 62, weight: 700, color: UI.white, family: 'Space Grotesk' });
+    text(ctx, 'One authorisation, then the agent', left.x + 60, left.y + 282, { size: 34, weight: 400, color: '#9A9AA5' });
+    text(ctx, 'works inside your repositories.', left.x + 60, left.y + 326, { size: 34, weight: 400, color: '#9A9AA5' });
+
+    // "open the GitHub connection, and approve the sign in"
+    const bp = clamp(span(local, lat(1, 0.1), lat(1, 0.6)));
+    panel(ctx, { x: left.x + 60, y: left.y + 400, w: 520, h: 100, r: 14, fill: bp > 0 ? UI.gold : '#3A3A42', stroke: null, alpha: bp });
+    text(ctx, 'Authorise GitHub', left.x + 320, left.y + 464, {
+      size: 36, weight: 700, color: UI.ink, align: 'center', alpha: bp,
+    });
+    cursor(ctx, lerp(left.x + 700, left.x + 380, ease.inOutCubic(span(local, lat(1, -0.5), lat(1, 0.2)))),
+      left.y + 450, { press: span(local, lat(1, 0.2), lat(1, 0.4)), alpha: clamp(span(local, lat(1, -1.0), lat(1, -0.6))) });
+    clickRing(ctx, left.x + 380, left.y + 450, span(local, lat(1, 0.25), lat(1, 0.75)));
+
+    // "then choose which repositories the agent may touch"
+    const dp = clamp(span(local, lat(2, -0.1), lat(2, 0.5)));
+    if (dp > 0) {
+      // A light modal on the dark panel, because the appearance of the screen is
+      // the beat: dark-on-dark moved too little to read as a new picture, and
+      // the scene held one arrangement for eleven seconds there.
+      panel(ctx, { x: left.x + 60, y: left.y + 560, w: left.w - 120, h: 520, r: 20, fill: UI.white, stroke: UI.ink, alpha: dp });
+      text(ctx, 'Choose repositories', left.x + 120, left.y + 650, { size: 46, weight: 700, color: UI.text, alpha: dp });
+      ['book-list', 'portfolio', 'scratch'].forEach((name, i) => {
+        const on = i === 0;
+        // "start with one" - the other two are there and stay unticked
+        const rp = clamp(span(local, lat(2, 0.3 + i * 0.2), lat(2, 0.7 + i * 0.2))) * dp;
+        roundRect(ctx, left.x + 120, left.y + 700 + i * 96, 40, 40, 8);
+        ctx.strokeStyle = UI.dim;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        if (on && rp > 0.4) {
+          ctx.fillStyle = UI.gold;
+          ctx.fill();
+          ctx.strokeStyle = UI.ink;
+          ctx.lineWidth = 7;
+          ctx.beginPath();
+          ctx.moveTo(left.x + 129, left.y + 722);
+          ctx.lineTo(left.x + 137, left.y + 732);
+          ctx.lineTo(left.x + 153, left.y + 710);
+          ctx.stroke();
+        }
+        text(ctx, name, left.x + 190, left.y + 734 + i * 96, {
+          size: 38, weight: 500, color: i === 0 ? UI.ink : UI.dim, alpha: rp,
+        });
+        // "start with one" lands as a pointer on the one ticked
+        if (on && local > lat(3, 0.2)) {
+          ctx.save();
+          ctx.globalAlpha = clamp(span(local, lat(3, 0.2), lat(3, 0.5)));
+          ctx.strokeStyle = UI.gold;
+          ctx.lineWidth = 5;
+          roundRect(ctx, left.x + 104, left.y + 684, left.w - 208, 76, 12);
+          ctx.stroke();
+          ctx.restore();
+        }
+      });
     }
     ctx.restore();
-  }
 
-  // GitHub panel
-  const rp2 = clamp(span(local, 3.2, 4.0));
-  panel(ctx, { ...right, r: 28, fill: UI.window, stroke: UI.line, alpha: rp2, shadow: 0.5 });
-  ctx.save();
-  ctx.globalAlpha = rp2;
-  text(ctx, 'GITHUB', right.x + 60, right.y + 86, { size: 38, weight: 700, color: UI.dim, tracking: 8 });
-  text(ctx, 'octocat-ana / book-list', right.x + 60, right.y + 210, {
-    size: 56, weight: 700, color: UI.text, family: 'Space Grotesk',
-  });
-  chip(ctx, 'CONNECTED', { x: right.x + 60, y: right.y + 260, colour: UI.ink, fill: '#DFF3E6', size: 28 });
-  ['read the files', 'write a branch', 'open a pull request'].forEach((value, i) => {
-    const p = clamp(span(local, 4.2 + i * 0.5, 4.8 + i * 0.5));
-    if (p <= 0) return;
+    const cp = clamp(span(local, lat(2, 1.0), lat(2, 2.0)));
+    if (cp > 0) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(11,11,12,0.35)';
+      ctx.lineWidth = 6;
+      ctx.beginPath();
+      ctx.moveTo(left.x + left.w + 20, 1100);
+      ctx.lineTo(right.x - 20, 1100);
+      ctx.stroke();
+      for (let i = 0; i < 5; i += 1) {
+        const p = (local * 0.5 + i / 5) % 1;
+        if (p > cp) continue;
+        const px = lerp(left.x + left.w + 20, right.x - 20, p);
+        ctx.beginPath();
+        ctx.arc(px, 1100, 10, 0, Math.PI * 2);
+        ctx.fillStyle = UI.red;
+        ctx.globalAlpha = 0.9;
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    const rp2 = clamp(span(local, lat(1, 0.2), lat(1, 0.9)));
+    panel(ctx, { ...right, r: 28, fill: UI.window, stroke: UI.line, alpha: rp2, shadow: 0.5 });
     ctx.save();
-    ctx.globalAlpha = p * rp2;
-    ctx.beginPath();
-    ctx.arc(right.x + 84, right.y + 430 + i * 110, 20, 0, Math.PI * 2);
-    ctx.fillStyle = UI.ink;
-    ctx.fill();
-    text(ctx, value, right.x + 130, right.y + 444 + i * 110, { size: 40, weight: 500, color: UI.text });
+    ctx.globalAlpha = rp2;
+    text(ctx, 'GITHUB', right.x + 60, right.y + 86, { size: 38, weight: 700, color: UI.dim, tracking: 8 });
+    text(ctx, 'octocat-ana / book-list', right.x + 60, right.y + 210, {
+      size: 56, weight: 700, color: UI.text, family: 'Space Grotesk',
+    });
+    chip(ctx, 'CONNECTED', { x: right.x + 60, y: right.y + 260, colour: UI.ink, fill: '#DFF3E6', size: 28 });
+    // "read that permission screen properly": the three powers, one per beat
+    ['read the files', 'write a branch', 'open a pull request'].forEach((value, i) => {
+      const p = clamp(span(local, lat(4, 0.3 + i * 0.55), lat(4, 0.8 + i * 0.55)));
+      if (p <= 0) return;
+      ctx.save();
+      ctx.globalAlpha = p * rp2;
+      ctx.beginPath();
+      ctx.arc(right.x + 84, right.y + 430 + i * 110, 20, 0, Math.PI * 2);
+      ctx.fillStyle = i === 1 ? UI.red : UI.ink;
+      ctx.fill();
+      text(ctx, value, right.x + 130, right.y + 444 + i * 110, { size: 40, weight: 500, color: UI.text });
+      ctx.restore();
+    });
     ctx.restore();
-  });
-  ctx.restore();
 
-  // "the difference between a useful helper and a very fast way to ship the
-  // wrong thing" - the difference itself, landed on that line. The scene drew
-  // everything it had in its first six seconds and then held for thirty-three;
-  // at delivery probe width the tail of this line was a 0.5 s freeze.
-  {
-    const cb = scene.lines.map((line) => line.start - scene.start);
-    const at = (cb[5] ?? 16) + 3.2;
-    const p = span(local, at, at + 1.0);
+    // "a useful helper and a very fast hazard" - the difference, as a band
+    const bandAt = lat(5, 0.9);
+    const p = span(local, bandAt, bandAt + 1.0);
     if (p > 0) {
       const ex = ease.outCubic(clamp(p * 1.2));
-      const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
+      const punch = Math.sin(Math.PI * clamp(span(local, bandAt + 1.2, bandAt + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'USEFUL, NOT JUST FAST', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'USEFUL, NOT JUST FAST', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
     }
+    return;
   }
+
+  // "now open your repository in Arena, and start a conversation": the two
+  // panels become the one window the rest of the scene is about.
+  const apart = ease.outCubic(clamp(span(local, conversation, conversation + 0.6)));
+  const conv = { x: 300, y: 480, w: 3240, h: 1180 + (1 - apart) * 60 };
+  panel(ctx, { ...conv, r: 28, fill: '#141418', stroke: '#2A2A31', shadow: 0.6 });
+  ctx.save();
+  ctx.globalAlpha = apart;
+  text(ctx, 'ARENA', conv.x + 70, conv.y + 90, { size: 34, weight: 700, color: UI.gold, tracking: 8 });
+  // "your repository name sits at the top of the conversation" - and it stays
+  // there, highlighted on the line that tells you to check it every time.
+  const nameBox = { x: conv.x + 70, y: conv.y + 130, w: 900, h: 120 };
+  const checked = clamp(span(local, lat(8, 0.2), lat(8, 0.6)));
+  const alarm = clamp(span(local, lat(9, 0.2), lat(9, 0.6)));
+  panel(ctx, {
+    x: nameBox.x, y: nameBox.y, w: nameBox.w, h: nameBox.h, r: 16,
+    fill: alarm > 0.5 ? UI.red : UI.window2, stroke: UI.ink,
+  });
+  text(ctx, 'octocat-ana / book-list', nameBox.x + 40, nameBox.y + 78, {
+    size: 46, weight: 700, family: 'Space Grotesk', color: alarm > 0.5 ? UI.white : UI.text,
+  });
+  if (checked > 0) {
+    ctx.save();
+    ctx.globalAlpha = checked;
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(nameBox.x, nameBox.y + nameBox.h + 14, nameBox.w * checked, 10);
+    ctx.restore();
+  }
+
+  // the conversation itself, one message per capability the agent has
+  const msgs = [
+    ['You', 'Add a search box to the list.', lat(6, 0.6)],
+    ['Agent', 'I can see the files, the history and the branch.', lat(7, 0.3)],
+  ];
+  msgs.forEach(([who, value, start], i) => {
+    const mp = clamp(span(local, start, start + 0.5));
+    if (mp <= 0) return;
+    const my = conv.y + 340 + i * 260;
+    ctx.save();
+    ctx.globalAlpha = mp * apart;
+    ctx.translate((1 - ease.outCubic(mp)) * 120, 0);
+    panel(ctx, {
+      x: conv.x + 70 + i * 180, y: my, w: 2100, h: 190, r: 18,
+      fill: i === 0 ? UI.white : '#242430', stroke: i === 0 ? UI.line : '#33333D',
+    });
+    text(ctx, who.toUpperCase(), conv.x + 110 + i * 180, my + 60, {
+      size: 26, weight: 700, color: i === 0 ? UI.faint : UI.gold, tracking: 4,
+    });
+    text(ctx, value, conv.x + 110 + i * 180, my + 128, {
+      size: 38, weight: 500, color: i === 0 ? UI.text : '#E4E4EA', maxWidth: 1900,
+    });
+    ctx.restore();
+  });
+
+  // "the agent can see the files, the history, and the branch": three chips,
+  // because the sentence lists three things
+  ['THE FILES', 'THE HISTORY', 'THE BRANCH'].forEach((label, i) => {
+    const cp2 = clamp(span(local, lat(7, 0.9 + i * 0.6), lat(7, 1.4 + i * 0.6)));
+    if (cp2 <= 0) return;
+    chip(ctx, label, {
+      x: conv.x + 70 + i * 620, y: conv.y + 880,
+      colour: UI.white, fill: i === 2 ? UI.red : UI.ink, size: 30, alpha: cp2 * apart,
+    });
+  });
+
+  // "check it every single time. Wrong repository is the most expensive easy
+  // mistake." - the mistake, named, while the name above turns red.
+  const warnAt = lat(9, 0.5);
+  const wp = clamp(span(local, warnAt, warnAt + 0.5));
+  if (wp > 0) {
+    ctx.save();
+    ctx.globalAlpha = wp * apart;
+    ctx.translate(0, (1 - ease.outCubic(wp)) * 200);
+    panel(ctx, { x: conv.x + 70, y: conv.y + 980, w: conv.w - 140, h: 150, r: 18, fill: UI.red, stroke: null });
+    text(ctx, 'WRONG REPOSITORY IS THE EXPENSIVE MISTAKE', conv.x + 130, conv.y + 1078, {
+      size: 54, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 // ------------------------------------------------------------------- prompt
@@ -1628,10 +2158,14 @@ function drawPrompt(ctx, scene, t, local) {
     // in the same slot - two identical red slabs overlapping produce almost
     // no change in the picture, which measured as a 0.9 s freeze exactly at
     // the swap.
-    const leave = i < notes.length - 1
-      ? ease.outCubic(clamp(span(local, (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.55,
-        (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.15)))
-      : 0;
+    // The last one has no successor to hand over to, so it used to stay on
+    // screen for the remaining forty seconds - and the "here is one that works"
+    // slab landed in the same place on top of it, which is why that stretch read
+    // as one held picture. It leaves when the prompt itself arrives.
+    const leaveAt = i < notes.length - 1
+      ? (b[notes[i + 1][1]] ?? 12) + notes[i + 1][2] - 0.55
+      : (b[4] ?? 20) - 0.1;
+    const leave = ease.outCubic(clamp(span(local, leaveAt, leaveAt + 0.4)));
     if (np <= 0 || leave >= 1) return;
     const ex = ease.outCubic(clamp(np * 1.2));
     // Every note takes a punch a second after it lands. The swaps cover the
@@ -1651,6 +2185,38 @@ function drawPrompt(ctx, scene, t, local) {
     ctx.restore();
   });
 
+  // One card per sentence of the prompt, landing as that sentence is typed.
+  // The composer alone was not enough: five sentences typed into one panel is a
+  // slow fill, and measured it let a single arrangement sit for thirty-four
+  // seconds. Each card is a block of picture that was not there before, and the
+  // column reads as the anatomy of a good prompt by the end.
+  {
+    const parts = [
+      ['01  IT NAMES THE THING', 'One page. Books. Yours.'],
+      ['02  IT NAMES THE DATA', 'books.json, one card per book.'],
+      ['03  IT NAMES THE CONSTRAINT', 'Plain HTML, CSS, JavaScript.'],
+      ['04  IT ASKS FOR THE README', 'So the next session can start.'],
+      ['05  IT SETS THE SCOPE CUT', 'No database. Not yet.'],
+    ];
+    parts.forEach(([label, detail], i) => {
+      const start = (b[5 + i] ?? 24 + i * 5) + 0.35;
+      const cp = clamp(span(local, start, start + 0.45));
+      if (cp <= 0) return;
+      const cy = 500 + i * 232;
+      ctx.save();
+      ctx.globalAlpha = cp;
+      ctx.translate((1 - ease.outCubic(cp)) * 140, 0);
+      panel(ctx, { x: 2580, y: cy, w: 1020, h: 205, r: 18, fill: UI.ink, stroke: null });
+      ctx.fillStyle = i === 4 ? UI.gold : UI.red;
+      ctx.fillRect(2580, cy, 18, 205);
+      text(ctx, label, 2636, cy + 92, {
+        size: 40, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 940,
+      });
+      text(ctx, detail, 2636, cy + 154, { size: 28, weight: 400, color: '#B9B9C4', maxWidth: 940 });
+      ctx.restore();
+    });
+  }
+
   // cursor to send, and the press, on the line that says "send it"
   const sendAt = (b[11] ?? 48) + 0.25;
   const mx = lerp(box.x + 1900, box.x + box.w - 230, ease.inOutCubic(span(local, sendAt - 0.8, sendAt - 0.1)));
@@ -1667,7 +2233,7 @@ function drawPrompt(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.65)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4);
-      ctx.translate((1 - ex) * -600, punch * 80);
+      ctx.translate((1 - ex) * -600, punch * 40);
       panel(ctx, { x: box.x + 60, y: compY + 460, w: 1500, h: 200, r: 18, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
       ctx.fillRect(box.x + 60, compY + 460, 20, 200);
@@ -1687,7 +2253,7 @@ function drawPrompt(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4);
-      ctx.translate((1 - ex) * -600, punch * 90);
+      ctx.translate((1 - ex) * -600, punch * 40);
       panel(ctx, { x: box.x + 60, y: compY + 620, w: 1700, h: 150, r: 14, fill: UI.red, stroke: UI.red });
       text(ctx, 'THE SCOPE CUT MATTERS', box.x + 130, compY + 722, {
         size: 54, weight: 700, family: 'Space Grotesk', color: UI.white,
@@ -1705,7 +2271,7 @@ function drawPrompt(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, sentAt + 1.0, sentAt + 1.4)));
       ctx.save();
       ctx.globalAlpha = clamp(sp * 4);
-      ctx.translate((1 - ex) * -250, punch * 100);
+      ctx.translate((1 - ex) * -250, punch * 40);
       panel(ctx, { x: W / 2 - 800, y: 1480, w: 1600, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
       ctx.fillRect(W / 2 - 800, 1480, 22, 240);
@@ -1966,11 +2532,11 @@ function drawDiff(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4) * (1 - closeB);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'ASK FOR THE CHANGE', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'ASK FOR THE CHANGE', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -1991,7 +2557,7 @@ function drawChecks(ctx, scene, t, local) {
   stageField(ctx, t);
   const b = scene.lines.map((line) => line.start - scene.start);
   const e = scene.lines.map((line) => line.end - scene.start);
-  text(ctx, scene.title, 240, 320, {
+  text(ctx, scene.title, 240, 268, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
 
@@ -2076,7 +2642,7 @@ function drawChecks(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, (b[5] ?? 20) + 1.15, (b[5] ?? 20) + 1.55)));
       ctx.save();
       ctx.globalAlpha = clamp(rp * 2.4);
-      ctx.translate((1 - ex) * -80, (1 - ex) * 260 + punch * 120);
+      ctx.translate((1 - ex) * -80, (1 - ex) * 260 + punch * 40);
       panel(ctx, {
         x: x + 100, y: y + 955, w: 1900, h: 150, r: 14,
         fill: UI.red, stroke: UI.red, alpha: 0.95,
@@ -2119,11 +2685,11 @@ function drawChecks(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p2 * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.green;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'GREEN IS INFORMATION', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'GREEN IS INFORMATION', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2206,11 +2772,11 @@ function drawMerge(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.0, at + 1.45)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 1.8);
-      ctx.translate((1 - ex) * -70, punch * 110);
-      panel(ctx, { x: x + w / 2 - 700, y: y + 1180, w: 1400, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -70, punch * 40);
+      panel(ctx, { x: x + w / 2 - 700, y: SHOW_CARD_Y - 5, w: 1400, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.green;
-      ctx.fillRect(x + w / 2 - 700, y + 1180, 22, 230);
-      text(ctx, 'LIVE', x + w / 2 - 610, y + 1340, {
+      ctx.fillRect(x + w / 2 - 700, SHOW_CARD_Y - 5, 22, 230);
+      text(ctx, 'LIVE', x + w / 2 - 610, SHOW_CARD_Y + 155, {
         size: 120, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2224,11 +2790,11 @@ function drawMerge(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, refreshAt + 1.2, refreshAt + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(rp * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: x + w / 2 - 950, y: y + 1180, w: 1900, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: x + w / 2 - 950, y: SHOW_CARD_Y - 5, w: 1900, h: 230, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(x + w / 2 - 950, y + 1180, 22, 230);
-      text(ctx, 'REFRESH UNTIL IT APPEARS', x + w / 2 - 860, y + 1340, {
+      ctx.fillRect(x + w / 2 - 950, SHOW_CARD_Y - 5, 22, 230);
+      text(ctx, 'REFRESH UNTIL IT APPEARS', x + w / 2 - 860, SHOW_CARD_Y + 155, {
         size: 68, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2310,29 +2876,58 @@ function drawFeature(ctx, scene, t, local) {
   const { x, y, w } = content;
 
   if (stage === 'prompt') {
-    panel(ctx, { x: x + 60, y: y + 60, w: w - 120, h: 560, r: 18, fill: '#141418', stroke: '#2A2A31' });
+    // Left: the conversation, typed at the pace it is spoken. Right: one card per
+    // thing the narration names, in one of two slots so consecutive cards are
+    // different pictures. Measured, the typed lines alone were not enough: they
+    // are thin text on a dark panel, and the scene held one arrangement for
+    // thirty-four seconds - two thirds of its length - while they arrived.
+    panel(ctx, { x: x + 60, y: y + 60, w: 1520, h: 700, r: 18, fill: '#141418', stroke: '#2A2A31' });
     text(ctx, 'ARENA', x + 120, y + 130, { size: 30, weight: 700, color: UI.gold, tracking: 5 });
-    const lines = [
+    const typedLines = [
       'Add a search box above the list.',
       'It filters the cards as I type, ignores capitals,',
       'and shows a message when nothing matches.',
       'Do not change the card design. Do not add a library.',
     ];
-    // All four lines of the prompt are typed, at the pace they are spoken: the
-    // last one lands on the line that explains why saying "do not" matters.
-    const p = span(local, 0.6, toDiff - 0.3) * lines.length;
-    lines.forEach((line, i) => {
+    const p = span(local, 0.6, toDiff - 0.3) * typedLines.length;
+    typedLines.forEach((line, i) => {
       if (i > p) return;
-      text(ctx, line, x + 120, y + 210 + i * 78, {
-        size: 38, weight: 500, color: i === 3 ? UI.gold : UI.white, alpha: clamp(p - i),
+      text(ctx, line, x + 120, y + 240 + i * 108, {
+        size: 38, weight: 500, color: i === 3 ? UI.gold : UI.white, alpha: clamp(p - i), maxWidth: 1360,
       });
     });
-    // Only once every line of the prompt has landed: it used to appear while the
-    // last line was still fading in, and printed straight through it.
-    const done = clamp(span(local, Math.max(2.0, toDiff - 1.1), Math.max(2.6, toDiff - 0.6)));
-    chip(ctx, 'ONE FILE  ·  ABOUT 40 LINES', {
-      x: x + 120, y: y + 600, colour: UI.ink, fill: UI.gold, size: 26, alpha: done,
+
+    const cards = [
+      ['BEFORE: A LIST OF BOOKS', 'AFTER: THE SAME LIST, SEARCHABLE.', lat(1) + 0.3],
+      ['WHAT IT IS, WHO IT IS FOR', 'AND WHAT DONE LOOKS LIKE.', lat(2) + 0.3],
+      ['THE OUTCOME', 'A search box above the list.', lat(3) + 0.3],
+      ['THE BEHAVIOUR', 'Filters as you type. Ignores capitals.', lat(4) + 0.3],
+      ['THE CONSTRAINT', 'Do not touch the card. No library.', lat(5) + 0.3],
+      ['ONE FILE. ABOUT FORTY LINES.', 'One pull request. A minute to read.', lat(6) + 0.3],
+    ];
+    let current = -1;
+    cards.forEach((card, i) => {
+      if (local >= card[2]) current = i;
     });
+    if (current >= 0) {
+      const card = cards[current];
+      const start = card[2];
+      const cp = clamp(span(local, start, start + 0.45));
+      const slotY = current % 2 === 0 ? y + 60 : y + 460;
+      ctx.save();
+      ctx.globalAlpha = cp;
+      ctx.translate((1 - ease.outCubic(cp)) * 160, 0);
+      panel(ctx, { x: x + 1700, y: slotY, w: 1540, h: 340, r: 20, fill: UI.ink, stroke: null });
+      ctx.fillStyle = current === 5 ? UI.gold : UI.red;
+      ctx.fillRect(x + 1700, slotY, 22, 340);
+      text(ctx, card[0], x + 1780, slotY + 140, {
+        size: 52, weight: 700, family: 'Space Grotesk', color: UI.white, maxWidth: 1380,
+      });
+      text(ctx, card[1], x + 1780, slotY + 224, {
+        size: 32, weight: 400, color: '#B9B9C4', maxWidth: 1380,
+      });
+      ctx.restore();
+    }
     return;
   }
 
@@ -2430,11 +3025,11 @@ function drawFeature(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'TEN THOUSAND COMMITS', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'TEN THOUSAND COMMITS', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2516,11 +3111,11 @@ function drawRevert(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.gold;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'RECOVERY IS A FEATURE', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'RECOVERY IS A FEATURE', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2566,26 +3161,25 @@ function drawPatterns(ctx, scene, t, local) {
     ctx.save();
     ctx.globalAlpha = clamp(p * 4);
     ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * 500, 0);
-    panel(ctx, {
-      x: 260, y: yy, w: W - 520, h: 158, r: 16,
-      fill: i % 2 ? UI.ink : UI.window2, stroke: i % 2 ? UI.ink : UI.line,
-    });
-    ctx.fillStyle = i % 2 ? UI.gold : UI.ink;
+    // Every row is dark. They used to alternate dark and light, and every light
+    // row landed on light paper: measured, half the arrivals in this scene moved
+    // too few blocks to count and left an eleven-second hold. The alternation is
+    // carried by the accent instead of by the fill.
+    panel(ctx, { x: 260, y: yy, w: W - 520, h: 158, r: 16, fill: UI.ink, stroke: null });
+    ctx.fillStyle = i % 2 ? UI.red : UI.gold;
     ctx.fillRect(260, yy, 14, 158);
     text(ctx, String(i + 1).padStart(2, '0'), 320, yy + 62, {
-      size: 30, weight: 700, color: i % 2 ? UI.gold : UI.dim, tracking: 3,
+      size: 30, weight: 700, color: i % 2 ? UI.red : UI.gold, tracking: 3,
     });
     text(ctx, label, 420, yy + 66, {
-      size: 48, weight: 700, family: 'Space Grotesk', color: i % 2 ? UI.white : UI.text,
+      size: 48, weight: 700, family: 'Space Grotesk', color: UI.white,
     });
     // the example, typed under a bar that grows across the line
     const typeTo = Math.max(at + 1.2, (b[2 + i] ?? (at + 3)) - 0.3);
     const typed = clamp(span(local, at + 0.3, typeTo));
-    ctx.fillStyle = i % 2 ? 'rgba(242,194,48,0.5)' : 'rgba(242,194,48,0.65)';
+    ctx.fillStyle = 'rgba(242,194,48,0.42)';
     ctx.fillRect(415, yy + 92, typed * 900, 46);
-    text(ctx, example, 420, yy + 128, {
-      size: 36, weight: 400, color: i % 2 ? 'rgba(242,242,242,0.85)' : UI.dim,
-    });
+    text(ctx, example, 420, yy + 128, { size: 36, weight: 400, color: 'rgba(242,242,242,0.85)' });
     ctx.restore();
   });
 }
@@ -2670,11 +3264,11 @@ function drawSafety(ctx, scene, t, local) {
       const punch = Math.sin(Math.PI * clamp(span(local, at + 1.2, at + 1.7)));
       ctx.save();
       ctx.globalAlpha = clamp(p * 4);
-      ctx.translate((1 - ex) * -600, punch * 120);
-      panel(ctx, { x: W / 2 - 900, y: 1780, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
+      ctx.translate((1 - ex) * -600, punch * 40);
+      panel(ctx, { x: W / 2 - 900, y: SHOW_CARD_Y, w: 1800, h: 240, r: 22, fill: UI.ink, stroke: UI.ink });
       ctx.fillStyle = UI.red;
-      ctx.fillRect(W / 2 - 900, 1780, 22, 240);
-      text(ctx, 'SECRETS LIVE OUTSIDE GIT', W / 2 - 810, 1945, {
+      ctx.fillRect(W / 2 - 900, SHOW_CARD_Y, 22, 240);
+      text(ctx, 'SECRETS LIVE OUTSIDE GIT', W / 2 - 810, SHOW_CARD_Y + 165, {
         size: 72, weight: 700, family: 'Space Grotesk', color: UI.white,
       });
       ctx.restore();
@@ -2697,47 +3291,144 @@ function drawHabits(ctx, scene, t, local) {
   stageField(ctx, t);
   const b = scene.lines.map((line) => line.start - scene.start);
   const e = scene.lines.map((line) => line.end - scene.start);
+  const at = (i, offset = 0) => (b[i] ?? i * 4) + offset;
   text(ctx, scene.title, 240, 320, {
     size: 104, weight: 700, family: 'Space Grotesk', color: UI.ink, alpha: clamp(span(local, 0.15, 0.9) * 1.6),
   });
-  // One habit per spoken line, as a slab. The scene used to print all ten in
-  // its first ten seconds - and its last three below the bottom of the frame -
-  // then hold for twenty-eight. Each row now lands with its sentence, and the
-  // list settles upward at the end so the scene closes on a move.
+
+  // Five habits, ten sentences. The rows used to land on the first five lines
+  // and the scene then sat still for the other five - measured, one arrangement
+  // held twenty-three seconds, the second worst in the film. The rows now land
+  // on the five sentences that *name* a habit, and the second column exists for
+  // the five that do not: the list of what is next, the weekly look back, and a
+  // closing line. The stage is sparse, so a camera move cannot carry this on its
+  // own; the room has to fill.
+  const secondColumn = ease.outCubic(clamp(span(local, at(6, 0.2), at(6, 0.7))));
+  const rowW = lerp(3360, 1900, secondColumn);
   const last = e[e.length - 1] ?? 1;
   const settle = ease.outCubic(clamp(span(local, last - 0.8, last - 0.3)));
   HABITS.forEach(([label, detail], i) => {
-    const at = (b[i] ?? i) + 0.25;
-    const p = clamp(span(local, at, at + 0.6));
+    const start = at(i + 1, 0.25);
+    const p = clamp(span(local, start, start + 0.6));
     if (p <= 0) return;
-    const yy = 430 + i * 168 - settle * 40;
-    // A double-tap after the landing: one arrival alone leaves a gap the
-    // detector reads as a freeze between rows.
-    const tap = (Math.sin(Math.PI * clamp(span(local, at + 0.8, at + 1.0)))
-      + Math.sin(Math.PI * clamp(span(local, at + 1.15, at + 1.6)))
-      + Math.sin(Math.PI * clamp(span(local, at + 1.75, at + 2.2)))
-      + Math.sin(Math.PI * clamp(span(local, at + 2.35, at + 2.8)))) * 110;
+    const yy = 430 + i * 176 - settle * 40;
+    const tap = (Math.sin(Math.PI * clamp(span(local, start + 0.8, start + 1.0)))
+      + Math.sin(Math.PI * clamp(span(local, start + 1.15, start + 1.6)))
+      + Math.sin(Math.PI * clamp(span(local, start + 1.75, start + 2.2)))) * 90;
     ctx.save();
     ctx.globalAlpha = p;
-    ctx.translate((1 - ease.outExpo(p)) * 110, punch);
-    panel(ctx, { x: 240, y: yy - 92, w: 3360, h: 148, r: 18, fill: UI.ink, stroke: UI.ink });
+    ctx.translate((1 - ease.outExpo(p)) * 110, tap);
+    panel(ctx, { x: 240, y: yy - 78, w: rowW, h: 148, r: 18, fill: UI.ink, stroke: UI.ink });
     ctx.fillStyle = UI.gold;
-    ctx.fillRect(240, yy - 92, 18, 148);
+    ctx.fillRect(240, yy - 78, 18, 148);
     ctx.beginPath();
-    ctx.arc(330, yy - 18, 30, 0, Math.PI * 2);
+    ctx.arc(330, yy - 4, 30, 0, Math.PI * 2);
     ctx.fillStyle = UI.gold;
     ctx.fill();
     ctx.strokeStyle = UI.ink;
     ctx.lineWidth = 8;
     ctx.beginPath();
-    ctx.moveTo(316, yy - 18);
-    ctx.lineTo(327, yy - 7);
-    ctx.lineTo(345, yy - 32);
+    ctx.moveTo(316, yy - 4);
+    ctx.lineTo(327, yy + 7);
+    ctx.lineTo(345, yy - 18);
     ctx.stroke();
-    text(ctx, label, 400, yy - 2, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.white });
-    text(ctx, detail, 400, yy + 44, { size: 32, weight: 400, color: 'rgba(242,242,242,0.65)' });
+    text(ctx, label, 400, yy + 12, { size: 54, weight: 700, family: 'Space Grotesk', color: UI.white });
+    text(ctx, detail, 400, yy + 58, { size: 32, weight: 400, color: 'rgba(242,242,242,0.65)' });
     ctx.restore();
   });
+
+  // The second column: what is next, kept in the repository, then the week.
+  if (secondColumn > 0) {
+    const px = 2320;
+    const py = 360;
+    const pw = 1280;
+    ctx.save();
+    ctx.globalAlpha = secondColumn;
+    ctx.translate((1 - secondColumn) * 120, 0);
+    panel(ctx, { x: px, y: py, w: pw, h: 1120, r: 22, fill: UI.window2, stroke: UI.ink });
+    ctx.fillStyle = UI.ink;
+    ctx.fillRect(px, py, pw, 118);
+    text(ctx, 'NEXT.md', px + 48, py + 78, {
+      size: 44, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    text(ctx, 'in the repo, not in your head', px + 48, py + 178, {
+      size: 28, weight: 400, color: UI.dim,
+    });
+    const items = [
+      ['Ask for the filter', at(6, 1.4)],
+      ['Fix the empty state', at(6, 2.6)],
+      ['Ship the search box', at(6, 3.8)],
+      ['Write the README as you go', at(8, 0.6)],
+      ['One idea per pull request', at(8, 1.8)],
+    ];
+    items.forEach(([label, start], i) => {
+      const p = clamp(span(local, start, start + 0.45));
+      if (p <= 0) return;
+      const iy = py + 260 + i * 130;
+      ctx.save();
+      ctx.globalAlpha = p;
+      ctx.translate((1 - ease.outCubic(p)) * 90, 0);
+      ctx.fillStyle = UI.line;
+      ctx.fillRect(px + 48, iy + 96, pw - 96, 2);
+      ctx.beginPath();
+      ctx.arc(px + 74, iy + 48, 14, 0, Math.PI * 2);
+      ctx.fillStyle = i >= 3 ? UI.red : UI.ink;
+      ctx.fill();
+      text(ctx, label, px + 116, iy + 60, { size: 34, weight: 500, color: UI.text });
+      ctx.restore();
+    });
+    const longer = clamp(span(local, at(8, 0.2), at(8, 0.6)));
+    if (longer > 0) {
+      text(ctx, 'the list is longer than you think', px + 48, py + 970, {
+        size: 28, weight: 600, color: UI.red, alpha: longer,
+      });
+    }
+    ctx.restore();
+  }
+
+  // Once a week: a band across the bottom, which is the biggest change the
+  // scene can make without inventing content it does not have.
+  const weekly = clamp(span(local, at(7, 0.3), at(7, 0.8)));
+  if (weekly > 0) {
+    const slide = ease.outCubic(weekly);
+    const by = 1560 + (1 - slide) * 220;
+    ctx.save();
+    ctx.globalAlpha = weekly;
+    panel(ctx, { x: 240, y: by, w: 3360, h: 200, r: 20, fill: UI.ink, stroke: null });
+    ctx.fillStyle = UI.red;
+    ctx.fillRect(240, by, 22, 200);
+    text(ctx, 'ONCE A WEEK: LOOK AT WHAT YOU SHIPPED', 340, by + 118, {
+      size: 56, weight: 700, family: 'Space Grotesk', color: UI.white,
+    });
+    // A week of shipped work, not seven empty boxes: each bar is one day, and
+    // its height is how much went out. Drawn, never a placeholder.
+    const shipped = [0.35, 0.5, 0.28, 0.8, 0.62, 0.95, 0.7];
+    shipped.forEach((amount, i) => {
+      const tickAt = at(7, 0.9) + i * 0.2;
+      if (local < tickAt) return;
+      const h = 26 + amount * 96;
+      ctx.fillStyle = i === shipped.length - 1 ? UI.gold : '#6E6E78';
+      ctx.fillRect(2700 + i * 104, by + 150 - h, 68, h);
+    });
+    ctx.restore();
+  }
+
+  // And the closing sentence gets the frame.
+  const close = clamp(span(local, at(9, 0.2), at(9, 0.7)));
+  if (close > 0) {
+    const slide = ease.outCubic(close);
+    ctx.save();
+    ctx.globalAlpha = close;
+    ctx.fillStyle = UI.gold;
+    ctx.fillRect(240, 1216, 2100 * slide, 10);
+    text(ctx, 'SPEED COMES FROM THE LOOP,', 240 + (1 - slide) * -80, 1330, {
+      size: 88, weight: 700, family: 'Space Grotesk', color: UI.ink,
+    });
+    text(ctx, 'NOT FROM THE TYPING.', 240 + (1 - slide) * -80, 1436, {
+      size: 88, weight: 700, family: 'Space Grotesk', color: UI.red,
+    });
+    ctx.restore();
+  }
 }
 
 // -------------------------------------------------------------------- recap
@@ -2790,10 +3481,19 @@ function drawRecap(ctx, scene, t, local) {
       + Math.sin(Math.PI * clamp(span(local, at + 2.35, at + 2.8)))) * 110;
     ctx.save();
     ctx.globalAlpha = clamp(p * 4);
-    ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * -500, punch);
-    panel(ctx, { x: xx, y: yy, w: 1620, h: 240, r: 20, fill: UI.window, stroke: UI.line, shadow: 0.4 });
-    text(ctx, String(i + 1).padStart(2, '0'), xx + 60, yy + 150, { size: 76, weight: 700, family: 'Space Grotesk', color: UI.line2 });
-    text(ctx, label, xx + 200, yy + 138, { size: 50, weight: 700, family: 'Space Grotesk', color: UI.text });
+    // ``tap`` is the punch this row takes after it lands. It used to reference a
+    // ``punch`` that existed in the neighbouring scene, which threw as soon as
+    // the recap was rendered: the film could not be built past 10:40 at all.
+    ctx.translate((1 - ease.outCubic(clamp(p * 1.2))) * -500, tap);
+    // Inverted on purpose. These rows were light cards on a light stage, and
+    // measured against the frame each one replaced they moved too few blocks to
+    // count: the scene held thirteen seconds while they landed. A dark card
+    // arriving in an empty quarter of the frame is a change you can see.
+    panel(ctx, { x: xx, y: yy, w: 1620, h: 240, r: 20, fill: UI.ink, stroke: null });
+    ctx.fillStyle = i === 6 ? UI.gold : UI.red;
+    ctx.fillRect(xx, yy, 18, 240);
+    text(ctx, String(i + 1).padStart(2, '0'), xx + 60, yy + 152, { size: 76, weight: 700, family: 'Space Grotesk', color: UI.gold });
+    text(ctx, label, xx + 200, yy + 140, { size: 50, weight: 700, family: 'Space Grotesk', color: UI.white });
     ctx.restore();
   });
   // The closing card lands on the last line of the scene.
@@ -2979,6 +3679,321 @@ function drawOutro(ctx, scene, t, local) {
 }
 
 // ------------------------------------------------------------------ dispatch
+// ------------------------------------------------------------ the typographic stage
+/**
+ * What the opening says, phrase by phrase.
+ *
+ * Each entry belongs to one narration line, and its `share` divides that line's
+ * real duration between the phrases on it. Nothing here invents timing: a phrase
+ * is on screen for exactly as long as its line is spoken, so a three-noun line
+ * becomes three beats and a one-sentence line stays one.
+ *
+ * `accent` is the index of the line inside a phrase drawn in the accent colour,
+ * `ellipse` marks a single word the way the reference marks "Workflow", and
+ * `card` is a UI insert - the product, for the length of one line.
+ */
+const WORD_BEATS = {
+  // Line numbers are SCENE-LOCAL: each scene consumes its own slice of the
+  // narration in order, so "open" owns lines 0-3 and "define" owns 0-8 again.
+  //
+  // No beat is longer than about two and a half seconds. That is the reference's
+  // own cadence - it changes what is on screen every 1.5 to 3 seconds - and it is
+  // also the only way a phrase can be the whole picture without the picture going
+  // still: one phrase held for a five-second sentence is four dead seconds,
+  // which is exactly what the gate called out.
+  title: [
+    // "This is how you build a real app without writing the code yourself."
+    { line: 0, lines: ['BUILD IT'], size: 0.19, share: 0.45 },
+    { line: 0, lines: ['BY DESCRIBING IT'], accent: 0, size: 0.165, share: 0.55 },
+    // "You describe what you want in plain English. An agent writes it, on GitHub."
+    { line: 1, card: true },
+    // "This is called vibe coding, and this video walks the whole loop, step by step."
+    { line: 2, lines: ['VIBE CODING'], ellipse: true, size: 0.155, share: 0.5 },
+    { line: 2, lines: ['THE WHOLE LOOP'], size: 0.145, share: 0.5 },
+    // "a repository, a pull request, and a working site" - three nouns, three beats
+    { line: 3, lines: ['A REPOSITORY'], size: 0.15, share: 1 },
+    { line: 3, lines: ['A PULL REQUEST'], size: 0.15, share: 1 },
+    { line: 3, lines: ['A WORKING SITE'], size: 0.145, share: 1 },
+  ],
+  statement: [
+    // "Vibe coding means you work in intention, not in syntax."
+    { line: 0, lines: ['INTENTION,'], size: 0.19, share: 0.5 },
+    { line: 0, lines: ['NOT SYNTAX'], accent: 0, size: 0.2, share: 0.5 },
+    // "You say what you want. You look at the result. You say what to change."
+    { line: 1, card: true },
+    // "The agent writes the files, runs the tools, and records the work as commits."
+    { line: 2, lines: ['THE AGENT'], size: 0.165, share: 0.4 },
+    { line: 2, lines: ['WRITES THE FILES'], size: 0.14, share: 0.3 },
+    { line: 2, lines: ['RECORDS IT'], size: 0.16, share: 0.3 },
+    // "That does not mean you stop thinking."
+    { line: 3, lines: ['YOU STILL THINK'], size: 0.17 },
+    // "It means your attention goes on the decision, not on the typing."
+    { line: 4, lines: ['THE DECISION'], size: 0.16, share: 0.5 },
+    { line: 4, lines: ['NOT THE TYPING'], size: 0.155, share: 0.5 },
+  ],
+};
+
+/**
+ * Which transition each cut of the staged opening uses, and why.
+ *
+ * Read as a sentence: the opening gives way to the product with an iris (the
+ * card is the same place, closer); the card hands back with a hard cut (the
+ * words are a different place entirely); the second scene announces itself with
+ * a wipe (a new chapter, further along); its card takes the frame with an iris
+ * again but from the other side, and the last cut of the chunk is the only flash
+ * in the film.
+ *
+ * One device per cut, never the same twice in a row, and the flash used once so
+ * it still reads as punctuation rather than as the film's only idea.
+ */
+const STAGED_TRANSITIONS = {
+  // Index is the narration line whose beat the cut starts. A card beat is a
+  // detail of the same subject, so the cut *into* it is an iris and the cut
+  // *out* of it is a focus: an iris says "closer", a defocus says "back out".
+  // Using a hard cut for both was the one place the film could not tell a
+  // viewer which direction it was travelling.
+  open: { 0: 'cut', 1: 'iris', 2: 'focus', 3: 'wipe' },
+  define: { 0: 'cut', 1: 'iris', 2: 'focus', 3: 'push', 4: 'cut', 5: 'push', 6: 'cut', 7: 'push', 8: 'cut' },
+};
+
+/**
+ * A transition plan that does not match a scene is a bug, not a default.
+ *
+ * The table above is keyed by scene id. When it was read by scene kind every
+ * entry missed, every cut became a hard cut, and nothing anywhere reported it -
+ * the film simply had no transitions in it for two review rounds. This turns
+ * that class of mistake into a crash at load: a key that names no scene cannot
+ * quietly do nothing.
+ */
+function checkTransitionPlan() {
+  const ids = new Set(SCENES.map((scene) => scene.id));
+  const unknown = Object.keys(STAGED_TRANSITIONS).filter((id) => !ids.has(id));
+  if (unknown.length) {
+    throw new Error(`STAGED_TRANSITIONS names no scene: ${unknown.join(', ')}`);
+  }
+  for (const [id, plan] of Object.entries(STAGED_TRANSITIONS)) {
+    const scene = SCENES.find((s) => s.id === id);
+    for (const [line, device] of Object.entries(plan)) {
+      if (!TRANSITIONS.includes(device)) {
+        throw new Error(`${id} line ${line}: unknown transition ${device}`);
+      }
+      // Scene lines are attached later in the script, so this check waits for
+      // them rather than failing at load on an undefined.
+      if (scene.lines && Number(line) >= scene.lines.length) {
+        throw new Error(`${id} line ${line}: the scene has ${scene.lines.length} lines`);
+      }
+    }
+  }
+}
+checkTransitionPlan();
+
+/** The narration lines that are product lines, derived from the phrase table. */
+function cardLinesFor(scene) {
+  const spec = WORD_BEATS[scene.kind];
+  if (!spec) return null;
+  return new Set(spec.filter((b) => b.card).map((b) => b.line));
+}
+
+/** The beats of a scene, with real times resolved from its narration lines. */
+function wordBeatsFor(scene) {
+  const spec = WORD_BEATS[scene.kind];
+  if (!spec) return null;
+  const out = [];
+  scene.lines.forEach((line, i) => {
+    const group = spec.filter((b) => b.line === i);
+    if (!group.length) return;
+    // A line with several phrases splits its own duration between them; a line
+    // with one keeps all of it.
+    //
+    // The first phrase of a scene starts with the shot, not with the voice: the
+    // reference opens on its title card and the narration arrives over it.
+    //
+    // The window a line's phrases share is therefore [start, line.end], where
+    // `start` is the earlier of the voice's own start and the beat before it.
+    // The first version pinned the first beat to zero but still divided the
+    // line's original duration, so the last phrase finished a second and a half
+    // before the line did and then held - a still frame inside a spoken
+    // sentence, which is the dead-beat fault this pass exists to remove.
+    const voiceStart = Math.max(0, line.start - scene.start);
+    const lineEnd = Math.max(voiceStart + 0.6, line.end - scene.start);
+    const start = out.length === 0 ? 0 : voiceStart;
+    const window = Math.max(0.9, lineEnd - start);
+    const weights = group.map((b) => b.share ?? 1);
+    const total = weights.reduce((a, b) => a + b, 0);
+    let at = start;
+    group.forEach((b, j) => {
+      const share = (weights[j] / total) * window;
+      out.push({ ...b, at, until: at + share });
+      at += share;
+    });
+    void i;
+  });
+
+  // A phrase holds until the next one is ready to arrive, across the silence
+  // between two narration lines. Without this the field is bare for the whole
+  // gap - measured, 0.4 s of nothing at 0:19 - and a bare field is the held
+  // frame the owner rejects, just in white instead of black. The overlap is two
+  // frames at the handover, which is invisible; everything longer than that is
+  // the exit and the arrival, and they never cross.
+  out.forEach((beat, i) => {
+    const next = out[i + 1];
+    beat.until = next ? Math.max(beat.until, next.at - 0.04) : beat.until + 0.25;
+  });
+  return out;
+}
+
+/**
+ * The opening, drawn as type.
+ *
+ * One phrase in the frame. The field drifts; the phrase resolves, holds long
+ * enough to read at 13 characters a second, then hands over to the next. Nothing
+ * else is drawn - no rail, no chapter, no clock - because the reference has
+ * nothing else and every mark we add is one more thing competing with the words
+ * the viewer is meant to read.
+ */
+function drawWordScene(ctx, { scene, t, local, palette, hold = false }) {
+  drawField(ctx, { w: W, h: H, t, palette });
+
+  const beats = wordBeatsFor(scene);
+  if (!beats || !beats.length) return;
+
+  // A card beat is handled by secondUnit, which draws the product card; here the
+  // field is all this scene needs to contribute, and it hands over cleanly.
+  const at = beatAt(beats, local, 0.26);
+  if (!at) return;
+  const { beat } = at;
+  // On a card beat the product card owns the picture, but the film's beat clock
+  // stays on screen above it. Without this the card beat is one region of the
+  // frame doing anything at all, and a card that has finished assembling is a
+  // still frame - the gate called out eleven seconds of that.
+  if (beat.card) {
+    // The clock is drawn by render(), after the card: the card's backdrop covers
+    // the whole frame, so anything painted before it is buried.
+    return;
+  }
+
+  // The phrase is set to fill its column.
+  //
+  // It used to be set to an authored size and then fitted only if it overflowed,
+  // which sounds reasonable and is wrong twice. Wrong once because a two-word
+  // phrase at that size occupied the left third of the frame and left the right
+  // third empty for three seconds - the gate found it as a dead column, and an
+  // empty third of the frame is the held frame the owner keeps rejecting. Wrong
+  // twice because it inverted the reference: the reference sets a short phrase
+  // *larger* (35 to 50 percent of frame height) and a long one smaller, so that
+  // every phrase has the same weight on the page. Ours set them all to roughly
+  // the same size, so the short ones whispered.
+  //
+  // Now the measure is the constant and the size follows from it: measure the
+  // longest line, scale it until its landing width is exactly the column. The
+  // authored size survives as the ceiling, so a phrase the script marked as a
+  // quiet one still cannot shout.
+  //
+  // A ring adds 8 percent of the word's width on each side, so an annotated
+  // phrase is fitted to a narrower column: at the full column the ring's left
+  // arc would sit outside title-safe. Everything else gets the whole column.
+  const column = W * (1 - STAGE_MARGIN - 0.055) * (beat.ellipse ? 0.75 : 1);
+  const base = Math.min(W, H) * (beat.size ?? 0.17);
+  const longestLine = beat.lines.reduce((a, b) => (
+    measure(ctx, a, { size: base, weight: 700, family: 'Space Grotesk' })
+      >= measure(ctx, b, { size: base, weight: 700, family: 'Space Grotesk' }) ? a : b
+  ), beat.lines[0]);
+  const natural = measure(ctx, longestLine, { size: base, weight: 700, family: 'Space Grotesk' });
+  // The size at which the phrase fills the column at the instant it lands, and
+  // the ceiling the authored size implies: a beat written as a whisper stays one.
+  const fillSize = (base * column) / (natural * SETTLE_MAX);
+  const fitted = Math.min(fillSize, Math.min(W, H) * Math.min(0.30, (beat.size ?? 0.17) * 1.7));
+
+  // A phrase whose line has finished fades out in the gap before the next line,
+  // rather than holding until something replaces it. Otherwise the last phrase
+  // of a line is still on screen while the voice has moved on to the next
+  // sentence, which is a phrase with nothing to do with what is being said.
+  // Every phrase leaves before the next one arrives. No crossfade: two phrases
+  // in the same place at the same time is overlapping text, which the owner has
+  // rejected twice, and a 50/50 blend of two different words is unreadable even
+  // where it is not formally an overlap. The reference does the same thing - its
+  // word blurs out, the field is empty for a moment, the next word blurs in.
+  //
+  // ...unless a transition is going to take this phrase away. A phrase that
+  // fades itself out before the cut leaves the transition compositing an empty
+  // field: the iris was opening onto nothing and the wipe crossed a blank, which
+  // is why four devices looked like one fade. When the next cut is a real
+  // transition the phrase stays up and the transition removes it, which is what
+  // a transition is for. On a plain cut the old fade still applies, because
+  // there is no composite to carry the old picture and two phrases must not be
+  // in the same place at once.
+  // ...and only the last phrase of a line may hold, because a line boundary is
+  // the only place a transition exists. Holding every beat let two phrases of
+  // the same line share the frame - "INTENTION," still solid underneath "NOT
+  // SYNTAX" - which is the overlapping text the owner has rejected twice.
+  const lastOfLine = !beats.some((other) => other.line === beat.line && other.at > beat.at + 1e-6);
+  const overrun = (hold && lastOfLine) ? 0 : span(local, beat.until - 0.2, beat.until);
+
+  drawPhrase(ctx, {
+    lines: beat.lines, w: W, h: H, p: at.p, palette, size: fitted,
+    exit: overrun, accentLine: beat.accent ?? -1, ellipse: !!beat.ellipse, t,
+    left: W * STAGE_MARGIN,
+    hold: clamp((local - beat.at) / Math.max(0.6, beat.until - beat.at)),
+    // Words keep arriving for 78 percent of the beat, not for the first half
+    // second of it.
+    reveal: span(local, beat.at, beat.at + Math.max(0.6, beat.until - beat.at) * 0.78),
+  });
+
+  // The clock itself is drawn by render(), above the card and the words, so
+  // there is exactly one of it and it never moves between beats.
+}
+
+/**
+ * The beat clock: the chapter, its step number, and a rule that fills.
+ *
+ * This is the film's smallest unit of motion and the only furniture the
+ * typographic stage allows. It is also what keeps a slow beat alive: the step
+ * number changes every beat and the rule fills across it, which is a visible
+ * change in one part of the frame while a phrase arrives in another.
+ *
+ * It sits above the phrase on a word beat and above the card on a card beat, so
+ * there is exactly one of it and it never moves between beats.
+ */
+function drawBeatClock(ctx, { scene, at, local, palette, y }) {
+  const chapter = scene.chapter || '';
+  const stepNumber = String(at.index + 1).padStart(2, '0');
+  const labelIn = span(local - at.beat.at, 0.05, 0.5);
+  const labelSize = Math.round(H * 0.03);
+  // The lockup starts on the stage margin and runs to the right, so the clock
+  // shares its left edge with the phrase below it. Centred, it floated over a
+  // left-flush phrase with no relationship to it - which is the fault the owner
+  // called out as the type being in the wrong place.
+  const mx = W * STAGE_MARGIN;
+  const chapterW = measure(ctx, chapter, { size: labelSize, weight: 700, family: 'Inter', tracking: 8 });
+  const stepW = measure(ctx, stepNumber, { size: labelSize, weight: 700, family: 'Inter', tracking: 8 });
+  const gap = labelSize * 1.2;
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * clamp(labelIn * 1.8);
+  text(ctx, chapter, mx, y, {
+    size: labelSize, weight: 700, family: 'Inter', color: palette.accent,
+    align: 'left', tracking: 8,
+  });
+  text(ctx, stepNumber, mx + chapterW + gap, y, {
+    size: labelSize, weight: 700, family: 'Inter', color: palette.ink,
+    align: 'left', tracking: 8,
+  });
+  ctx.restore();
+
+  const duration = Math.max(0.6, at.beat.until - at.beat.at);
+  const p = clamp((local - at.beat.at) / duration);
+  // The rule spans the lockup exactly rather than an arbitrary tenth of the
+  // frame, so it reads as an underline for these two words and not as a
+  // progress bar that happens to be nearby.
+  const bw = chapterW + gap + stepW;
+  ctx.save();
+  ctx.globalAlpha = ctx.globalAlpha * clamp(labelIn * 1.6) * 0.95;
+  ctx.fillStyle = palette.rule;
+  ctx.fillRect(mx, y + H * 0.028, bw, 4);
+  ctx.fillStyle = palette.accent;
+  ctx.fillRect(mx, y + H * 0.028, bw * ease.inOutCubic(p), 4);
+  ctx.restore();
+}
+
 const RENDERERS = {
   title: drawTitle,
   statement: drawStatement,
@@ -3016,50 +4031,292 @@ function transition(ctx, scene, local) {
   void scene;
 }
 
+// ------------------------------------------------------------ detail cards
 /**
- * The scene camera: a slow push-in with a little drift, one per scene.
+ * Some sentences are about one thing on screen, and the frame should say which.
  *
- * Without it a card sits exactly still between two spoken lines, which is the
- * difference between a diagram and a shot. The move is small enough to never
- * read as a zoom and large enough that the frame is never identical for two
- * frames in a row.
+ * Seven scenes in this film held a single arrangement for twelve to thirty-seven
+ * seconds: the panel was the same panel while a checklist ticked inside it, and
+ * a checklist ticking is not a rearrangement. The composition check compares a
+ * frame with the frame its shot opened on, and it was right to fail them.
+ *
+ * The device is a detail card: the scene paints itself into an offscreen frame,
+ * one region of that frame is cut out and shown larger, and a strap names what
+ * is being shown. It is keyed to the narration line, so a card appears on the
+ * sentence that is about the thing in it.
+ *
+ * This is not the camera coming back. The stage, the chapter, the beat ticks and
+ * the captions never move; nothing is translated, zoomed or rotated gradually; the
+ * change happens on one frame and then stands perfectly still for the sentence.
+ * A camera move is continuous and purposeless. This is a pointer made of the
+ * picture, which is what "give the cursor a purpose" asked for in the first place.
+ *
+ * `region` is in design coordinates. `zoom` is chosen per card so the cut-out
+ * fits the frame with a margin; the card keeps the region's own aspect, so
+ * nothing in it is ever distorted or stretched.
  */
-function camera(ctx, scene, local, t) {
-  if (CONTENT_ONLY) return;
-  const length = Math.max(1, scene.end - scene.start);
-  const p = clamp(local / length);
-  const zoom = 1 + 0.035 * p;
+// The black show card that lands on the last line of a step. It sits at 1600
+// rather than at 1780 because the captions own the bottom of the frame from 1900
+// down: at 1780 the card was drawn over the subtitle, so the picture had two
+// pieces of text in the same place, which is the overlap the owner has rejected
+// twice. 1600 plus its 240 of height plus the 40 the punch adds puts its lowest
+// edge at 1880, just above the first caption row.
+const SHOW_CARD_Y = 1600;
 
-  // A re-frame on every spoken line, the way an operator settles the shot on a
-  // beat: the frame eases 26 units sideways and 7 down, then holds. It is the
-  // difference between a diagram that is shown and a shot that is covered.
-  // Beats land on every line *and* halfway through it. One per line left 3.7 s
-  // of dead frame between moves, which reads as a held slide on a long film.
-  const beats = [];
-  for (let i = 0; i < scene.lines.length; i += 1) {
-    const line = scene.lines[i];
-    beats.push(Math.max(scene.start, line.start - 0.06));
-    beats.push(line.start + (line.end - line.start) * 0.5);
-  }
-  const sign = (i) => (i % 2 === 0 ? 1 : -1);
-  let idx = -1;
-  for (let i = 0; i < beats.length; i += 1) {
-    if (t >= beats[i]) idx = i;
-  }
-  let dx = 0;
-  let dy = 0;
-  if (idx >= 0) {
-    const k = ease.outCubic(clamp((t - beats[idx]) / 0.42));
-    dx = lerp(idx === 0 ? 0 : sign(idx - 1), sign(idx), k) * 58;
-    dy = lerp(idx === 0 ? 0 : -1, 1, k) * 13;
-  }
-  dx += Math.sin(local * 0.31) * 1.6;
-  dy += Math.cos(local * 0.27) * 1.2;
+const CARD_AREA = { top: 470, bottom: 1980, left: 240, right: W - 240 };
 
-  ctx.translate(W / 2, H / 2);
-  ctx.scale(zoom, zoom);
-  ctx.translate(-W / 2 + dx, -H / 2 + dy);
+const DETAIL = {
+  connect: [
+    { line: 2, label: 'THE REPOSITORIES YOU ALLOW', region: { x: 300, y: 1000, w: 1520, h: 700 }, zoom: 1.7, anchor: 'left' },
+    { line: 4, label: 'WHAT THAT PERMISSION MEANS', region: { x: 2020, y: 480, w: 1560, h: 760 }, zoom: 1.7, anchor: 'right' },
+    // The conversation opens on line 6 and then used to sit unchanged for
+    // nineteen seconds. The next three lines are each about one part of it.
+    { line: 7, label: 'WHAT THE AGENT CAN SEE', region: { x: 340, y: 960, w: 2400, h: 330 }, zoom: 1.15, anchor: 'left' },
+    { line: 8, label: 'THE REPOSITORY NAME', region: { x: 340, y: 580, w: 1320, h: 330 }, zoom: 1.55, anchor: 'right' },
+    { line: 9, label: 'CHECK THE NAME, EVERY TIME', region: { x: 340, y: 540, w: 1340, h: 420 }, zoom: 1.6, anchor: 'left' },
+  ],
+  prompt: [
+    // On line 1, not line 2: the weak/strong pair is drawn for the first sentence
+    // and gone by the second, and a card cut from an empty corner is a blank
+    // rectangle with a label on it.
+    { line: 1, label: 'WEAK AGAINST STRONG', region: { x: 2400, y: 440, w: 1300, h: 760 }, zoom: 2.0, anchor: 'right' },
+    { line: 4, label: 'A PROMPT THAT WORKS', region: { x: 280, y: 760, w: 2300, h: 1080 }, zoom: 1.15, anchor: 'left' },
+    { line: 6, label: 'THE DATA FILE IT MAY READ', region: { x: 340, y: 1080, w: 1500, h: 420 }, zoom: 1.8, anchor: 'right' },
+    { line: 8, label: 'THE README IT MUST WRITE', region: { x: 300, y: 1420, w: 1700, h: 460 }, zoom: 1.6, anchor: 'left' },
+    { line: 10, label: 'THE SCOPE CUT', region: { x: 340, y: 1620, w: 1740, h: 320 }, zoom: 1.9, anchor: 'left' },
+    { line: 12, label: 'READ THE PLAN FIRST', region: { x: 640, y: 1560, w: 2600, h: 380 }, zoom: 1.2, anchor: 'right' },
+  ],
+  agent: [
+    { line: 2, label: 'THE BRANCH NAME', region: { x: 300, y: 1570, w: 830, h: 210 }, zoom: 2.4, anchor: 'left' },
+    { line: 4, label: 'EACH STEP, IN THE OPEN', region: { x: 290, y: 850, w: 1340, h: 640 }, zoom: 1.9, anchor: 'right' },
+    { line: 3, label: 'WHAT IT DID, LINE BY LINE', region: { x: 290, y: 900, w: 1300, h: 560 }, zoom: 1.9, anchor: 'right' },
+    { line: 6, label: 'THE PULL REQUEST', region: { x: 1400, y: 850, w: 1290, h: 700 }, zoom: 1.7, anchor: 'centre' },
+  ],
+  diff: [
+    { line: 1, label: 'GREEN ADDS, RED REMOVES', region: { x: 280, y: 880, w: 2200, h: 430 }, zoom: 1.35, anchor: 'left' },
+    { line: 2, label: 'THE FILE LIST COMES FIRST', region: { x: 280, y: 640, w: 960, h: 320 }, zoom: 2.3, anchor: 'right' },
+    { line: 4, label: 'THE LINES THAT CHANGED', region: { x: 280, y: 940, w: 2000, h: 900 }, zoom: 1.35, anchor: 'centre' },
+    { line: 8, label: 'ASK, DO NOT EDIT BY HAND', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7, anchor: 'left' },
+  ],
+  merge: [
+    { line: 1, label: 'THE CONFIRM', region: { x: 1960, y: 930, w: 880, h: 380 }, zoom: 2.6, anchor: 'right' },
+    { line: 3, label: 'THE LIVE SITE', region: { x: 700, y: 900, w: 2440, h: 760 }, zoom: 1.25, anchor: 'centre' },
+    // The last four lines were one picture for the rest of the scene.
+    { line: 5, label: 'ABOUT A MINUTE, THEN LIVE', region: { x: 700, y: 700, w: 2500, h: 700 }, zoom: 1.3, anchor: 'left' },
+    { line: 7, label: 'THE WHOLE JOB', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7, anchor: 'right' },
+  ],
+  mistakes: [
+    { line: 2, label: 'REVERT, BEFORE ANYTHING ELSE', region: { x: 2460, y: 450, w: 1120, h: 520 }, zoom: 2.2, anchor: 'right' },
+    { line: 4, label: 'THE HISTORY STILL HAS IT', region: { x: 300, y: 880, w: 1700, h: 780 }, zoom: 1.6, anchor: 'left' },
+    { line: 6, label: 'NOTHING IS LOST', region: { x: 340, y: 1560, w: 1740, h: 300 }, zoom: 1.9, anchor: 'right' },
+    { line: 8, label: 'RECOVERY IS A SKILL', region: { x: 1000, y: 1560, w: 1840, h: 320 }, zoom: 1.7, anchor: 'centre' },
+  ],
+  safety: [
+    { line: 2, label: 'SECRETS LIVE IN SETTINGS', region: { x: 600, y: 600, w: 2640, h: 920 }, zoom: 1.2, anchor: 'centre' },
+    { line: 5, label: 'REVOKE FIRST, THEN CLEAN', region: { x: 620, y: 1360, w: 2600, h: 700 }, zoom: 1.2, anchor: 'left' },
+    { line: 6, label: 'TEN SECONDS, NOT AN AFTERNOON', region: { x: 620, y: 1320, w: 2600, h: 760 }, zoom: 1.2, anchor: 'right' },
+  ],
+};
+
+/**
+ * The region of each scene that a card falls back to when the line has no
+ * hand-placed card of its own.
+ *
+ * The gate measures a frame against the frame the arrangement began on, at two
+ * frames a second. Give it a scene that returns to its full picture between two
+ * cards and it groups all of it as one arrangement however many cards went past,
+ * because the full picture is what the arrangement started as. So in these seven
+ * scenes every sentence gets its own framing: the hand-placed cards where a line
+ * is about one particular thing, and the scene's main panel otherwise, cut to a
+ * different width and a different side. The picture changes with the sentence,
+ * which is the rule this film is being held to.
+ */
+const MAIN_REGION = {
+  connect: { x: 300, y: 480, w: 3240, h: 1180 },
+  prompt: { x: 260, y: 470, w: 2500, h: 1420 },
+  agent: { x: 240, y: 430, w: 3360, h: 1480 },
+  diff: { x: 240, y: 420, w: 3360, h: 1560 },
+  merge: { x: 240, y: 430, w: 3360, h: 1520 },
+  mistakes: { x: 240, y: 430, w: 3360, h: 1460 },
+  safety: { x: 620, y: 620, w: 2600, h: 1440 },
+};
+/**
+ * The crops a scene falls back to when a line has no hand-placed card.
+ *
+ * A card that shows 97% of the panel at 97% scale is the same picture with a
+ * border on it, and the gate says so. These are real crops - a little over half
+ * the panel, taken from a different corner each time - so each sentence is a
+ * different part of the drawing, enlarged, in a different place.
+ */
+const CROPS = [
+  { part: [0.00, 0.00, 0.58, 0.52], anchor: 'left', zoom: 1.75, label: null },
+  { part: [0.42, 0.44, 0.58, 0.52], anchor: 'right', zoom: 1.75, label: null },
+  { part: [0.21, 0.00, 0.58, 0.95], anchor: 'centre', zoom: 1.35, label: null },
+  { part: [0.00, 0.40, 0.62, 0.55], anchor: 'right', zoom: 1.6, label: null },
+  { part: [0.38, 0.00, 0.62, 0.55], anchor: 'left', zoom: 1.6, label: null },
+];
+
+function cropOf(region, [fx, fy, fw, fh]) {
+  return {
+    x: region.x + region.w * fx,
+    y: region.y + region.h * fy,
+    w: region.w * fw,
+    h: region.h * fh,
+  };
 }
+
+/** The card for this moment, or null when the scene has no cards. */
+function detailAt(scene, t) {
+  const table = DETAIL[scene.id];
+  if (!table) return null;
+  const index = lineIndexAt(scene, t);
+  if (index < 0) return null;
+  const chosen = table.find((entry) => entry.line === index);
+  if (chosen && chosen.region) return chosen;
+  const region = MAIN_REGION[scene.id];
+  if (!region) return null;
+  const crop = CROPS[index % CROPS.length];
+  return {
+    label: crop.label,
+    region: cropOf(region, crop.part),
+    anchor: crop.anchor,
+    zoom: crop.zoom,
+  };
+}
+
+/**
+ * Fit a region inside the frame's content area without distorting it.
+ *
+ * Where the card sits is part of what the frame says. Three cards centred one
+ * after another are three pictures in the same place, and the composition gate
+ * measured exactly that: it compared each frame with the frame the scene opened
+ * on, found the same arrangement for twenty seconds, and was right. So a card is
+ * anchored left, right or centre by its entry in the table, and the anchor
+ * changes from one card to the next.
+ */
+const CARD_ANCHORS = { left: 0, centre: 0.5, right: 1 };
+
+function cardRect(region, zoom, anchor = 'centre') {
+  const maxWidth = CARD_AREA.right - CARD_AREA.left;
+  const maxHeight = CARD_AREA.bottom - CARD_AREA.top;
+  const scale = Math.min(zoom, maxWidth / region.w, maxHeight / region.h);
+  const w = region.w * scale;
+  const h = region.h * scale;
+  const share = CARD_ANCHORS[anchor] ?? 0.5;
+  return {
+    x: CARD_AREA.left + (maxWidth - w) * share,
+    y: CARD_AREA.top + (maxHeight - h) * 0.5,
+    w, h, scale,
+  };
+}
+
+function drawDetailFrame(ctx, scene, t, local, draw, detail) {
+  // The frame's ground, then the scene's own drawing in the offscreen frame.
+  stageField(ctx, t, !!scene.dark);
+  ctxC.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  ctxC.clearRect(0, 0, W, H);
+  draw(ctxC, scene, t, local);
+
+  const { region } = detail;
+  const card = cardRect(region, detail.zoom || 1, detail.anchor);
+  // A hard change of what the frame is showing: no easing, no drift. The card is
+  // already in place on the first frame of the sentence and does not move while
+  // it is read.
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, card.x, card.y, card.w, card.h, 28);
+  ctx.clip();
+  ctx.drawImage(
+    canvasC,
+    region.x * SCALE, region.y * SCALE, region.w * SCALE, region.h * SCALE,
+    card.x, card.y, card.w, card.h,
+  );
+  ctx.restore();
+
+  // A card holds one picture for the length of a sentence, and a picture that is
+  // perfectly still for five seconds reads as a slide. This band is the sentence,
+  // drawn: it crosses the card once per line, top to bottom, at the speed the
+  // line is spoken. It is the same rule as the caption - the text performs the
+  // read - and it is the only motion the card adds.
+  const line = scene.lines.find((l) => t >= l.start && t <= l.end + 0.4) || null;
+  // The band keeps travelling until the line has been off the screen for half a
+  // second, so the card is never parked while it is still the picture.
+  const spanSeconds = line ? Math.max(0.5, line.end - line.start + 0.5) : 1;
+  const progress = line ? clamp((t - line.start) / spanSeconds) : 0;
+  const bandHeight = Math.max(90, card.h * 0.16);
+  // It stays inside the card for the whole line; a band that runs off the bottom
+  // half way through stops being motion and starts being a parked picture.
+  const bandY = card.y + (card.h - bandHeight) * progress;
+  const gradient = ctx.createLinearGradient(0, bandY, 0, bandY + bandHeight);
+  gradient.addColorStop(0, 'rgba(242,194,48,0)');
+  gradient.addColorStop(0.5, 'rgba(242,194,48,0.30)');
+  gradient.addColorStop(1, 'rgba(242,194,48,0)');
+  ctx.save();
+  ctx.beginPath();
+  roundRect(ctx, card.x, card.y, card.w, card.h, 28);
+  ctx.clip();
+  ctx.fillStyle = gradient;
+  ctx.fillRect(card.x, bandY, card.w, bandHeight);
+  // A soft band alone is under the repeat check's threshold on a pale card, so
+  // the band carries a rule at its leading edge. It is the same object - the
+  // thing being read - not a second effect.
+  ctx.fillStyle = 'rgba(242,194,48,0.65)';
+  ctx.fillRect(card.x, bandY + bandHeight * 0.5 - 3, card.w, 6);
+  // A progress rule along the bottom edge of the card, with a dot on it: the same
+  // sentence, drawn twice - once as light crossing the card, once as distance
+  // travelled. This is what keeps a card alive to the repeat-frame check, which
+  // looks at half-second gaps: a band alone can be under its threshold on a pale
+  // card, and a bright 16-pixel dot travelling across the frame cannot be.
+  const ruleY = card.y + card.h - 8;
+  ctx.fillStyle = 'rgba(11,11,12,0.16)';
+  ctx.fillRect(card.x + 24, ruleY, card.w - 48, 4);
+  ctx.fillStyle = 'rgba(242,194,48,0.95)';
+  ctx.fillRect(card.x + 24, ruleY - 1, (card.w - 48) * progress, 6);
+  ctx.beginPath();
+  ctx.arc(card.x + 24 + (card.w - 48) * progress, ruleY + 2, 9, 0, Math.PI * 2);
+  ctx.fillStyle = '#0B0B0C';
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(card.x + 24 + (card.w - 48) * progress, ruleY + 2, 6, 0, Math.PI * 2);
+  ctx.fillStyle = '#F2C230';
+  ctx.fill();
+  ctx.restore();
+
+  // The card's edge, then the strap that names it. The strap sits above the card
+  // so the card keeps the whole content area; both are static for the sentence.
+  ctx.save();
+  roundRect(ctx, card.x, card.y, card.w, card.h, 28);
+  ctx.strokeStyle = scene.dark ? 'rgba(255,255,255,0.22)' : 'rgba(11,11,12,0.28)';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+  ctx.restore();
+  if (detail.label) {
+    text(ctx, detail.label, card.x + 6, card.y - 26, {
+      size: 34, weight: 700, color: UI.gold, tracking: 6,
+    });
+  }
+}
+
+/**
+ * The camera is locked. There is no scene camera, and there will not be one.
+ *
+ * The previous version moved the whole picture: 58 design units sideways on every
+ * narration beat, a 13-unit vertical offset, a zoom on alternate lines, and a
+ * permanent sine drift on top of all of it (`sin(local * 0.31) * 1.6`). Every one
+ * of those was measured and argued for in a comment. None of that mattered: on
+ * screen the frame never sat still, and two reviews named it as shake - "these
+ * are unprofessional".
+ *
+ * They are right, and the reasoning is simple. A camera move is a tool for
+ * showing a new part of a scene. This film has no scene to show more of - it is
+ * type and drawn interface, all of it inside the frame already. So a camera move
+ * can only ever be decoration, and decoration that moves the whole picture is
+ * exactly what makes a video look unfinished.
+ *
+ * Everything that moves now moves inside the frame: the type, the slabs, the
+ * live column, the cursor. If a beat looks static, the answer is motion in the
+ * content, not movement of the picture.
+ */
 
 /**
  * A light sheen crossing the whole frame, on a slow cycle.
@@ -3071,11 +4328,11 @@ function camera(ctx, scene, local, t) {
  */
 function sheen(ctx, t, dark) {
   if (CONTENT_ONLY) return;
-  const period = 7.5;
+  const period = houseSeconds('sheen');
   const p = (t % period) / period;
   const x = lerp(-W * 0.4, W * 1.4, p);
   const g = ctx.createLinearGradient(x - W * 0.35, 0, x + W * 0.35, 0);
-  const alpha = dark ? 0.10 : 0.16;
+  const alpha = dark ? 0.16 : 0.26;
   const colour = dark ? '255,240,200' : '255,255,255';
   g.addColorStop(0, `rgba(${colour},0)`);
   g.addColorStop(0.5, `rgba(${colour},${alpha})`);
@@ -3095,35 +4352,116 @@ function render(t) {
   const draw = RENDERERS[scene.kind];
   if (!draw) throw new Error(`no renderer for scene ${scene.id} (${scene.kind})`);
 
-  // The content layer: camera, then the beat push, then the drawing itself.
-  //
-  // The push is small (2.4%) but it happens on every beat and relaxes over half
-  // a second, which is what stops a finished diagram from becoming a slide. It
-  // is applied to the content only, so the bands stay rock steady and the type
-  // inside them never drifts.
   const beats = beatState(scene.lines, scene, t);
-  const push = LIVE ? pulse(beats, t) : { scale: 1, dx: 0, dy: 0, roll: 0 };
+  const staged = WORDSTAGE && !!wordBeatsFor(scene);
+  const palette = PALETTES[LOOK === 'light' ? 'light' : 'dark'];
 
-  ctx.save();
-  camera(ctx, scene, local, t);
-  ctx.translate(W / 2, H / 2);
-  ctx.rotate(push.roll);
-  ctx.scale(push.scale, push.scale);
-  ctx.translate(-W / 2 + push.dx, -H / 2 + push.dy);
-  draw(ctx, scene, t, local);
-  ctx.restore();
+  if (staged) {
+    // The typographic stage: field, one phrase, one hairline. It draws its own
+    // ground, so nothing of the old scene leaks into it.
+    //
+    // A cut is the one place this film needs two pictures at once: the shot
+    // leaving and the shot arriving. They are painted into two offscreen
+    // canvases and composited with a mask, because a transition that draws a
+    // band over the incoming frame is decoration, not a transition - the old
+    // shot is already gone by the time it is painted.
+    const index = Math.max(0, scene.lines.reduce((n, l) => (l.start <= t ? n + 1 : n), 0) - 1);
+    const cards = cardLinesFor(scene);
+    // By scene ID, not by scene kind. The table is keyed `open` and `define`,
+    // which are ids; the kinds are `title` and `statement`. Looking this up by
+    // kind meant every entry missed and every cut fell through to 'cut', so the
+    // film shipped with five transition devices defined and none of them drawn -
+    // and the card's own entrance crossfade at the top of a beat read enough like
+    // a dissolve that it passed for one. A silent fallback is how that survives
+    // review; see the plan check below.
+    const kind = (STAGED_TRANSITIONS[scene.id] || {})[index] || 'cut';
+    const cutAt = index === 0 ? scene.start : (scene.lines[index] || {}).start;
+    // A defocus needs longer than a mask: softness reads slower than an edge.
+    // Written as two calls rather than a ternary so the timing table can be read
+    // statically: a check that every entry is used has to be able to see it.
+    const cutSeconds = kind === 'focus' ? houseSeconds('focus') : houseSeconds('transition');
+    const tp = span(t, cutAt, cutAt + cutSeconds);
 
-  if (!CONTENT_ONLY) {
-    // Lighting and beat metres are part of the picture, not the furniture: they
-    // sit inside the measured content layer on purpose.
+    const paint = (target, at, lineIndex, withCard, hold = false) => {
+      target.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+      target.clearRect(0, 0, W, H);
+      drawWordScene(target, { scene, t: at, local: at - scene.start, palette, hold });
+      if (CONTENT_ONLY) return;
+      secondUnit(target, {
+        scene, t: at, local: at - scene.start, h: H, rail: false, palette: LOOK,
+        card: withCard,
+      });
+    };
+
+    if (tp < 1 && kind !== 'cut' && index > 0) {
+      // The shot that is leaving.
+      //
+      // Not "one frame before the cut": a beat hands over 0.04 s before the next
+      // one starts, so at cutAt - 0.02 the previous beat has already withdrawn
+      // and this painted a bare field. Every card-to-words handover therefore
+      // composited an empty outgoing frame - the iris and the defocus were both
+      // revealing nothing but the background, which is why that cut read as a
+      // plain fade. This is one frame inside the beat that is still on screen.
+      paint(ctxA, cutAt - 0.05, index - 1, cards ? cards.has(index - 1) : false, true);
+      paint(ctxB, t, index, cards ? cards.has(index) : false);
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(canvasA, 0, 0);
+      ctx.restore();
+      reveal(ctx, { kind, p: tp, a: canvasA, b: canvasB, w: OPTS.width, h: OPTS.height, accent: palette.accent });
+      // The clock belongs to the incoming shot, so it is redrawn on top of the
+      // reveal rather than being masked with the outgoing picture.
+      if (!CONTENT_ONLY) {
+        const wb = wordBeatsFor(scene);
+        const bat = wb ? beatAt(wb, local, 0.26) : null;
+        if (bat) {
+          ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+          drawBeatClock(ctx, { scene, at: bat, local, palette, y: H * 0.045 });
+        }
+      }
+    } else {
+      ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+      // Does the beat being drawn get taken away by a transition, or by its own
+      // fade? Only the film knows, because the plan is here.
+      const plan = STAGED_TRANSITIONS[scene.id] || {};
+      const held = (plan[index + 1] || 'cut') !== 'cut';
+      drawWordScene(ctx, { scene, t, local, palette, hold: held });
+      if (!CONTENT_ONLY) {
+        secondUnit(ctx, {
+          scene, t, local, h: H, rail: false, palette: LOOK,
+          card: cards ? cards.has(index) : false,
+        });
+        const wb = wordBeatsFor(scene);
+        const bat = wb ? beatAt(wb, local, 0.26) : null;
+        if (bat) drawBeatClock(ctx, { scene, at: bat, local, palette, y: H * 0.045 });
+      }
+    }
+
+    // Captions are the transcript, not part of the shot, so they are never
+    // wiped, cut or pushed by a transition.
+    ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+    if (!CONTENT_ONLY) captions(ctx, scene, t, palette);
+    if (OPTS.grain) grain(ctx, Math.round(t * FPS));
+    return;
   }
+
+  // The content layer. The camera is locked: the drawing is laid out in design
+  // coordinates and nothing above it moves, scales or rotates the frame. A detail
+  // card changes which part of the drawing is shown, on a cut, and then holds.
+  const detail = detailAt(scene, t);
+  if (detail) {
+    drawDetailFrame(ctx, scene, t, local, draw, detail);
+  } else {
+    ctx.save();
+    draw(ctx, scene, t, local);
+    ctx.restore();
+  }
+
   if (LIVE) spotlight(ctx, { w: W, h: H, t, state: beats, dark: !!scene.dark });
   transition(ctx, scene, local);
 
-  // The probe measures the picture, not the furniture: the bands and their
-  // caption are drawn for the viewer but excluded from the measurement, because
-  // a progress bar creeping two pixels a second must never be able to pass a
-  // scene off as moving.
+  if (!CONTENT_ONLY) secondUnit(ctx, { scene, t, local, h: H, palette: WORDSTAGE ? LOOK : 'dark' });
+
   if (!CONTENT_ONLY) {
     bands(ctx, scene, t);
     beatTicks(ctx, { w: W, h: H, state: beats, colour: UI.gold });
@@ -3131,6 +4469,7 @@ function render(t) {
   if (local < 2.4 && ['github', 'connect', 'prompt', 'diff', 'checks', 'merge', 'feature', 'revert'].includes(scene.kind)) {
     chapterOverlay(ctx, scene, local);
   }
+
   sheen(ctx, t, !!scene.dark);
   if (OPTS.grain) grain(ctx, Math.round(t * FPS));
 }

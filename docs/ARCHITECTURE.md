@@ -315,10 +315,12 @@ shipped past every check while being unwatchable:
   delivery loudness and true peak, measured on the audio that will be uploaded.
   A formant voice is refused unless it is asked for by name, so a machine without
   Piper fails loudly instead of narrating a film in espeak-ng.
-- **Motion** - mean frame delta and still frames today. This one is known to be
-  weak: grain moves every pixel, so it passes a film whose composition never
-  changes. The replacement measures composition change, and until it is in place
-  a green motion number says nothing about whether the picture moves.
+- **Motion** - two views. The frame-delta check asks whether anything moved at
+  all, which grain satisfies, so its green number says nothing about whether the
+  picture changed; it is kept because a motionless frame is still worth
+  catching. The composition check (`video_studio/composition.py`) asks whether
+  the arrangement on screen is new, and fails a film with any arrangement held
+  longer than twelve seconds. That is the check a slideshow cannot pass.
 
 ## Platform assumptions (Windows is a first-class target)
 

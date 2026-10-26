@@ -1,0 +1,186 @@
+{
+  "slug": "spot-phishing",
+  "title": "Spot a Phishing Email in Five Seconds",
+  "promise": "You will check three things before you click anything.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "HOVER FIRST",
+    "section": "seconds"
+  },
+  "tags": [
+    "phishing",
+    "email security",
+    "scams",
+    "passwords",
+    "cybersecurity"
+  ],
+  "hashtags": [
+    "phishing",
+    "email security",
+    "cybersecurity"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The email",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "That email wants your password"
+      },
+      "lines": [
+        {
+          "text": "That email wants your password, and it is in a hurry.",
+          "id": "L001"
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The three checks",
+      "situation": "show-a-sequence",
+      "template": "timeline-rail",
+      "props": {
+        "stops": [
+          {
+            "label": "Check the sender domain"
+          },
+          {
+            "label": "Hover before you click"
+          },
+          {
+            "label": "Nobody legitimate asks for a password"
+          }
+        ]
+      },
+      "lines": [
+        {
+          "text": "Check the sender domain.",
+          "id": "L002"
+        },
+        {
+          "text": "Hover before you click, and read the real address, not the label.",
+          "id": "L003"
+        },
+        {
+          "text": "Nobody legitimate asks for a password.",
+          "id": "L004"
+        }
+      ]
+    },
+    {
+      "id": "seconds",
+      "kind": "section",
+      "heading": "The countdown",
+      "situation": "explain-a-number",
+      "template": "dot-gauge",
+      "props": {
+        "value": 3,
+        "of": 5,
+        "caption": "three things"
+      },
+      "lines": [
+        {
+          "text": "Five seconds is all it takes, if you check three things.",
+          "id": "L005"
+        },
+        {
+          "text": "Sender, link, and ask.",
+          "id": "L006"
+        }
+      ]
+    },
+    {
+      "id": "tell",
+      "kind": "section",
+      "heading": "The tell",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "props": {
+        "left": "A real invoice",
+        "right": "A fake one"
+      },
+      "lines": [
+        {
+          "text": "A real invoice names you. A fake one says dear customer.",
+          "id": "L007"
+        },
+        {
+          "text": "Names are cheap to fake.",
+          "id": "L008"
+        }
+      ]
+    },
+    {
+      "id": "tricks",
+      "kind": "section",
+      "heading": "The trick",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
+      "props": {
+        "labels": [
+          "Deadline",
+          "Threat",
+          "Link"
+        ],
+        "values": [
+          40,
+          30,
+          30
+        ]
+      },
+      "lines": [
+        {
+          "text": "Forty percent of the trick is a deadline. Thirty is a threat.",
+          "id": "L009"
+        },
+        {
+          "text": "Thirty is a link.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "do",
+      "kind": "section",
+      "heading": "What to do",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "props": {
+        "left": "Report it",
+        "right": "Delete it"
+      },
+      "lines": [
+        {
+          "text": "Report it, or delete it. Never reply to it.",
+          "id": "L011"
+        },
+        {
+          "text": "A reply tells them the address is live.",
+          "id": "L012"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Hover before you click",
+        "kicker": "hover"
+      },
+      "lines": [
+        {
+          "text": "Hover before you click. Every single time.",
+          "id": "L013"
+        }
+      ]
+    }
+  ]
+}

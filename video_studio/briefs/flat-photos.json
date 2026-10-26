@@ -1,0 +1,170 @@
+{
+  "slug": "flat-photos",
+  "title": "Why Your Photos Look Flat",
+  "promise": "You will find the light before you find the subject.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "FIND THE LIGHT",
+    "section": "angle"
+  },
+  "tags": [
+    "photography",
+    "lighting",
+    "photo tips",
+    "composition",
+    "camera"
+  ],
+  "hashtags": [
+    "photography",
+    "lighting",
+    "photo tips"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The claim",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "Your photo is not boring"
+      },
+      "lines": [
+        {
+          "text": "Your photo is not boring. It is flat, and flat is a light problem.",
+          "id": "L001"
+        },
+        {
+          "text": "Shape needs a shadow.",
+          "id": "L002"
+        }
+      ]
+    },
+    {
+      "id": "fixes",
+      "kind": "section",
+      "heading": "The three fixes",
+      "situation": "show-a-sequence",
+      "template": "list-build",
+      "props": {
+        "items": [
+          "One light, one direction",
+          "Something in front",
+          "Something far behind"
+        ]
+      },
+      "lines": [
+        {
+          "text": "One light, one direction. Something in front.",
+          "id": "L003"
+        },
+        {
+          "text": "Nothing else in the room fighting it.",
+          "id": "L004"
+        },
+        {
+          "text": "Something far behind, so the depth has somewhere to go.",
+          "id": "L005"
+        }
+      ]
+    },
+    {
+      "id": "lights",
+      "kind": "section",
+      "heading": "The two lights",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "props": {
+        "left": "Flat light",
+        "right": "Raking light"
+      },
+      "lines": [
+        {
+          "text": "Flat light erases shape. Raking light draws it.",
+          "id": "L006"
+        },
+        {
+          "text": "The angle is the whole difference.",
+          "id": "L007"
+        }
+      ]
+    },
+    {
+      "id": "angle",
+      "kind": "section",
+      "heading": "The angle",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "props": {
+        "value": 45,
+        "label": "degrees"
+      },
+      "lines": [
+        {
+          "text": "Forty five degrees is the angle. Move until you find it.",
+          "id": "L008"
+        },
+        {
+          "text": "It is one step to the side.",
+          "id": "L009"
+        }
+      ]
+    },
+    {
+      "id": "layers",
+      "kind": "section",
+      "heading": "The layers of depth",
+      "situation": "show-the-mechanism",
+      "template": "exploded-stack",
+      "props": {
+        "layers": [
+          "Foreground",
+          "Subject",
+          "Background"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Thirty percent foreground. Forty percent subject. Thirty percent background.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "move",
+      "kind": "section",
+      "heading": "The move",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "props": {
+        "left": "Move the light",
+        "right": "Move yourself"
+      },
+      "lines": [
+        {
+          "text": "Move the light if you can. Move yourself if you cannot.",
+          "id": "L011"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Find the light first",
+        "kicker": "the light"
+      },
+      "lines": [
+        {
+          "text": "Find the light first. Then find the subject.",
+          "id": "L012"
+        }
+      ]
+    }
+  ]
+}

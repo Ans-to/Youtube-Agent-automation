@@ -180,5 +180,59 @@ class AgentDispatcherTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     dispatch.post_local_model(url, {}, 1)
 
+class RosterTreeTests(unittest.TestCase):
+    """The roster is a tree; these tests are what stop it drifting back into a list."""
+
+    def test_every_child_has_a_parent_that_exists(self):
+        roles = dispatch.roster_roles()
+        by_id = {role["id"]: role for role in roles}
+        children = [role for role in roles if role.get("parent")]
+        self.assertTrue(children)
+        for role in children:
+            with self.subTest(role=role["id"]):
+                self.assertIn(role["parent"], by_id)
+
+    def test_subtree_returns_descendants_and_not_siblings(self):
+        picture = dispatch.subtree({"AGENT-51"})
+        self.assertIn("AGENT-23", picture)
+        self.assertIn("AGENT-52", picture)
+        self.assertNotIn("AGENT-09", picture)
+        self.assertNotIn("AGENT-31", picture)
+
+    def test_motion_roles_are_derived_from_the_tree(self):
+        self.assertEqual(
+            set(dispatch.MOTION_ROLES),
+            set(dispatch.subtree(("AGENT-51", "AGENT-31"))),
+        )
+        self.assertIn("AGENT-21", dispatch.MOTION_ROLES)
+        self.assertIn("AGENT-23", dispatch.MOTION_ROLES)
+
+    def test_parents_get_their_sub_agents_in_the_brief(self):
+        brief = dispatch.sub_agent_brief("AGENT-51")
+        self.assertIn("YOUR SUB-AGENTS", brief)
+        self.assertIn("AGENT-23", brief)
+        self.assertIn("Kinetic Typography", brief)
+        self.assertEqual(dispatch.sub_agent_brief("AGENT-26"), "")
+
+    def test_the_brief_reaches_the_template_playbook(self):
+        role = dispatch.find_role("AGENT-51")
+        text = dispatch.run_role(role, "Plan the shots", "", {"model": {"enabled": False}}, perform_research=False)
+        self.assertIn("YOUR SUB-AGENTS", text)
+        self.assertIn("AGENT-52", text)
+
+    def test_deleted_roles_are_gone_from_both_files(self):
+        for agent_id in ("AGENT-04", "AGENT-05", "AGENT-06", "AGENT-30", "AGENT-34",
+                         "AGENT-35", "AGENT-44", "AGENT-45", "AGENT-46", "AGENT-47",
+                         "AGENT-48", "AGENT-49"):
+            with self.subTest(role=agent_id):
+                self.assertIsNone(dispatch.find_role(agent_id))
+                self.assertIsNone(dispatch.find_skill(agent_id))
+
+    def test_the_human_gate_is_a_parent_that_directs_nobody(self):
+        self.assertEqual(dispatch.children_of("AGENT-50"), [])
+        with self.assertRaises(ValueError):
+            dispatch.ensure_executable_role(dispatch.find_role("AGENT-50"))
+
+
 if __name__ == "__main__":
     unittest.main()

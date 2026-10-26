@@ -172,6 +172,15 @@ def main() -> int:
     node = shutil.which("node")
     if node:
         results.append(run_step("Renderer JavaScript syntax", [node, "--check", "video_studio/render.js"], timeout=30))
+        # Chunked rendering is an assumption, not a law: the same frame number has
+        # to produce the same pixels in any process and after any lead-in. This
+        # renders a window three times - twice identically, once behind a longer
+        # lead-in - and compares the bytes.
+        results.append(run_step(
+            "Render repeatability (same frame, three renders)",
+            [sys.executable, "tools/check_determinism.py", "--json"],
+            timeout=300,
+        ))
     elif args.render_smoke:
         results.append({"name": "Renderer JavaScript syntax", "status": "FAIL", "reason": "Node.js is required for --render-smoke"})
     else:

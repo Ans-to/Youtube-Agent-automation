@@ -1,0 +1,185 @@
+{
+  "slug": "meeting-length",
+  "title": "Why a Thirty Minute Meeting Feels Like Ninety",
+  "promise": "You will cut a meeting to the part that actually decides something.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "CUT THE MIDDLE",
+    "section": "clock"
+  },
+  "tags": [
+    "meetings",
+    "productivity",
+    "decision making",
+    "work",
+    "time management"
+  ],
+  "hashtags": [
+    "meetings",
+    "productivity",
+    "work"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The feeling",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "That meeting was thirty minutes"
+      },
+      "lines": [
+        {
+          "text": "That meeting was thirty minutes. It felt like ninety.",
+          "id": "L001"
+        }
+      ]
+    },
+    {
+      "id": "clock",
+      "kind": "section",
+      "heading": "The clock",
+      "situation": "explain-a-number",
+      "template": "dot-gauge",
+      "props": {
+        "value": 5,
+        "of": 30,
+        "caption": "five of them"
+      },
+      "lines": [
+        {
+          "text": "Thirty minutes on the clock. Only five of them decided anything.",
+          "id": "L002"
+        },
+        {
+          "text": "The rest was warm up.",
+          "id": "L003"
+        }
+      ]
+    },
+    {
+      "id": "where",
+      "kind": "section",
+      "heading": "Where it went",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "props": {
+        "segments": [
+          {
+            "label": "Context",
+            "value": 15
+          },
+          {
+            "label": "Discussion",
+            "value": 10
+          },
+          {
+            "label": "Decision",
+            "value": 5
+          }
+        ],
+        "total": 30
+      },
+      "lines": [
+        {
+          "text": "Fifteen minutes of context. Ten of discussion. Five of decision.",
+          "id": "L004"
+        },
+        {
+          "text": "Most of it was waiting.",
+          "id": "L005"
+        }
+      ]
+    },
+    {
+      "id": "decide",
+      "kind": "section",
+      "heading": "The difference",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "props": {
+        "left": "A decision",
+        "right": "A conversation"
+      },
+      "lines": [
+        {
+          "text": "A decision ends. A conversation just gets booked again.",
+          "id": "L006"
+        },
+        {
+          "text": "Same room, same topic, next week.",
+          "id": "L007"
+        }
+      ]
+    },
+    {
+      "id": "rules",
+      "kind": "section",
+      "heading": "The rules",
+      "situation": "show-criteria",
+      "template": "list-build",
+      "props": {
+        "items": [
+          "No agenda, no meeting",
+          "One decision per meeting",
+          "Send the notes after"
+        ]
+      },
+      "lines": [
+        {
+          "text": "No agenda, no meeting. One decision per meeting.",
+          "id": "L008"
+        },
+        {
+          "text": "If nobody can name it, do not book it.",
+          "id": "L009"
+        },
+        {
+          "text": "And send the notes after, or it did not happen.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "cut",
+      "kind": "section",
+      "heading": "The cut",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "props": {
+        "left": "Cut the middle",
+        "right": "Cancel the whole thing"
+      },
+      "lines": [
+        {
+          "text": "Cut the middle, or cancel the whole thing and send a note.",
+          "id": "L011"
+        },
+        {
+          "text": "Pick one, and stop.",
+          "id": "L012"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Name the decision",
+        "kicker": "the decision"
+      },
+      "lines": [
+        {
+          "text": "Name the decision before you book the room.",
+          "id": "L013"
+        }
+      ]
+    }
+  ]
+}

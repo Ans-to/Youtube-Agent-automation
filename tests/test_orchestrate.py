@@ -207,9 +207,12 @@ class CEODelegationTests(unittest.TestCase):
         )
         ids = [item["agent_id"] for item in assignments]
         self.assertEqual(mode, "heuristic_no_model")
-        self.assertIn("AGENT-09", ids)
-        self.assertIn("AGENT-51", ids)
-        self.assertIn("AGENT-52", ids)
+        for parent in ("AGENT-02", "AGENT-09", "AGENT-51", "AGENT-31", "AGENT-26"):
+            self.assertIn(parent, ids)
+        # Kinetic typography and transitions are children of the picture parent,
+        # which is the role that must answer for them.
+        self.assertIn("AGENT-52", orchestrate.dispatch.subtree({"AGENT-51"}))
+        self.assertIn("AGENT-23", orchestrate.dispatch.subtree({"AGENT-51"}))
         self.assertIn("AGENT-08", ids)
         self.assertNotIn("AGENT-13", ids, "Video production must never auto-switch narration to Urdu.")
         self.assertNotIn("AGENT-01", ids)
@@ -224,10 +227,11 @@ class CEODelegationTests(unittest.TestCase):
         self.assertEqual(mode, "heuristic_no_model")
         self.assertIn("AGENT-02", ids)
         self.assertIn("AGENT-09", ids)
-        self.assertIn("AGENT-20", ids)
         self.assertIn("AGENT-51", ids)
-        self.assertIn("AGENT-52", ids)
         self.assertIn("AGENT-08", ids)
+        picture_children = {child["id"] for child in orchestrate.dispatch.children_of("AGENT-51")}
+        self.assertIn("AGENT-20", picture_children)
+        self.assertIn("AGENT-52", picture_children)
 
     def test_plain_code_setup_script_is_not_routed_to_creative_video_roles(self):
         assignments, _ = orchestrate.heuristic_assignments(
@@ -239,18 +243,55 @@ class CEODelegationTests(unittest.TestCase):
         self.assertNotIn("AGENT-51", ids)
         self.assertNotIn("AGENT-52", ids)
 
-    def test_youtube_automation_studio_routes_to_software_specialists(self):
+    def test_every_role_is_reachable_from_a_documented_code_path(self):
+        """A role nothing can ever assign is dead weight, however good its skillbook.
+
+        Packaging, narration and the clip team had whole sub-agent trees and no
+        caller: their parents were never assigned by DEFAULT_PIPELINE or by the
+        no-model fallback, so eleven roles could not run at all. This is the check
+        that stops a tree from growing dead branches again.
+        """
+        roles = orchestrate.dispatch.roster_roles()
+        assigned = set(orchestrate.DEFAULT_PIPELINE)
+        for task in (
+            "Make a 30 second video about AI models on your laptop",
+            "Make a video and cut a vertical short from it",
+            "Write a changelog document for version 2",
+        ):
+            assignments, _ = orchestrate.heuristic_assignments(task)
+            assigned |= {item["agent_id"] for item in assignments}
+        reachable = set()
+        for agent_id in assigned:
+            reachable |= set(orchestrate.dispatch.subtree({agent_id}))
+        excepted = {"AGENT-01", "AGENT-50"}  # the CEO and the human gate are never workers
+        missing = [role["id"] for role in roles if role["id"] not in reachable and role["id"] not in excepted]
+        self.assertEqual(missing, [], "no code path assigns: " + ", ".join(missing))
+
+    def test_the_video_pipeline_assigns_packaging_and_the_voice(self):
+        assignments, _ = orchestrate.heuristic_assignments(
+            "Make a 30 second video about AI models on your laptop"
+        )
+        ids = {item["agent_id"] for item in assignments}
+        self.assertIn("AGENT-16", ids, "a finished upload needs a title, description and chapters")
+        self.assertIn("AGENT-27", ids, "the picture must be timed to a voice that exists")
+
+    def test_software_goal_assigns_only_roles_that_exist_and_no_video_team(self):
+        """A studio build is software: the tool pipeline writes it, no specialist invents it.
+
+        This used to assert four software roles (44-48). They were deleted because
+        their output never changed the files the tool pipeline produces, so the
+        behaviour to protect is the absence of a phantom team, not its membership.
+        """
         assignments, mode = orchestrate.heuristic_assignments(
             "Build my YouTube automation agent studio with specialist roles"
         )
         ids = [item["agent_id"] for item in assignments]
+        roster_ids = {role["id"] for role in orchestrate.dispatch.roster_roles()}
         self.assertEqual(mode, "heuristic_no_model")
-        self.assertIn("AGENT-46", ids)
-        self.assertIn("AGENT-47", ids)
-        self.assertIn("AGENT-48", ids)
+        self.assertTrue(set(ids) <= roster_ids, "every assigned role must exist in the roster")
         self.assertNotIn("AGENT-09", ids)
         self.assertNotIn("AGENT-51", ids)
-        self.assertNotIn("AGENT-52", ids)
+        self.assertNotIn("AGENT-31", ids)
 
     def test_enabled_ceo_model_plan_is_used_when_json_is_valid(self):
         roles = {item.get("id"): item for item in orchestrate.dispatch.load_json(
@@ -407,7 +448,7 @@ class CEODelegationTests(unittest.TestCase):
                 results = orchestrate.run_builtin_tools(
                     "Create and render a full YouTube video about AI agents to MP4",
                     destination,
-                    {"model": {"enabled": False}},
+                    {"model": {"enabled": False}, "video_studio": {"narration_language": "en"}},
                 )
             self.assertEqual(results[0]["tool"], "video_render")
             self.assertEqual(results[0]["status"], "blocked")
@@ -416,6 +457,31 @@ class CEODelegationTests(unittest.TestCase):
             self.assertIn("production.py", command[1])
             self.assertNotIn("--render", command)
             self.assertIn("--research", command)
+            self.assertEqual(command[command.index("--language") + 1], "en")
+
+    def test_urdu_video_without_a_model_is_blocked_rather_than_failed(self):
+        """A vanished render is not the same as a crashed builder.
+
+        Before this, the Urdu refusal came back as a failed tool, which made the
+        whole run "failed" and exited 2 even though every specialist stage had
+        finished.
+        """
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            destination = root / "workspace" / "run-1"
+            destination.mkdir(parents=True)
+            with patch.object(orchestrate, "ROOT", root), \
+                 patch.object(orchestrate, "_run_fixed_tool") as run_tool:
+                results = orchestrate.run_builtin_tools(
+                    "Create a video about AI agents",
+                    destination,
+                    {"model": {"enabled": False}},
+                )
+            self.assertEqual([item["status"] for item in results], ["blocked"])
+            self.assertEqual(results[0]["tool"], "video_studio")
+            self.assertEqual(results[0]["language"], "ur-en")
+            self.assertIn("no English scaffold was substituted", results[0]["reason"])
+            run_tool.assert_not_called()
 
     def test_orchestrator_accepts_script_text_over_6000_characters(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -533,7 +599,7 @@ class CEODelegationTests(unittest.TestCase):
                     if review_count == 1:
                         return "# Review\n\nMissing required evidence.\n\nOVERALL QUALITY GATE: PARTIAL\n"
                     return "# Final review\n\nRepair fixed the critical gap.\n\nOVERALL QUALITY GATE: PASS\n"
-                if agent_id == "AGENT-52" and "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
+                if agent_id == "AGENT-51" and "AUTOMATIC QUALITY REPAIR ATTEMPT" in task:
                     return "# Corrected motion specification\n\nEvidence and acceptance checks added.\n"
                 return "# Deliverable\n\nDraft output from " + agent_id
 
@@ -550,7 +616,10 @@ class CEODelegationTests(unittest.TestCase):
                 )
 
             self.assertEqual(review_count, 2)
-            self.assertIn("AGENT-52", calls)
+            self.assertEqual(
+                manifest["repair_attempt"]["repair_agent_id"], "AGENT-51",
+                "A repair must go to the parent that owns the failing deliverable.",
+            )
             self.assertEqual(manifest["quality_gate"], "pass")
             self.assertEqual(manifest["status"], "draft")
             self.assertTrue(manifest["repair_attempt"]["attempted"])

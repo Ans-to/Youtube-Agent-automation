@@ -1,0 +1,202 @@
+{
+  "slug": "feedback-that-lands",
+  "title": "How to Give Feedback That Lands",
+  "promise": "You will say what you saw, what it cost, and what you want instead.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "SAY WHAT YOU SAW",
+    "section": "one"
+  },
+  "tags": [
+    "feedback",
+    "management",
+    "communication",
+    "leadership",
+    "work"
+  ],
+  "hashtags": [
+    "feedback",
+    "communication",
+    "leadership"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The problem",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "props": {
+        "text": "Nobody remembers the feedback"
+      },
+      "lines": [
+        {
+          "text": "Nobody remembers the feedback. They remember how it felt.",
+          "id": "L001"
+        },
+        {
+          "text": "So start with what you saw.",
+          "id": "L002"
+        }
+      ]
+    },
+    {
+      "id": "moves",
+      "kind": "section",
+      "heading": "The three moves",
+      "situation": "show-a-sequence",
+      "template": "timeline-rail",
+      "props": {
+        "stops": [
+          {
+            "label": "Say what you saw"
+          },
+          {
+            "label": "Say what it cost"
+          },
+          {
+            "label": "Ask what they meant"
+          }
+        ]
+      },
+      "lines": [
+        {
+          "text": "Say what you saw. Say what it cost.",
+          "id": "L003"
+        },
+        {
+          "text": "Then ask what they meant, before you tell them the fix.",
+          "id": "L004"
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "section",
+      "heading": "The difference",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "props": {
+        "left": "A judgement",
+        "right": "An observation"
+      },
+      "lines": [
+        {
+          "text": "A judgement is about them. An observation is about the work.",
+          "id": "L005"
+        },
+        {
+          "text": "Only one of the two can be fixed.",
+          "id": "L006"
+        }
+      ]
+    },
+    {
+      "id": "shares",
+      "kind": "section",
+      "heading": "The shares",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
+      "props": {
+        "labels": [
+          "Observed",
+          "Impact",
+          "Question"
+        ],
+        "values": [
+          20,
+          30,
+          50
+        ]
+      },
+      "lines": [
+        {
+          "text": "Twenty percent observed. Thirty percent impact. Fifty percent question.",
+          "id": "L007"
+        },
+        {
+          "text": "Let them answer first.",
+          "id": "L008"
+        }
+      ]
+    },
+    {
+      "id": "one",
+      "kind": "section",
+      "heading": "One thing",
+      "situation": "name-the-thing",
+      "template": "dot-gauge",
+      "props": {
+        "value": 1,
+        "of": 5,
+        "caption": "one thing"
+      },
+      "lines": [
+        {
+          "text": "One thing at a time. Two is a review, not a conversation.",
+          "id": "L009"
+        },
+        {
+          "text": "Pick one thing, not five.",
+          "id": "L010"
+        }
+      ]
+    },
+    {
+      "id": "reversal",
+      "kind": "section",
+      "heading": "The reversal",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "props": {
+        "left": "Ask, then tell",
+        "right": "Tell, then ask"
+      },
+      "lines": [
+        {
+          "text": "Ask, then tell. Then try it reversed: tell, then ask.",
+          "id": "L011"
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "The three words",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "props": {
+        "items": [
+          "Saw",
+          "Cost",
+          "Meant"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Saw, cost, meant. Three sentences and a question.",
+          "id": "L012"
+        }
+      ]
+    },
+    {
+      "id": "close",
+      "kind": "outro",
+      "heading": "The close",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "props": {
+        "text": "Ask what they meant",
+        "kicker": "ask"
+      },
+      "lines": [
+        {
+          "text": "Ask what they meant. Then say what you saw.",
+          "id": "L013"
+        }
+      ]
+    }
+  ]
+}

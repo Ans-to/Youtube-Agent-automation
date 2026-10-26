@@ -1,0 +1,57 @@
+1
+00:00:00,120 --> 00:00:04,569
+An agent just opened a pull request. Do
+you ship it today?
+
+2
+00:00:06,169 --> 00:00:10,251
+Most teams rubber stamp the diff, or
+rewrite the whole thing.
+
+3
+00:00:11,801 --> 00:00:14,226
+Read the diff, not the summary.
+
+4
+00:00:15,196 --> 00:00:16,770
+Run it once yourself.
+
+5
+00:00:17,740 --> 00:00:19,557
+Ask what it does not handle.
+
+6
+00:00:21,107 --> 00:00:24,318
+Sixty seconds of reading is the whole
+budget.
+
+7
+00:00:25,868 --> 00:00:27,916
+Forty seconds reading the diff.
+
+8
+00:00:28,886 --> 00:00:31,004
+Ten seconds running it yourself.
+
+9
+00:00:31,974 --> 00:00:35,719
+Ten seconds asking what it quietly refuses
+to handle.
+
+10
+00:00:37,269 --> 00:00:41,032
+One command runs every check: npm test.
+
+11
+00:00:42,582 --> 00:00:46,019
+Green means merge. Red means send it back.
+
+12
+00:00:47,569 --> 00:00:52,018
+Three checks. One command. A minute of
+your time.
+
+13
+00:00:53,568 --> 00:00:58,985
+Pick one repository this week. Run the
+checks. That is the method.
