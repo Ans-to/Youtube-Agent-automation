@@ -666,3 +666,51 @@ choice.
 
 **The end was a hard cut to nothing.** The closing card now sinks into the paper
 over the last three tenths of a second.
+
+## 20. Ten scripts, one night, and the checks that were missing
+
+Round seven proved the studio could make one film that looked made. Round eight
+asked the harder question: ten different one-minute scripts, ten renders, no one
+touching the picture in between. Write a brief, get a film, ten times. The result
+is in [ten-films.md](ten-films.md) - fifty-seven to sixty-nine seconds each, every
+one of them 18/18 on the craft gate, 1.99-2.05 mean frame delta, 0.2-0.4 % static
+frames, 74-109 distinct arrangements, no hold longer than 3.5 s, -14.0 to -14.3
+LUFS, 720p, `+faststart`.
+
+Seven of the ten briefs were wrong when they were first rendered, and none of the
+seven were writing problems. They were the pipeline failing to say, cheaply, that
+a script could not ship.
+
+**The caption band was a rule nobody could see.** A spoken line has to wrap into
+two caption rows of forty-two characters. Six of the ten scripts had a line that
+wrapped into three, and `from_brief.mjs` threw - after the voice had been
+synthesised, three minutes into a render. The band stayed as it was; the scripts
+now break at full stops. `tests/test_brief_sync.py` grew a test that reads
+`CAPTION_LINE_MAX` and `CAPTION_LINES_MAX` out of the film script itself, so the
+check cannot drift from the rule it is checking.
+
+**Three films left the screen still for eight seconds.** The craft gate measures
+the gap between one spoken line starting and the next one starting; anything past
+eight seconds is a viewer deciding to leave. The cause was always one long line,
+and the fix was always to put a full stop in it.
+
+**One chapter was 2.41 seconds.** YouTube will not publish a chapter under 2.5 s,
+so the outro took one more sentence. It is a rule you cannot see in a preview and
+cannot fix after upload without re-rendering.
+
+**Two films had no rhythm.** `sd/mean` of cue length is a crude measure, but it is
+measuring something real: the reference film's cues run 1.6 s to 5.4 s, and a film
+where every cue is four seconds long has no punchline for the ear to land on. Both
+were rebuilt around one very short beat beside one long one - four words next to
+five seconds, which is what the pacing rule actually describes.
+
+**The preflight is the answer to all four.** `tools/preflight_brief.py` runs the
+cheap half of the pipeline - narration, caption cues, craft rules - and stops,
+exiting non-zero with the failing rule named. A script that cannot ship now fails
+in about forty seconds instead of four minutes, `--all` checks the whole briefs
+folder, and `motion-studio.yml` runs it before it draws a frame. It also caught
+its own bug: a cached voice script made it report a pass for text that had already
+been rewritten, so it now rebuilds that file every run.
+
+Cost of the whole round: nothing. Ten Kokoro reads, ten Canvas2D renders on two
+cores, no API key, no hosted service.

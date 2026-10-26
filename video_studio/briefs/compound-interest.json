@@ -1,0 +1,194 @@
+{
+  "slug": "compound-interest",
+  "title": "How Compound Interest Actually Works",
+  "promise": "You will see why the last ten years do more than the first twenty.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "NOT A LINE",
+    "section": "number"
+  },
+  "tags": [
+    "compound interest",
+    "investing",
+    "saving",
+    "money",
+    "personal finance"
+  ],
+  "hashtags": [
+    "compound interest",
+    "investing",
+    "money"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "Your money does not grow in a line"
+      },
+      "lines": [
+        {
+          "text": "Your money does not grow in a line. It grows in a curve."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The number",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "wide",
+      "props": {
+        "value": 7,
+        "label": "percent"
+      },
+      "lines": [
+        {
+          "text": "Seven percent a year sounds small. Wait until you see thirty years."
+        },
+        {
+          "text": "The curve is the point."
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "The difference",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "region": "split",
+      "props": {
+        "left": "Simple interest",
+        "right": "Compound"
+      },
+      "lines": [
+        {
+          "text": "Simple interest pays on what you put in. Compound pays on what you kept."
+        },
+        {
+          "text": "That is the whole gap."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "The decades",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "region": "wide",
+      "props": {
+        "segments": [
+          {
+            "label": "First ten years",
+            "value": 10
+          },
+          {
+            "label": "Next twenty",
+            "value": 20
+          },
+          {
+            "label": "Last ten",
+            "value": 10
+          }
+        ],
+        "total": 40
+      },
+      "lines": [
+        {
+          "text": "First ten years: a little. Next twenty: some."
+        },
+        {
+          "text": "Then the last ten years does the work."
+        },
+        {
+          "text": "Almost all of it."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The rules",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Start early",
+          "Do not withdraw",
+          "Ignore the noise"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Start early. Do not withdraw. Two rules, and no skill required."
+        },
+        {
+          "text": "And ignore the noise between the two."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "The payoff",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "Ten years early",
+        "right": "Ten years late"
+      },
+      "lines": [
+        {
+          "text": "Ten years early is worth more than ten years late."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Early",
+          "Kept",
+          "Quiet"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Early, kept, quiet. That is the whole strategy."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "region": "statement",
+      "props": {
+        "text": "Start ten years ago"
+      },
+      "lines": [
+        {
+          "text": "The best day to start was ten years ago. The second best is today."
+        }
+      ]
+    }
+  ]
+}

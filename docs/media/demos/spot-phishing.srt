@@ -1,0 +1,62 @@
+1
+00:00:00,120 --> 00:00:03,817
+That email wants your password, and it is
+in a hurry.
+
+2
+00:00:05,367 --> 00:00:09,241
+Five seconds is all it takes, if you check
+three things.
+
+3
+00:00:10,211 --> 00:00:12,838
+Sender, link, and ask.
+
+4
+00:00:14,388 --> 00:00:15,908
+Check the sender domain.
+
+5
+00:00:16,878 --> 00:00:21,515
+Hover before you click, and read the real
+address, not the label.
+
+6
+00:00:22,485 --> 00:00:25,184
+Nobody legitimate asks for a password.
+
+7
+00:00:26,734 --> 00:00:31,329
+A real invoice names you. A fake one says
+dear customer.
+
+8
+00:00:32,299 --> 00:00:33,899
+Names are cheap to fake.
+
+9
+00:00:35,449 --> 00:00:40,068
+Forty percent of the trick is a deadline.
+Thirty is a threat.
+
+10
+00:00:41,038 --> 00:00:42,364
+Thirty is a link.
+
+11
+00:00:43,914 --> 00:00:48,098
+Report it, or delete it. Never reply to
+it.
+
+12
+00:00:49,068 --> 00:00:51,686
+A reply tells them the address is live.
+
+13
+00:00:53,236 --> 00:00:58,123
+Domain, hover, no password. That is the
+whole defence.
+
+14
+00:00:59,673 --> 00:01:03,111
+Hover before you click. Every single time.

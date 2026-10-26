@@ -1,0 +1,194 @@
+{
+  "slug": "feedback-that-lands",
+  "title": "How to Give Feedback That Lands",
+  "promise": "You will say what you saw, what it cost, and what you want instead.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "SAY WHAT YOU SAW",
+    "section": "number"
+  },
+  "tags": [
+    "feedback",
+    "management",
+    "communication",
+    "leadership",
+    "work"
+  ],
+  "hashtags": [
+    "feedback",
+    "communication",
+    "leadership"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "Nobody remembers the feedback"
+      },
+      "lines": [
+        {
+          "text": "Nobody remembers the feedback. They remember how it felt."
+        },
+        {
+          "text": "So start with what you saw."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The three moves",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Say what you saw",
+          "Say what it cost",
+          "Ask what they meant"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Say what you saw. Say what it cost."
+        },
+        {
+          "text": "Then ask what they meant, before you tell them the fix."
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "The difference",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "region": "split",
+      "props": {
+        "left": "A judgement",
+        "right": "An observation"
+      },
+      "lines": [
+        {
+          "text": "A judgement is about them. An observation is about the work."
+        },
+        {
+          "text": "Only one of the two can be fixed."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "The split",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "region": "wide",
+      "props": {
+        "segments": [
+          {
+            "label": "Observed",
+            "value": 20
+          },
+          {
+            "label": "Impact",
+            "value": 30
+          },
+          {
+            "label": "Question",
+            "value": 50
+          }
+        ],
+        "total": 100
+      },
+      "lines": [
+        {
+          "text": "Twenty percent observed. Thirty percent impact. Fifty percent question."
+        },
+        {
+          "text": "Let them answer first."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The habit",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "wide",
+      "props": {
+        "value": 1,
+        "label": "thing"
+      },
+      "lines": [
+        {
+          "text": "One thing at a time. Two things is a review, not a conversation."
+        },
+        {
+          "text": "Pick one thing, not five."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "The decision",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "Ask, then tell",
+        "right": "Tell, then ask"
+      },
+      "lines": [
+        {
+          "text": "Ask, then tell. Then try it reversed: tell, then ask."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Saw",
+          "Cost",
+          "Meant"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Saw, cost, meant. Three sentences and a question."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "region": "statement",
+      "props": {
+        "text": "Ask what they meant"
+      },
+      "lines": [
+        {
+          "text": "Ask what they meant. Then say what you saw."
+        }
+      ]
+    }
+  ]
+}

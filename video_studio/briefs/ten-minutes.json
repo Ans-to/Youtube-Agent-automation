@@ -1,0 +1,205 @@
+{
+  "slug": "ten-minutes",
+  "title": "Ten Minutes a Day Beats a Weekend",
+  "promise": "You will practise in ten-minute blocks and keep what you learn.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "TEN MINUTES",
+    "section": "number"
+  },
+  "tags": [
+    "learning",
+    "study habits",
+    "practice",
+    "ten minutes",
+    "how to learn"
+  ],
+  "hashtags": [
+    "learning",
+    "study habits",
+    "practice"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "Ten minutes beats a weekend"
+      },
+      "lines": [
+        {
+          "text": "Ten minutes a day beats a weekend of nothing. It sounds too small to work."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The number",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "wide",
+      "props": {
+        "value": 10,
+        "label": "minutes"
+      },
+      "lines": [
+        {
+          "text": "The number is ten. Ten minutes, every day."
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "Why it matters",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "region": "split",
+      "props": {
+        "left": "One weekend marathon",
+        "right": "Ten minutes daily"
+      },
+      "lines": [
+        {
+          "text": "One weekend marathon. Or ten minutes daily, for a month. Same hours."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The rules",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Pick one skill",
+          "Set a timer",
+          "Stop when it rings"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Pick one skill. Set a timer."
+        },
+        {
+          "text": "And stop when it rings, even if you are enjoying it."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "The split",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "region": "wide",
+      "props": {
+        "segments": [
+          {
+            "label": "Practice",
+            "value": 50
+          },
+          {
+            "label": "Notes",
+            "value": 20
+          },
+          {
+            "label": "Sleep",
+            "value": 30
+          }
+        ],
+        "total": 100
+      },
+      "lines": [
+        {
+          "text": "Fifty percent practice. Twenty percent notes. Thirty percent sleep."
+        },
+        {
+          "text": "Sleep is the practice."
+        }
+      ]
+    },
+    {
+      "id": "build",
+      "kind": "section",
+      "heading": "What builds",
+      "situation": "build-an-argument",
+      "template": "stack-push",
+      "region": "stage",
+      "props": {
+        "items": [
+          "One rep",
+          "One note",
+          "One night"
+        ]
+      },
+      "lines": [
+        {
+          "text": "One rep, one note, one night. That is the whole stack."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "The payoff",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "A skill in a year",
+        "right": "A skill in a month"
+      },
+      "lines": [
+        {
+          "text": "Same hours. A skill in a year, or a skill in a month. One you keep."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Ten minutes",
+          "One skill",
+          "Every day"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Ten minutes, one skill, every day."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "region": "statement",
+      "props": {
+        "text": "Start the timer today"
+      },
+      "lines": [
+        {
+          "text": "Start the timer today. Ten minutes is enough."
+        }
+      ]
+    }
+  ]
+}

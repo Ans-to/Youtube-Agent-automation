@@ -165,5 +165,57 @@ class TheDeliveredPlanMatchesTheNarration(unittest.TestCase):
         self.assertTrue(first.get("shows"), "the opening beat has nothing on it")
 
 
+class ABriefLineFitsTheCaptionBand(unittest.TestCase):
+    """A line the caption band cannot hold must fail here, not three minutes later.
+
+    ``from_brief.mjs`` wraps each spoken line into at most two caption lines of
+    42 characters and throws if it cannot. That throw happens *after* the voice
+    has been synthesised, so a ten-film batch paid for nine minutes of work to
+    learn that one sentence was 98 characters long. The rule is the same rule,
+    checked against the same numbers, taken from the film script itself so the
+    two cannot drift apart.
+    """
+
+    SCRIPT = ROOT / "video_studio" / "films" / "from_brief.mjs"
+
+    def band(self) -> tuple[int, int]:
+        source = self.SCRIPT.read_text(encoding="utf-8")
+        width = re.search(r"CAPTION_LINE_MAX\s*=\s*(\d+)", source)
+        rows = re.search(r"CAPTION_LINES_MAX\s*=\s*(\d+)", source)
+        self.assertIsNotNone(width, "from_brief.mjs no longer declares CAPTION_LINE_MAX")
+        self.assertIsNotNone(rows, "from_brief.mjs no longer declares CAPTION_LINES_MAX")
+        return int(width.group(1)), int(rows.group(1))
+
+    def test_every_spoken_line_wraps_into_the_band(self):
+        width, rows = self.band()
+        failures = []
+        for path in sorted(BRIEFS.glob("*.json")):
+            brief = json.loads(path.read_text(encoding="utf-8"))
+            for section in brief.get("sections", []):
+                for line in section.get("lines", []):
+                    wrapped, current = [], ""
+                    for word in str(line.get("text", "")).split():
+                        if not current:
+                            current = word
+                        elif len(current) + 1 + len(word) <= width:
+                            current = f"{current} {word}"
+                        else:
+                            wrapped.append(current)
+                            current = word
+                    if current:
+                        wrapped.append(current)
+                    if len(wrapped) > rows:
+                        failures.append(
+                            f"{path.name}: section {section.get('id')} line {line!r} needs "
+                            f"{len(wrapped)} caption rows of {width} characters")
+        self.assertEqual(failures, [])
+
+    def test_the_check_would_notice_a_line_that_does_not_fit(self):
+        """The band width has to be a real constraint, or the test above is theatre."""
+        width, rows = self.band()
+        self.assertEqual((width, rows), (42, 2))
+        self.assertLess(width * rows, 120, "the band is too wide to be a constraint")
+
+
 if __name__ == "__main__":
     unittest.main()

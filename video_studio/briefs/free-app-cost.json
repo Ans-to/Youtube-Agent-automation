@@ -1,0 +1,194 @@
+{
+  "slug": "free-app-cost",
+  "title": "What a Free App Actually Costs",
+  "promise": "You will see the three prices a free app charges, none of them money.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "YOU PAY",
+    "section": "number"
+  },
+  "tags": [
+    "free apps",
+    "privacy",
+    "ads",
+    "data",
+    "app store"
+  ],
+  "hashtags": [
+    "free apps",
+    "privacy",
+    "ads"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "If the app is free, you are the product"
+      },
+      "lines": [
+        {
+          "text": "If the app is free, you are the product. There are three prices."
+        },
+        {
+          "text": "None of them are money."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The three prices",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Ads you cannot skip",
+          "Data you cannot see",
+          "Features you cannot remove"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Ads you cannot skip. Data you cannot see. Features you cannot remove."
+        },
+        {
+          "text": "Features you cannot remove, unless you pay monthly."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "The split",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "region": "wide",
+      "props": {
+        "segments": [
+          {
+            "label": "Advertising",
+            "value": 50
+          },
+          {
+            "label": "Data",
+            "value": 30
+          },
+          {
+            "label": "Storage",
+            "value": 20
+          }
+        ],
+        "total": 100
+      },
+      "lines": [
+        {
+          "text": "Fifty percent of the revenue is advertising. Thirty is data."
+        },
+        {
+          "text": "The rest is storage."
+        },
+        {
+          "text": "Twenty is storage."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The bill",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "wide",
+      "props": {
+        "value": 12,
+        "label": "hours"
+      },
+      "lines": [
+        {
+          "text": "Twelve hours a year, watching ads in an app you did not choose."
+        },
+        {
+          "text": "That is a working day."
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "The choice",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "region": "split",
+      "props": {
+        "left": "Free with ads",
+        "right": "Paid without"
+      },
+      "lines": [
+        {
+          "text": "Free with ads, or paid without. There is no third option."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "The decision",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "Pay once",
+        "right": "Pay forever"
+      },
+      "lines": [
+        {
+          "text": "Pay once for the tool you use daily. Pay forever for the rest."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Ads",
+          "Data",
+          "Features"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Ads, data, features. That is what free means."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "region": "statement",
+      "props": {
+        "text": "Pay for one thing"
+      },
+      "lines": [
+        {
+          "text": "Pay for the one thing you use every day. Not the five you might."
+        }
+      ]
+    }
+  ]
+}

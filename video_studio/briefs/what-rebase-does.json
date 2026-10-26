@@ -1,0 +1,179 @@
+{
+  "slug": "what-rebase-does",
+  "title": "What Git Rebase Actually Does",
+  "promise": "You will rebase your own branch without fear, and never a shared one.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "IT REWRITES",
+    "section": "number"
+  },
+  "tags": [
+    "git rebase",
+    "git",
+    "version control",
+    "merge",
+    "developers"
+  ],
+  "hashtags": [
+    "git rebase",
+    "version control",
+    "developers"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "Rebase is not magic"
+      },
+      "lines": [
+        {
+          "text": "Rebase is not magic. It rewrites your commits, one by one."
+        }
+      ]
+    },
+    {
+      "id": "command",
+      "kind": "section",
+      "heading": "The command",
+      "situation": "show-the-command",
+      "template": "command-console",
+      "region": "wide",
+      "props": {
+        "lines": [
+          "git rebase main"
+        ]
+      },
+      "lines": [
+        {
+          "text": "The command is git rebase main. One line, no flags."
+        },
+        {
+          "text": "That is the whole incantation."
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "The difference",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "region": "split",
+      "props": {
+        "left": "Merge keeps the history",
+        "right": "Rebase rewrites it"
+      },
+      "lines": [
+        {
+          "text": "Merge keeps the history. Rebase rewrites it into a clean line."
+        },
+        {
+          "text": "Same code, new commits."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The rules",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Never rebase a shared branch",
+          "Pull before you push",
+          "Squash your own mess"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Never rebase a shared branch. Pull before you push. Push early and often."
+        },
+        {
+          "text": "And squash your own mess before anyone reads it."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The risk",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "wide",
+      "props": {
+        "value": 2,
+        "label": "people"
+      },
+      "lines": [
+        {
+          "text": "It is safe with one person. It is dangerous with two people."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "The decision",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "Safe on your branch",
+        "right": "Risky on main"
+      },
+      "lines": [
+        {
+          "text": "Safe on your branch. Risky on main, where everyone else is standing."
+        },
+        {
+          "text": "Own branch only."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Your branch",
+          "Pull first",
+          "Squash"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Your branch, pull first, squash. That is the whole habit."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "region": "statement",
+      "props": {
+        "text": "Rebase your own branch"
+      },
+      "lines": [
+        {
+          "text": "Rebase your own branch. Leave the shared one alone."
+        }
+      ]
+    }
+  ]
+}

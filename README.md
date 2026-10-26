@@ -39,9 +39,11 @@ repository and has the 16 GB a 1080p master needs.
 | --- | --- |
 | What makes a video get watched, with sources and numbers | [docs/youtube-craft.md](docs/youtube-craft.md) |
 | How the studio is put together, and what it costs | [docs/motion-graphics-studio-plan.md](docs/motion-graphics-studio-plan.md) |
+| **Ten different one-minute films from the same pipeline** | [docs/ten-films.md](docs/ten-films.md) |
 | A brief to copy | [video_studio/briefs/review-ai-code.json](video_studio/briefs/review-ai-code.json) |
 | The generator: brief → film | `video_studio/films/from_brief.mjs` |
 | The craft gate: hook, pacing, captions, chapters, packaging | `video_studio/craft.py`, `tools/check_craft.py` |
+| The preflight: reject an unshippable script in 40 s, before a frame is drawn | `tools/preflight_brief.py` |
 | The zero-key build | [.github/workflows/motion-studio.yml](.github/workflows/motion-studio.yml) |
 
 Run it locally:

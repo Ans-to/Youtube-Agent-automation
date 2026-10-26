@@ -1,0 +1,221 @@
+{
+  "slug": "battery-twenty",
+  "title": "Why Your Phone Dies at Twenty Percent",
+  "promise": "You will know which of the three parts is lying before you buy anything.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "IT IS LYING",
+    "section": "number"
+  },
+  "tags": [
+    "phone battery",
+    "battery health",
+    "charging",
+    "phone dies",
+    "tech explained"
+  ],
+  "hashtags": [
+    "phone battery",
+    "battery health",
+    "tech explained"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "Your phone says twenty percent"
+      },
+      "lines": [
+        {
+          "text": "Your phone says twenty percent. Then it dies in a minute."
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "Why it matters",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "A dying cell",
+        "right": "A lying gauge"
+      },
+      "lines": [
+        {
+          "text": "You blame a dying cell. The problem is a lying gauge."
+        },
+        {
+          "text": "The gauge reads voltage, and voltage sags under load."
+        },
+        {
+          "text": "That is the trick."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The budget",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "wide",
+      "props": {
+        "value": 20,
+        "label": "percent"
+      },
+      "lines": [
+        {
+          "text": "The gauge reads twenty percent. The cell is nearly empty."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The three checks",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "A cheap cable drops the voltage",
+          "Cold weather slows the reaction",
+          "A three year old cell holds less"
+        ]
+      },
+      "lines": [
+        {
+          "text": "A cheap cable drops the voltage."
+        },
+        {
+          "text": "Cold weather slows the reaction inside the cell."
+        },
+        {
+          "text": "A three year old cell simply holds less."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "How it is spent",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "region": "wide",
+      "props": {
+        "segments": [
+          {
+            "label": "Voltage sag",
+            "value": 45
+          },
+          {
+            "label": "Cold",
+            "value": 20
+          },
+          {
+            "label": "Age",
+            "value": 35
+          }
+        ],
+        "total": 100
+      },
+      "lines": [
+        {
+          "text": "Forty five percent of the error is voltage sag."
+        },
+        {
+          "text": "Twenty is cold."
+        },
+        {
+          "text": "Thirty five is age."
+        }
+      ]
+    },
+    {
+      "id": "command",
+      "kind": "section",
+      "heading": "One check",
+      "situation": "show-the-command",
+      "template": "command-console",
+      "region": "wide",
+      "props": {
+        "lines": [
+          "battery health"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Run one check."
+        },
+        {
+          "text": "It is called battery health."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "The fix",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "region": "split",
+      "props": {
+        "left": "Replace the cable",
+        "right": "Replace the cell"
+      },
+      "lines": [
+        {
+          "text": "Replace the cable if the sag is sudden. Replace the cell if the cell is old."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Gauge",
+          "Cable",
+          "Cell"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Gauge, cable, cell."
+        },
+        {
+          "text": "Check them in that order."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "region": "statement",
+      "props": {
+        "text": "Check the cable first"
+      },
+      "lines": [
+        {
+          "text": "Check the cable first. It is the cheapest of the three."
+        }
+      ]
+    }
+  ]
+}

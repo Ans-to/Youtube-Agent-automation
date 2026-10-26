@@ -1,0 +1,197 @@
+{
+  "slug": "spot-phishing",
+  "title": "Spot a Phishing Email in Five Seconds",
+  "promise": "You will check three things before you click anything.",
+  "hookType": "opening-claim",
+  "look": "light",
+  "fps": 30,
+  "thumbnail": {
+    "line": "HOVER FIRST",
+    "section": "number"
+  },
+  "tags": [
+    "phishing",
+    "email security",
+    "scams",
+    "passwords",
+    "cybersecurity"
+  ],
+  "hashtags": [
+    "phishing",
+    "email security",
+    "cybersecurity"
+  ],
+  "sections": [
+    {
+      "id": "open",
+      "kind": "hook",
+      "heading": "The situation",
+      "situation": "opening-claim",
+      "template": "kinetic-headline",
+      "region": "statement",
+      "props": {
+        "text": "That email wants your password"
+      },
+      "lines": [
+        {
+          "text": "That email wants your password, and it is in a hurry."
+        }
+      ]
+    },
+    {
+      "id": "number",
+      "kind": "section",
+      "heading": "The time",
+      "situation": "explain-a-number",
+      "template": "ring-gauge",
+      "region": "wide",
+      "props": {
+        "value": 5,
+        "label": "seconds"
+      },
+      "lines": [
+        {
+          "text": "Five seconds is all it takes, if you check three things."
+        },
+        {
+          "text": "Sender, link, and ask."
+        }
+      ]
+    },
+    {
+      "id": "checks",
+      "kind": "section",
+      "heading": "The checks",
+      "situation": "show-criteria",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Check the sender domain",
+          "Hover before you click",
+          "Nobody asks for a password"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Check the sender domain."
+        },
+        {
+          "text": "Hover before you click, and read the real address, not the label."
+        },
+        {
+          "text": "Nobody legitimate asks for a password."
+        }
+      ]
+    },
+    {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "The tell",
+      "situation": "make-a-comparison",
+      "template": "compare-pair",
+      "region": "split",
+      "props": {
+        "left": "A real invoice",
+        "right": "A fake one"
+      },
+      "lines": [
+        {
+          "text": "A real invoice names you. A fake one says dear customer."
+        },
+        {
+          "text": "Names are cheap to fake."
+        }
+      ]
+    },
+    {
+      "id": "mechanism",
+      "kind": "section",
+      "heading": "The urgency",
+      "situation": "show-the-mechanism",
+      "template": "budget-rail",
+      "region": "wide",
+      "props": {
+        "segments": [
+          {
+            "label": "Deadline",
+            "value": 40
+          },
+          {
+            "label": "Threat",
+            "value": 30
+          },
+          {
+            "label": "Link",
+            "value": 30
+          }
+        ],
+        "total": 100
+      },
+      "lines": [
+        {
+          "text": "Forty percent of the trick is a deadline. Thirty is a threat."
+        },
+        {
+          "text": "Thirty is a link."
+        }
+      ]
+    },
+    {
+      "id": "payoff",
+      "kind": "section",
+      "heading": "The decision",
+      "situation": "before-and-after",
+      "template": "fork-paths",
+      "region": "spread",
+      "props": {
+        "left": "Report it",
+        "right": "Delete it"
+      },
+      "lines": [
+        {
+          "text": "Report it, or delete it. Never reply to it."
+        },
+        {
+          "text": "A reply tells them the address is live."
+        }
+      ]
+    },
+    {
+      "id": "recap",
+      "kind": "recap",
+      "heading": "Recap",
+      "situation": "recap",
+      "template": "matrix-grid",
+      "region": "wide",
+      "props": {
+        "items": [
+          "Domain",
+          "Hover",
+          "No password"
+        ]
+      },
+      "lines": [
+        {
+          "text": "Domain, hover, no password. That is the whole defence."
+        }
+      ]
+    },
+    {
+      "id": "outro",
+      "kind": "outro",
+      "heading": "Next",
+      "situation": "punchline",
+      "template": "stamp-lockup",
+      "region": "statement",
+      "props": {
+        "text": "Hover before you click"
+      },
+      "lines": [
+        {
+          "text": "Hover before you click. Every single time."
+        }
+      ]
+    }
+  ]
+}

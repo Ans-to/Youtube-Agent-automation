@@ -117,6 +117,16 @@ jobs:
             --brief "${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
             --out build/voice-script.json
 
+      - name: Preflight the brief - reject a bad script before drawing a frame
+        run: |
+          # The narration timings alone decide whether a script can be published:
+          # a line too long for the caption band, a beat that runs past eight
+          # seconds, a chapter under 2.5 s, a read with no rhythm. This costs
+          # forty seconds and has already saved a ten-film batch nine minutes.
+          python tools/preflight_brief.py \
+            --brief "${{ github.event.inputs.brief || 'video_studio/briefs/review-ai-code.json' }}" \
+            --work build/preflight
+
       - name: Render the film, mix the sound, and measure it
         run: |
           python tools/render_authored_film.py \
