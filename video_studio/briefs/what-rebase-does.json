@@ -25,10 +25,9 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The claim",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "Rebase is not magic"
       },
@@ -43,8 +42,7 @@
       "kind": "section",
       "heading": "The command",
       "situation": "show-the-command",
-      "template": "command-console",
-      "region": "wide",
+      "template": "code-typing",
       "props": {
         "lines": [
           "git rebase main"
@@ -62,10 +60,9 @@
     {
       "id": "stake",
       "kind": "stake",
-      "heading": "The difference",
+      "heading": "Against merge",
       "situation": "make-a-comparison",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "Merge keeps the history",
         "right": "Rebase rewrites it"
@@ -85,7 +82,6 @@
       "heading": "The rules",
       "situation": "show-criteria",
       "template": "matrix-grid",
-      "region": "wide",
       "props": {
         "items": [
           "Never rebase a shared branch",
@@ -105,10 +101,9 @@
     {
       "id": "number",
       "kind": "section",
-      "heading": "The risk",
+      "heading": "The boundary",
       "situation": "explain-a-number",
-      "template": "ring-gauge",
-      "region": "wide",
+      "template": "count-up",
       "props": {
         "value": 2,
         "label": "people"
@@ -122,10 +117,9 @@
     {
       "id": "payoff",
       "kind": "section",
-      "heading": "The decision",
+      "heading": "Where it is safe",
       "situation": "before-and-after",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Safe on your branch",
         "right": "Risky on main"
@@ -142,10 +136,9 @@
     {
       "id": "recap",
       "kind": "recap",
-      "heading": "Recap",
+      "heading": "The habit",
       "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
+      "template": "list-build",
       "props": {
         "items": [
           "Your branch",
@@ -162,10 +155,9 @@
     {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "The rule",
       "situation": "punchline",
       "template": "stamp-lockup",
-      "region": "statement",
       "props": {
         "text": "Rebase your own branch"
       },

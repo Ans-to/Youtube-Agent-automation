@@ -54,11 +54,6 @@ and send a note.
 Pick one, and stop.
 
 13
-00:00:57,453 --> 00:01:02,944
-Agenda, one decision, notes. Everything
-else is optional.
-
-14
-00:01:04,494 --> 00:01:07,259
+00:00:57,453 --> 00:01:00,218
 Name the decision before you book the
 room.

@@ -165,6 +165,66 @@ class TheDeliveredPlanMatchesTheNarration(unittest.TestCase):
         self.assertTrue(first.get("shows"), "the opening beat has nothing on it")
 
 
+class EveryFilmIsBuiltForItsOwnScript(unittest.TestCase):
+    """Ten briefs must not be one skeleton wearing ten sets of words.
+
+    The failure this guards against is not a bug, it is a habit: the first batch
+    of ten films all opened on a headline, then a dial, then a grid, then a pair,
+    then a rail, then a fork, then a grid, then a stamp - and only the words
+    changed. Two rules stop that coming back:
+
+      * a template may only be asked for a situation the library says it answers
+        (a bar chart is not a way to show a sequence);
+      * no two briefs may share the same sequence of templates.
+    """
+
+    CATALOGUE = ROOT / "agents" / "motion_templates.json"
+
+    def briefs(self) -> dict[str, list[str]]:
+        out = {}
+        for path in sorted(BRIEFS.glob("*.json")):
+            brief = json.loads(path.read_text(encoding="utf-8"))
+            out[path.stem] = [str(section.get("template")) for section in brief.get("sections", [])
+                              if section.get("template")]
+        self.assertTrue(out, "no briefs found")
+        return out
+
+    def test_no_two_briefs_share_a_template_sequence(self):
+        seen: dict[tuple[str, ...], str] = {}
+        clashes = []
+        for name, sequence in self.briefs().items():
+            key = tuple(sequence)
+            if len(key) < 2:
+                continue
+            if key in seen:
+                clashes.append(f"{name} and {seen[key]} both run {' > '.join(key)}")
+            else:
+                seen[key] = name
+        self.assertEqual(clashes, [])
+
+    def test_a_template_only_answers_situations_it_claims(self):
+        catalogue = json.loads(self.CATALOGUE.read_text(encoding="utf-8"))
+        situations = {name: entry.get("wants") or [] for name, entry in catalogue["situations"].items()}
+        failures = []
+        for name, _ in self.briefs().items():
+            brief = json.loads((BRIEFS / f"{name}.json").read_text(encoding="utf-8"))
+            for section in brief.get("sections", []):
+                template = section.get("template")
+                situation = section.get("situation")
+                if not template:
+                    continue
+                if template not in (situations.get(situation) or []):
+                    failures.append(
+                        f"{name}: section {section.get('id')} uses {template} for "
+                        f"{situation}, which the library does not offer it for")
+        self.assertEqual(failures, [])
+
+    def test_the_set_uses_the_library_it_has(self):
+        """A library of fourteen shapes used for six of them is a template with ten scripts."""
+        used = {template for sequence in self.briefs().values() for template in sequence}
+        self.assertGreaterEqual(len(used), 10, f"only {len(used)} templates used across the briefs")
+
+
 class ABriefLineFitsTheCaptionBand(unittest.TestCase):
     """A line the caption band cannot hold must fail here, not three minutes later.
 

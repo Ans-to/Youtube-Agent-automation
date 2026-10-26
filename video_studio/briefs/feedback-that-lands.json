@@ -28,7 +28,6 @@
       "heading": "The situation",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "Nobody remembers the feedback"
       },
@@ -45,9 +44,8 @@
       "id": "checks",
       "kind": "section",
       "heading": "The three moves",
-      "situation": "show-criteria",
-      "template": "matrix-grid",
-      "region": "wide",
+      "situation": "show-a-sequence",
+      "template": "list-build",
       "props": {
         "items": [
           "Say what you saw",
@@ -70,7 +68,6 @@
       "heading": "The difference",
       "situation": "make-a-comparison",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "A judgement",
         "right": "An observation"
@@ -88,25 +85,19 @@
       "id": "mechanism",
       "kind": "section",
       "heading": "The split",
-      "situation": "show-the-mechanism",
-      "template": "budget-rail",
-      "region": "wide",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
       "props": {
-        "segments": [
-          {
-            "label": "Observed",
-            "value": 20
-          },
-          {
-            "label": "Impact",
-            "value": 30
-          },
-          {
-            "label": "Question",
-            "value": 50
-          }
+        "labels": [
+          "Observed",
+          "Impact",
+          "Question"
         ],
-        "total": 100
+        "values": [
+          20,
+          30,
+          50
+        ]
       },
       "lines": [
         {
@@ -120,17 +111,16 @@
     {
       "id": "number",
       "kind": "section",
-      "heading": "The habit",
-      "situation": "explain-a-number",
-      "template": "ring-gauge",
-      "region": "wide",
+      "heading": "One at a time",
+      "situation": "name-the-thing",
+      "template": "count-up",
       "props": {
         "value": 1,
         "label": "thing"
       },
       "lines": [
         {
-          "text": "One thing at a time. Two things is a review, not a conversation."
+          "text": "One thing at a time. Two is a review, not a conversation."
         },
         {
           "text": "Pick one thing, not five."
@@ -140,10 +130,9 @@
     {
       "id": "payoff",
       "kind": "section",
-      "heading": "The decision",
+      "heading": "The order",
       "situation": "before-and-after",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Ask, then tell",
         "right": "Tell, then ask"
@@ -157,10 +146,9 @@
     {
       "id": "recap",
       "kind": "recap",
-      "heading": "Recap",
+      "heading": "The three words",
       "situation": "recap",
       "template": "matrix-grid",
-      "region": "wide",
       "props": {
         "items": [
           "Saw",
@@ -177,10 +165,9 @@
     {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "The start",
       "situation": "punchline",
-      "template": "stamp-lockup",
-      "region": "statement",
+      "template": "kinetic-headline",
       "props": {
         "text": "Ask what they meant"
       },

@@ -28,7 +28,6 @@
       "heading": "The situation",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "That email wants your password"
       },
@@ -43,8 +42,7 @@
       "kind": "section",
       "heading": "The time",
       "situation": "explain-a-number",
-      "template": "ring-gauge",
-      "region": "wide",
+      "template": "count-up",
       "props": {
         "value": 5,
         "label": "seconds"
@@ -61,10 +59,9 @@
     {
       "id": "checks",
       "kind": "section",
-      "heading": "The checks",
-      "situation": "show-criteria",
-      "template": "matrix-grid",
-      "region": "wide",
+      "heading": "The three checks",
+      "situation": "show-a-sequence",
+      "template": "list-build",
       "props": {
         "items": [
           "Check the sender domain",
@@ -90,7 +87,6 @@
       "heading": "The tell",
       "situation": "make-a-comparison",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "A real invoice",
         "right": "A fake one"
@@ -107,26 +103,20 @@
     {
       "id": "mechanism",
       "kind": "section",
-      "heading": "The urgency",
-      "situation": "show-the-mechanism",
-      "template": "budget-rail",
-      "region": "wide",
+      "heading": "How the trick is built",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
       "props": {
-        "segments": [
-          {
-            "label": "Deadline",
-            "value": 40
-          },
-          {
-            "label": "Threat",
-            "value": 30
-          },
-          {
-            "label": "Link",
-            "value": 30
-          }
+        "labels": [
+          "Deadline",
+          "Threat",
+          "Link"
         ],
-        "total": 100
+        "values": [
+          40,
+          30,
+          30
+        ]
       },
       "lines": [
         {
@@ -143,7 +133,6 @@
       "heading": "The decision",
       "situation": "before-and-after",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Report it",
         "right": "Delete it"
@@ -158,32 +147,11 @@
       ]
     },
     {
-      "id": "recap",
-      "kind": "recap",
-      "heading": "Recap",
-      "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
-      "props": {
-        "items": [
-          "Domain",
-          "Hover",
-          "No password"
-        ]
-      },
-      "lines": [
-        {
-          "text": "Domain, hover, no password. That is the whole defence."
-        }
-      ]
-    },
-    {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "Every time",
       "situation": "punchline",
-      "template": "stamp-lockup",
-      "region": "statement",
+      "template": "kinetic-headline",
       "props": {
         "text": "Hover before you click"
       },

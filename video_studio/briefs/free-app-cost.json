@@ -25,10 +25,9 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The claim",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "If the app is free, you are the product"
       },
@@ -45,9 +44,8 @@
       "id": "checks",
       "kind": "section",
       "heading": "The three prices",
-      "situation": "show-criteria",
-      "template": "matrix-grid",
-      "region": "wide",
+      "situation": "show-a-sequence",
+      "template": "stack-push",
       "props": {
         "items": [
           "Ads you cannot skip",
@@ -67,26 +65,20 @@
     {
       "id": "mechanism",
       "kind": "section",
-      "heading": "The split",
-      "situation": "show-the-mechanism",
-      "template": "budget-rail",
-      "region": "wide",
+      "heading": "Where the money is",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
       "props": {
-        "segments": [
-          {
-            "label": "Advertising",
-            "value": 50
-          },
-          {
-            "label": "Data",
-            "value": 30
-          },
-          {
-            "label": "Storage",
-            "value": 20
-          }
+        "labels": [
+          "Advertising",
+          "Data",
+          "Storage"
         ],
-        "total": 100
+        "values": [
+          50,
+          30,
+          20
+        ]
       },
       "lines": [
         {
@@ -104,9 +96,8 @@
       "id": "number",
       "kind": "section",
       "heading": "The bill",
-      "situation": "explain-a-number",
-      "template": "ring-gauge",
-      "region": "wide",
+      "situation": "name-the-thing",
+      "template": "count-up",
       "props": {
         "value": 12,
         "label": "hours"
@@ -126,7 +117,6 @@
       "heading": "The choice",
       "situation": "make-a-comparison",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "Free with ads",
         "right": "Paid without"
@@ -143,7 +133,6 @@
       "heading": "The decision",
       "situation": "before-and-after",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Pay once",
         "right": "Pay forever"
@@ -157,10 +146,9 @@
     {
       "id": "recap",
       "kind": "recap",
-      "heading": "Recap",
+      "heading": "What free means",
       "situation": "recap",
       "template": "matrix-grid",
-      "region": "wide",
       "props": {
         "items": [
           "Ads",
@@ -177,10 +165,9 @@
     {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "The rule",
       "situation": "punchline",
       "template": "stamp-lockup",
-      "region": "statement",
       "props": {
         "text": "Pay for one thing"
       },

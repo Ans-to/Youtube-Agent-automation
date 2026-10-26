@@ -28,7 +28,6 @@
       "heading": "The situation",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "That label is built to be misread"
       },
@@ -44,7 +43,6 @@
       "heading": "The time",
       "situation": "explain-a-number",
       "template": "ring-gauge",
-      "region": "wide",
       "props": {
         "value": 20,
         "label": "seconds"
@@ -61,10 +59,9 @@
     {
       "id": "checks",
       "kind": "section",
-      "heading": "The three moves",
-      "situation": "show-criteria",
-      "template": "matrix-grid",
-      "region": "wide",
+      "heading": "The order",
+      "situation": "show-a-sequence",
+      "template": "list-build",
       "props": {
         "items": [
           "Start at the serving size",
@@ -85,9 +82,8 @@
       "id": "stake",
       "kind": "stake",
       "heading": "The trap",
-      "situation": "make-a-comparison",
+      "situation": "before-and-after",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "Per serving",
         "right": "Per pack"
@@ -102,25 +98,19 @@
       "id": "mechanism",
       "kind": "section",
       "heading": "The day",
-      "situation": "show-the-mechanism",
-      "template": "budget-rail",
-      "region": "wide",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
       "props": {
-        "segments": [
-          {
-            "label": "One snack",
-            "value": 20
-          },
-          {
-            "label": "One drink",
-            "value": 30
-          },
-          {
-            "label": "One meal",
-            "value": 50
-          }
+        "labels": [
+          "One snack",
+          "One drink",
+          "One meal"
         ],
-        "total": 100
+        "values": [
+          20,
+          30,
+          50
+        ]
       },
       "lines": [
         {
@@ -135,9 +125,8 @@
       "id": "payoff",
       "kind": "section",
       "heading": "The decision",
-      "situation": "before-and-after",
+      "situation": "make-a-comparison",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Put it back",
         "right": "Buy one"
@@ -151,10 +140,9 @@
     {
       "id": "recap",
       "kind": "recap",
-      "heading": "Recap",
+      "heading": "The rule",
       "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
+      "template": "list-build",
       "props": {
         "items": [
           "Serving size",
@@ -171,10 +159,9 @@
     {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "The habit",
       "situation": "punchline",
       "template": "stamp-lockup",
-      "region": "statement",
       "props": {
         "text": "Turn the pack over"
       },

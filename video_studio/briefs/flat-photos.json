@@ -28,7 +28,6 @@
       "heading": "The situation",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "Your photo is not boring"
       },
@@ -45,9 +44,8 @@
       "id": "checks",
       "kind": "section",
       "heading": "The three fixes",
-      "situation": "show-criteria",
-      "template": "matrix-grid",
-      "region": "wide",
+      "situation": "show-a-sequence",
+      "template": "list-build",
       "props": {
         "items": [
           "One light, one direction",
@@ -73,7 +71,6 @@
       "heading": "The difference",
       "situation": "make-a-comparison",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "Flat light",
         "right": "Raking light"
@@ -93,7 +90,6 @@
       "heading": "The angle",
       "situation": "explain-a-number",
       "template": "ring-gauge",
-      "region": "wide",
       "props": {
         "value": 45,
         "label": "degrees"
@@ -111,25 +107,19 @@
       "id": "mechanism",
       "kind": "section",
       "heading": "The layers",
-      "situation": "show-the-mechanism",
-      "template": "budget-rail",
-      "region": "wide",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
       "props": {
-        "segments": [
-          {
-            "label": "Foreground",
-            "value": 30
-          },
-          {
-            "label": "Subject",
-            "value": 40
-          },
-          {
-            "label": "Background",
-            "value": 30
-          }
+        "labels": [
+          "Foreground",
+          "Subject",
+          "Background"
         ],
-        "total": 100
+        "values": [
+          30,
+          40,
+          30
+        ]
       },
       "lines": [
         {
@@ -140,10 +130,9 @@
     {
       "id": "payoff",
       "kind": "section",
-      "heading": "The decision",
+      "heading": "What to move",
       "situation": "before-and-after",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Move the light",
         "right": "Move yourself"
@@ -155,32 +144,11 @@
       ]
     },
     {
-      "id": "recap",
-      "kind": "recap",
-      "heading": "Recap",
-      "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
-      "props": {
-        "items": [
-          "One light",
-          "Front",
-          "Behind"
-        ]
-      },
-      "lines": [
-        {
-          "text": "One light, one front, one behind. Then take the photo."
-        }
-      ]
-    },
-    {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "The habit",
       "situation": "punchline",
       "template": "stamp-lockup",
-      "region": "statement",
       "props": {
         "text": "Find the light first"
       },

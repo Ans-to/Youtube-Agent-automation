@@ -28,7 +28,6 @@
       "heading": "The situation",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "That meeting was thirty minutes"
       },
@@ -41,10 +40,9 @@
     {
       "id": "number",
       "kind": "section",
-      "heading": "The number",
+      "heading": "The clock",
       "situation": "explain-a-number",
       "template": "ring-gauge",
-      "region": "wide",
       "props": {
         "value": 30,
         "label": "minutes"
@@ -61,10 +59,9 @@
     {
       "id": "mechanism",
       "kind": "section",
-      "heading": "The split",
+      "heading": "Where it went",
       "situation": "show-the-mechanism",
       "template": "budget-rail",
-      "region": "wide",
       "props": {
         "segments": [
           {
@@ -97,7 +94,6 @@
       "heading": "The rules",
       "situation": "show-criteria",
       "template": "matrix-grid",
-      "region": "wide",
       "props": {
         "items": [
           "No agenda, no meeting",
@@ -123,7 +119,6 @@
       "heading": "The cost",
       "situation": "make-a-comparison",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "A decision",
         "right": "A conversation"
@@ -143,7 +138,6 @@
       "heading": "The fix",
       "situation": "before-and-after",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Cut the middle",
         "right": "Cancel the whole thing"
@@ -158,32 +152,11 @@
       ]
     },
     {
-      "id": "recap",
-      "kind": "recap",
-      "heading": "Recap",
-      "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
-      "props": {
-        "items": [
-          "Agenda",
-          "One decision",
-          "Notes"
-        ]
-      },
-      "lines": [
-        {
-          "text": "Agenda, one decision, notes. Everything else is optional."
-        }
-      ]
-    },
-    {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "The habit",
       "situation": "punchline",
       "template": "stamp-lockup",
-      "region": "statement",
       "props": {
         "text": "Name the decision"
       },

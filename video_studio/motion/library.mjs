@@ -181,7 +181,7 @@ function kineticHeadline(ctx, {
  */
 function countUp(ctx, {
   box, local, seconds, value = 0, from = 0, prefix = '', suffix = '', label = '',
-  colour = UI.white, accent = UI.gold,
+  colour = UI.white, accent = UI.gold, dim = UI.faint,
 }) {
   const p = clamp(local / Math.min(seconds * 0.75, 1.6));
   const e = ease.outCubic(p);
@@ -202,7 +202,7 @@ function countUp(ctx, {
     const { stagger, duration } = pace(seconds * 0.4, words);
     kineticWords(ctx, {
       text: label, x: box.x + box.w / 2, y: box.y + box.h * 0.84,
-      size: labelSize, weight: 600, family: 'Inter', colour: UI.faint,
+      size: labelSize, weight: 600, family: 'Inter', colour: dim,
       align: 'center', local: local - seconds * 0.25, start: 0,
       stagger, duration, tracking: 2, maxWidth: box.w,
     });
@@ -268,9 +268,18 @@ function listBuild(ctx, {
 function comparePair(ctx, {
   box, local, seconds, left = 'BEFORE', right = 'AFTER',
   leftItems = [], rightItems = [], colour = UI.white, accent = UI.gold,
+  panelFill = 'rgba(255,255,255,0.06)', panelFillHi = 'rgba(242,194,48,0.14)',
+  panelStroke = 'rgba(255,255,255,0.18)', panelStrokeHi = accent,
 }) {
   const gap = Math.max(28, box.w * 0.07);
   const w = (box.w - gap) / 2;
+  // A comparison of two names is two bands, not two tall empty cards. The panel
+  // is sized to what it holds: full height when there are rows under the title,
+  // a centred band when the sentence only needs the two states.
+  const bare = !leftItems.length && !rightItems.length;
+  const panelH = bare ? Math.max(box.h * 0.20, Math.min(box.h * 0.34, box.h)) : box.h;
+  const panelY = box.y + (box.h - panelH) / 2;
+  const titleAt = bare ? panelY + panelH * 0.66 : box.y + box.h * 0.24;
   const p = clamp(local / Math.min(seconds * 0.5, 0.9));
   const e = ease.outCubic(p);
   const headSize = fitSize(ctx, `${left}${right}`, { maxWidth: w * 0.9, cap: box.h * 0.17, floor: 20, tracking: 2 });
@@ -279,11 +288,11 @@ function comparePair(ctx, {
     ctx.save();
     ctx.globalAlpha = ctx.globalAlpha * clamp(local0 / 0.22);
     panel(ctx, {
-      x, y: box.y, w, h: box.h, r: 24,
-      fill: side === 1 ? 'rgba(242,194,48,0.14)' : 'rgba(255,255,255,0.06)',
-      stroke: side === 1 ? accent : 'rgba(255,255,255,0.18)',
+      x, y: panelY, w, h: panelH, r: 24,
+      fill: side === 1 ? panelFillHi : panelFill,
+      stroke: side === 1 ? panelStrokeHi : panelStroke,
     });
-    text(ctx, title, x + w / 2, box.y + box.h * 0.24, {
+    text(ctx, title, x + w / 2, titleAt, {
       size: headSize, weight: 700, family: 'Space Grotesk',
       color: side === 1 ? accent : colour, align: 'center', tracking: 2,
     });
@@ -299,7 +308,7 @@ function comparePair(ctx, {
   ctx.save();
   ctx.fillStyle = accent;
   const dx = box.x + w + gap / 2 - 3;
-  ctx.fillRect(dx, box.y, 6, box.h * e);
+  ctx.fillRect(dx, panelY, 6, panelH * e);
   ctx.restore();
 }
 
@@ -349,6 +358,7 @@ function codeTyping(ctx, {
  */
 function barCompare(ctx, {
   box, local, seconds, labels = [], values = [], colour = UI.gold, track = 'rgba(255,255,255,0.12)',
+  dim = UI.faint,
 }) {
   const n = Math.min(labels.length, values.length);
   if (!n) return;
@@ -366,7 +376,7 @@ function barCompare(ctx, {
     const trackX = box.x + labelW;
     const trackW = box.w - labelW - box.w * 0.10;
     text(ctx, labels[i], box.x, y + barH * 0.78, {
-      size: labelSize, weight: 600, family: 'Inter', color: UI.faint,
+      size: labelSize, weight: 600, family: 'Inter', color: dim,
     });
     ctx.save();
     ctx.fillStyle = track;
@@ -374,8 +384,10 @@ function barCompare(ctx, {
     ctx.fillStyle = colour;
     ctx.fillRect(trackX, y, trackW * (Math.abs(values[i]) / top) * e, barH);
     ctx.restore();
+    // The value is printed in the film's ink, not in white: white on pale paper is
+    // a number nobody can read, and on the dark look ink *is* white.
     text(ctx, String(values[i]), trackX + trackW + box.w * 0.02, y + barH * 0.78, {
-      size: labelSize, weight: 700, family: 'Inter', color: UI.white,
+      size: labelSize, weight: 700, family: 'Inter', color: colour,
     });
   }
 }
@@ -423,6 +435,7 @@ function sweepRule(ctx, {
  */
 function stackPush(ctx, {
   box, local, seconds, items = [], slots, colour = UI.white, accent = UI.red, highlight,
+  paper = 'rgba(255,255,255,0.92)', slab = 'rgba(255,255,255,0.34)',
 }) {
   const rows = items.map((item) => (typeof item === 'string' ? { text: item } : item));
   if (!rows.length) return;
@@ -456,7 +469,7 @@ function stackPush(ctx, {
     // light palette produced the first time this was drawn on it.
     panel(ctx, {
       x: box.x, y, w: box.w, h: slabH, r: 18,
-      fill: isHighlight ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.34)',
+      fill: isHighlight ? paper : slab,
       stroke: isHighlight ? accent : 'rgba(18,35,63,0.14)',
     });
     ctx.fillStyle = accent;

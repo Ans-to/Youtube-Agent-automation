@@ -145,7 +145,8 @@
     "before-and-after": {
       "says": "Show what the same thing looked like before, and what it looks like now.",
       "wants": [
-        "compare-pair"
+        "compare-pair",
+        "fork-paths"
       ]
     },
     "show-the-mechanism": {
@@ -508,8 +509,7 @@
       "name": "Ring gauge",
       "purpose": "A claimed number as a dial that sweeps to it, with the unit on the ring.",
       "when": [
-        "explain-a-number",
-        "name-the-thing"
+        "explain-a-number"
       ],
       "avoid": [
         "A number the narration does not say: the dial would be decoration.",
@@ -581,9 +581,7 @@
       "name": "Stamp lockup",
       "purpose": "Impresses the closing phrase onto the frame as a stamped object.",
       "when": [
-        "punchline",
-        "opening-claim",
-        "name-the-thing"
+        "punchline"
       ],
       "avoid": [
         "A long sentence: a stamp holds four or five words, not a clause.",

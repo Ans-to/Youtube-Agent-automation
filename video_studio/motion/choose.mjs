@@ -64,7 +64,9 @@ export const SITUATIONS = {
   },
   'before-and-after': {
     says: 'Show what the same thing looked like before, and what it looks like now.',
-    wants: ['compare-pair'],
+    // A fork shows one thing becoming two, which is a before and an after when
+    // the two branches come from the same source; a pair shows two states side by side.
+    wants: ['compare-pair', 'fork-paths'],
   },
   'show-the-mechanism': {
     says: 'Reveal how something works by showing the actual commands or code.',

@@ -50,11 +50,6 @@ Move the light if you can. Move yourself
 if you cannot.
 
 12
-00:00:53,353 --> 00:00:58,287
-One light, one front, one behind. Then
-take the photo.
-
-13
-00:00:59,837 --> 00:01:03,278
+00:00:53,353 --> 00:00:56,793
 Find the light first. Then find the
 subject.

@@ -41,10 +41,6 @@ Same hours. A skill in a year, or a skill
 in a month. One you keep.
 
 10
-00:00:52,108 --> 00:00:55,233
-Ten minutes, one skill, every day.
-
-11
-00:00:56,783 --> 00:01:00,131
+00:00:52,108 --> 00:00:55,456
 Start the timer today. Ten minutes is
 enough.

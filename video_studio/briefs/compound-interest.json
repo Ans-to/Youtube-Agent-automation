@@ -25,10 +25,9 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The claim",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "Your money does not grow in a line"
       },
@@ -41,10 +40,9 @@
     {
       "id": "number",
       "kind": "section",
-      "heading": "The number",
+      "heading": "The rate",
       "situation": "explain-a-number",
-      "template": "ring-gauge",
-      "region": "wide",
+      "template": "count-up",
       "props": {
         "value": 7,
         "label": "percent"
@@ -64,7 +62,6 @@
       "heading": "The difference",
       "situation": "make-a-comparison",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "Simple interest",
         "right": "Compound"
@@ -82,9 +79,8 @@
       "id": "mechanism",
       "kind": "section",
       "heading": "The decades",
-      "situation": "show-the-mechanism",
+      "situation": "show-a-sequence",
       "template": "budget-rail",
-      "region": "wide",
       "props": {
         "segments": [
           {
@@ -96,7 +92,7 @@
             "value": 20
           },
           {
-            "label": "Last ten",
+            "label": "Last ten years",
             "value": 10
           }
         ],
@@ -119,8 +115,7 @@
       "kind": "section",
       "heading": "The rules",
       "situation": "show-criteria",
-      "template": "matrix-grid",
-      "region": "wide",
+      "template": "list-build",
       "props": {
         "items": [
           "Start early",
@@ -140,10 +135,9 @@
     {
       "id": "payoff",
       "kind": "section",
-      "heading": "The payoff",
+      "heading": "When to start",
       "situation": "before-and-after",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "Ten years early",
         "right": "Ten years late"
@@ -155,32 +149,11 @@
       ]
     },
     {
-      "id": "recap",
-      "kind": "recap",
-      "heading": "Recap",
-      "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
-      "props": {
-        "items": [
-          "Early",
-          "Kept",
-          "Quiet"
-        ]
-      },
-      "lines": [
-        {
-          "text": "Early, kept, quiet. That is the whole strategy."
-        }
-      ]
-    },
-    {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "Today",
       "situation": "punchline",
       "template": "stamp-lockup",
-      "region": "statement",
       "props": {
         "text": "Start ten years ago"
       },

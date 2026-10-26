@@ -313,7 +313,9 @@ function forkPaths(ctx, {
  */
 function matrixGrid(ctx, {
   box, local, seconds, items = [], slots, colour = UI.white, accent = UI.gold,
+  tile: tileColour,
 }) {
+  const tile = tileColour || 'rgba(255,255,255,0.55)';
   const rows = items.map((item) => (typeof item === 'string' ? { name: item } : item));
   if (!rows.length) return;
   const count = Math.max(rows.length, Number(slots) || 0);
@@ -368,7 +370,7 @@ function matrixGrid(ctx, {
     ctx.globalAlpha = ctx.globalAlpha * clamp(p * 1.6) * focus;
     slab(ctx, {
       x, y: y + lift, w: tileW, h: tileH, r: 18,
-      fill: i === active ? 'rgba(180,118,42,0.14)' : 'rgba(255,255,255,0.55)',
+      fill: i === active ? 'rgba(180,118,42,0.14)' : tile,
       stroke: i === active ? accent : hair(0.22),
     });
     // The number chip, set in the corner like a plate number.
@@ -745,6 +747,7 @@ function budgetRail(ctx, {
  */
 function commandConsole(ctx, {
   box, local, seconds, lines = [], colour = UI.white, accent = UI.gold,
+  paper = 'rgba(255,255,255,0.82)',
 }) {
   if (!lines.length) return;
   // A terminal is a tall object, not a search bar. At 0.6 of the region's height
@@ -760,7 +763,7 @@ function commandConsole(ctx, {
   ctx.globalAlpha = ctx.globalAlpha * appear;
   panel(ctx, {
     x: win.x, y: win.y, w: win.w, h: win.h, r: 22,
-    fill: 'rgba(255,255,255,0.82)', stroke: hair(0.28),
+    fill: paper, stroke: hair(0.28),
   });
   // Title bar with three dots: the window is a device the viewer recognises, and
   // it says "this is running" without a word.
@@ -987,7 +990,7 @@ export const STRUCTURES = [
     id: 'ring-gauge',
     name: 'Ring gauge',
     purpose: 'A claimed number as a dial that sweeps to it, with the unit on the ring.',
-    when: ['explain-a-number', 'name-the-thing'],
+    when: ['explain-a-number'],
     avoid: [
       'A number the narration does not say: the dial would be decoration.',
       'Two numbers on one beat: one dial, one figure.',
@@ -1021,7 +1024,7 @@ export const STRUCTURES = [
     id: 'stamp-lockup',
     name: 'Stamp lockup',
     purpose: 'Impresses the closing phrase onto the frame as a stamped object.',
-    when: ['punchline', 'opening-claim', 'name-the-thing'],
+    when: ['punchline'],
     avoid: [
       'A long sentence: a stamp holds four or five words, not a clause.',
       'Anywhere but the end of an argument: a stamp is a verdict.',

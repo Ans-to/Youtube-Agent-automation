@@ -28,7 +28,6 @@
       "heading": "The situation",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "Your phone says twenty percent"
       },
@@ -39,35 +38,11 @@
       ]
     },
     {
-      "id": "stake",
-      "kind": "stake",
-      "heading": "Why it matters",
-      "situation": "before-and-after",
-      "template": "fork-paths",
-      "region": "spread",
-      "props": {
-        "left": "A dying cell",
-        "right": "A lying gauge"
-      },
-      "lines": [
-        {
-          "text": "You blame a dying cell. The problem is a lying gauge."
-        },
-        {
-          "text": "The gauge reads voltage, and voltage sags under load."
-        },
-        {
-          "text": "That is the trick."
-        }
-      ]
-    },
-    {
       "id": "number",
       "kind": "section",
-      "heading": "The budget",
+      "heading": "The readout",
       "situation": "explain-a-number",
-      "template": "ring-gauge",
-      "region": "wide",
+      "template": "count-up",
       "props": {
         "value": 20,
         "label": "percent"
@@ -79,12 +54,30 @@
       ]
     },
     {
+      "id": "stake",
+      "kind": "stake",
+      "heading": "The wrong blame",
+      "situation": "state-the-thesis",
+      "template": "fork-paths",
+      "props": {
+        "left": "A dying cell",
+        "right": "A lying gauge"
+      },
+      "lines": [
+        {
+          "text": "You blame a dying cell. The problem is a lying gauge."
+        },
+        {
+          "text": "The gauge reads voltage, and voltage sags under load."
+        }
+      ]
+    },
+    {
       "id": "checks",
       "kind": "section",
-      "heading": "The three checks",
+      "heading": "The three causes",
       "situation": "show-criteria",
       "template": "matrix-grid",
-      "region": "wide",
       "props": {
         "items": [
           "A cheap cable drops the voltage",
@@ -107,26 +100,20 @@
     {
       "id": "mechanism",
       "kind": "section",
-      "heading": "How it is spent",
-      "situation": "show-the-mechanism",
-      "template": "budget-rail",
-      "region": "wide",
+      "heading": "What it costs",
+      "situation": "explain-a-number",
+      "template": "bar-compare",
       "props": {
-        "segments": [
-          {
-            "label": "Voltage sag",
-            "value": 45
-          },
-          {
-            "label": "Cold",
-            "value": 20
-          },
-          {
-            "label": "Age",
-            "value": 35
-          }
+        "labels": [
+          "Voltage sag",
+          "Cold",
+          "Age"
         ],
-        "total": 100
+        "values": [
+          45,
+          20,
+          35
+        ]
       },
       "lines": [
         {
@@ -146,7 +133,6 @@
       "heading": "One check",
       "situation": "show-the-command",
       "template": "command-console",
-      "region": "wide",
       "props": {
         "lines": [
           "battery health"
@@ -162,52 +148,11 @@
       ]
     },
     {
-      "id": "payoff",
-      "kind": "section",
-      "heading": "The fix",
-      "situation": "make-a-comparison",
-      "template": "compare-pair",
-      "region": "split",
-      "props": {
-        "left": "Replace the cable",
-        "right": "Replace the cell"
-      },
-      "lines": [
-        {
-          "text": "Replace the cable if the sag is sudden. Replace the cell if the cell is old."
-        }
-      ]
-    },
-    {
-      "id": "recap",
-      "kind": "recap",
-      "heading": "Recap",
-      "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
-      "props": {
-        "items": [
-          "Gauge",
-          "Cable",
-          "Cell"
-        ]
-      },
-      "lines": [
-        {
-          "text": "Gauge, cable, cell."
-        },
-        {
-          "text": "Check them in that order."
-        }
-      ]
-    },
-    {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "The fix",
       "situation": "punchline",
-      "template": "stamp-lockup",
-      "region": "statement",
+      "template": "kinetic-headline",
       "props": {
         "text": "Check the cable first"
       },

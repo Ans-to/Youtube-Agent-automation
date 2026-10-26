@@ -65,6 +65,16 @@ const WORDS_PER_SECOND = 2.6;  // measured narration pace; used only without a v
 // halfway through the list (list-build to stack-push and back) makes the whole
 // list jump between two arrangements every two seconds.
 const ROW_TEMPLATES = new Set(['list-build', 'stack-push', 'code-typing', 'matrix-grid', 'budget-rail']);
+
+// Templates that draw one object and then hold it: a number, a dial, a fork, a
+// pair, a console, a stamp. None of them has a "next piece" to reveal, so a
+// section that uses one is *one picture*, on the section's clock, from the first
+// frame to the last. Cutting such a section into beats is what made a dial count
+// from zero twice and a fork grow its branches, restart, and grow them again.
+const SECTION_PICTURE = new Set([
+  'count-up', 'ring-gauge', 'compare-pair', 'bar-compare', 'fork-paths',
+  'command-console', 'stamp-lockup',
+]);
 const TARGET_BEAT = 1.8;
 const MAX_BEAT = 2.4;
 const PAD_HEAD = 0.28;
@@ -373,7 +383,7 @@ function withinBand(id, seconds) {
  * times and a section that makes three different pictures out of it - the fault
  * that made the first generated cut fail its composition and hold gates.
  */
-function templateForBeat(section, candidates, seconds, previous, recent, beatIndex) {
+function templateForBeat(section, candidates, seconds, previous, recent, beatIndex, span) {
   // A section that named its template gets that template on every beat. Swapping
   // the picture halfway through a section is not variety, it is a jump cut inside
   // a thought: the diagram grows, it does not become a different diagram.
@@ -381,7 +391,15 @@ function templateForBeat(section, candidates, seconds, previous, recent, beatInd
     if (!candidates.includes(section.template)) {
       throw new Error(`section ${section.id}: ${section.template} cannot draw with the props given`);
     }
-    if (!withinBand(section.template, seconds)) {
+    // A single-picture template is allowed to hold for the length of its own
+    // section: the picture arrives once, on the section's clock, and stays while
+    // the narrator finishes the sentence. Its window still bounds the *arrival*,
+    // and a hold beyond a sensible multiple of it means the section is carrying
+    // more than one picture's worth of argument, so that is refused.
+    const whole = SECTION_PICTURE.has(section.template)
+      && seconds >= (span ?? Infinity) - 0.02
+      && seconds <= Math.min(11, TEMPLATES.get(section.template).maxSeconds * 2.2);
+    if (!withinBand(section.template, seconds) && !whole) {
       const meta = TEMPLATES.get(section.template);
       throw new Error(
         `section ${section.id}: ${section.template} takes ${meta.minSeconds}-${meta.maxSeconds}s beats, `
@@ -536,7 +554,13 @@ function buildSections(brief, timings) {
     let lengths;
     const codeLines = section.template === 'code-typing' && Array.isArray(section.props?.lines)
       ? section.props.lines.length : 0;
-    if (codeLines === 1 && seconds <= 6.0) {
+    if (section.template && SECTION_PICTURE.has(section.template)) {
+      // One picture for the whole section. Its own draw phase is capped inside
+      // the template, so a long section does not mean a slow drawing - it means
+      // the picture arrives, says what it has to say, and is held while the
+      // narration finishes the thought.
+      lengths = [seconds];
+    } else if (codeLines === 1 && seconds <= 6.0) {
       // One command is one picture. Cutting it in two would retype the same line
       // on the next beat, and a typing animation that restarts reads as a glitch.
       lengths = [seconds];
@@ -577,7 +601,7 @@ function buildSections(brief, timings) {
       }
       const chosen = staged
         ? staged
-        : templateForBeat(section, candidates, length, previousTemplate, recentTemplates, beatIndex);
+        : templateForBeat(section, candidates, length, previousTemplate, recentTemplates, beatIndex, seconds);
       // One list, one layout. The beat still changes - a new row arrives - but the
       // arrangement may not.
       const template = rowTemplateLock && ROW_TEMPLATES.has(chosen) ? rowTemplateLock : chosen;
@@ -636,6 +660,12 @@ const BRIEF = loadBrief(OPTS.brief);
 const TIMINGS = loadLineTimings(OPTS.voiceLines);
 const SECTIONS = buildSections(BRIEF, TIMINGS);
 const SHOTS = SECTIONS.flatMap((section) => section.beats.map((beat) => ({ ...beat, section })));
+
+// Palette-derived tones. Declared here because the first call to themedProps()
+// happens at module scope, when every beat's on-screen text is recorded - the
+// bar-compare branch reached them before their own declaration and threw.
+const hair = (palette) => (palette.dark ? 'rgba(255,255,255,0.16)' : 'rgba(18,35,63,0.14)');
+const kicker = (palette) => (palette.dark ? 'rgba(255,255,255,0.62)' : 'rgba(18,35,63,0.62)');
 
 /**
  * What each beat prints, in one string.
@@ -713,7 +743,6 @@ for (const section of SECTIONS) {
 }
 
 // ------------------------------------------------------------------ creative
-const hair = (palette) => (palette.dark ? 'rgba(255,255,255,0.16)' : 'rgba(18,35,63,0.14)');
 
 /**
  * The colours a template draws in, from the film's palette.
@@ -725,12 +754,27 @@ const hair = (palette) => (palette.dark ? 'rgba(255,255,255,0.16)' : 'rgba(18,35
  * still wins.
  */
 function themedProps(template, section, palette) {
-  const theme = { colour: palette.ink, accent: palette.accent };
+  // Surfaces, not just two colours. Every template in the library was drawn on a
+  // dark field first, so a white panel at six percent was its idea of a card -
+  // and on pale paper that is nothing at all: the left half of a comparison
+  // disappeared and a console was a stroke with no window behind it. The theme
+  // now carries the surface tokens each look actually needs.
+  const theme = {
+    colour: palette.ink,
+    accent: palette.accent,
+    dim: palette.caption,
+    paper: palette.dark ? 'rgba(255,255,255,0.90)' : '#FFFFFF',
+    slab: palette.dark ? 'rgba(255,255,255,0.34)' : 'rgba(255,255,255,0.85)',
+    tile: palette.dark ? 'rgba(255,255,255,0.55)' : 'rgba(255,255,255,0.88)',
+    panelFill: palette.dark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.72)',
+    panelFillHi: palette.dark ? 'rgba(242,194,48,0.14)' : 'rgba(180,118,42,0.10)',
+    panelStroke: palette.dark ? 'rgba(255,255,255,0.18)' : 'rgba(18,35,63,0.20)',
+    panelStrokeHi: palette.dark ? 'rgba(242,194,48,0.9)' : 'rgba(180,118,42,0.85)',
+  };
   if (template === 'kinetic-headline') theme.subColour = palette.accent;
   if (template === 'bar-compare') theme.track = hair(palette);
   return { ...theme, ...(section.props || {}) };
 }
-const kicker = (palette) => (palette.dark ? 'rgba(255,255,255,0.62)' : 'rgba(18,35,63,0.62)');
 
 /**
  * The chrome every beat carries: which chapter this is, and how far through the
@@ -759,20 +803,6 @@ function chrome(ctx, shot, sectionLocal) {
   text(ctx, section.heading.toUpperCase(), margin + numberWidth + H * 0.018, top + H * 0.016, {
     size: Math.round(H * 0.021), weight: 600, family: 'Inter',
     color: kicker(section.palette), tracking: 5,
-  });
-  ctx.restore();
-
-  // A big, quiet numeral in the empty right column. It drifts for the whole
-  // section, which is what guarantees that no two frames a second apart are
-  // identical even when a template has finished its arrival and is holding a
-  // sentence - and it sits in a part of the frame no template uses.
-  const drift = clamp(sectionLocal / Math.max(0.001, section.seconds));
-  ctx.save();
-  // Lower right, under everything the templates use and above the caption band.
-  ctx.globalAlpha = ctx.globalAlpha * (section.palette.dark ? 0.12 : 0.085);
-  text(ctx, String(section.index).padStart(2, '0'), W * 0.958, H * (0.815 + drift * 0.035), {
-    size: Math.round(H * 0.135), weight: 700, family: 'Space Grotesk',
-    color: section.palette.ink, align: 'right',
   });
   ctx.restore();
 
@@ -1094,28 +1124,10 @@ function secondUnit(ctx, section, sectionLocal, palette) {
   // frame-difference gate almost nothing to see between arrivals - measured, 88%
   // of frames read as static - so the field itself has to be alive. Both are
   // slow, both are wide, neither competes with the words.
-  // A progress arc around the chapter numeral: it reads as the section's own
-  // clock rather than as a shape someone left on the frame, and it is always
-  // turning. The numeral stays the subject; the arc is its timer.
-  const sweepProgress = clamp(t / Math.max(0.001, section.seconds));
-  const arcX = W * 0.905;
-  const arcY = H * 0.845;
-  const arcR = H * 0.085;
-  ctx.save();
-  ctx.globalAlpha = ctx.globalAlpha * 0.10;
-  ctx.strokeStyle = palette.ink;
-  ctx.lineWidth = W * 0.0035;
-  ctx.beginPath();
-  ctx.arc(arcX, arcY, arcR, 0, Math.PI * 2);
-  ctx.stroke();
-  ctx.globalAlpha = ctx.globalAlpha * 0.42;
-  ctx.strokeStyle = palette.accent;
-  ctx.lineWidth = W * 0.005;
-  ctx.beginPath();
-  ctx.arc(arcX, arcY, arcR, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.02, sweepProgress));
-  ctx.stroke();
-  ctx.restore();
-
+  // Progress has one home, and it is the chapter rule across the top. There used
+  // to be a second clock down here - an arc that filled over the section - and at
+  // the end of a chapter it was a near-complete circle stranded in the margin,
+  // saying the same thing twice. Removed.
   // A soft column of light crossing the frame, with a measuring line at its
   // leading edge. It runs *behind* the artwork, so it lights the ground the
   // diagram sits on instead of slicing the diagram - which is what the old
@@ -1194,7 +1206,7 @@ function secondUnit(ctx, section, sectionLocal, palette) {
     const pulse = 0.22 + 0.78 * Math.abs(Math.sin((t / (period * 0.72)) * Math.PI + i * 1.1));
     const height = H * 0.062 * pulse;
     ctx.save();
-    ctx.globalAlpha = ctx.globalAlpha * 0.45;
+    ctx.globalAlpha = ctx.globalAlpha * 0.30;
     ctx.fillStyle = i % 2 === 0 ? palette.accent : palette.ink;
     ctx.fillRect(meterX + i * W * 0.0105, H * 0.30 - height, W * 0.0055, height);
     ctx.restore();
@@ -1237,103 +1249,65 @@ function ambientArt(ctx, section, sectionLocal, palette) {
   const t = sectionLocal;
   const ink = palette.ink;
   const accent = palette.accent;
-  const alpha = (value) => { ctx.globalAlpha = ctx.globalAlpha * value; };
+  const alpha = (value) => { ctx.globalAlpha = ctx.globalAlpha * value * 0.55; };
+  // Texture, not objects. The first version of this layer drew a ring, an arc, a
+  // rotated plate and a row of bars behind the diagram - and at 720p they read as
+  // shapes floating in the frame for no reason, which is exactly the "looks like a
+  // template" note. What is left is four things paper can do: a dot field, ruled
+  // hairlines, a tonal wash off an edge, and a hatch. None of them is a thing.
   const families = [
-    // A ring and an arc: the film's measuring motif, off the right edge.
-    (shift) => {
-      const cx = W * (0.84 + 0.05 * Math.sin(t * 0.34)) - shift * W * 0.10;
-      const cy = H * (0.34 + 0.020 * Math.cos(t * 0.27)) + shift * H * 0.16;
-      ctx.save();
-      ctx.strokeStyle = ink;
-      alpha(0.09);
-      ctx.lineWidth = W * 0.012;
-      ctx.beginPath();
-      ctx.arc(cx, cy, W * 0.20, 0, Math.PI * 2);
-      ctx.stroke();
-      ctx.strokeStyle = accent;
-      alpha(0.32);
-      ctx.lineWidth = W * 0.005;
-      ctx.beginPath();
-      ctx.arc(cx, cy, W * 0.20, -Math.PI * 0.5 + t * 0.12, Math.PI * 0.1 + t * 0.12);
-      ctx.stroke();
-      ctx.restore();
-    },
-    // Two plates crossing: a diptych behind the sentence.
-    (shift) => {
-      ctx.save();
-      ctx.translate(W * (0.74 + 0.014 * Math.sin(t * 0.21)) - shift * W * 0.08,
-        H * (0.30 + shift * 0.18));
-      ctx.rotate(-0.32 + 0.020 * Math.sin(t * 0.18) + shift * 0.22);
-      ctx.fillStyle = ink;
-      alpha(0.085);
-      ctx.fillRect(-W * 0.11, -H * 0.30, W * 0.22, H * 0.60);
-      ctx.fillStyle = accent;
-      alpha(0.22);
-      ctx.fillRect(W * 0.02, -H * 0.22, W * 0.05, H * 0.44);
-      ctx.restore();
-    },
-    // A dotted field with a hard rule through it: the ledger motif.
-    (shift) => {
+    // A drift of fine dots, thinning away from the edge it bleeds from.
+    () => {
+      const drift = (t * H * 0.004) % (H * 0.72);
       ctx.save();
       ctx.fillStyle = ink;
-      alpha(0.18);
-      ctx.translate(0, shift * H * 0.10);
-      for (let i = 0; i < 90; i += 1) {
-        const seed = hash01(i + 1);
-        const x = W * (0.62 + hash01(i * 2 + 11) * 0.36);
-        const y = H * (0.14 + hash01(i * 2 + 12) * 0.62) + Math.sin(t * 0.55 + i) * H * 0.008;
-        const size = Math.max(1.5, H * (0.002 + seed * 0.003));
+      for (let i = 0; i < 130; i += 1) {
+        const seed = hash01(i * 1.7 + 3);
+        const x = W * (0.56 + hash01(i * 3 + 7) * 0.42);
+        const y = H * 0.10 + ((hash01(i * 5 + 1) * H * 0.72 + drift) % (H * 0.72));
+        const size = Math.max(1.2, H * (0.0014 + seed * 0.0026));
+        alpha(0.14 + seed * 0.12);
         ctx.fillRect(x, y, size, size);
       }
-      ctx.fillStyle = accent;
-      alpha(0.26);
-      ctx.fillRect(W * 0.70, H * (0.16 + 0.035 * Math.sin(t * 0.24)), W * 0.0016, H * 0.52);
       ctx.restore();
     },
-    // A stack of rules: the ledger's page, three hairlines of different length
-    // sliding past each other. Quiet, and nothing like the plate or the ring.
+    // Ruled hairlines, like the edge of a printed page.
     (shift) => {
       ctx.save();
       ctx.fillStyle = ink;
-      for (let i = 0; i < 3; i += 1) {
-        const w = W * (0.20 - i * 0.045);
-        const x = W * (0.80 + 0.02 * Math.sin(t * 0.23 + i)) + shift * W * 0.05;
-        const y = H * (0.20 + i * 0.09) + shift * H * 0.10;
-        alpha(i === 0 ? 0.16 : 0.10);
-        ctx.fillRect(x, y, w, Math.max(2, H * 0.0035));
+      for (let i = 0; i < 14; i += 1) {
+        const w = W * (0.30 - (i / 14) * 0.17);
+        const x = W * 0.66 + shift * W * 0.03;
+        const y = H * (0.16 + i * 0.052) + Math.sin(t * 0.18 + i * 0.4) * H * 0.004;
+        alpha(i % 4 === 0 ? 0.24 : 0.12);
+        ctx.fillRect(x, y, w, Math.max(1.5, H * 0.0016));
       }
-      ctx.fillStyle = accent;
-      alpha(0.30);
-      ctx.fillRect(W * 0.80 + shift * W * 0.05, H * 0.20 + shift * H * 0.10,
-        W * 0.006, H * 0.026);
       ctx.restore();
     },
-    // An open arc and a solid square: the decision motif, without the diagram.
+    // A tonal wash bleeding off the right edge: light falling across the page.
+    () => {
+      const x = W * 0.58;
+      const g = ctx.createLinearGradient(x, 0, W, 0);
+      g.addColorStop(0, `rgba(${rgb(ink)},0)`);
+      g.addColorStop(1, `rgba(${rgb(ink)},${palette.dark ? 0.16 : 0.10})`);
+      ctx.save();
+      ctx.fillStyle = g;
+      ctx.fillRect(x, 0, W - x, H);
+      ctx.restore();
+    },
+    // A hatch, half off the frame: the texture of a printed swatch.
     (shift) => {
       ctx.save();
-      const cx = W * (0.93 + 0.015 * Math.sin(t * 0.19)) - shift * W * 0.06;
-      const cy = H * (0.62 + 0.02 * Math.cos(t * 0.15)) + shift * H * 0.10;
       ctx.strokeStyle = ink;
-      alpha(0.12);
-      ctx.lineWidth = W * 0.014;
-      ctx.beginPath();
-      ctx.arc(cx, cy, W * 0.15, Math.PI * 0.15, Math.PI * 1.35);
-      ctx.stroke();
-      ctx.fillStyle = accent;
-      alpha(0.26);
-      ctx.fillRect(cx - W * 0.01, cy - W * 0.115, W * 0.02, W * 0.02);
-      ctx.restore();
-    },
-    // Stacked bars: the measure motif, half off the frame.
-    (shift) => {
-      ctx.save();
-      const base = H * (0.60 - shift * 0.14);
-      for (let i = 0; i < 5; i += 1) {
-        const level = 0.35 + 0.3 * Math.abs(Math.sin(t * 0.27 + i * 0.9));
-        const h = H * 0.26 * level;
-        ctx.fillStyle = i % 2 ? accent : ink;
-        alpha(i % 2 ? 0.24 : 0.10);
-        ctx.fillRect(W * (0.80 + i * 0.042), base - h, W * 0.028, h);
+      ctx.lineWidth = Math.max(1.2, H * 0.0014);
+      alpha(0.13);
+      const step = W * 0.034;
+      for (let i = 0; i < 18; i += 1) {
+        const x = W * (0.62 + shift * 0.03) + i * step;
+        ctx.beginPath();
+        ctx.moveTo(x, H * 1.02);
+        ctx.lineTo(x + H * 0.52, H * 0.06);
+        ctx.stroke();
       }
       ctx.restore();
     },
@@ -1350,15 +1324,11 @@ function ambientArt(ctx, section, sectionLocal, palette) {
   // loses the ring family, and one whose beats use the rail loses the bars.
   const idioms = new Set((section.beats || []).map((beat) => beat.template));
   const banned = new Set();
-  if (idioms.has('ring-gauge')) banned.add(0);
-  if (idioms.has('budget-rail') || idioms.has('matrix-grid')) banned.add(5);
-  if (idioms.has('fork-paths')) banned.add(4);
-  // A ring behind everything is fine on a card beat and wrong on a beat whose
-  // subject is a dial or a rail: the guide ring then reads as part of the measure
-  // and there are two circles or two bars in the picture. Ambient art is scenery;
-  // it must never compete with the object the sentence is about.
-  if (idioms.has('ring-gauge') || idioms.has('budget-rail') || idioms.has('stamp-lockup')) {
-    banned.add(0);
+  // A row of rules behind a diagram that is itself a row of rules (a rail, a
+  // grid, a list) doubles the line count and the eye cannot tell which one is the
+  // information. Ambient art is scenery; it never competes with the subject.
+  if (idioms.has('budget-rail') || idioms.has('matrix-grid') || idioms.has('list-build')) {
+    banned.add(1);
   }
   const allowed = families.map((_, i) => i).filter((i) => !banned.has(i));
   const pick = (n) => allowed[(section.index + n) % allowed.length];
@@ -1414,19 +1384,6 @@ function motionField(ctx, section, sectionLocal, palette) {
     ctx.fillRect(x, y, size, size);
     ctx.restore();
   }
-
-  // The meter: four bars, four periods, never in step.
-  const periods = [0.83, 1.07, 1.31, 1.61];
-  const baseY = H * 0.70;
-  periods.forEach((period, i) => {
-    const level = 0.25 + 0.75 * Math.abs(Math.sin((t / period) * Math.PI + i * 0.7));
-    const height = H * 0.075 * level;
-    ctx.save();
-    ctx.globalAlpha = ctx.globalAlpha * 0.34;
-    ctx.fillStyle = i % 2 ? palette.ink : palette.accent;
-    ctx.fillRect(W * (0.895 + i * 0.021), baseY - height, W * 0.011, height);
-    ctx.restore();
-  });
 
   // The line rail that used to sit here is gone: three separate layers had each
   // grown a progress bar along the bottom left, and at 720p they read as two
@@ -1548,7 +1505,7 @@ function paint(target, shot, at) {
   // its entrance on every new beat, so the list flickers and two rows overlap
   // mid-slide. Those templates get the section's clock instead - the rows arrive
   // once, in order, and stay put for the rest of the section.
-  const rowTemplate = ROW_TEMPLATES.has(shot.template);
+  const rowTemplate = ROW_TEMPLATES.has(shot.template) || SECTION_PICTURE.has(shot.template);
   const templateLocal = rowTemplate ? sectionLocal : beatLocal;
   const templateSeconds = rowTemplate ? section.seconds : shot.seconds;
   target.save();

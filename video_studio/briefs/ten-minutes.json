@@ -25,10 +25,9 @@
     {
       "id": "open",
       "kind": "hook",
-      "heading": "The situation",
+      "heading": "The claim",
       "situation": "opening-claim",
       "template": "kinetic-headline",
-      "region": "statement",
       "props": {
         "text": "Ten minutes beats a weekend"
       },
@@ -42,9 +41,8 @@
       "id": "number",
       "kind": "section",
       "heading": "The number",
-      "situation": "explain-a-number",
-      "template": "ring-gauge",
-      "region": "wide",
+      "situation": "name-the-thing",
+      "template": "count-up",
       "props": {
         "value": 10,
         "label": "minutes"
@@ -58,10 +56,9 @@
     {
       "id": "stake",
       "kind": "stake",
-      "heading": "Why it matters",
-      "situation": "make-a-comparison",
+      "heading": "The comparison",
+      "situation": "before-and-after",
       "template": "compare-pair",
-      "region": "split",
       "props": {
         "left": "One weekend marathon",
         "right": "Ten minutes daily"
@@ -76,9 +73,8 @@
       "id": "checks",
       "kind": "section",
       "heading": "The rules",
-      "situation": "show-criteria",
-      "template": "matrix-grid",
-      "region": "wide",
+      "situation": "show-a-sequence",
+      "template": "stack-push",
       "props": {
         "items": [
           "Pick one skill",
@@ -98,10 +94,9 @@
     {
       "id": "mechanism",
       "kind": "section",
-      "heading": "The split",
+      "heading": "The block",
       "situation": "show-the-mechanism",
       "template": "budget-rail",
-      "region": "wide",
       "props": {
         "segments": [
           {
@@ -131,10 +126,9 @@
     {
       "id": "build",
       "kind": "section",
-      "heading": "What builds",
+      "heading": "What stacks",
       "situation": "build-an-argument",
-      "template": "stack-push",
-      "region": "stage",
+      "template": "list-build",
       "props": {
         "items": [
           "One rep",
@@ -152,9 +146,8 @@
       "id": "payoff",
       "kind": "section",
       "heading": "The payoff",
-      "situation": "before-and-after",
+      "situation": "make-a-comparison",
       "template": "fork-paths",
-      "region": "spread",
       "props": {
         "left": "A skill in a year",
         "right": "A skill in a month"
@@ -166,32 +159,11 @@
       ]
     },
     {
-      "id": "recap",
-      "kind": "recap",
-      "heading": "Recap",
-      "situation": "recap",
-      "template": "matrix-grid",
-      "region": "wide",
-      "props": {
-        "items": [
-          "Ten minutes",
-          "One skill",
-          "Every day"
-        ]
-      },
-      "lines": [
-        {
-          "text": "Ten minutes, one skill, every day."
-        }
-      ]
-    },
-    {
       "id": "outro",
       "kind": "outro",
-      "heading": "Next",
+      "heading": "Today",
       "situation": "punchline",
       "template": "stamp-lockup",
-      "region": "statement",
       "props": {
         "text": "Start the timer today"
       },
