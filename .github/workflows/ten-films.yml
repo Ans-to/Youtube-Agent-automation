@@ -54,9 +54,11 @@ env:
 jobs:
   plan:
     name: Work out which films to render
+    # '[render' rather than '[render]': a marker that names its films is
+    # '[render:battery-twenty]', which does not contain the bracketed word.
     if: >-
       github.event_name == 'workflow_dispatch'
-      || contains(github.event.head_commit.message, '[render]')
+      || contains(github.event.head_commit.message, '[render')
     runs-on: ubuntu-24.04
     outputs:
       matrix: ${{ steps.list.outputs.matrix }}
