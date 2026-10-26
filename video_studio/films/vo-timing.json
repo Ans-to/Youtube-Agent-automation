@@ -1,50 +1,50 @@
 [
   {
     "shot": "hook-01-ringing",
-    "text": "One phone, in a dark room.",
-    "file": "/tmp/vo/00-hook-01-ringing.wav",
-    "vo": 1.681
+    "text": "It starts with a phone, in a dark room, ringing.",
+    "file": "/tmp/vo3/00-hook-01-ringing.wav",
+    "vo": 2.844
   },
   {
     "shot": "hook-02-cities",
-    "text": "It rang in pockets in every city on earth.",
-    "file": "/tmp/vo/01-hook-02-cities.wav",
-    "vo": 2.619
+    "text": "In a hundred countries, at the same moment, it is in someone's pocket.",
+    "file": "/tmp/vo3/01-hook-02-cities.wav",
+    "vo": 4.534
   },
   {
     "shot": "hook-03-world",
-    "text": "One in three phones sold in the world carried this name.",
-    "file": "/tmp/vo/02-hook-03-world.wav",
-    "vo": 3.316
+    "text": "One in three phones sold anywhere on earth carries this name.",
+    "file": "/tmp/vo3/02-hook-03-world.wav",
+    "vo": 3.736
   },
   {
     "shot": "hook-04-turn",
-    "text": "Then the phone stopped being a phone. It became a computer.",
-    "file": "/tmp/vo/03-hook-04-turn.wav",
-    "vo": 3.422
+    "text": "Then, quietly, the phone stops being a phone. It becomes a computer.",
+    "file": "/tmp/vo3/03-hook-04-turn.wav",
+    "vo": 4.455
   },
   {
     "shot": "hook-05-alone",
-    "text": "Nokia answered late, and then it stopped.",
-    "file": "/tmp/vo/04-hook-05-alone.wav",
-    "vo": 2.505
+    "text": "Nokia saw it coming. It simply answered too late.",
+    "file": "/tmp/vo3/04-hook-05-alone.wav",
+    "vo": 3.276
   },
   {
     "shot": "history-01-mill",
-    "text": "It began in 1865, with a paper mill in a small Finnish town.",
-    "file": "/tmp/vo/05-history-01-mill.wav",
-    "vo": 5.921
+    "text": "The company began in eighteen sixty-five, with a paper mill in a Finnish town.",
+    "file": "/tmp/vo3/05-history-01-mill.wav",
+    "vo": 5.217
   },
   {
     "shot": "history-02-trades",
-    "text": "Paper, rubber, cables, electronics. One company, four industries.",
-    "file": "/tmp/vo/06-history-02-trades.wav",
-    "vo": 4.735
+    "text": "Paper, then rubber, cables, electronics. One company, four industries.",
+    "file": "/tmp/vo3/06-history-02-trades.wav",
+    "vo": 5.243
   },
   {
     "shot": "history-03-rise",
-    "text": "By 2007 it was the largest phone maker on earth. Then the ground moved.",
-    "file": "/tmp/vo/07-history-03-rise.wav",
-    "vo": 5.922
+    "text": "By two thousand and seven it was the largest phone maker in the world. Then the ground moved.",
+    "file": "/tmp/vo3/07-history-03-rise.wav",
+    "vo": 6.662
   }
 ]

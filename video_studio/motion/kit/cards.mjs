@@ -212,9 +212,18 @@ export const cards = {
     ctx.globalAlpha = 1;
     setText(ctx, 15, 700, 'Inter', ink, 'left');
     const measure = ctx.measureText(value).width;
-    const offset = -((p * 1.4 * speed) % 1) * (measure + 60);
+    const step = measure + 78;
+    const offset = -((p * 1.4 * speed) % 1) * step;
     for (let i = 0; i < 3; i += 1) {
-      ctx.fillText(value, x + offset + i * (measure + 60), y);
+      const at = x + offset + i * step;
+      ctx.fillText(value, at, y);
+      // Without a separator the next copy's first word ran into this one's last
+      // word, so the band read as one line repeated by mistake.
+      ctx.beginPath();
+      ctx.arc(at + measure + 34, y - 5, 3.2, 0, Math.PI * 2);
+      ctx.fillStyle = accent;
+      ctx.fill();
+      ctx.fillStyle = ink;
     }
     ctx.restore();
   },

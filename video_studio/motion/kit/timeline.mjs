@@ -86,8 +86,15 @@ export function createRenderer(shots, W, H, options = {}) {
       ctxA.clearRect(0, 0, W, H);
       ctxB.clearRect(0, 0, W, H);
       const held = Math.min(fromLocal, (fromShot.dur || 0) - 1 / 30);
-      renderShot(ctxA, fromShot, held, W, H, { frame: Math.round(t * 30), background });
-      renderShot(ctxB, toShot, toLocal, W, H, { frame: Math.round(t * 30), background });
+      // Neither shot paints its own background during a join: the frame does,
+      // once, below. Both shots are the same paper, so painting it twice only
+      // hides whichever shot is underneath.
+      renderShot(ctxA, fromShot, held, W, H, {
+        frame: Math.round(t * 30), background, paintBackground: false,
+      });
+      renderShot(ctxB, toShot, toLocal, W, H, {
+        frame: Math.round(t * 30), background, paintBackground: false,
+      });
 
       // Hold the outgoing frame for the first third of the window, then play
       // the join. Every shot animates up from nothing, so a join that starts

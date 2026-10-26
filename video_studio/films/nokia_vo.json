@@ -1,10 +1,10 @@
 [
-  {"shot": "hook-01-ringing", "text": "One phone, in a dark room."},
-  {"shot": "hook-02-cities", "text": "It rang in pockets in every city on earth."},
-  {"shot": "hook-03-world", "text": "One in three phones sold in the world carried this name."},
-  {"shot": "hook-04-turn", "text": "Then the phone stopped being a phone. It became a computer."},
-  {"shot": "hook-05-alone", "text": "Nokia answered late, and then it stopped."},
-  {"shot": "history-01-mill", "text": "It began in 1865, with a paper mill in a small Finnish town."},
-  {"shot": "history-02-trades", "text": "Paper, rubber, cables, electronics. One company, four industries."},
-  {"shot": "history-03-rise", "text": "By 2007 it was the largest phone maker on earth. Then the ground moved."}
+  {"shot": "hook-01-ringing", "text": "It starts with a phone, in a dark room, ringing."},
+  {"shot": "hook-02-cities", "text": "In a hundred countries, at the same moment, it is in someone's pocket."},
+  {"shot": "hook-03-world", "text": "One in three phones sold anywhere on earth carries this name."},
+  {"shot": "hook-04-turn", "text": "Then, quietly, the phone stops being a phone. It becomes a computer."},
+  {"shot": "hook-05-alone", "text": "Nokia saw it coming. It simply answered too late."},
+  {"shot": "history-01-mill", "text": "The company began in eighteen sixty-five, with a paper mill in a Finnish town."},
+  {"shot": "history-02-trades", "text": "Paper, then rubber, cables, electronics. One company, four industries."},
+  {"shot": "history-03-rise", "text": "By two thousand and seven it was the largest phone maker in the world. Then the ground moved."}
 ]

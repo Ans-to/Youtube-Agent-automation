@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
-"""Synthesise a score for a motion-graphics film.
+"""Synthesise a restrained score for a motion-graphics film.
 
-The old sound design was a quiet pad and a click at each scene change, which is
-underscore for a voiceover. A film with no narration needs a score that carries
-the same job the voice would: state a mood, build, turn, resolve.
+The first version was irritating and the measurement said why: at three points in
+the film, 81% of the audio energy sat above 4 kHz with a spectral centroid near
+11 kHz, at a level louder than the music. That is broadband noise. The function
+called `riser` computed a filter cutoff and then never applied it - it wrote the
+raw white noise straight out. Two other things made it worse: a 1,250 Hz click on
+every beat, and a bell with inharmonic partials at 2.76x and 5.4x, which is the
+recipe for a metallic ring.
 
-Everything here is generated from oscillators and filtered noise, so it is
-royalty-free by construction and deterministic - the same cue list gives the
-same file every run.
+This version is built the other way round: everything tonal, everything
+low-passed, nothing above about 6 kHz except a breath of felt on the plucks, and
+a reverb to sit it all in one room.
 
-    python video_studio/score.py --seconds 50 --sections "calm:0:5,build:5:20,turn:20:28,hold:28:35,rise:35:43,end:43:50" --out score.wav
+    python video_studio/score.py --seconds 51 --sections "calm:0:4,..." --out score.wav
+
+Deterministic: the same section list gives the same file.
 """
 from __future__ import annotations
 
@@ -22,141 +28,264 @@ import numpy as np
 
 SR = 48000
 
-# A minor key with a raised sixth, which is the sound of a story about a company
-# rather than a story about a person: it can move to hope without leaving.
 NOTE = {
-    'A1': 55.00, 'C2': 65.41, 'E2': 82.41, 'F2': 87.31, 'G2': 98.00,
+    'A1': 55.00, 'C2': 65.41, 'D2': 73.42, 'E2': 82.41, 'F2': 87.31, 'G2': 98.00,
     'A2': 110.00, 'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61,
     'G3': 196.00, 'A3': 220.00, 'B3': 246.94, 'C4': 261.63, 'D4': 293.66,
     'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'C5': 523.25,
-    'E5': 659.26, 'G5': 783.99,
+    'E5': 659.26,
 }
 
 CHORDS = {
     'am': ['A2', 'C3', 'E3', 'A3'],
-    'am7': ['A2', 'C3', 'E3', 'G3'],
+    'am7': ['A2', 'E3', 'G3', 'A3'],
     'f': ['F2', 'A2', 'C3', 'F3'],
-    'c': ['C3', 'E3', 'G3', 'C4'],
+    'c': ['C3', 'G3', 'C4', 'E4'],
     'g': ['G2', 'B3', 'D4', 'G3'],
     'dm': ['D3', 'F3', 'A3', 'D4'],
     'em': ['E3', 'G3', 'B3', 'E4'],
+    'am-low': ['A1', 'A2', 'E3', 'C4'],
 }
 
+# name: chord, pad gain, pluck pattern on/off, pulse per second, brightness
 SECTIONS = {
-    # name: (chord, pad gain, pulse per second, arp, brightness)
-    'calm': ('am', 0.30, 0.0, False, 0.35),
-    'build': ('f', 0.26, 0.9, False, 0.55),
-    'turn': ('dm', 0.28, 1.1, True, 0.45),
-    'hold': ('am', 0.22, 0.55, False, 0.30),
-    'rise': ('c', 0.28, 1.35, True, 0.70),
-    'end': ('am', 0.26, 0.0, False, 0.40),
+    'calm':    ('am-low', 0.30, False, 0.0, 0.30),
+    'warm':    ('f', 0.24, True, 0.0, 0.35),
+    'moving':  ('am7', 0.22, True, 0.9, 0.32),
+    'tense':   ('dm', 0.24, True, 1.15, 0.28),
+    'sparse':  ('am-low', 0.18, False, 0.55, 0.22),
+    'history': ('c', 0.24, True, 0.0, 0.38),
+    'build':   ('g', 0.22, True, 0.85, 0.36),
+    'resolve': ('am', 0.26, True, 0.0, 0.30),
 }
 
+
+# --------------------------------------------------------------------------
+# Filters. No scipy here, so: FFT masking for static shapes, block-wise for
+# anything that opens over time.
+# --------------------------------------------------------------------------
+
+def lowpass(x: np.ndarray, cutoff: float, order: float = 2.0) -> np.ndarray:
+    """Smooth low-pass by masking the spectrum with a raised cosine above cutoff."""
+    n = len(x)
+    if n == 0:
+        return x
+    spec = np.fft.rfft(x)
+    freqs = np.fft.rfftfreq(n, 1 / SR)
+    roll = np.ones_like(freqs)
+    band = cutoff * 0.6
+    over = freqs > cutoff
+    roll[over] = 0.5 * (1 + np.cos(np.pi * np.clip((freqs[over] - cutoff) / band, 0, 1))) ** order
+    return np.fft.irfft(spec * roll, n)
+
+
+def highpass(x: np.ndarray, cutoff: float) -> np.ndarray:
+    n = len(x)
+    spec = np.fft.rfft(x)
+    freqs = np.fft.rfftfreq(n, 1 / SR)
+    roll = np.ones_like(freqs)
+    band = max(cutoff * 0.5, 1)
+    under = freqs < cutoff
+    roll[under] = 0.5 * (1 - np.cos(np.pi * np.clip((cutoff - freqs[under]) / band, 0, 1)))
+    return np.fft.irfft(spec * roll, n)
+
+
+def opening_filter(x: np.ndarray, start_hz: float, end_hz: float, blocks: int = 12) -> np.ndarray:
+    """A filter whose cutoff opens across the signal, crossfaded between blocks."""
+    n = len(x)
+    out = np.zeros(n)
+    bounds = np.linspace(0, n, blocks + 1).astype(int)
+    fade = min(int(0.06 * SR), max(1, n // (blocks * 4)))
+    for i in range(blocks):
+        a, b = bounds[i], bounds[i + 1]
+        if b <= a:
+            continue
+        k = i / max(1, blocks - 1)
+        cut = start_hz + (end_hz - start_hz) * (k ** 2)
+        seg = lowpass(x[max(0, a - fade): min(n, b + fade)], cut)
+        seg = seg[(a - max(0, a - fade)): (b - max(0, a - fade))]
+        if len(seg) < b - a:
+            seg = np.pad(seg, (0, (b - a) - len(seg)))
+        window = np.ones(b - a)
+        if i > 0:
+            window[:fade] = np.linspace(0, 1, fade)
+        if i < blocks - 1:
+            window[-fade:] = np.linspace(1, 0, fade)
+        out[a:b] = seg[: b - a] * window
+    return out
+
+
+# --------------------------------------------------------------------------
+# Instruments
+# --------------------------------------------------------------------------
 
 def t_axis(seconds: float) -> np.ndarray:
     return np.arange(int(seconds * SR)) / SR
 
 
-def adsr(n: int, attack: float, decay: float, sustain: float, release: float) -> np.ndarray:
-    a = max(1, int(attack * SR))
-    d = max(1, int(decay * SR))
-    r = max(1, int(release * SR))
-    hold = max(1, n - a - d - r)
-    env = np.concatenate([
-        np.linspace(0, 1, a, endpoint=False),
-        np.linspace(1, sustain, d, endpoint=False),
-        np.full(hold, sustain),
-        np.linspace(sustain, 0, r),
-    ])
-    if len(env) < n:
-        env = np.pad(env, (0, n - len(env)))
-    return env[:n]
-
-
-def tone(freq: float, seconds: float, bright: float = 0.5, detune: float = 0.0) -> np.ndarray:
-    """A soft additive tone: fundamental plus two partials, falling off with brightness."""
+def pluck(freq: float, seconds: float = 1.6, bright: float = 0.4) -> np.ndarray:
+    """A felted note: sine, a soft second harmonic, no metallic partials."""
     t = t_axis(seconds)
-    sig = np.sin(2 * math.pi * freq * t)
-    sig += 0.42 * bright * np.sin(2 * math.pi * freq * 2.0 * t + 0.3)
-    sig += 0.18 * bright * np.sin(2 * math.pi * freq * 3.0 * t + 1.1)
-    if detune:
-        sig += 0.35 * bright * np.sin(2 * math.pi * (freq * (1 + detune)) * t)
-    return sig / 1.6
+    body = np.sin(2 * math.pi * freq * t)
+    body += 0.22 * bright * np.sin(2 * math.pi * freq * 2.0 * t + 0.2)
+    body += 0.06 * bright * np.sin(2 * math.pi * freq * 3.0 * t + 0.9)
+    attack = np.minimum(1, t / 0.012)
+    decay = np.exp(-t * 2.6)
+    out = body * attack * decay
+    # The felt: a touch of noise, filtered hard so it is texture not hiss.
+    rng = np.random.default_rng(int(freq * 10) % 9999)
+    felt = lowpass(rng.normal(0, 1, len(t)), 1800) * np.exp(-t * 28) * 0.05
+    return (out + felt) * 0.5
 
 
 def pad(chord: str, seconds: float, bright: float, gain: float) -> np.ndarray:
+    """A soft choir-ish pad: detuned sines, low-passed, slow in and out."""
     n = int(seconds * SR)
     out = np.zeros(n)
     for i, name in enumerate(CHORDS[chord]):
-        voice = tone(NOTE[name], seconds, bright, detune=0.0012 * (1 if i % 2 else -1))
-        out += voice * (1.0 - i * 0.12)
+        f = NOTE[name]
+        voice = np.zeros(n)
+        for detune in (-0.0016, 0.0, 0.0019):
+            voice += np.sin(2 * math.pi * f * (1 + detune) * np.arange(n) / SR + i)
+        voice /= 3
+        voice += 0.18 * bright * np.sin(2 * math.pi * f * 2 * np.arange(n) / SR)
+        out += voice * (1.0 - i * 0.10)
+    out = lowpass(out, 2600)
     out /= len(CHORDS[chord])
-    return out * adsr(n, 0.35, 0.5, 0.85, 0.9) * gain
+    env = np.concatenate([
+        np.linspace(0, 1, int(0.9 * SR)),
+        np.ones(max(1, n - int(2.1 * SR))),
+        np.linspace(1, 0, int(1.2 * SR)),
+    ])
+    if len(env) < n:
+        env = np.pad(env, (0, n - len(env)))
+    return out * env[:n] * gain
 
 
-def heartbeat(seconds: float, gain: float) -> np.ndarray:
-    """A low thud: two hits, the second softer. The pulse of a film, not a kick drum."""
-    n = int(0.42 * SR)
-    t = t_axis(0.42)
-    body = np.sin(2 * math.pi * (58 - 16 * t / 0.42) * t) * np.exp(-t * 9)
+def pulse(seconds: float, gain: float, rate: float) -> np.ndarray:
+    """A heartbeat: 55 Hz, low-passed, well under the music."""
+    n = int(0.5 * SR)
+    t = t_axis(0.5)
+    body = np.sin(2 * math.pi * (52 - 8 * t / 0.5) * t) * np.exp(-t * 7)
+    body = lowpass(body, 220)
     out = np.zeros(int(seconds * SR))
-    beat = 0.62
-    at = 0.0
-    while at + 0.42 < seconds:
-        start = int(at * SR)
-        seg = body * gain
-        out[start:start + n] += seg[:len(out[start:start + n])]
-        if at + 0.16 + 0.42 < seconds:
-            s2 = int((at + 0.16) * SR)
-            out[s2:s2 + n] += (body * gain * 0.5)[:len(out[s2:s2 + n])]
-        at += beat
-    return out
-
-
-def ticks(seconds: float, rate: float, gain: float, seed: int = 3) -> np.ndarray:
-    """A soft wood tick on the beat, so the cut has something to land on."""
-    rng = np.random.default_rng(seed)
-    out = np.zeros(int(seconds * SR))
-    n = int(0.05 * SR)
-    t = t_axis(0.05)
-    body = np.sin(2 * math.pi * 1250 * t) * np.exp(-t * 70)
     at = 0.0
     step = 1.0 / max(rate, 0.001)
-    while at < seconds:
+    while at + 0.5 < seconds:
         start = int(at * SR)
-        jitter = 1.0 + rng.normal(0, 0.004)
-        seg = body * gain * jitter
+        seg = body * gain
+        seg2 = body * gain * 0.42
         out[start:start + n] += seg[:len(out[start:start + n])]
+        s2 = int((at + 0.19) * SR)
+        out[s2:s2 + n] += seg2[:len(out[s2:s2 + n])]
         at += step
     return out
 
 
-def riser(seconds: float, gain: float, seed: int = 9) -> np.ndarray:
-    """Filtered noise that climbs: the sound of a cut about to happen."""
-    rng = np.random.default_rng(seed)
+def swell(seconds: float, gain: float) -> np.ndarray:
+    """Air that opens: noise, but filtered to a narrow band and kept quiet.
+
+    This is the only noise in the score, it never exceeds 1.5 kHz, and it sits
+    about 20 dB under the pad. The old riser was broadband and louder than
+    everything - that is the sound the owner called irritating, and they are
+    right.
+    """
     n = int(seconds * SR)
+    rng = np.random.default_rng(4)
     noise = rng.normal(0, 1, n)
-    # A one-pole low-pass whose cutoff opens over the cue - cheap, and it reads
-    # as a rise rather than as white noise fading in.
-    out = np.zeros(n)
-    cutoff = 0.02
-    for i in range(0, n, 8):
-        cutoff = 0.02 + 0.55 * (i / n) ** 2
-        out[i:i + 8] = noise[i:i + 8]
-    # Apply the envelope in blocks to keep this vectorised enough for a few
-    # seconds of audio.
-    env = np.linspace(0.05, 1.0, n) ** 1.6
-    return out * env * gain
+    shaped = opening_filter(noise, 300, 1400)
+    env = (np.linspace(0, 1, n) ** 2.2)
+    return shaped * env * gain
 
 
-def stinger(seconds: float, gain: float) -> np.ndarray:
-    """A struck bell: the accent that lands on a reveal."""
-    n = int(seconds * SR)
+def bell(freq: float, seconds: float = 2.6, gain: float = 0.5) -> np.ndarray:
+    """A struck tone with only harmonic partials.
+
+    The first version used 2.76x and 5.4x, which is what makes a bell sound like
+    a saucepan. A film bell is a sine, its octave, and a fifth above that, all
+    decaying together.
+    """
     t = t_axis(seconds)
+    body = np.sin(2 * math.pi * freq * t)
+    body += 0.32 * np.sin(2 * math.pi * freq * 2.0 * t)
+    body += 0.14 * np.sin(2 * math.pi * freq * 3.0 * t)
+    body += 0.06 * np.sin(2 * math.pi * freq * 4.0 * t)
+    attack = np.minimum(1, t / 0.006)
+    decay = np.exp(-t * 1.35)
+    return body * attack * decay * gain * 0.25
+
+
+def thud(seconds: float = 1.1, gain: float = 0.5) -> np.ndarray:
+    """The floor moving: a pitch drop, not an impact sample."""
+    t = t_axis(seconds)
+    sweep = 78 - 44 * np.minimum(1, t / 0.7)
+    phase = 2 * math.pi * np.cumsum(sweep) / SR
+    body = np.sin(phase) * np.exp(-t * 3.2)
+    return lowpass(body, 240) * gain
+
+
+def cluster(freqs: list[float], seconds: float, gain: float = 0.4) -> np.ndarray:
+    """A held chord that leans: two notes a semitone apart, under a third."""
+    n = int(seconds * SR)
     out = np.zeros(n)
-    for ratio, amp, decay in ((1.0, 1.0, 2.4), (2.76, 0.5, 3.4), (5.4, 0.22, 4.6)):
-        out += amp * np.sin(2 * math.pi * 196 * ratio * t) * np.exp(-t * decay)
+    for i, f in enumerate(freqs):
+        out += np.sin(2 * math.pi * f * np.arange(n) / SR + i * 0.7)
+    out /= max(1, len(freqs))
+    out = lowpass(out, 2200)
+    ramp = np.concatenate([
+        np.linspace(0, 1, int(0.7 * SR)),
+        np.ones(max(1, n - int(1.7 * SR))),
+        np.linspace(1, 0, int(1.0 * SR)),
+    ])[:n]
+    if len(ramp) < n:
+        ramp = np.pad(ramp, (0, n - len(ramp)))
+    return out * ramp * gain
+
+
+def ringtone(gain: float = 0.30) -> np.ndarray:
+    """A handset ring: two beeps, three times.
+
+    Not a quotation - an interval, played short, the way a phone in another room
+    sounds through a wall. Tonal, so it carries the scene instead of hissing
+    through it.
+    """
+    beat = 0.11
+    gap = 0.055
+    pattern = [NOTE['E5'], NOTE['A4'], NOTE['E5'], NOTE['A4'], NOTE['E5'], NOTE['A4']]
+    total = len(pattern) * (beat + gap) + 0.5
+    out = np.zeros(int(total * SR))
+    at = 0.0
+    for i, freq in enumerate(pattern):
+        seg = bell(freq, beat + 0.25, 1.0)
+        seg = seg[: int((beat + 0.25) * SR)]
+        seg = seg * np.minimum(1, np.arange(len(seg)) / (0.004 * SR))
+        place(out, seg, at)
+        at += beat + gap
+        if i % 2 == 1:
+            at += 0.16
     return out * gain
+
+
+def cue(kind: str, gain: float = 1.0) -> np.ndarray:
+    """One named sound event. Every film uses these; none of them is noise."""
+    if kind == 'ring':
+        return ringtone(0.34 * gain)
+    if kind == 'turn':
+        # The ground moving: a low thud under a semitone cluster that opens out.
+        out = thud(1.4, 0.55 * gain)
+        lean = cluster([NOTE['D4'], NOTE['D#4'], NOTE['A3']], 2.6, 0.30 * gain)
+        place(out, lean, 0.05)
+        return out
+    if kind == 'reveal':
+        out = bell(NOTE['A5'], 3.0, 0.5 * gain)
+        place(out, bell(NOTE['E5'], 3.0, 0.32 * gain), 0.02)
+        place(out, bell(NOTE['C6'], 2.6, 0.16 * gain), 0.06)
+        return out
+    if kind == 'impact':
+        return thud(1.8, 0.62 * gain)
+    if kind == 'bloom':
+        return cluster([NOTE['F4'], NOTE['A4'], NOTE['C5']], 3.4, 0.26 * gain)
+    raise SystemExit(f'unknown cue {kind!r}')
 
 
 def place(track: np.ndarray, seg: np.ndarray, at: float) -> None:
@@ -167,97 +296,115 @@ def place(track: np.ndarray, seg: np.ndarray, at: float) -> None:
     track[start:end] += seg[:end - start]
 
 
-def lufs_ish(samples: np.ndarray) -> float:
-    """A crude loudness estimate: RMS with a little weighting for the mid range.
+def reverb(x: np.ndarray, wet: float = 0.20, decay: float = 1.9) -> np.ndarray:
+    """A small room, made from filtered noise and convolved with FFT."""
+    n_ir = int(decay * SR)
+    rng = np.random.default_rng(11)
+    ir = rng.normal(0, 1, n_ir) * np.exp(-np.arange(n_ir) / (SR * decay * 0.42))
+    ir = lowpass(ir, 3200)
+    ir[0] = 1.0
+    ir /= np.sqrt(np.sum(ir ** 2)) + 1e-9
+    size = 1 << int(math.ceil(math.log2(len(x) + len(ir))))
+    wet_sig = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[:len(x)]
+    return (1 - wet) * x + wet * wet_sig
 
-    Not ITU-R BS.1770 - that needs pyloudnorm - but close enough to aim at the
-    -14 LUFS the delivery spec asks for, and the real number is measured after
-    the mux by the audit pass.
-    """
-    rms = float(np.sqrt(np.mean(samples ** 2)) + 1e-12)
-    return 20 * math.log10(rms) - 3.0
 
+# --------------------------------------------------------------------------
+# Arrangement
+# --------------------------------------------------------------------------
 
-def build(seconds: float, sections: list[tuple[str, float, float]], gain: float = 1.0) -> np.ndarray:
+def build(seconds: float, sections: list[tuple[str, float, float]], gain: float = 1.0,
+          cues: list[tuple[float, str, float]] | None = None) -> np.ndarray:
     total = int(seconds * SR)
     mix = np.zeros(total)
 
     for name, start, end in sections:
-        chord, pad_gain, pulse_rate, arp, bright = SECTIONS.get(name, SECTIONS['calm'])
-        length = max(0.1, end - start)
+        # A typo used to fall through to 'calm' and quietly change the mood of a
+        # whole passage. Fail instead.
+        if name not in SECTIONS:
+            raise SystemExit(f'unknown section {name!r}; known: {", ".join(sorted(SECTIONS))}')
+        chord, pad_gain, plucks, rate, bright = SECTIONS[name]
+        length = max(0.2, end - start)
         place(mix, pad(chord, length, bright, pad_gain), start)
-        if pulse_rate:
-            place(mix, heartbeat(length, 0.30), start)
-            place(mix, ticks(length, pulse_rate, 0.055), start)
-        if arp:
-            # A simple four-note figure on the top of the chord, quieter than
-            # the pad: it is texture, not a melody.
+
+        if rate:
+            place(mix, pulse(length, 0.16, rate), start)
+
+        if plucks:
+            # A slow figure, four notes to the bar at about 72 bpm.
             notes = CHORDS[chord][1:]
-            step = 0.25
-            at = 0.0
+            step = 0.62
+            at = 0.25
             i = 0
-            while at < length - 0.3:
+            while at < length - 0.9:
                 note = notes[i % len(notes)]
-                seq = tone(NOTE[note] * 2, min(0.5, length - at), bright * 0.8)
-                place(mix, seq * adsr(len(seq), 0.005, 0.08, 0.25, 0.3) * 0.10, start + at)
+                place(mix, pluck(NOTE[note]) * 0.13, start + at)
+                # Every other note an octave up, quietly, for movement.
+                if i % 4 == 2:
+                    place(mix, pluck(NOTE[note] * 2, bright=0.5) * 0.05, start + at + 0.30)
                 at += step
                 i += 1
 
-    # Transitions between sections: a riser into the loud ones, a bell on the
-    # turn. These are what make a cut feel scored rather than assembled.
-    for i, (name, start, _end) in enumerate(sections):
-        if name in ('turn', 'rise'):
-            lead = min(2.4, start)
-            place(mix, riser(lead, 0.18), max(0.0, start - lead))
-            place(mix, stinger(1.6, 0.16), start)
-    place(mix, stinger(2.6, 0.13), sections[-1][1])
+    # One breath of air into the two biggest turns, at low level.
+    for name, start, _end in sections:
+        if name in ('tense', 'build'):
+            lead = min(1.6, start)
+            place(mix, swell(lead, 0.055), max(0.0, start - lead))
 
-    # A gentle top-and-tail so the file does not begin or end on a click.
-    fade = int(0.25 * SR)
-    mix[:fade] *= np.linspace(0, 1, fade) ** 1.5
-    mix[-int(1.4 * SR):] *= np.linspace(1, 0, int(1.4 * SR)) ** 1.2
+    mix = reverb(mix, wet=0.22, decay=1.9)
 
-    # Loudness, then peak.
-    #
-    # Raising the gain to hit -14 LUFS and then clamping the peak just undid the
-    # gain: the file came out at -23.6 LUFS, quieter than the thing it was
-    # replacing. Aiming at a loudness needs a limiter, because the crest factor
-    # is set by the thuds and the bells, not by the bed.
+    # Gentle shaping: nothing above 7 kHz, a little weight below 200 Hz removed
+    # so the pad does not boom, and a soft top-and-tail.
+    mix = lowpass(mix, 7000)
+    mix = highpass(mix, 38)
+    fade = int(0.4 * SR)
+    mix[:fade] *= np.linspace(0, 1, fade) ** 1.4
+    tail = int(2.0 * SR)
+    mix[-tail:] *= np.linspace(1, 0, tail) ** 1.2
+
     mix *= gain
     target = 10 ** ((-14.0 + 3.0) / 20)
     ceiling = 10 ** (-1.5 / 20)
     for _ in range(4):
         rms = float(np.sqrt(np.mean(mix ** 2)) + 1e-12)
-        mix *= min(target / rms, 8.0)
+        mix *= min(target / rms, 6.0)
         mix = soft_limit(mix, ceiling)
     return mix
 
 
-def soft_limit(samples: np.ndarray, ceiling: float) -> np.ndarray:
-    """A soft-knee limiter: linear below the knee, tanh above it, never over."""
-    knee = ceiling * 0.55
-    mag = np.abs(samples)
-    sign = np.sign(samples)
+def soft_limit(x: np.ndarray, ceiling: float) -> np.ndarray:
+    knee = ceiling * 0.62
+    mag = np.abs(x)
+    sign = np.sign(x)
     over = mag > knee
-    limited = mag.copy()
-    limited[over] = knee + (ceiling - knee) * np.tanh((mag[over] - knee) / (ceiling - knee) * 1.4) / math.tanh(1.4)
-    return np.clip(sign * limited, -ceiling, ceiling)
+    out = mag.copy()
+    out[over] = knee + (ceiling - knee) * np.tanh((mag[over] - knee) / (ceiling - knee) * 1.2) / math.tanh(1.2)
+    return np.clip(sign * out, -ceiling, ceiling)
 
 
 def write_wav(path: Path, mono: np.ndarray) -> None:
-    # A touch of stereo width: the pad is delayed a few samples on the right,
-    # which is enough to stop the file sounding like it came out of one speaker.
-    delay = int(0.008 * SR)
+    delay = int(0.011 * SR)
     left = mono
-    right = np.concatenate([np.zeros(delay), mono[:-delay]]) * 0.94
+    right = np.concatenate([np.zeros(delay), mono[:-delay]]) * 0.96
     data = np.stack([left, right], axis=1)
-    data = np.clip(data, -1.0, 1.0)
-    pcm = (data * 32767).astype('<i2')
+    pcm = (np.clip(data, -1, 1) * 32767).astype('<i2')
     with wave.open(str(path), 'wb') as f:
         f.setnchannels(2)
         f.setsampwidth(2)
         f.setframerate(SR)
         f.writeframes(pcm.tobytes())
+
+
+def parse_cues(text: str) -> list[tuple[float, str, float]]:
+    out = []
+    for part in text.split(','):
+        if not part.strip():
+            continue
+        bits = part.split(':')
+        at, kind = float(bits[0]), bits[1].strip()
+        level = float(bits[2]) if len(bits) > 2 else 1.0
+        out.append((at, kind, level))
+    return out
 
 
 def parse_sections(text: str) -> list[tuple[str, float, float]]:
@@ -270,18 +417,19 @@ def parse_sections(text: str) -> list[tuple[str, float, float]]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument('--seconds', type=float, default=50.0)
-    ap.add_argument('--sections', default='calm:0:5,build:5:20,turn:20:28,hold:28:35,rise:35:43,end:43:50')
+    ap.add_argument('--seconds', type=float, default=51.0)
+    ap.add_argument('--sections', default='calm:0:4,warm:4:9,moving:9:16,tense:16:23,sparse:23:30,history:30:37,build:37:44,resolve:44:51')
     ap.add_argument('--out', default='score.wav')
     ap.add_argument('--gain', type=float, default=1.0)
+    ap.add_argument('--cues', default='', help='time:kind[:level], comma separated')
     args = ap.parse_args()
 
-    sections = parse_sections(args.sections)
-    mix = build(args.seconds, sections, args.gain)
+    mix = build(args.seconds, parse_sections(args.sections), args.gain,
+                parse_cues(args.cues) if args.cues else None)
     write_wav(Path(args.out), mix)
-    loud = lufs_ish(mix)
+    rms = 20 * math.log10(float(np.sqrt(np.mean(mix ** 2))) + 1e-12)
     peak = 20 * math.log10(float(np.max(np.abs(mix))) + 1e-12)
-    print(f'wrote {args.out}: {args.seconds:.1f}s, about {loud:.1f} LUFS, peak {peak:.1f} dBFS')
+    print(f'wrote {args.out}: {args.seconds:.1f}s, about {rms - 3:.1f} LUFS, peak {peak:.1f} dBFS')
 
 
 if __name__ == '__main__':

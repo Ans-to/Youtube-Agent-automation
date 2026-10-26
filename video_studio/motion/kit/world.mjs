@@ -1,3 +1,5 @@
+import { readFileSync } from 'fs';
+
 /**
  * The world, drawn.
  *
@@ -22,6 +24,106 @@
  * is 720p and a continent is never closer than a third of the frame. Detail
  * below this costs points and reads as noise.
  * ---------------------------------------------------------------------- */
+
+
+/* -------------------------------------------------------------------------
+ * Real coastlines
+ * ---------------------------------------------------------------------- */
+
+/**
+ * Natural Earth 110m land, decoded from TopoJSON.
+ *
+ * The hand-authored outlines above were a stand-in and looked like one: Europe
+ * was a lump, India was a spike, and every coast had six points. This is the
+ * actual coastline at a scale that still reads as a drawn diagram - about
+ * 1:110,000,000, the same generalisation an atlas uses for a world map on a
+ * single page. Public domain (Natural Earth), shipped in data/, read from disk
+ * so a render never touches the network.
+ */
+function decodeArcs(topo) {
+  const [sx, sy] = topo.transform.scale;
+  const [tx, ty] = topo.transform.translate;
+  return topo.arcs.map((arc) => {
+    let x = 0;
+    let y = 0;
+    return arc.map(([dx, dy]) => {
+      x += dx;
+      y += dy;
+      return [x * sx + tx, y * sy + ty];
+    });
+  });
+}
+
+/**
+ * Cut a ring where it jumps the antimeridian.
+ *
+ * Natural Earth closes Russia and Antarctica with an edge from +180 to -180.
+ * Projected straight onto a flat map that edge is a horizontal line running the
+ * width of the frame, which is what these coastlines first looked like. Each
+ * seam becomes the end of one ring and the start of the next, pinned to the
+ * edge it was heading for.
+ */
+function splitAtAntimeridian(ring) {
+  const pieces = [];
+  let current = [];
+  for (let i = 0; i < ring.length; i += 1) {
+    const point = ring[i];
+    const prev = current[current.length - 1];
+    if (prev && Math.abs(point[0] - prev[0]) > 180) {
+      const edge = prev[0] > 0 ? 180 : -180;
+      current.push([edge, prev[1]]);
+      if (current.length > 3) pieces.push(current);
+      current = [[-edge, point[1]], point];
+    } else {
+      current.push(point);
+    }
+  }
+  if (current.length > 3) pieces.push(current);
+  return pieces;
+}
+
+function ringFromArcs(decoded, indices) {
+  const ring = [];
+  for (const index of indices) {
+    const arc = index < 0 ? decoded[~index].slice().reverse() : decoded[index];
+    // Consecutive arcs share an endpoint; skip it or the stroke shows a seam.
+    for (let i = ring.length ? 1 : 0; i < arc.length; i += 1) ring.push(arc[i]);
+  }
+  return ring;
+}
+
+let LAND_CACHE = null;
+
+/** Land rings in lon/lat, each with its bounding box, largest first. */
+export function landRings() {
+  if (LAND_CACHE) return LAND_CACHE;
+  const file = new URL('./data/land-110m.json', import.meta.url);
+  const topo = JSON.parse(readFileSync(file, 'utf8'));
+  const decoded = decodeArcs(topo);
+  const rings = [];
+  for (const geometry of topo.objects.land.geometries) {
+    const polygons = geometry.type === 'Polygon' ? [geometry.arcs]
+      : geometry.type === 'MultiPolygon' ? geometry.arcs : [];
+    for (const polygon of polygons) {
+      for (const indices of polygon) {
+        for (const ring of splitAtAntimeridian(ringFromArcs(decoded, indices))) {
+          if (ring.length < 4) continue;
+          let minLon = 180; let maxLon = -180; let minLat = 90; let maxLat = -90;
+          for (const [lon, lat] of ring) {
+            if (lon < minLon) minLon = lon;
+            if (lon > maxLon) maxLon = lon;
+            if (lat < minLat) minLat = lat;
+            if (lat > maxLat) maxLat = lat;
+          }
+          rings.push({ ring, minLon, maxLon, minLat, maxLat, area: (maxLon - minLon) * (maxLat - minLat) });
+        }
+      }
+    }
+  }
+  rings.sort((a, b) => b.area - a.area);
+  LAND_CACHE = rings;
+  return rings;
+}
 
 export const CONTINENTS = [
   {
@@ -338,17 +440,33 @@ function drawArc(ctx, a, b, t, { colour, width = 1.8, head = true }) {
  * @param arcs         [{ from, to, t }]
  * @param glow         { region: 'europe' } fills a region with light
  */
+const MAP_OPTIONS = new Set([
+  'x', 'y', 'w', 'h', 'p', 'kind', 'projection', 'palette', 'ink', 'dark',
+  'graticule', 'land', 'landEdge', 'graticuleColour', 'pins', 'arcs', 'glow',
+  'labels', 'bounds', 'scale',
+]);
+
 export function drawMap(ctx, options = {}) {
+  // `kind` and `projection` both exist because one caller passed the wrong one
+  // and got an equirectangular map that looked plausible, which is worse than a
+  // crash. Accept both, and refuse anything else.
+  for (const key of Object.keys(options)) {
+    if (!MAP_OPTIONS.has(key)) throw new Error(`drawMap: unknown option ${key}`);
+  }
   const {
     x = 0, y = 0, w = 960, h = 540,
     p = 1,
-    projection = 'equirect',
+    kind,
+    projection = kind || 'equirect',
     palette = {},
     ink,
     dark = false,
     graticule = true,
-    land = '#E4E7EC',
-    landEdge = '#C9CFD8',
+    // Falls back to the palette, because a film that sets its own ink and paper
+    // expects the map to be part of the same print. It used to be impossible to
+    // read the palette's land colour: the map always used these two constants.
+    land = (palette && palette.land) || '#E4E7EC',
+    landEdge = (palette && palette.landEdge) || '#C9CFD8',
     graticuleColour = 'rgba(18,35,63,0.06)',
     pins = [],
     arcs = [],
@@ -402,69 +520,58 @@ export function drawMap(ctx, options = {}) {
     ctx.fillRect(x - w * 0.2, y - h * 0.2, w * 1.4, h * 1.4);
   }
 
-  // Land, revealed continent by continent on a stagger.
-  CONTINENTS.forEach((continent, i) => {
-    // A draw-on that travels west to east: the film's habit of "and then the
-    // whole world" is a left-to-right reveal, not a dissolve.
-    // Was 0.06 + i*0.055 over 0.34, which put the last continent's arrival at
-    // 0.79 - most of a shot spent looking at an empty ocean.
-    const start = 0.02 + i * 0.035;
-    const local = (p - start) / 0.24;
+  // Land, drawn on from west to east.
+  //
+  // The reveal used to be one clip per hand-authored continent, because that was
+  // all the geometry there was. With real coastlines it is one clip per landmass,
+  // ordered by the longitude of its western edge, so the world still draws itself
+  // across the frame - the same hand moving left to right - but every island
+  // arrives in its own time instead of six blobs landing in order.
+  const rings = landRings();
+  rings.forEach((piece) => {
+    if (piece.maxLat < band.latMin || piece.minLat > band.latMax) return;
+    const west = (piece.minLon + 180) / 360;
+    const start = 0.02 + west * 0.55;
+    const local = (p - start) / 0.28;
     const reveal = Math.max(0, Math.min(1, local));
     if (reveal <= 0) return;
 
-    const allLats = continent.rings[0].map((r) => r[1]);
-    // Entirely outside the visible band - Antarctica on a 58-south crop, the
-    // arctic islands on a tight mercator - costs nothing and shows nothing.
-    if (Math.max(...allLats) < band.latMin || Math.min(...allLats) > band.latMax) return;
+    const ring = piece.ring;
+    ctx.save();
+    ctx.beginPath();
+    ringPath(ctx, ring, at);
+    ctx.clip();
 
-    const rings = [continent.rings[0], ...(continent.parts || [])];
-    rings.forEach((ring) => {
+    const left = at(piece.minLon, 0).x;
+    const edge = at(piece.minLon + (piece.maxLon - piece.minLon) * reveal, 0).x;
+
+    ctx.fillStyle = ink || (dark ? 'rgba(232,236,242,0.95)' : land);
+    // Inside the box vertically. Antarctica projects below it, and a fill that
+    // was allowed to run past the edge painted a full-width band across the map.
+    ctx.fillRect(left - 4 * scale, y, Math.max(0, edge - left) + 4 * scale, h);
+
+    if (reveal < 0.995) {
       ctx.save();
+      ctx.strokeStyle = accent;
+      ctx.globalAlpha = 0.45;
+      ctx.lineWidth = 1.2 * scale;
       ctx.beginPath();
-      ringPath(ctx, ring, at);
-
-      // Clip to the land itself, then paint a vertical band across it, so each
-      // continent draws on from west to east instead of popping into existence.
-      // (Clipping to the band and filling would have painted a rectangle - the
-      // land path is gone once you clip with something else.)
-      ctx.clip();
-
-      const lons = ring.map((r) => r[0]);
-      const minLon = Math.min(...lons);
-      const maxLon = Math.max(...lons);
-      const left = at(minLon, 0).x;
-      const edge = at(minLon + (maxLon - minLon) * reveal, 0).x;
-
-      ctx.fillStyle = ink || (dark ? 'rgba(232,236,242,0.95)' : land);
-      ctx.fillRect(left - 4 * scale, y - h, Math.max(0, edge - left) + 4 * scale, h * 3);
-
-      // The edge of the reveal reads as a drawing hand: a soft line at the front.
-      if (reveal < 0.995) {
-        ctx.save();
-        ctx.strokeStyle = accent;
-        ctx.globalAlpha = 0.5;
-        ctx.lineWidth = 1.4 * scale;
-        ctx.beginPath();
-        ctx.moveTo(edge, y - h * 0.1);
-        ctx.lineTo(edge, y + h * 1.1);
-        ctx.stroke();
-        ctx.restore();
-      }
-      ctx.restore();
-
-      // Outline after the fill, unclipped, so a continent mid-reveal still has
-      // its coast where it has been drawn.
-      ctx.save();
-      ctx.beginPath();
-      ringPath(ctx, ring, at);
-      ctx.strokeStyle = dark ? 'rgba(255,255,255,0.28)' : landEdge;
-      ctx.lineWidth = 1 * scale;
-      ctx.globalAlpha = reveal;
+      ctx.moveTo(edge, y - h * 0.1);
+      ctx.lineTo(edge, y + h * 1.1);
       ctx.stroke();
       ctx.restore();
-      ctx.beginPath();
-    });
+    }
+    ctx.restore();
+
+    // The coast, unclipped, so land that has arrived keeps its edge.
+    ctx.save();
+    ctx.beginPath();
+    ringPath(ctx, ring, at);
+    ctx.strokeStyle = dark ? 'rgba(255,255,255,0.28)' : landEdge;
+    ctx.lineWidth = 0.9 * scale;
+    ctx.globalAlpha = reveal;
+    ctx.stroke();
+    ctx.restore();
   });
 
   // Arcs under the pins, pins over the arcs, labels last.

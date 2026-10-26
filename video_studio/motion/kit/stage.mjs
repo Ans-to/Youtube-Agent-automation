@@ -56,13 +56,19 @@ export function layerWindow(layer, shotDur) {
  * not arrived yet, which is how a shot ends up with a visible seam.
  */
 export function renderShot(ctx, shot, t, W, H, options = {}) {
-  const { frame = 0, background = '#FAFAF7', frameGrade = true } = options;
+  const { frame = 0, background = '#FAFAF7', frameGrade = true, paintBackground = true } = options;
   const dur = shot.dur || 4;
   const cam = typeof shot.camera === 'function' ? shot.camera(clamp(t / dur)) : shot.camera;
 
   ctx.save();
-  ctx.fillStyle = shot.background || background;
-  ctx.fillRect(0, 0, W, H);
+  // A shot is a background plus layers. When a join composites two shots, the
+  // frame supplies the paper and each shot supplies only its content - otherwise
+  // the incoming shot's opaque background covers the outgoing shot completely,
+  // which is what made every crossfade in the film dip to a blank page.
+  if (paintBackground) {
+    ctx.fillStyle = shot.background || background;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   const layers = [...(shot.layers || [])].sort((a, b) => (a.depth ?? 1) - (b.depth ?? 1));
 

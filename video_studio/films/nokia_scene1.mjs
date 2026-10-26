@@ -21,15 +21,8 @@ import { drawType } from '../motion/kit/type.mjs';
 import { drawMap } from '../motion/kit/world.mjs';
 import { camera } from '../motion/kit/camera.mjs';
 import { text } from '../motion/ui.mjs';
+import { PALETTE } from './nokia_theme.mjs';
 
-export const PALETTE = {
-  text: '#12233F',
-  caption: '#B4762A',
-  dim: '#6E7683',
-  land: '#E2E6EC',
-  landEdge: '#C6CDD7',
-  paper: '#FAF8F3',
-};
 
 const W = 1280;
 const H = 720;
@@ -101,7 +94,7 @@ const shot1 = {
         const cy = H * 0.52;
         for (let i = 0; i < 3; i += 1) {
           const phase = ((t * 0.9 + i / 3) % 1);
-          const r = 90 + phase * 190;
+          const r = 125 + phase * 200;
           ctx.save();
           ctx.strokeStyle = PALETTE.caption;
           ctx.globalAlpha = (1 - phase) * 0.5;
@@ -117,13 +110,16 @@ const shot1 = {
       },
     },
     {
+      // The hero object was 124 px wide in a 1280 px frame: ten percent, floating
+      // in paper. The opening frame has one job and it was too small to do it.
       id: 'phone', depth: 1.0, from: 0.07, entrance: 'squash',
-      box: { x: W * 0.5 - 62, y: H * 0.34, w: 124, h: 250 },
+      box: { x: W * 0.5 - 96, y: H * 0.24, w: 192, h: 392 },
       draw: (ctx, { t }) => {
         // The ring makes the phone move: a 2px vibration, not camera shake.
         const buzz = Math.sin(t * 42) * 1.8;
         drawShape(ctx, 'phone-classic', {
-          x: W * 0.5 - 62 + buzz, y: H * 0.34, w: 124, h: 250, p: 1, palette: PALETTE,
+          x: W * 0.5 - 96 + buzz, y: H * 0.24, w: 192, h: 392, p: 1, palette: PALETTE,
+          params: { fill: PALETTE.text, keyInk: PALETTE.paper, stroke: PALETTE.text },
         });
       },
     },
@@ -289,7 +285,8 @@ const shot4 = {
         const kept = 1 - Math.min(1, Math.max(0, (t - 3.4) / 2.2));
         ctx.save();
         ctx.globalAlpha *= 0.35 + kept * 0.65;
-        drawShape(ctx, 'phone-classic', { x: W * 0.30, y: H * 0.26, w: 132, h: 266, p: 1, palette: PALETTE });
+        drawShape(ctx, 'phone-classic', { x: W * 0.30, y: H * 0.26, w: 132, h: 266, p: 1, palette: PALETTE,
+          params: { fill: PALETTE.text, keyInk: PALETTE.paper } });
         ctx.restore();
       },
     },
@@ -299,7 +296,8 @@ const shot4 = {
       id: 'new', depth: 1.0, from: 0.34, entrance: 'assembly',
       box: { x: W * 0.56, y: H * 0.22, w: 150, h: 300 },
       draw: (ctx) => {
-        drawShape(ctx, 'phone-smart', { x: W * 0.56, y: H * 0.22, w: 150, h: 300, p: 1, palette: PALETTE });
+        drawShape(ctx, 'phone-smart', { x: W * 0.56, y: H * 0.22, w: 150, h: 300, p: 1, palette: PALETTE,
+          params: { fill: PALETTE.text, screen: PALETTE.paper } });
       },
     },
     {
@@ -363,7 +361,8 @@ const shot5 = {
       box: { x: W * 0.5 - 72, y: H * 0.20, w: 144, h: 356 },
       behaviour: 'breathe', behaviourOptions: { amount: 0.012 },
       draw: (ctx) => {
-        drawShape(ctx, 'phone-smart', { x: W * 0.5 - 72, y: H * 0.20, w: 144, h: 356, p: 1, palette: PALETTE });
+        drawShape(ctx, 'phone-smart', { x: W * 0.5 - 72, y: H * 0.20, w: 144, h: 356, p: 1, palette: PALETTE,
+          params: { fill: PALETTE.text, screen: PALETTE.paper } });
       },
     },
     {

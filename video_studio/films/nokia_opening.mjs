@@ -19,18 +19,11 @@ import { camera } from '../motion/kit/camera.mjs';
 import { text } from '../motion/ui.mjs';
 import { SCENE1 } from './nokia_scene1.mjs';
 import { allocate, allocateLayers, auditNoRepeat } from '../motion/kit/budget.mjs';
+import { PALETTE } from '../films/nokia_theme.mjs';
 
 const W = 1280;
 const H = 720;
 
-export const PALETTE = {
-  text: '#12233F',
-  caption: '#B4762A',
-  dim: '#6E7683',
-  land: '#E2E6EC',
-  landEdge: '#C6CDD7',
-  paper: '#FAF8F3',
-};
 
 function say(ctx, value, x, y, options = {}) {
   const {
@@ -264,11 +257,18 @@ export const SCENE2 = [shot6, shot7, shot8];
  * shot is 2.5 seconds of speech and would be over before the push was readable.
  * The floor is the only hand-written timing left in the film.
  */
-const MIN_SECONDS = {
-  'hook-01-ringing': 4, 'hook-02-cities': 5, 'hook-03-world': 7,
-  'hook-04-turn': 7, 'hook-05-alone': 7, 'history-01-mill': 6,
-  'history-02-trades': 6, 'history-03-rise': 6,
+// Breath after each line, which is the rhythm of the cut.
+//
+// Equal padding made every shot the same length, which is why the pacing read
+// as a metronome: line, pause, line, pause, cut. These are deliberately uneven -
+// the opening is tight, the map holds, the phone alone holds longest, and the
+// last shot is allowed to settle.
+const PAD = {
+  'hook-01-ringing': 0.6, 'hook-02-cities': 0.9, 'hook-03-world': 2.1,
+  'hook-04-turn': 1.4, 'hook-05-alone': 2.5, 'history-01-mill': 1.5,
+  'history-02-trades': 1.2, 'history-03-rise': 1.5,
 };
+const MIN_SECONDS = { 'hook-01-ringing': 3.2 };
 
 function readTiming() {
   try {
@@ -279,13 +279,13 @@ function readTiming() {
   }
 }
 
-function retime(shots, timing, pad = 1.5) {
+function retime(shots, timing, pad = 1.5) {  // eslint-disable-line no-unused-vars
   if (!timing) return shots;
   const spoken = Object.fromEntries(timing.map((row) => [row.shot, row.vo]));
   return shots.map((shot) => {
     const vo = spoken[shot.id];
     if (vo === undefined) return shot;
-    const dur = Math.max(MIN_SECONDS[shot.id] || 3, vo + pad);
+    const dur = Math.max(MIN_SECONDS[shot.id] || 3, vo + (PAD[shot.id] ?? 1.2));
     return { ...shot, dur: Math.round(dur * 10) / 10 };
   });
 }

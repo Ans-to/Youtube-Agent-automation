@@ -418,45 +418,48 @@ export const props = {
     ctx.stroke();
   },
 
-  /** A satellite: the coverage, the network in the sky. */
+  /**
+   * Satellite: two solar wings on a boom, a boxed body, a dish.
+   *
+   * The old one was three rectangles in a row, which at a third of the frame read
+   * as a bar chart rather than as a thing in the sky.
+   */
   satellite: (ctx, { x, y, w, h, ink, accent, p = 1 }) => {
-    const s = Math.min(w, h) * 0.22;
     const cx = x + w / 2;
     const cy = y + h / 2;
-    // Body.
-    box(ctx, cx - s * 0.5, cy - s * 0.4, s, s * 0.8, s * 0.12);
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fill();
-    ctx.strokeStyle = ink;
-    ctx.lineWidth = Math.max(1.4, s * 0.08);
-    ctx.stroke();
-    // Panels.
-    [-1, 1].forEach((side) => {
-      const pw = s * 0.9 * clamp(p * 1.5);
+    const body = Math.min(w, h) * 0.24;
+    const wing = body * 1.7;
+    ctx.save();
+    ctx.globalAlpha *= clamp(p);
+    for (const dir of [-1, 1]) {
+      const wx = dir < 0 ? cx - body / 2 - wing : cx + body / 2;
       ctx.fillStyle = accent;
-      ctx.globalAlpha *= 0.45;
-      ctx.fillRect(cx + side * s * 0.55 + (side < 0 ? -pw : 0), cy - s * 0.26, pw, s * 0.52);
-      ctx.globalAlpha /= 0.45;
+      ctx.globalAlpha *= 0.30;
+      ctx.fillRect(wx, cy - body * 0.40, wing, body * 0.80);
+      ctx.globalAlpha /= 0.30;
       ctx.strokeStyle = ink;
-      ctx.lineWidth = Math.max(1, s * 0.05);
-      ctx.strokeRect(cx + side * s * 0.55 + (side < 0 ? -pw : 0), cy - s * 0.26, pw, s * 0.52);
-    });
-    // Dish.
-    ctx.strokeStyle = ink;
-    ctx.lineWidth = Math.max(1.4, s * 0.07);
-    ctx.beginPath();
-    ctx.arc(cx, cy + s * 0.55, s * 0.34, Math.PI * 1.1, Math.PI * 1.9);
-    ctx.stroke();
-    // Signal arcs down to the ground.
-    if (p > 0.5) {
-      ctx.strokeStyle = accent;
-      ctx.globalAlpha *= clamp((p - 0.5) * 2);
-      for (let i = 0; i < 3; i += 1) {
-        ctx.beginPath();
-        ctx.arc(cx, cy + s * 0.55, s * (0.55 + i * 0.3), Math.PI * 1.2, Math.PI * 1.8);
-        ctx.stroke();
+      ctx.lineWidth = 1.4;
+      ctx.strokeRect(wx, cy - body * 0.40, wing, body * 0.80);
+      ctx.beginPath();
+      for (let i = 1; i < 4; i += 1) {
+        const gx = wx + (wing * i) / 4;
+        ctx.moveTo(gx, cy - body * 0.40);
+        ctx.lineTo(gx, cy + body * 0.40);
       }
+      ctx.stroke();
     }
+    ctx.fillStyle = ink;
+    ctx.fillRect(cx - body / 2, cy - body / 2, body, body);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy + body / 2);
+    ctx.lineTo(cx, cy + body * 0.92);
+    ctx.strokeStyle = ink;
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy + body * 1.08, body * 0.26, 0.12 * Math.PI, 0.88 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
   },
 
   /** A cloud with nodes: the network, the platform, "the cloud". */
@@ -709,34 +712,34 @@ export const props = {
     ctx.stroke();
   },
 
-  /** A sheet of rubber: a slab with a rolled edge - the original product. */
+  /**
+   * A rubber sheet: three rolled slabs, one above the other.
+   *
+   * It used to be a grey blob with a circle floating beside it, which said nothing
+   * about the product. Three offset slabs say "stack of material".
+   */
   'rubber-sheet': (ctx, { x, y, w, h, ink, accent, p = 1 }) => {
-    const sw = w * 0.8;
-    const sh = h * 0.34;
-    const sx = x + (w - sw) / 2;
-    const sy = y + h * 0.42;
-    const k = clamp(p * 1.3);
-    ctx.beginPath();
-    ctx.moveTo(sx, sy + sh * 0.4);
-    ctx.quadraticCurveTo(sx + sw * 0.5, sy - sh * (0.3 - 0.2 * k), sx + sw, sy + sh * 0.4);
-    ctx.lineTo(sx + sw, sy + sh);
-    ctx.quadraticCurveTo(sx + sw * 0.5, sy + sh * 1.3, sx, sy + sh);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(18,35,63,0.12)';
-    ctx.fill();
-    ctx.strokeStyle = ink;
-    ctx.lineWidth = Math.max(1.6, h * 0.014);
-    ctx.stroke();
-    // A roll of it behind.
+    const sheetW = w * 0.74;
+    const sheetH = h * 0.15;
+    const cx = x + w / 2;
     ctx.save();
-    ctx.globalAlpha *= 0.5;
-    ctx.beginPath();
-    ctx.arc(sx + sw * 0.86, sy - sh * 0.5, sh * 0.34, 0, TAU);
-    ctx.stroke();
+    ctx.globalAlpha *= clamp(p);
+    for (let i = 2; i >= 0; i -= 1) {
+      const cy = y + h * 0.42 + i * sheetH * 0.62;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, sheetW / 2, sheetH / 2, 0, 0, TAU);
+      ctx.fillStyle = i === 0 ? accent : ink;
+      const a = i === 0 ? 0.28 : 0.08 + i * 0.05;
+      ctx.globalAlpha *= a;
+      ctx.fill();
+      ctx.globalAlpha /= a;
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
     ctx.restore();
   },
 
-  /** A paper roll: the mill, 1865, the thing the company actually was. */
   'paper-roll': (ctx, { x, y, w, h, ink, accent, p = 1 }) => {
     const r = Math.min(w, h) * 0.26;
     const cx = x + w / 2;

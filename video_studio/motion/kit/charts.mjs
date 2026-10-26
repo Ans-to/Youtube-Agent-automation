@@ -79,44 +79,52 @@ export const charts = {
   },
 
   /** Radar: four axes, one shape, so a comparison reads at a glance. */
+  /**
+   * Radar: three polygon rings, six spokes, and a data polygon.
+   *
+   * The first version walked the spokes with sine and cosine of an index and got
+   * a scribble: the axes were wrong, so the data landed between the spokes and
+   * the outer ring overshot the box. Axes are now a fixed angle table.
+   */
   radar: (ctx, { x, y, w, h, ink, accent, p = 1 }) => {
     const cx = x + w / 2;
     const cy = y + h / 2;
-    const r = Math.min(w, h) * 0.40;
-    const axes = 5;
-    // Grid.
+    const radius = Math.min(w, h) * 0.40;
+    const axes = 6;
+    const angle = (i) => -Math.PI / 2 + (i * TAU) / axes;
+    const point = (i, r) => [cx + Math.cos(angle(i)) * radius * r, cy + Math.sin(angle(i)) * radius * r];
+
+    // Rings and spokes, drawn on with p.
     for (let ring = 1; ring <= 3; ring += 1) {
       ctx.beginPath();
-      for (let i = 0; i <= axes; i += 1) {
-        const a = (i / axes) * TAU - Math.PI / 2;
-        const px = cx + Math.cos(a) * r * (ring / 3);
-        const py = cy + Math.sin(a) * r * (ring / 3);
-        if (i === 0) ctx.moveTo(px, py);
-        else ctx.lineTo(px, py);
+      for (let i = 0; i < axes; i += 1) {
+        const [px, py] = point(i, ring / 3);
+        if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
       }
-      ctx.strokeStyle = 'rgba(18,35,63,0.16)';
+      ctx.closePath();
+      ctx.strokeStyle = ink;
+      ctx.globalAlpha *= 0.18 + 0.5 * clamp(p);
       ctx.lineWidth = 1;
       ctx.stroke();
+      ctx.globalAlpha /= 0.18 + 0.5 * clamp(p);
     }
     for (let i = 0; i < axes; i += 1) {
-      const a = (i / axes) * TAU - Math.PI / 2;
+      const [px, py] = point(i, 1);
       ctx.beginPath();
       ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r);
-      ctx.strokeStyle = 'rgba(18,35,63,0.16)';
+      ctx.lineTo(px, py);
+      ctx.strokeStyle = ink;
+      ctx.globalAlpha *= 0.16;
       ctx.stroke();
+      ctx.globalAlpha /= 0.16;
     }
-    // The shape.
-    const values = [0.86, 0.62, 0.74, 0.44, 0.70];
+
+    const values = [0.86, 0.62, 0.74, 0.44, 0.58, 0.7];
+    const reach = clamp(p);
     ctx.beginPath();
-    for (let i = 0; i <= axes; i += 1) {
-      const idx = i % axes;
-      const a = (idx / axes) * TAU - Math.PI / 2;
-      const v = values[idx] * clamp(p * 1.3);
-      const px = cx + Math.cos(a) * r * v;
-      const py = cy + Math.sin(a) * r * v;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+    for (let i = 0; i < axes; i += 1) {
+      const [px, py] = point(i, values[i] * reach);
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
     }
     ctx.closePath();
     ctx.fillStyle = accent;
@@ -124,11 +132,10 @@ export const charts = {
     ctx.fill();
     ctx.globalAlpha /= 0.28;
     ctx.strokeStyle = accent;
-    ctx.lineWidth = Math.max(1.4, r * 0.03);
+    ctx.lineWidth = 2;
     ctx.stroke();
   },
 
-  /** Box plot: spread, median, and the two whiskers. */
   boxplot: (ctx, { x, y, w, h, ink, accent, p = 1 }) => {
     const groups = 4;
     const gw = w / groups;

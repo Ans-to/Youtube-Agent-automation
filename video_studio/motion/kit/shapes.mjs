@@ -195,7 +195,11 @@ const geometry = {
 // -------------------------------------------------------------------- objects
 const objects = {
   /** A brick: the classic handset. Screen, keypad, soft body. */
-  'phone-classic': (ctx, { x, y, w, h, ink, accent, fill, stroke, screen, p = 1 }) => {
+  'phone-classic': (ctx, { x, y, w, h, ink, accent, fill, stroke, screen, keyInk, p = 1 }) => {
+    // The keys and the screen were always the ink colour, which assumes a light
+    // body. A dark handset - the only kind that reads against cream paper -
+    // needs its details in paper.
+    const detail = keyInk || ink;
     const body = Math.min(w, h * 0.42);
     const bx = x + (w - body) / 2;
     const by = y + (h - body * 2) / 2;
@@ -206,7 +210,7 @@ const objects = {
     roundRect(ctx, bx + body * 0.12, by + bh * 0.08, body * 0.76, bh * 0.30, body * 0.05);
     // Same correction as the smartphone: a screen is glass, so it takes a faint
     // cool tint instead of a slab of the accent colour.
-    ctx.fillStyle = screen || ink;
+    ctx.fillStyle = screen || detail;
     ctx.globalAlpha *= 0.06 + 0.07 * clamp(p);
     ctx.fill();
     ctx.globalAlpha /= 0.22 + 0.3 * clamp(p);
@@ -219,7 +223,7 @@ const objects = {
         const kw = body * 0.18;
         const kh = bh * 0.085;
         roundRect(ctx, bx + body * 0.15 + c * body * 0.245, by + bh * 0.48 + r * bh * 0.145, kw, kh, kw * 0.22);
-        ctx.fillStyle = ink;
+        ctx.fillStyle = detail;
         ctx.globalAlpha *= 0.34 * shown;
         ctx.fill();
         ctx.globalAlpha /= 0.16 + 0.14 * shown;

@@ -76,7 +76,95 @@ def trim(data: np.ndarray, threshold: float = 0.004) -> np.ndarray:
     return data[max(0, idx[0] - pad): idx[-1] + pad]
 
 
-def synth(lines: list[dict], out_dir: Path, voice: str = 'am_michael', speed: float = 1.0) -> dict:
+def band_mask(x: np.ndarray, low: float, high: float, depth: float) -> np.ndarray:
+    """Pull one band down: used for de-essing and for taking the boxiness out."""
+    n = len(x)
+    spec = np.fft.rfft(x)
+    freqs = np.fft.rfftfreq(n, 1 / SR)
+    mask = np.ones_like(freqs)
+    inside = (freqs >= low) & (freqs <= high)
+    feather = np.clip((freqs - low) / max(1.0, (high - low) * 0.25), 0, 1) * np.clip((high - freqs) / max(1.0, (high - low) * 0.25), 0, 1)
+    mask[inside] = 1 - depth * feather[inside]
+    return np.fft.irfft(spec * mask, n)
+
+
+def highpass(x: np.ndarray, cutoff: float) -> np.ndarray:
+    n = len(x)
+    spec = np.fft.rfft(x)
+    freqs = np.fft.rfftfreq(n, 1 / SR)
+    roll = np.ones_like(freqs)
+    under = freqs < cutoff
+    roll[under] = np.clip((freqs[under] / max(cutoff, 1.0)) ** 2, 0, 1)
+    return np.fft.irfft(spec * roll, n)
+
+
+def lowpass(x: np.ndarray, cutoff: float) -> np.ndarray:
+    n = len(x)
+    spec = np.fft.rfft(x)
+    freqs = np.fft.rfftfreq(n, 1 / SR)
+    roll = np.ones_like(freqs)
+    over = freqs > cutoff
+    roll[over] = np.clip(1 - ((freqs[over] - cutoff) / max(cutoff, 1.0)) ** 2, 0, 1)
+    return np.fft.irfft(spec * roll, n)
+
+
+def compress(x: np.ndarray, ratio: float = 2.4, threshold_db: float = -22.0,
+             attack: float = 0.006, release: float = 0.12, makeup_db: float = 3.0) -> np.ndarray:
+    """A simple envelope-follower compressor.
+
+    Flat text-to-speech is flat because every syllable arrives at the same level.
+    Evening that out, and then lifting the quiet parts, is most of what makes a
+    synthetic read sound like a person who is speaking rather than announcing.
+    """
+    win = max(1, int(0.005 * SR))
+    env = np.abs(x)
+    kernel = np.ones(win) / win
+    env = np.convolve(env, kernel, mode='same')
+    db = 20 * np.log10(env + 1e-7)
+    over = np.maximum(0.0, db - threshold_db)
+    gain_db = -over * (1 - 1 / ratio)
+    # Attack and release on the gain, not the signal.
+    a = math.exp(-1 / (attack * SR))
+    r = math.exp(-1 / (release * SR))
+    smoothed = np.empty_like(gain_db)
+    g = 0.0
+    for i, target in enumerate(gain_db):
+        coeff = a if target < g else r
+        g = coeff * g + (1 - coeff) * target
+        smoothed[i] = g
+    return x * (10 ** ((smoothed + makeup_db) / 20))
+
+
+def reverb(x: np.ndarray, wet: float = 0.12, decay: float = 0.55) -> np.ndarray:
+    """A small bright room: enough to stop the voice sounding sealed in a box."""
+    n_ir = int(decay * SR)
+    rng = np.random.default_rng(5)
+    ir = rng.normal(0, 1, n_ir) * np.exp(-np.arange(n_ir) / (SR * decay * 0.30))
+    ir = lowpass(ir, 5000)
+    ir[0] = 1.0
+    ir /= np.sqrt(np.sum(ir ** 2)) + 1e-9
+    size = 1 << int(math.ceil(math.log2(len(x) + len(ir))))
+    wet_sig = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[:len(x)]
+    return (1 - wet) * x + wet * wet_sig
+
+
+def process_voice(x: np.ndarray) -> np.ndarray:
+    """The chain a narration pass would get in a studio, in order."""
+    x = highpass(x, 85.0)          # rumble out of the way of the score
+    x = band_mask(x, 250, 400, 0.35)  # take the boxiness out of the low mids
+    x = compress(x)                # even the syllables, lift the quiet ones
+    x = band_mask(x, 5500, 8500, 0.45)  # de-ess
+    # No presence lift. Measured: Kokoro already puts 11-13 % of its energy above
+    # 4 kHz, which is normal speech, and lifting 2-4 kHz pushed the centroid up a
+    # further 100-220 Hz and made it brittle. If anything, ease the top instead.
+    x = lowpass(x, 9500)
+    x = reverb(x, wet=0.10, decay=0.5)
+    peak = float(np.max(np.abs(x))) or 1.0
+    return x / peak * 0.87
+
+
+def synth(lines: list[dict], out_dir: Path, voice: str = 'am_michael', speed: float = 1.0,
+          processed: bool = True) -> dict:
     from kokoro_onnx import Kokoro
 
     kokoro = Kokoro(str(MODEL), str(VOICES))
@@ -85,6 +173,10 @@ def synth(lines: list[dict], out_dir: Path, voice: str = 'am_michael', speed: fl
     for i, line in enumerate(lines):
         audio, rate = kokoro.create(line['text'], voice=voice, speed=speed, lang='en-us')
         audio = trim(np.asarray(audio, dtype=np.float32))
+        if processed:
+            audio = resample(audio, rate, SR)
+            audio = process_voice(audio)
+            rate = SR
         path = out_dir / f'{i:02d}-{line["shot"]}.wav'
         write_wav(path, audio, rate)
         seconds = len(audio) / rate
@@ -172,7 +264,8 @@ def main() -> None:
     s.add_argument('--lines', required=True)
     s.add_argument('--out', required=True)
     s.add_argument('--voice', default='am_michael')
-    s.add_argument('--speed', type=float, default=1.0)
+    s.add_argument('--speed', type=float, default=0.94)
+    s.add_argument('--raw', action='store_true', help='skip the processing chain')
 
     m = sub.add_parser('mix')
     m.add_argument('--vo', required=True)
@@ -183,7 +276,7 @@ def main() -> None:
     args = ap.parse_args()
     if args.cmd == 'synth':
         lines = json.loads(Path(args.lines).read_text())
-        synth(lines, Path(args.out), voice=args.voice, speed=args.speed)
+        synth(lines, Path(args.out), voice=args.voice, speed=args.speed, processed=not args.raw)
     else:
         mix(Path(args.vo), Path(args.score), Path(args.out), duck_db=args.duck)
 

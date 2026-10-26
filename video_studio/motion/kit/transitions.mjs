@@ -29,27 +29,29 @@ export const TRANSITIONS = {
   },
 
   fade: (ctx, { a, b, p, w, h, colour = '#FFFFFF' }) => {
-    if (p < 0.5) {
-      both(ctx, () => {
-        a();
-        ctx.save();
-        ctx.globalAlpha *= p * 2;
-        ctx.fillStyle = colour;
-        ctx.fillRect(0, 0, w, h);
-        ctx.restore();
-      });
-    } else {
-      both(ctx, () => {
-        b();
-        ctx.save();
-        ctx.globalAlpha *= (1 - p) * 2;
-        ctx.fillStyle = colour;
-        ctx.fillRect(0, 0, w, h);
-        ctx.restore();
-      });
-    }
+    // A crossfade through paper, not a fade-out-then-in.
+    //
+    // The old version showed only the outgoing shot before the midpoint and only
+    // the incoming shot after it. Every shot in this studio animates up from
+    // nothing, so that second half was a blank frame with a wash over it: the
+    // coverage audit found a 0 % frame at 14.95 s, and this was why. The
+    // outgoing shot now stays underneath the whole way through, the incoming one
+    // fades up over it, and the paper dip rides on top at no more than 55 %.
+    const CAP = 0.55;
+    both(ctx, () => {
+      a();
+      const mix = Math.max(0, Math.min(1, (p - 0.12) / 0.76));
+      ctx.save();
+      ctx.globalAlpha *= mix;
+      b();
+      ctx.restore();
+      ctx.save();
+      ctx.globalAlpha *= CAP * Math.sin(Math.PI * p) ** 1.15;
+      ctx.fillStyle = colour;
+      ctx.fillRect(0, 0, w, h);
+      ctx.restore();
+    });
   },
-
   dissolve: (ctx, { a, b, p, w, h }) => {
     both(ctx, () => {
       ctx.save();
