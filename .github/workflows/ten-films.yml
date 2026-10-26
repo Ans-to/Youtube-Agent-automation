@@ -39,6 +39,14 @@ on:
 permissions:
   contents: read
 
+# One render at a time for the whole repository. Two runs racing each other is
+# not hypothetical: the commit that added this workflow mentioned the trigger
+# marker in its own message, so a second run started four seconds after the
+# first and both rendered the same ten films.
+concurrency:
+  group: ten-films
+  cancel-in-progress: true
+
 env:
   PYTHONUNBUFFERED: "1"
   PIP_DISABLE_PIP_VERSION_CHECK: "1"
@@ -62,13 +70,25 @@ jobs:
       - name: List the briefs
         id: list
         env:
-          FILMS: ${{ github.event.inputs.films || 'all' }}
+          FILMS_INPUT: ${{ github.event.inputs.films }}
+          MESSAGE: ${{ github.event.head_commit.message }}
         run: |
+          # Three ways to say which films: the dispatch input, a [render:slug,slug]
+          # marker in the commit message, or plain [render] for everything. The
+          # marker is read with grep rather than a bash regex, because a bracket
+          # expression with escaped brackets inside YAML is a trap.
+          films="$FILMS_INPUT"
+          if [ -z "$films" ]; then
+            marker="$(printf '%s' "$MESSAGE" | grep -oE '[[]render(:[a-z0-9,-]+)?[]]' | head -1)"
+            films="$(printf '%s' "$marker" | sed -E 's/.*[[]render:?//; s/[]].*$//')"
+            [ -z "$films" ] && films="all"
+          fi
+          echo "FILMS=$films" >> "$GITHUB_ENV"
           # "all" is every brief in the folder; anything else is taken literally.
           # The list lives in the folder, not in this file: adding a script should
           # not mean editing a workflow.
-          matrix="$(python3 tools/brief_slugs.py --matrix --films "$FILMS")"
-          count="$(python3 tools/brief_slugs.py --films "$FILMS" | wc -l)"
+          matrix="$(python3 tools/brief_slugs.py --matrix --films "$films")"
+          count="$(python3 tools/brief_slugs.py --films "$films" | wc -l)"
           echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "$matrix"
@@ -80,6 +100,7 @@ jobs:
     timeout-minutes: 90
     strategy:
       fail-fast: false
+      max-parallel: 4
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}
     steps:
       - name: Check out repository
@@ -108,23 +129,39 @@ jobs:
           pip install kokoro-onnx onnxruntime
 
       - name: Fetch the narrator's weights
-        run: python video_studio/kokoro_voice.py --dir "$HOME/.cache/agent-hq/kokoro"
+        env:
+          AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro-cache
+        run: python video_studio/kokoro_voice.py --dir "$AGENTHQ_KOKORO_DIR"
+
+      - name: Smoke-test the narrator before spending the budget
+        timeout-minutes: 8
+        env:
+          AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro-cache
+        run: python tools/voice_smoke.py
 
       - name: Write the narration script
+        env:
+          AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro-cache
         run: |
           python tools/brief_to_voice.py \
             --brief "video_studio/briefs/${{ matrix.slug }}.json" \
             --out "build/${{ matrix.slug }}/voice.json"
 
       - name: Preflight the brief before drawing a frame
+        timeout-minutes: 15
+        env:
+          AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro-cache
         run: |
           python tools/preflight_brief.py \
             --brief "video_studio/briefs/${{ matrix.slug }}.json" \
             --work "build/${{ matrix.slug }}/preflight"
 
       - name: Render the film, mix the sound, and measure it
+        timeout-minutes: 40
         env:
-          AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro
+          # The same cache the weights step filled. Pointing this somewhere else
+          # would silently re-download 90 MB per job.
+          AGENTHQ_KOKORO_DIR: ${{ github.workspace }}/.kokoro-cache
         run: |
           python tools/render_authored_film.py \
             --script video_studio/films/from_brief.mjs \
@@ -191,7 +228,7 @@ jobs:
           # One directory, one file per film, named after the brief. These are the
           # copies the ten-films page links to: 720p, from the render's own
           # delivery pass, and small enough that ten of them fit in the repo.
-          mkdir -p docs/media/demos
+          mkdir -p docs/media/demos/plans
           for dir in build/artifacts/film-*; do
             slug="$(basename "$dir" | sed 's/^film-//')"
             cp "$dir/film-720p.mp4" "docs/media/demos/$slug.mp4"
@@ -199,15 +236,21 @@ jobs:
             if [ -f "$dir/contact-sheet.jpg" ]; then
               cp "$dir/contact-sheet.jpg" "docs/media/demos/$slug-contact-sheet.jpg"
             fi
+            # The plan and the craft report are published too: docs/ten-films.md
+            # is generated from them, so the page cannot claim an act the film
+            # did not draw.
+            cp "$dir/plan.json" "docs/media/demos/plans/$slug.json"
+            [ -f "$dir/craft.json" ] && cp "$dir/craft.json" "docs/media/demos/plans/$slug-craft.json"
             echo "$slug: $(du -h "docs/media/demos/$slug.mp4" | cut -f1)"
           done
+          python tools/ten_films_doc.py
           du -cm docs/media/demos/*.mp4 | tail -1
 
       - name: Commit them, so the links outlive the run
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/media/demos
+          git add docs/media/demos docs/ten-films.md
           if git diff --cached --quiet; then
             echo "nothing changed"
             exit 0
