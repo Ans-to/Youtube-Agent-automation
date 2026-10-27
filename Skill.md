@@ -68,3 +68,32 @@ AI Video Director & Pipeline Rules
 - **Environment:** Can be 3D isometric (Three.js / R3F) for desks, grids, and monitors.
 - **Characters:** Must **never** be blocky voxels or 3D models. Characters must be rendered as **flat-faced or layered 2D vector SVGs** positioned inside the 3D space as crisp billboard planes, ensuring they always look like high-end vector illustrations (like the detective style) regardless of the background grid.
 - 
+
+
+# UNIVERSAL STUDIO-LEVEL VIDEO ENGINE (MASTER DIRECTIVE)
+
+## 1. Dynamic Topic-to-Scene Pipeline
+When given *any* script, topic, or outline (whether it's historical, technical, or exploratory), the agent must execute these 4 phases before writing code:
+1. **Script Breakdown:** Divide the narrative into 10-15 second modular scenes, mapping each scene to a specific core visual metaphor.
+2. **Contextual Character & Prop Selection:** Dynamically assign a 2D vector character role based on the topic:
+   - *History/Ancient Topics:* An archivist/explorer vector avatar.
+   - *Tech/AI/Software Topics:* A modern developer/analyst vector avatar.
+   - *Science/Cosmos:* A researcher/astronomer vector avatar.
+3. **Theming & Color Grading:** Establish a dominant dark-mode palette (`#0b0f19` base) with a topic-specific neon accent (e.g., Cyan for tech, Amber for history, Emerald for finance/nature).
+
+## 2. Universal Component Architecture (Remotion Template)
+Every scene across *any* video must be built using this reusable, decoupled React component structure:
+- **Root.tsx:** Manages global state, audio tracks, and master timing offsets using `<Series>`.
+- **`BaseSceneTemplate.tsx`:** A standardized wrapper providing:
+  - **Layer 0 (Background):** Isometric grid, atmospheric radial gradients, and topic-specific ambient lighting.
+  - **Layer 1 (Environment/Data):** Dynamic 3D/Isometric elements (desks, servers, ancient ruins, charts) built via Three.js/R3F.
+  - **Layer 2 (Kinetic Typography):** Remotion spring-driven text blocks with real-time audio word sync.
+  - **Layer 3 (Vector Character/Prop):** Clean 2D SVG vector avatars with procedural `Math.sin()` idle animations.
+  - **Layer 4 (UI Overlays/HUD):** Floating data cards, glowing code blocks, or map callouts.
+
+## 3. Non-Negotiable Studio Quality Rules (Applied to Every Topic)
+- **Zero Copyright / Zero Raster:** Absolutely no stock images, PNGs, or 3D voxel blocks. Everything must be pure code-driven vectors, SVGs, and Three.js primitives.
+- **Spring Physics Mandate:** Never use linear CSS transitions. All UI entrances, zoom levels, and card expansions must use Remotion's `spring({ damping: 12, stiffness: 100 })`.
+- **Dynamic Camera Orchestration:** No static shots lasting over 3 seconds. The camera must smoothly push in, pan, or track narrative beats using mathematical interpolation.
+- **Micro-Detail Polish:** Every UI window must feature subtle glassmorphism (`backdrop-blur`, semi-transparent borders), glowing drop shadows, and high-contrast typography (Inter/JetBrains Mono).
+- 
