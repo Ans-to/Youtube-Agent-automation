@@ -1,0 +1,26 @@
+{
+  "name": "video-studio-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "audio": "node scripts/generate-120-bpm.mjs",
+    "render": "remotion render src/index.ts StopCodingBlind out/stop-coding-blind.mp4 --codec=h264 --crf=18 --image-format=png --audio-codec=aac --audio-bitrate=192k",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts"
+  },
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "remotion": "4.0.539"
+  },
+  "devDependencies": {
+    "@remotion/cli": "4.0.539",
+    "@types/node": "22.18.6",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
+    "tsx": "4.20.6",
+    "typescript": "5.9.3"
+  }
+}

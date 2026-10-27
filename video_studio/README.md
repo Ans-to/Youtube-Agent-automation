@@ -13,6 +13,10 @@ python video_studio/production.py --script path/to/narration.txt --language en \
 
 It preserves the supplied words, performs no topic research or rewrite, plans code-drawn visual beats and times them to recorded voice clips. A configured local model is required for automatic direction; `--plan` accepts an authored plan instead. It checks exact source coverage and selected semantic tripwires, but **does not automatically verify meaning, speech, word-level sync, intelligibility or factual accuracy**. Every draft requires the named beat-by-beat review and technical audit documented at the link before release. This separate path does not replace the Nokia film's stricter release profile.
 
+## Remotion portrait example
+
+The [Stop coding blind](remotion/README.md) composition is a separate 10-second Remotion example: a code-drawn isometric terminal and beat-synchronized word reveals in 9:16. It includes its own reproducible 120 BPM instrumental and setup instructions.
+
 ## Requirements
 
 - Python 3.10 or newer
