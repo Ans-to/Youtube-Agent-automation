@@ -1,9 +1,9 @@
 # Stop coding blind — motion-graphics preview
 
-**Draft preview, not human-approved.** A 10-second portrait Remotion composition with a drawn isometric workspace, a glowing terminal and the exact supplied words. The soundtrack is an original synthesized 120 BPM instrumental, not a user-supplied track. There is no spoken narration or subtitle track.
+**Earlier draft preview, not human-approved.** This is the pre-Skill.md 2D version rendered from commit `560e3e9`; see the [new 3D voxel remake](stop-coding-blind-voxel.md) for the current component. It is a 10-second portrait composition with a drawn isometric workspace, a glowing terminal and the exact supplied words. The soundtrack is an original synthesized 120 BPM instrumental, not a user-supplied track. There is no spoken narration or subtitle track.
 
 - [Preview video](stop-coding-blind.mp4)
-- [Remotion component and setup](../../../video_studio/remotion/README.md)
+- [Original Remotion component at commit 560e3e9](https://github.com/Ans-to/Youtube-Agent-automation/blob/560e3e99efec8f12f62e0a02eed95f748a1d7111/video_studio/remotion/src/StopCodingBlind.tsx)
 - [Technical QA](stop-coding-blind.qc.json)
 
 The first visible frames for “Stop”, “coding”, and “blind.” are 15, 30, and 45 respectively, synchronized to the half-second beat grid. At 30 fps, the encoded file has all 300 frame timestamps at the expected cadence (maximum deviation under one microsecond). The decoded music matched the synthesized PCM at zero sample lag in a two-second correlation check; this is not a substitute for listening.

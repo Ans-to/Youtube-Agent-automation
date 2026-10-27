@@ -1,41 +1,40 @@
-// One clock for both the score and the typography. The supplied audio starts
-// on beat zero; at 120 BPM each beat is 0.5 s (15 frames at 30 fps).
+import { spring } from 'remotion';
+import { GLITCH_BEATS, WORDS } from './storyboard';
+
+export { GLITCH_BEATS, WORDS } from './storyboard';
 export const BPM = 120;
 export const FPS = 30;
 export const DURATION_SECONDS = 10;
 export const DURATION_FRAMES = DURATION_SECONDS * FPS;
 export const WIDTH = 1080;
 export const HEIGHT = 1920;
-export const PALETTE = { background: '#0b0b0f', foreground: '#f4f2ec', accent: '#ff4b55' } as const;
-
-export const WORDS = [
-  { text: 'Stop', beat: 1, accent: false },
-  { text: 'coding', beat: 2, accent: false },
-  { text: 'blind.', beat: 3, accent: true },
-] as const;
+export const PALETTE = {
+  background: '#08090f', foreground: '#f8f7f2', red: '#ff3f55', cyan: '#44edec',
+} as const;
 
 export const frameAtBeat = (beat: number, fps = FPS): number =>
   Math.round((beat * 60 * fps) / BPM);
 
-const ease = (t: number) => {
-  const n = Math.max(0, Math.min(1, t));
-  return n * n * (3 - 2 * n);
+/** A word first appears on its own beat, even on the first spring frame. */
+export const wordIsVisible = (frame: number, beat: number, fps = FPS): boolean =>
+  frame >= frameAtBeat(beat, fps);
+
+/** A real spring with a visible first frame and an overshoot on impact. */
+export const wordImpact = (frame: number, beat: number, fps = FPS): number => {
+  if (!wordIsVisible(frame, beat, fps)) return 0;
+  return spring({ frame: frame - frameAtBeat(beat, fps) + 1, fps,
+    config: { damping: 10, stiffness: 220, mass: .8 } });
 };
 
-/** Give the terminal a turn as the focal point, then restore the full claim. */
-export const focusState = (frame: number, fps = FPS) => {
-  const beat = frame * BPM / (fps * 60);
-  const title = beat < 11 ? ease((beat - 5) / 6) : 1 - ease((beat - 11) / 8);
-  const terminal = beat < 12 ? ease((beat - 8) / 4) : 1 - ease((beat - 12) / 6);
-  return { title, terminal };
+/** Deterministic, short RGB/pixel burst on word impacts and two-beat accents. */
+export const glitchState = (frame: number, fps = FPS) => {
+  for (const beat of GLITCH_BEATS) {
+    const elapsed = frame - frameAtBeat(beat, fps);
+    if (elapsed >= 0 && elapsed < Math.max(2, Math.round(fps * 0.10))) {
+      return { active: true, beat, elapsed };
+    }
+  }
+  return { active: false, beat: -1, elapsed: -1 };
 };
 
-/** A masked, one-direction reveal that begins on its beat and settles in 0.2 s. */
-export const wordState = (frame: number, beat: number, fps = FPS) => {
-  const start = frameAtBeat(beat, fps);
-  if (frame < start) return { opacity: 0, progress: 0 };
-  const duration = Math.max(1, Math.round(fps * 0.2));
-  const t = Math.min(1, (frame - start + 1) / duration);
-  const progress = 1 - Math.pow(1 - t, 4);
-  return { opacity: Math.min(1, t * 3), progress };
-};
+export const cueFrames = (fps = FPS) => WORDS.map((word) => frameAtBeat(word.beat, fps));

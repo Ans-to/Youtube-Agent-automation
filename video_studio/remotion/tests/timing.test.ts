@@ -5,7 +5,10 @@ import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import test from 'node:test';
-import { BPM, DURATION_FRAMES, DURATION_SECONDS, FPS, HEIGHT, PALETTE, WIDTH, WORDS, focusState, frameAtBeat, wordState } from '../src/timing';
+import { BPM, DURATION_FRAMES, DURATION_SECONDS, FPS, GLITCH_BEATS, HEIGHT, PALETTE, WIDTH, WORDS, frameAtBeat, glitchState, wordImpact, wordIsVisible } from '../src/timing';
+import { cameraPose } from '../src/camera';
+import { avatarMotion } from '../src/avatarMotion';
+import { terminalLineState } from '../src/terminalMotion';
 
 const root = resolve(import.meta.dirname, '..');
 
@@ -23,24 +26,43 @@ test('literal words appear in order on successive half-second beats', () => {
   assert.deepEqual(WORDS.map((item) => frameAtBeat(item.beat, 24)), [12, 24, 36]);
   for (const word of WORDS) {
     const at = frameAtBeat(word.beat);
-    assert.equal(wordState(at - 1, word.beat).opacity, 0);
-    assert.ok(wordState(at, word.beat).opacity > 0);
-    assert.equal(wordState(at + 5, word.beat).progress, 1);
-    assert.equal(wordState(at + 15, word.beat).progress, 1);
+    assert.equal(wordIsVisible(at - 1, word.beat), false);
+    assert.equal(wordIsVisible(at, word.beat), true);
+    assert.equal(wordImpact(at - 1, word.beat), 0);
+    assert.ok(wordImpact(at, word.beat) > 0);
+    assert.ok(wordImpact(at + 5, word.beat) > 1, 'the impact spring should overshoot');
   }
 });
 
-test('focus shifts to the terminal and returns to the final phrase on the beat grid', () => {
-  assert.deepEqual(focusState(0), { title: 0, terminal: 0 });
-  assert.equal(focusState(frameAtBeat(11)).title, 1);
-  assert.equal(focusState(frameAtBeat(12)).terminal, 1);
-  assert.equal(focusState(frameAtBeat(18)).terminal, 0);
-  assert.equal(focusState(frameAtBeat(19)).title, 0);
-  for (let frame = 0; frame < DURATION_FRAMES; frame++) {
-    const state = focusState(frame);
-    assert.ok(state.title >= 0 && state.title <= 1);
-    assert.ok(state.terminal >= 0 && state.terminal <= 1);
+test('glitches land on every word and two-beat accent, then clear', () => {
+  assert.deepEqual(GLITCH_BEATS, [1, 2, 3, 4, 6, 8, 10, 12, 14, 16, 18]);
+  for (const beat of GLITCH_BEATS) {
+    const at = frameAtBeat(beat);
+    assert.equal(glitchState(at - 1).active, false);
+    assert.deepEqual(glitchState(at), { active: true, beat, elapsed: 0 });
+    assert.equal(glitchState(at + 2).active, true);
+    assert.equal(glitchState(at + 3).active, false);
   }
+});
+
+test('camera moves every frame and the robot alternates typing hands', () => {
+  for (let frame = 1; frame < DURATION_FRAMES; frame++) {
+    const before = cameraPose(frame - 1, FPS);
+    const after = cameraPose(frame, FPS);
+    assert.notDeepEqual(after, before, `camera held at frame ${frame}`);
+    for (const n of [...after.position, ...after.target, after.zoom]) assert.ok(Number.isFinite(n));
+  }
+  assert.notEqual(avatarMotion(0, FPS).typing, avatarMotion(2, FPS).typing);
+  assert.ok(avatarMotion(2, FPS).typing * avatarMotion(6, FPS).typing < 0);
+  assert.deepEqual(avatarMotion(101, FPS), avatarMotion(101, FPS));
+});
+
+test('the terminal keeps editing after its initial type-on', () => {
+  assert.equal(terminalLineState(0, 0, FPS).progress, 0);
+  const first = frameAtBeat(9);
+  assert.equal(terminalLineState(first, 0, FPS).active, true);
+  assert.ok(terminalLineState(first + 10, 0, FPS).progress > terminalLineState(first, 0, FPS).progress);
+  assert.equal(terminalLineState(first + frameAtBeat(2), 1, FPS).active, true);
 });
 
 function luminance(hex: string) {
@@ -49,8 +71,8 @@ function luminance(hex: string) {
   return .2126 * rgb[0] + .7152 * rgb[1] + .0722 * rgb[2];
 }
 
-test('white and red headline have strong contrast on the dark background', () => {
-  for (const color of [PALETTE.foreground, PALETTE.accent]) {
+test('white, red and cyan have strong contrast on the dark background', () => {
+  for (const color of [PALETTE.foreground, PALETTE.red, PALETTE.cyan]) {
     const contrast = (luminance(color) + .05) / (luminance(PALETTE.background) + .05);
     assert.ok(contrast >= 4.5, `${color}: ${contrast}`);
   }

@@ -1,0 +1,60 @@
+{
+  "file": "/home/user/Youtube-Agent-automation/docs/media/remotion/stop-coding-blind-voxel.mp4",
+  "video_sha256": "de65a1249424b0af5624562c2c686fc2272c21f3870c60dc2b65700cdb1eccee",
+  "duration_seconds": 10.0,
+  "video": {
+    "codec_name": "h264",
+    "codec_type": "video",
+    "width": 1080,
+    "height": 1920,
+    "avg_frame_rate": "30/1"
+  },
+  "audio_stream_count": 1,
+  "checks": {
+    "black_frames": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 0.2
+    },
+    "freezes": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 3.0
+    },
+    "repeat_frames": {
+      "sampled_frames": 100,
+      "judged_frames": 95,
+      "lag_seconds": 0.5,
+      "lag_frames": 5,
+      "longest_still_seconds": 0.0,
+      "still_share_of_frames": 0.62,
+      "mean_changed_share": 0.0831,
+      "spans": [],
+      "thresholds": {
+        "sample_fps": 10.0,
+        "lag_seconds": 0.5,
+        "blocks": [
+          32,
+          18
+        ],
+        "block_delta": 10.0,
+        "still_share": 0.02,
+        "min_span_seconds": 0.5
+      },
+      "file": "/home/user/Youtube-Agent-automation/docs/media/remotion/stop-coding-blind-voxel.mp4",
+      "limit_seconds": 1.0,
+      "passed": true,
+      "status": "passed",
+      "statement": "REPEAT CHECK: PASSED - no span longer than 1.0 s (longest 0.0 s)"
+    },
+    "audio_silence": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 1.5
+    }
+  },
+  "warnings": [],
+  "passed": true,
+  "strict": true,
+  "scope_note": "Technical heuristics only. Does not judge artistic quality, Urdu/English pronunciation or voice naturalness, factual accuracy, subtitle-to-speech alignment, or phoneme-level lip-sync."
+}

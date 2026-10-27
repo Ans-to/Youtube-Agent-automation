@@ -11,15 +11,19 @@
     "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
+    "@react-three/fiber": "9.5.0",
+    "@remotion/three": "4.0.539",
     "react": "19.2.0",
     "react-dom": "19.2.0",
-    "remotion": "4.0.539"
+    "remotion": "4.0.539",
+    "three": "0.179.1"
   },
   "devDependencies": {
     "@remotion/cli": "4.0.539",
     "@types/node": "22.18.6",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
+    "@types/three": "0.179.0",
     "tsx": "4.20.6",
     "typescript": "5.9.3"
   }
