@@ -106,3 +106,15 @@ Every scene across *any* video must be built using this reusable, decoupled Reac
 3. GLASSMORPHIC UI & HUD PANELS: All data cards, text boxes, and UI containers must feature advanced glassmorphism: `backdrop-blur-md`, semi-transparent frosted glass backgrounds (`rgba(255,255,255,0.03)`), ultra-thin 1px glowing borders (`rgba(255,255,255,0.1)`), and multi-layered drop shadows.
 4. TYPOGRAPHIC HIERARCHY: Body text and titles must use premium font pairings (e.g., Inter / JetBrains Mono) with precise letter-spacing (`tracking-tight`, `tracking-widest`), smooth gradient text fills, and professional kinetic pacing.
 
+## UNIVERSAL STUDIO-LEVEL VIDEO ENGINE & RENDERING MANDATES
+
+### 1. High-Retention Cinematic Visual Standards (No Boring Layouts)
+- **Zero Boring/Predictive Layouts:** Ban flat slides, static icons, and predictable corporate templates. Every scene must look like a high-end YouTube documentary essay (e.g., Johnny Harris / Polymatter style) designed for instant engagement.
+- **Macro-to-Micro Spatial Zooming:** Use continuous, smooth trigonometric camera motion (`interpolate`) to dive from wide global contexts straight down into hyper-detailed micro-elements.
+- **Kinetic Data & Spring Physics:** Never use linear CSS transitions. All UI entrances, stat callouts, and data cards must use Remotion's `spring()` physics (`damping: 12`, `stiffness: 100`).
+- **Cinematic Atmosphere & Glassmorphism:** Utilize obsidian dark-mode foundations (`#0b0f19`) paired with high-contrast neon lighting accents, volumetric shadows, and frosted glassmorphic UI containers (`backdrop-blur`, thin 1px glowing borders).
+
+### 2. Automated GitHub Actions Rendering Pipeline (Zero Local Renders)
+- **Mandatory Cloud Rendering:** Local video rendering is strictly prohibited. All final production MP4 builds must be executed via automated GitHub Actions workflows (`.github/workflows/render.yml`).
+- **CI/CD Execution & Download Link:** When a script or scene is pushed, the GitHub Action runner must execute headless Remotion rendering and package the final high-definition MP4 as a workflow artifact, ensuring an automated, direct downloadable link is provided upon completion.
+- 
