@@ -29,4 +29,11 @@ When generating voiceovers or code that handles text-to-speech (TTS) for documen
 - **Audio Layering:** 
   - Never leave a raw voiceover track isolated. 
   - Instruct the rendering pipeline to mix the generated `.mp3` voiceover with a low-frequency background cinematic drone, ambient room tone, or subtle rhythmic backing track to mask synthetic artifacts and match the visual energy.
-  - 
+ 
+## 5. Advanced Viral Motion & FX Rules (Mandatory for Parity)
+
+- **Character Integration:** Every scene must feature at least one animated pixel-art avatar (e.g., the detective or hat-wearing robot) performing actions (pointing, typing, walking) rather than static 3D assets.
+- **Dynamic Camera Work:** Never keep the camera static. Use Remotion's `interpolate()` to continuously push in, pull out, or pan across the isometric grid in sync with the audio beats.
+- **Glitch & Transition Overlays:** Implement programmatic glitch effects (RGB chromatic aberration splits, random pixel-block flashes, and CRT scanlines) on every major text change or beat drop.
+- **Kinetic Text Impact:** Text must not just fade in. Use spring physics (`spring()` in Remotion) so words snap, bounce, or scale up aggressively on impact.
+- 
