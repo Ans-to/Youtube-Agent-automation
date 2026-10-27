@@ -28,7 +28,7 @@ import { loadFonts } from '../motion/kit/fonts.mjs';
 import { createRenderer } from '../motion/kit/timeline.mjs';
 import { drawHandset, drawStudio, drawReflection } from '../motion/kit/product.mjs';
 import {
-  drawSkyline, drawSmartphone, drawMill, drawPine, drawPaperReam,
+  drawCityscape, drawRooftop, drawSmartphone, drawMill, drawPine, drawPaperReam,
   drawRubberSheet, drawCableDrum, drawChip, drawPlinth, contact,
 } from '../motion/kit/objects.mjs';
 import { drawMap } from '../motion/kit/world.mjs';
@@ -192,49 +192,48 @@ const SCRIPT = [
     role: 'rack',
     seconds: 4,
     background: P.amber.ground,
-    camera: (t, dur) => ({ zoom: 1.04 - (t / dur) * 0.06, at: [0.58, 0.52], rotate: 0 }),
-    grade: { vignetteStrength: 0.44, grainAmount: 0.22, paper: false, riso: 0, tooth: 0.04 },
+    camera: (t, dur) => ({ zoom: 1.03 - (t / dur) * 0.05, at: [0.54, 0.52], rotate: 0 }),
+    grade: { vignetteStrength: 0.36, grainAmount: 0.16, paper: false, riso: 0, tooth: 0.03 },
     layers: [
       {
         id: 'city', depth: 1,
-        draw: (ctx, { p, t }) => {
-          const sky = ctx.createLinearGradient(0, 0, 0, H * 0.78);
-          sky.addColorStop(0, '#0B0705');
-          sky.addColorStop(0.30, '#4A2312');
-          sky.addColorStop(0.62, '#A34A1C');
-          sky.addColorStop(1, '#D9762E');
-          ctx.fillStyle = sky;
+        draw: (ctx, { p, t, dur }) => {
+          /* A city with depth, and a roof to look past.
+             The old version was four grey rectangles; at 1080p that read as a bar
+             chart on its side. Five layers, each hazier and slower than the one
+             in front of it, plus a foreground parapet, is what makes the frame
+             have air in it. */
+          ctx.fillStyle = P.amber.ground;
           ctx.fillRect(0, 0, W, H);
-          /* a low sun behind the skyline */
-          const sunX = W * 0.30;
-          const sunY = H * 0.70;
-          const halo = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, H * 0.52);
-          halo.addColorStop(0, 'rgba(255,214,140,0.72)');
-          halo.addColorStop(0.26, 'rgba(250,176,90,0.26)');
-          halo.addColorStop(1, 'rgba(224,140,60,0)');
-          ctx.fillStyle = halo;
-          ctx.fillRect(0, 0, W, H);
-          ctx.save();
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.fillStyle = 'rgba(244,196,120,0.10)';
-          ctx.fillRect(0, H * 0.735, W, 2);
-          ctx.restore();
-          /* three depths of city, each arriving on its own easing */
-          drawSkyline(ctx, { x: -40, y: H * 0.40, w: W * 1.08, h: H * 0.60, seed: 7, layers: 3, p: span(p, 0.02, 0.5), near: '#090604', far: '#241109', window: '#FFC46A' });
+          drawCityscape(ctx, {
+            x: 0, y: 0, w: W, h: H,
+            seed: 7,
+            p: span(p, 0.02, 0.46),
+            t,
+            /* the camera drifts right; the near layers go with it */
+            parallax: -0.035 * (t / dur),
+            layers: 5,
+            near: '#0A0604',
+            haze: '#8C4A20',
+            window: '#FFC46A',
+            lit: 0.52,
+            horizon: 0.64,
+          });
+          drawRooftop(ctx, { x: 0, y: 0, w: W, h: H * 0.13, baseline: H * 0.87 });
         },
       },
       {
         id: 'words', screen: true, depth: 1,
         draw: (ctx, { p }) => {
-          caps(ctx, 'AT THE SAME MOMENT', W * 0.075, H * 0.215, span(p, 0.08, 0.45), { colour: P.amber.gold });
+          caps(ctx, 'AT THE SAME MOMENT', W * 0.075, H * 0.215, span(p, 0.08, 0.45), { colour: '#F0B44A' });
           rise(ctx, 'a hundred', W * 0.072, H * 0.345, span(p, 0.12, 0.55), { size: 92, colour: P.amber.ink });
           rise(ctx, 'countries', W * 0.072, H * 0.455, span(p, 0.22, 0.68), { size: 92, colour: P.amber.ink });
-          /* the type sits in a pool of shadow that darkens the sky under it, so
-             it keeps its contrast without a visible rectangle over the city */
+          /* the type sits in a pool of shadow so it keeps contrast over the sky,
+             without a visible rectangle across the city */
           ctx.save();
           const sc = ctx.createRadialGradient(W * 0.06, H * 0.36, 0, W * 0.10, H * 0.40, W * 0.56);
-          sc.addColorStop(0, 'rgba(10,6,3,0.72)');
-          sc.addColorStop(0.55, 'rgba(10,6,3,0.30)');
+          sc.addColorStop(0, 'rgba(10,6,3,0.74)');
+          sc.addColorStop(0.55, 'rgba(10,6,3,0.32)');
           sc.addColorStop(1, 'rgba(10,6,3,0)');
           ctx.fillStyle = sc;
           ctx.fillRect(0, 0, W * 0.72, H);
@@ -256,34 +255,66 @@ const SCRIPT = [
   /* 3 ------------------------------------------------------------------- */
   {
     id: 'hook-03-world',
-    optics: { bloom: 0.34, halation: 0.16, grain: 0.18, vignette: 0.34, threshold: 0.62 },
+    optics: { bloom: 0.40, halation: 0.20, grain: 0.18, vignette: 0.34, threshold: 0.60 },
     palette: { paper: P.teal.ground },
     role: 'time',
     seconds: 4,
     background: P.teal.ground,
-    camera: (t, dur) => ({ zoom: 1.0 + (t / dur) * 0.05, at: [0.5, 0.48], rotate: 0 }),
-    grade: { vignetteStrength: 0.46, grainAmount: 0.18, paper: false, riso: 0, tooth: 0.03 },
+    camera: (t, dur) => ({ zoom: 1.0 + (t / dur) * 0.045, at: [0.5, 0.47], rotate: 0 }),
+    grade: { vignetteStrength: 0.40, grainAmount: 0.14, paper: false, riso: 0, tooth: 0.03 },
     layers: [
+      {
+        id: 'ocean', depth: 1,
+        draw: (ctx) => {
+          /* Deep water: a lit centre, dark edges, and a faint band structure -
+             a flat teal field made the continents look pasted on. */
+          const g = ctx.createRadialGradient(W * 0.46, H * 0.40, 0, W * 0.5, H * 0.5, H * 1.05);
+          g.addColorStop(0, '#0E2B2A');
+          g.addColorStop(0.45, '#0A2020');
+          g.addColorStop(1, '#040F0F');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, W, H);
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          for (let i = 0; i < 5; i += 1) {
+            const yy = H * (0.24 + i * 0.12);
+            const lg = ctx.createLinearGradient(0, yy - H * 0.05, 0, yy + H * 0.05);
+            lg.addColorStop(0, 'rgba(56,150,140,0)');
+            lg.addColorStop(0.5, `rgba(56,150,140,${0.030 - i * 0.004})`);
+            lg.addColorStop(1, 'rgba(56,150,140,0)');
+            ctx.fillStyle = lg;
+            ctx.fillRect(0, yy - H * 0.05, W, H * 0.10);
+          }
+          ctx.restore();
+        },
+      },
       {
         id: 'world', depth: 1,
         draw: (ctx, { p }) => {
-          const g = ctx.createRadialGradient(W * 0.5, H * 0.45, 0, W * 0.5, H * 0.5, H * 0.95);
-          g.addColorStop(0, P.teal.mid);
-          g.addColorStop(1, P.teal.ground);
-          ctx.fillStyle = g;
-          ctx.fillRect(0, 0, W, H);
           drawMap(ctx, {
-            x: W * 0.10, y: H * 0.14, w: W * 0.80, h: H * 0.58, p: span(p, 0.02, 0.42),
+            x: W * 0.085, y: H * 0.185, w: W * 0.83, h: H * 0.52, p: span(p, 0.02, 0.40),
             projection: 'winkel', graticule: true,
-            graticuleColour: 'rgba(233,240,230,0.055)',
-            land: 'rgba(30,110,104,0.92)', landEdge: 'rgba(120,200,190,0.55)',
-            palette: { land: 'rgba(30,110,104,0.92)', landEdge: 'rgba(120,200,190,0.55)', text: P.teal.ink, caption: P.teal.gold },
+            graticuleColour: 'rgba(120,200,190,0.055)',
+            land: 'rgba(32,116,108,0.90)', landEdge: 'rgba(150,224,208,0.62)',
+            palette: { land: 'rgba(32,116,108,0.90)', landEdge: 'rgba(150,224,208,0.62)', text: P.teal.ink, caption: P.teal.gold },
+            /* the network: every line runs home to Espoo, and they arrive in
+               their own time, so the claim is something you can watch happen */
+            arcs: [
+              { from: 'espoo', to: 'london', t: span(p, 0.34, 0.62), colour: 'rgba(216,178,74,0.55)', width: 1.4, head: false },
+              { from: 'espoo', to: 'newyork', t: span(p, 0.40, 0.70), colour: 'rgba(216,178,74,0.50)', width: 1.4, head: false },
+              { from: 'espoo', to: 'saopaulo', t: span(p, 0.46, 0.76), colour: 'rgba(216,178,74,0.45)', width: 1.3, head: false },
+              { from: 'espoo', to: 'delhi', t: span(p, 0.52, 0.82), colour: 'rgba(216,178,74,0.50)', width: 1.3, head: false },
+              { from: 'espoo', to: 'beijing', t: span(p, 0.56, 0.86), colour: 'rgba(216,178,74,0.45)', width: 1.3, head: false },
+              { from: 'espoo', to: 'sydney', t: span(p, 0.62, 0.92), colour: 'rgba(216,178,74,0.40)', width: 1.2, head: false },
+            ],
             pins: [
-              { lon: 23.76, lat: 61.5, r: 5.5, colour: P.teal.gold },
-              { lon: -0.13, lat: 51.5, r: 4.5, colour: P.teal.gold },
-              { lon: 77.2, lat: 28.6, r: 4.5, colour: P.teal.gold },
-              { lon: -46.6, lat: -23.5, r: 4.2, colour: P.teal.gold },
-              { lon: 151.2, lat: -33.9, r: 4.2, colour: P.teal.gold },
+              { at: 'espoo', t: span(p, 0.30, 0.50), colour: '#F0C463' },
+              { at: 'london', t: span(p, 0.38, 0.56) },
+              { at: 'newyork', t: span(p, 0.44, 0.62) },
+              { at: 'saopaulo', t: span(p, 0.50, 0.68) },
+              { at: 'delhi', t: span(p, 0.56, 0.74) },
+              { at: 'beijing', t: span(p, 0.60, 0.78) },
+              { at: 'sydney', t: span(p, 0.66, 0.84) },
             ],
           });
         },
@@ -291,14 +322,13 @@ const SCRIPT = [
       {
         id: 'stat', screen: true, depth: 1,
         draw: (ctx, { p }) => {
-          /* the number, enormous, knocked out of the bottom of the frame */
           caps(ctx, 'SOLD ANYWHERE ON EARTH', W * 0.5, H * 0.115, span(p, 0.3, 0.62), {
-            align: 'center', colour: 'rgba(233,240,230,0.66)',
+            align: 'center', colour: 'rgba(233,240,230,0.62)',
           });
-          rise(ctx, 'one in three', W * 0.5, H * 0.855, span(p, 0.42, 0.86), {
+          rise(ctx, 'one in three', W * 0.5, H * 0.845, span(p, 0.42, 0.86), {
             size: 104, align: 'center', colour: P.teal.ink,
           });
-          rule(ctx, W * 0.5 - W * 0.10, H * 0.885, W * 0.20, span(p, 0.6, 0.95), P.teal.gold);
+          rule(ctx, W * 0.5 - W * 0.10, H * 0.875, W * 0.20, span(p, 0.6, 0.95), P.teal.gold);
         },
       },
     ],

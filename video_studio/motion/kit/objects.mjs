@@ -36,67 +36,267 @@ export function contact(ctx, cx, cy, rx, ry, alpha = 0.45) {
 /* ----------------------------------------------------------- a skyline ---- */
 
 /**
- * A city, in three depths. Towers are generated from a seed, so the skyline is
- * the same on every frame and can be re-rendered identically, but no two shots
- * of the film get the same skyline.
+ * A city with air in it.
+ *
+ * The first skyline was four hard-edged rectangles at four different greys, and
+ * at 1080p it read as a bar chart lying on its side. What makes a city read is
+ * not more buildings, it is **depth**: each layer is further away, so it is
+ * lighter, lower in contrast, smaller in detail, and moves less. Add the haze
+ * between the layers, the glow where the streets are, and something in the
+ * foreground to look past, and the frame stops being flat.
+ *
+ * `parallax` (in units of frame width) moves the near layers more than the far
+ * ones. `haze` is [r,g,b] of the air, which is also the colour the far buildings
+ * fade toward.
  */
-export function drawSkyline(ctx, {
-  x, y, w, h, seed = 1, layers = 3, p = 1, lit = 0.5,
-  near = '#161412', far = '#3A322C', window = '#F2C867',
+export function drawCityscape(ctx, {
+  x, y, w, h,
+  seed = 1,
+  p = 1,
+  t = 0,
+  parallax = 0,
+  layers = 5,
+  near = '#080605',
+  haze = '#8C4A20',
+  window = '#FFC46A',
+  lit = 0.5,
+  horizon = 0.72,
 }) {
+  /*
+   * The composition is a skyline seen from across the water: sky above, a city
+   * standing on a single ground line, and the near buildings tall enough to push
+   * into the sky. The first attempt put each layer on its own rising ground and
+   * gave the near one a height of half the frame, which is how a city turns into
+   * a black wall - the near towers simply filled the picture.
+   */
+  const hz = y + h * horizon;
+
+  /* sky: dark overhead, thick and warm at the city */
+  const air = ctx.createLinearGradient(0, y, 0, hz);
+  air.addColorStop(0, '#070404');
+  air.addColorStop(0.40, '#25110A');
+  air.addColorStop(0.76, '#7A3E1C');
+  air.addColorStop(1, '#EDA25C');
+  ctx.save();
+  ctx.globalAlpha *= clamp(p * 2.6);
+  ctx.fillStyle = air;
+  ctx.fillRect(x - w, y - h, w * 3, hz - y + h);
+  ctx.restore();
+
+  /* sun: below the rooftops, so the towers stand in front of it */
+  const sx = x + w * 0.30;
+  const sun = ctx.createRadialGradient(sx, hz, 0, sx, hz, h * 0.50);
+  sun.addColorStop(0, 'rgba(255,238,200,0.95)');
+  sun.addColorStop(0.08, 'rgba(255,214,150,0.55)');
+  sun.addColorStop(0.30, 'rgba(244,168,88,0.16)');
+  sun.addColorStop(1, 'rgba(234,146,72,0)');
+  ctx.save();
+  ctx.globalAlpha *= clamp(p * 2.4);
+  ctx.fillStyle = sun;
+  ctx.fillRect(x - w, y - h, w * 3, hz - y + h);
+  ctx.restore();
+
+  const lift = (k) => {
+    const a = [1, 3, 5].map((i) => parseInt(near.slice(i, i + 2), 16));
+    const b = [1, 3, 5].map((i) => parseInt(haze.slice(i, i + 2), 16));
+    return a.map((v, i) => Math.round(v + (b[i] - v) * k));
+  };
+
+  /* far to near; every layer stands on the same line */
   for (let L = 0; L < layers; L += 1) {
-    const depth = L / Math.max(1, layers - 1);
-    const baseY = y + h;
-    const height = h * lerp(0.95, 0.42, depth);
-    const colour = lerp(0, 1, depth) > 0.5 ? far : near;
-    const alpha = lerp(1, 0.55, depth);
-    const rise = clamp(p * (1.25 - depth * 0.3));
+    const d = layers === 1 ? 0.6 : L / (layers - 1);
+    const airK = Math.pow(1 - d, 1.5);
+    const tallest = h * (0.06 + Math.pow(d, 1.3) * 0.40);
+    const px = parallax * w * (0.05 + d * 0.95);
+    const base = lift(0.58 * airK + 0.02);
+    const dark = base.map((v) => Math.round(v * 0.40));
+    const glass = Math.round(255 - airK * 60);
+
+    const rise = clamp((p - L * 0.05) * 2.6);
+    if (rise <= 0) continue;
+
     ctx.save();
-    ctx.globalAlpha *= alpha;
-    let cx = x;
+    ctx.translate(px, (1 - rise) * h * 0.05);
+
+    let cx = x - w * 0.15;
     let i = 0;
-    while (cx < x + w) {
-      const n = noise(seed * 13.7 + L * 91.3 + i * 5.1);
-      const n2 = noise(seed * 7.1 + L * 41.9 + i * 3.3);
-      const bw = w * (0.045 + n * 0.055);
-      const bh = height * (0.32 + n2 * 0.68) * rise;
-      const top = baseY - bh;
-      const g = shade(ctx, cx, top, cx + bw, baseY, [
-        [0, colour],
-        [0.55, colour],
-        [1, 'rgba(0,0,0,0.55)'],
+    while (cx < x + w * 1.15) {
+      const n1 = noise(seed * 17.3 + L * 131.7 + i * 5.13);
+      const n2 = noise(seed * 7.9 + L * 57.1 + i * 3.77);
+      const n3 = noise(seed * 3.1 + L * 23.9 + i * 9.41);
+      const bw = w * (0.012 + n1 * (0.022 + d * 0.058));
+      const bh = tallest * (0.18 + Math.pow(n2, 1.7) * 0.82) * rise;
+      const top = hz - bh;
+      const tint = 0.80 + n3 * 0.40;
+
+      ctx.fillStyle = shade(ctx, cx, 0, cx + bw, 0, [
+        [0, `rgb(${Math.round(base[0] * tint)},${Math.round(base[1] * tint)},${Math.round(base[2] * tint)})`],
+        [0.70, `rgb(${Math.round(dark[0] * tint)},${Math.round(dark[1] * tint)},${Math.round(dark[2] * tint)})`],
+        [1, `rgb(${Math.round(dark[0] * 0.75)},${Math.round(dark[1] * 0.75)},${Math.round(dark[2] * 0.75)})`],
       ]);
-      ctx.fillStyle = g;
-      ctx.fillRect(cx, top, bw, bh);
-      /* a rooftop mark on some towers */
-      if (n2 > 0.62) {
-        ctx.fillStyle = colour;
-        ctx.fillRect(cx + bw * 0.42, top - bh * 0.09, bw * 0.16, bh * 0.09);
+      ctx.fillRect(cx, top, bw, bh + h * 0.02);
+
+      /* crown / setback / mast */
+      if (n2 > 0.55 && d > 0.25) {
+        const cw = bw * (0.36 + n3 * 0.28);
+        ctx.fillRect(cx + (bw - cw) / 2, top - bh * 0.05, cw, bh * 0.05);
       }
-      /* windows, only on the near layer, and only some of them lit */
-      if (L === 0 && bh > h * 0.18) {
-        const cols = Math.max(1, Math.round(bw / (w * 0.018)));
-        const rows = Math.max(2, Math.round(bh / (h * 0.055)));
+      if (n2 > 0.80 && d > 0.5) {
+        ctx.fillRect(cx + bw * 0.47, top - bh * 0.12, Math.max(1, bw * 0.04), bh * 0.12);
+      }
+
+      /* windows: a grid that fits the face, or a scatter of pixels when the
+         building is too far away to have one */
+      const cellW = bw / (4 + Math.round(n3 * 3));
+      if (cellW >= 5 && bh > h * 0.05) {
+        const cols = Math.max(1, Math.floor(bw / cellW));
+        const cellH = cellW * 1.7;
+        const rows = Math.max(1, Math.floor((bh * 0.72) / cellH));
+        const ww = cellW * 0.44;
+        const wh = Math.max(1, cellH * 0.38);
         for (let r = 0; r < rows; r += 1) {
           for (let c = 0; c < cols; c += 1) {
-            const wl = noise(seed * 3.1 + i * 17 + r * 7 + c * 2.7);
-            if (wl > 1 - lit) {
-              ctx.fillStyle = `rgba(242,200,103,${0.25 + wl * 0.5})`;
-              ctx.fillRect(
-                cx + bw * (0.14 + c * 0.72 / cols),
-                top + bh * (0.10 + r * 0.82 / rows),
-                Math.max(1, bw * 0.26 / cols),
-                Math.max(1, bh * 0.34 / rows),
-              );
-            }
+            const wl = noise(seed * 5.7 + i * 31 + r * 7.3 + c * 2.1 + L * 11);
+            if (wl < 1 - lit) continue;
+            ctx.fillStyle = `rgba(${glass},${Math.round(glass * 0.72)},${Math.round(glass * 0.34)},${(0.20 + wl * 0.55) * (0.35 + d * 0.65)})`;
+            ctx.fillRect(cx + cellW * 0.30 + c * cellW, top + cellH * 0.45 + r * cellH, ww, wh);
           }
         }
+      } else {
+        const dots = Math.round((bh / h) * 22);
+        for (let r = 0; r < dots; r += 1) {
+          const wl = noise(seed * 2.3 + i * 13 + r * 5.9 + L);
+          if (wl < 0.72) continue;
+          ctx.fillStyle = `rgba(${glass},${Math.round(glass * 0.72)},${Math.round(glass * 0.34)},0.26)`;
+          ctx.fillRect(cx + bw * (0.15 + noise(wl * 31) * 0.70), top + bh * (0.10 + wl * 0.80), 1.3, 1.7);
+        }
       }
-      cx += bw * 0.92;
+      cx += bw * (0.95 + n3 * 0.12);
       i += 1;
     }
+
+    /* air in front of the layer, thickest at the ground */
+    const hzRgb = [1, 3, 5].map((i2) => parseInt(haze.slice(i2, i2 + 2), 16));
+    const band = ctx.createLinearGradient(0, hz - tallest, 0, hz + h * 0.02);
+    band.addColorStop(0, `rgba(${hzRgb[0]},${hzRgb[1]},${hzRgb[2]},0)`);
+    band.addColorStop(0.6, `rgba(150,84,42,${0.10 * (1 - d)})`);
+    band.addColorStop(1, `rgba(206,124,62,${0.34 * (1 - d)})`);
+    ctx.fillStyle = band;
+    ctx.fillRect(x - w, hz - tallest, w * 3, tallest + h * 0.02);
     ctx.restore();
   }
+
+  /* the ground plane: wet, and carrying the last of the sky */
+  const st = ctx.createLinearGradient(0, hz - h * 0.01, 0, y + h);
+  st.addColorStop(0, 'rgba(226,138,70,0)');
+  st.addColorStop(0.02, 'rgba(198,104,48,0.22)');
+  st.addColorStop(0.07, 'rgba(58,28,14,0.72)');
+  st.addColorStop(0.22, 'rgba(12,7,5,0.96)');
+  st.addColorStop(1, 'rgba(4,3,2,1)');
+  ctx.save();
+  ctx.globalAlpha *= clamp(p * 2.4);
+  ctx.fillStyle = st;
+  ctx.fillRect(x - w, hz, w * 3, y + h - hz);
+  /* reflections running down the wet street */
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 18; i += 1) {
+    const rx = x + noise(seed * 3.7 + i * 2.3) * w;
+    const rl = (h - (hz - y)) * (0.12 + noise(seed + i * 1.7) * 0.55);
+    const rg = ctx.createLinearGradient(0, hz, 0, hz + rl);
+    rg.addColorStop(0, 'rgba(255,186,104,0.20)');
+    rg.addColorStop(1, 'rgba(255,186,104,0)');
+    ctx.fillStyle = rg;
+    ctx.fillRect(rx, hz, 1.4 + noise(i) * 2.2, rl);
+  }
+  ctx.restore();
+}
+
+/**
+ * Something to look past: the roof of the building the camera is standing on,
+ * a parapet, a water tank, an antenna. A city with no foreground is a backdrop.
+ */
+/**
+ * The foreground: the roof the camera is standing on.
+ *
+ * Not a building - a parapet across the bottom of the frame, a water tank and a
+ * television aerial standing above it, both cropped by the edges. The first
+ * version drew the tank whole and centred, and it read as a house on legs.
+ *
+ * @param baseline  y of the top of the parapet, in canvas units
+ */
+export function drawRooftop(ctx, { x, y, w, h, baseline, colour = '#040302' }) {
+  const top = baseline ?? y;
+  ctx.save();
+
+  /* the parapet itself, board-built, with a coping stone catching the sky */
+  ctx.fillStyle = shade(ctx, 0, top, 0, top + h, [
+    [0, '#1E140D'], [0.25, '#0B0705'], [1, colour],
+  ]);
+  ctx.fillRect(x - w * 2, top, w * 5, h);
+  ctx.fillStyle = 'rgba(255,178,104,0.30)';
+  ctx.fillRect(x - w * 2, top, w * 5, Math.max(1, h * 0.05));
+  ctx.strokeStyle = 'rgba(0,0,0,0.60)';
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 26; i += 1) {
+    const jx = x - w * 2 + (w * 5 * i) / 26;
+    ctx.beginPath();
+    ctx.moveTo(jx, top + h * 0.06);
+    ctx.lineTo(jx, top + h);
+    ctx.stroke();
+  }
+
+  /* the aerial, at the left, cropped by the frame edge */
+  const ax = x + w * 0.145;
+  const ah = h * 4.2;
+  ctx.strokeStyle = 'rgba(8,6,5,0.98)';
+  ctx.lineWidth = Math.max(1.4, w * 0.004);
+  ctx.beginPath();
+  ctx.moveTo(ax, top);
+  ctx.lineTo(ax, top - ah);
+  ctx.stroke();
+  for (let i = 0; i < 5; i += 1) {
+    const ey = top - ah * (0.46 + i * 0.125);
+    const ew = w * (0.062 - i * 0.008);
+    ctx.beginPath();
+    ctx.moveTo(ax - ew, ey);
+    ctx.lineTo(ax + ew, ey);
+    ctx.stroke();
+  }
+
+  /* the water tank, at the right, cropped by the frame edge */
+  const tw = w * 0.062;
+  const th = h * 3.1;
+  const tx = x + w * 0.845;
+  const ty = top - th;
+  ctx.fillStyle = shade(ctx, tx, 0, tx + tw, 0, [[0, '#181009'], [1, '#050403']]);
+  ctx.fillRect(tx, ty, tw, th);
+  /* its lid, and the rim light along the top of it */
+  ctx.beginPath();
+  ctx.moveTo(tx - tw * 0.05, ty);
+  ctx.lineTo(tx + tw * 0.5, ty - th * 0.16);
+  ctx.lineTo(tx + tw * 1.05, ty);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,180,110,0.26)';
+  ctx.lineWidth = Math.max(1, w * 0.0028);
+  ctx.beginPath();
+  ctx.moveTo(tx - tw * 0.05, ty);
+  ctx.lineTo(tx + tw * 0.5, ty - th * 0.16);
+  ctx.lineTo(tx + tw * 1.05, ty);
+  ctx.stroke();
+  /* two hoops, so the tank reads as a tank */
+  ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+  ctx.beginPath();
+  ctx.moveTo(tx, ty + th * 0.34);
+  ctx.lineTo(tx + tw, ty + th * 0.34);
+  ctx.moveTo(tx, ty + th * 0.66);
+  ctx.lineTo(tx + tw, ty + th * 0.66);
+  ctx.stroke();
+  /* the frame it stands on, going down out of frame */
+  ctx.fillStyle = '#040302';
+  ctx.fillRect(tx + tw * 0.12, ty + th, tw * 0.06, top - ty - th + h * 0.02);
+  ctx.fillRect(tx + tw * 0.80, ty + th, tw * 0.06, top - ty - th + h * 0.02);
+  ctx.restore();
 }
 
 /* ------------------------------------------------------- a smartphone ---- */
@@ -700,7 +900,8 @@ export function drawPlinth(ctx, { x, y, w, h, colour = 'rgba(255,255,255,0.06)' 
 }
 
 export const OBJECTS = {
-  skyline: drawSkyline,
+  skyline: drawCityscape,
+  cityscape: drawCityscape,
   smartphone: drawSmartphone,
   pine: drawPine,
   mill: drawMill,
