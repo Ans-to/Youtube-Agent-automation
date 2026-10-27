@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 "use strict";
 const fs=require("fs"),path=require("path"),http=require("http"),puppeteer=require("puppeteer");
+const {contentProblem}=require("./visual_content.cjs");
 // Flags are parsed before anything else runs, so a range request fails fast and
 // never launches a browser it does not need.
 function argValue(argv,name,fallback){
@@ -54,6 +55,8 @@ async function main(){
    if(!Array.isArray(scene.chart_values)||scene.chart_values.length<2||scene.chart_values.length>6)throw new Error("bar-chart requires 2–6 chart_values.");
    if(!Array.isArray(scene.chart_labels)||scene.chart_labels.length!==scene.chart_values.length)throw new Error("bar-chart requires one chart_label per chart_value.");
   }
+  const contentError=contentProblem(scene,kind);
+  if(contentError)throw new Error("Scene "+index+": "+contentError+"; the renderer will not invent missing content.");
  }
  if(s.style!==undefined&&s.style!==null){
   if(typeof s.style!=="object"||Array.isArray(s.style))throw new Error("style must be an object.");

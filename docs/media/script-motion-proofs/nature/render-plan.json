@@ -1,0 +1,68 @@
+{
+  "schema_version": 1,
+  "profile": "script-motion-v1",
+  "fps": 30,
+  "frames": 145,
+  "script_sha256": "d8a43dd96660df22f229b9dec203093f457b4bed296c544c9b400714c3eef8be",
+  "beats": [
+    {
+      "id": "b0001",
+      "start_frame": 0,
+      "end_frame": 65,
+      "voice_start_frame": 8,
+      "voice_end": 1.9505,
+      "visual": {
+        "subject": "sunlight",
+        "action": "reaches",
+        "object": "leaf",
+        "qualifiers": "none",
+        "focus_quote": "Sunlight reaches a leaf",
+        "mood": "warm",
+        "graphic": {
+          "type": "transfer",
+          "from": {
+            "icon": "sun",
+            "label": "Sunlight"
+          },
+          "to": {
+            "icon": "leaf",
+            "label": "leaf"
+          },
+          "item": {
+            "icon": "light",
+            "label": "Sunlight"
+          },
+          "relation": "reaches"
+        }
+      }
+    },
+    {
+      "id": "b0002",
+      "start_frame": 65,
+      "end_frame": 145,
+      "voice_start_frame": 70,
+      "voice_end": 4.139895833333334,
+      "visual": {
+        "subject": "seed",
+        "action": "becomes",
+        "object": "plant",
+        "qualifiers": "none",
+        "focus_quote": "A seed becomes a plant",
+        "mood": "build",
+        "graphic": {
+          "type": "transform",
+          "from": {
+            "icon": "seed",
+            "label": "seed"
+          },
+          "to": {
+            "icon": "plant",
+            "label": "plant"
+          },
+          "relation": "becomes"
+        }
+      }
+    }
+  ],
+  "timing_note": "PCM clip boundaries measured; within-clip word alignment is unverified."
+}

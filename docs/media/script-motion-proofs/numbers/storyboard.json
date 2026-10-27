@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "scenes": [
+    {
+      "scene": 1,
+      "shots": [
+        {
+          "id": "b0001",
+          "scene": 1,
+          "narration": "Water usage fell from 20 to 10 liters.",
+          "visualCues": [
+            {
+              "cue": "",
+              "visual": "chart: water usage / fell / 20 to 10 liters",
+              "start": 0.0,
+              "end": 3.966666666666667
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

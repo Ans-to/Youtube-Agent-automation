@@ -28,6 +28,8 @@ falling back to whatever is left.
 from __future__ import annotations
 
 import math
+import os
+import re
 import wave
 from dataclasses import dataclass
 from pathlib import Path
@@ -35,7 +37,10 @@ from pathlib import Path
 import numpy as np
 
 SR = 48000
-CACHE = Path('/home/user/.cache/agent-hq/kokoro')
+# Share the portable cache convention used by kokoro_voice.py. An absolute
+# sandbox-specific path made the script-first narrator unusable on other PCs.
+CACHE = (Path(os.environ['AGENTHQ_KOKORO_DIR']) if os.environ.get('AGENTHQ_KOKORO_DIR')
+         else Path(os.environ.get('XDG_CACHE_HOME') or Path.home() / '.cache') / 'agent-hq' / 'kokoro')
 MODEL = CACHE / 'kokoro-82m-q8.onnx'
 VOICES = CACHE / 'voices.npz'
 
@@ -189,7 +194,14 @@ def phrases(line: str) -> list[tuple[str, str]]:
         next_three = line[i + 1:i + 4]
         thousands = (ch == ',' and previous_digit and len(next_three) == 3 and next_three.isdigit()
                      and (i + 4 == len(line) or not line[i + 4].isdigit()))
-        if decimal or thousands:
+        # A title or initialism is part of the spoken phrase, not a full-stop
+        # pause. Splitting U.S. into separate TTS calls can change the words.
+        prefix = line[max(0, i - 24):i]
+        abbreviation = ch == '.' and (
+            (i > 0 and i + 1 < len(line) and line[i - 1].isalpha() and line[i + 1].isalpha())
+            or bool(re.search(r'(?:\b(?:mr|mrs|ms|dr|prof|sr|jr|vs|etc|e\.g|i\.e)|\b(?:[A-Za-z]\.)+[A-Za-z])$', prefix, re.I))
+        )
+        if decimal or thousands or abbreviation:
             continue
         if ch == ',':
             out.append((buf.rstrip(', '), 'comma'))

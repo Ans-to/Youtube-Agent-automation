@@ -14,6 +14,7 @@ to make a hold fail the audit, which is what the film renderer does.
 import argparse
 import hashlib
 import json
+import math
 import re
 import subprocess
 import sys
@@ -103,6 +104,30 @@ def parse_black_events(stderr, duration):
     return events
 
 
+def parse_freeze_events(stderr, duration):
+    """Include freezes that continue to EOF, even without an end log event."""
+    starts = [float(x) for x in re.findall(r"freeze_start:\s*([0-9.]+)", stderr)]
+    ends = [float(x) for x in re.findall(r"freeze_end:\s*([0-9.]+)", stderr)]
+    lengths = [float(x) for x in re.findall(r"freeze_duration:\s*([0-9.]+)", stderr)]
+    events = []
+    for index, start in enumerate(starts):
+        if index < len(ends) and ends[index] >= start:
+            end = ends[index]
+            at_eof = False
+        elif index < len(lengths):
+            end = min(duration, start + lengths[index])
+            at_eof = end >= duration
+        else:
+            end = duration
+            at_eof = True
+        if end >= start:
+            event = {"start": start, "end": end, "duration": round(end - start, 3)}
+            if at_eof:
+                event["continues_to_eof"] = True
+            events.append(event)
+    return events
+
+
 def parse_silence_events(stderr, duration):
     starts = [float(x) for x in re.findall(r"silence_start:\s*([0-9.]+)", stderr)]
     ends = [float(x) for x in re.findall(r"silence_end:\s*([0-9.]+)", stderr)]
@@ -137,7 +162,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     if len(videos) != 1:
         raise ValueError("Expected exactly one video stream.")
     duration = float(data.get("format", {}).get("duration", 0))
-    if duration <= 0:
+    if not math.isfinite(duration) or duration <= 0:
         raise ValueError("Invalid duration.")
     report = {"file": str(path.resolve()), "video_sha256": file_sha256(path),
               "duration_seconds": duration, "video": videos[0],
@@ -158,13 +183,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     code, log = run_filter(ffmpeg, path, video_filter="freezedetect=n=-50dB:d=" + str(max_freeze_seconds))
     if code:
         raise ValueError("FFmpeg freeze detector failed: " + log[-1000:])
-    freezes = intervals(log, r"freeze_start:([0-9.]+)", r"freeze_end:([0-9.]+)")
-    # Some FFmpeg versions report freeze_start and freeze_duration instead of freeze_end.
-    if not freezes:
-        starts = [float(x) for x in re.findall(r"freeze_start:([0-9.]+)", log)]
-        durations = [float(x) for x in re.findall(r"freeze_duration:([0-9.]+)", log)]
-        freezes = [{"start": s, "end": round(s+d, 3), "duration": d}
-                   for s, d in zip(starts, durations)]
+    freezes = parse_freeze_events(log, duration)
     report["checks"]["freezes"] = {"count": len(freezes), "events": freezes,
                                     "threshold_seconds": max_freeze_seconds}
     if freezes:
@@ -182,8 +201,8 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
         report["warnings"].append(still["statement"])
         report["warnings"].append("A held picture is a defect in a moving-graphics film: "
                                   "move the content on every spoken beat.")
-    elif still.get("status") == "unavailable" and strict:
-        report["warnings"].append(still["statement"])
+    elif still.get("status") in {"unavailable", "too_short"} and strict:
+        report["warnings"].append(still.get("statement", "REPEAT CHECK: NOT RUN"))
     if audios:
         code, log = run_filter(ffmpeg, path, audio_filter="silencedetect=noise=-45dB:d=" + str(max_silence_seconds))
         if code:

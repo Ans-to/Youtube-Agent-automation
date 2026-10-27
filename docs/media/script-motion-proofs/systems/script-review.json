@@ -1,0 +1,84 @@
+{
+  "schema_version": 1,
+  "reviewed_by": "",
+  "reviewed_inputs": {
+    "frame-timing.json": "fd7f4378e281409c7137b63cf151f777786bce62e9cc34e2c07e261aff7ca87a",
+    "music-plan.json": "73e6b353499b77df03550d4b9cde5b2dd60033cb0777ace1509eb776165928ec",
+    "music-stem.wav": "cc2f2a38ec726a25d76e8979d0006db2c4486d91359bc7fcbc831f3db6d5aa07",
+    "release-profile.json": "82fcf31c2708d7ba2b1fd14bafe73bdd48e2e208fcdcb686140d866f0012997f",
+    "render-plan.json": "e82e3ddf16484868a7238689d333ae6f5a038f84ed1cf502015b5c41b2cefee3",
+    "script-plan.json": "76fbca62618b605e5762cf0937bf6e315c502dd68437db6495ee0b7658e6a5e9",
+    "script.md": "62582a6914270c397ee988d637547ea211b3861d9678b2952f8691288c57576c",
+    "script.txt": "62582a6914270c397ee988d637547ea211b3861d9678b2952f8691288c57576c",
+    "shots.json": "abc82ccc6d54d0968a0849537f4b22c2ac634fa4f9e68d50bf01ffcb3e280204",
+    "storyboard.json": "484bf9246cc831e20b955f7054fa1631c1706f9e20fa546a6f40f854e888f6d3",
+    "video.mp4": "77071784cb71173d516cb7a265e82127fdbcae47e8402a755b7baed75969273e",
+    "video.qc.json": "e07ff76722f9e7012a876ba7b1ed4644c41686cb613283a7471d472b59afec82",
+    "voice-stem.wav": "dc727b9676e5a362aebb254ec57bfd941c974c47a738ed4fcf7c3df96689a2ab",
+    "voice-timing.json": "2a1157dfeffaac5b74d1c0e8062f391a8c65972217e1699c3114c05d69f4d9ef"
+  },
+  "checks": {
+    "narration_sync": {
+      "status": "unverified",
+      "note": ""
+    },
+    "narration_delivery": {
+      "status": "unverified",
+      "note": ""
+    },
+    "visual_relevance": {
+      "status": "unverified",
+      "note": "",
+      "beats": [
+        {
+          "shot": "b0001",
+          "cue_index": 0,
+          "start": 0.0,
+          "end": 3.2666666666666666,
+          "visual": "transfer: server / sends / message to laptop",
+          "spoken_span": "A server sends a message to a laptop.",
+          "status": "unverified",
+          "subject": "",
+          "action": "",
+          "relationship": "",
+          "evidence": ""
+        },
+        {
+          "shot": "b0002",
+          "cue_index": 0,
+          "start": 3.2666666666666666,
+          "end": 7.466666666666667,
+          "visual": "blocked: laptop / does not send / message to server",
+          "spoken_span": "The laptop does not send a message to the server.",
+          "status": "unverified",
+          "subject": "",
+          "action": "",
+          "relationship": "",
+          "evidence": ""
+        }
+      ]
+    },
+    "pacing_motion": {
+      "status": "unverified",
+      "note": ""
+    },
+    "music_balance": {
+      "status": "unverified",
+      "note": ""
+    },
+    "captions": {
+      "status": "unverified",
+      "note": "",
+      "mode": "unverified"
+    },
+    "clean_ending": {
+      "status": "unverified",
+      "note": ""
+    },
+    "factual_review": {
+      "status": "unverified",
+      "note": ""
+    }
+  },
+  "instructions": "Watch and listen to the entire encoded video. Describe actual evidence; assess subject, action, relationship, qualifiers and timing for each beat."
+}

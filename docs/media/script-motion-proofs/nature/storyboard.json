@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "scenes": [
+    {
+      "scene": 1,
+      "shots": [
+        {
+          "id": "b0001",
+          "scene": 1,
+          "narration": "Sunlight reaches a leaf.",
+          "visualCues": [
+            {
+              "cue": "",
+              "visual": "transfer: sunlight / reaches / leaf",
+              "start": 0.0,
+              "end": 2.1666666666666665
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scene": 2,
+      "shots": [
+        {
+          "id": "b0002",
+          "scene": 2,
+          "narration": "A seed becomes a plant.",
+          "visualCues": [
+            {
+              "cue": "",
+              "visual": "transform: seed / becomes / plant",
+              "start": 2.1666666666666665,
+              "end": 4.833333333333333
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

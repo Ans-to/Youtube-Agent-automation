@@ -1,0 +1,16 @@
+{
+  "visuals": [
+    {
+      "id": "b0001", "subject": "sunlight", "action": "reaches", "object": "leaf", "qualifiers": "none",
+      "focus_quote": "Sunlight reaches a leaf", "mood": "warm",
+      "graphic": {"type": "transfer", "from": {"icon": "sun", "label": "Sunlight"},
+        "to": {"icon": "leaf", "label": "leaf"}, "item": {"icon": "light", "label": "Sunlight"}, "relation": "reaches"}
+    },
+    {
+      "id": "b0002", "subject": "seed", "action": "becomes", "object": "plant", "qualifiers": "none",
+      "focus_quote": "A seed becomes a plant", "mood": "build",
+      "graphic": {"type": "transform", "from": {"icon": "seed", "label": "seed"},
+        "to": {"icon": "plant", "label": "plant"}, "relation": "becomes"}
+    }
+  ]
+}

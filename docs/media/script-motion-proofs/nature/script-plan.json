@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "profile": "script-motion-v1",
+  "script_sha256": "d8a43dd96660df22f229b9dec203093f457b4bed296c544c9b400714c3eef8be",
+  "origin": "authored; semantic meaning unverified",
+  "beats": [
+    {
+      "id": "b0001",
+      "source_start": 0,
+      "source_end": 25,
+      "text": "Sunlight reaches a leaf.",
+      "visual": {
+        "subject": "sunlight",
+        "action": "reaches",
+        "object": "leaf",
+        "qualifiers": "none",
+        "focus_quote": "Sunlight reaches a leaf",
+        "mood": "warm",
+        "graphic": {
+          "type": "transfer",
+          "from": {
+            "icon": "sun",
+            "label": "Sunlight"
+          },
+          "to": {
+            "icon": "leaf",
+            "label": "leaf"
+          },
+          "item": {
+            "icon": "light",
+            "label": "Sunlight"
+          },
+          "relation": "reaches"
+        }
+      }
+    },
+    {
+      "id": "b0002",
+      "source_start": 25,
+      "source_end": 49,
+      "text": "A seed becomes a plant.",
+      "visual": {
+        "subject": "seed",
+        "action": "becomes",
+        "object": "plant",
+        "qualifiers": "none",
+        "focus_quote": "A seed becomes a plant",
+        "mood": "build",
+        "graphic": {
+          "type": "transform",
+          "from": {
+            "icon": "seed",
+            "label": "seed"
+          },
+          "to": {
+            "icon": "plant",
+            "label": "plant"
+          },
+          "relation": "becomes"
+        }
+      }
+    }
+  ],
+  "semantic_status": "unverified",
+  "note": "Structural checks are not proof of visual meaning or audible timing."
+}

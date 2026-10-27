@@ -18,6 +18,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { contentProblem } = require("./visual_content.cjs");
 
 let canvasLib;
 try {
@@ -103,6 +104,8 @@ function validate(storyboard) {
     if (!scene || typeof scene !== "object") fail("scene " + index + " must be an object");
     const kind = String(scene.visual_type || "hero").toLowerCase();
     if (!VISUAL_TYPES.has(kind)) fail("scene " + index + " has unsupported visual_type: " + kind);
+    const contentError = contentProblem(scene, kind);
+    if (contentError) fail("scene " + index + ": " + contentError + "; the renderer will not invent missing content");
     const transition = String(scene.transition_in || "none").toLowerCase();
     if (!TRANSITIONS.has(transition)) fail("scene " + index + " has unsupported transition_in: " + transition);
     const move = String(scene.camera_motion || "static").toLowerCase();

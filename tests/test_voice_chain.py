@@ -73,6 +73,12 @@ class PhrasingTest(unittest.TestCase):
         self.assertEqual(cuts[1][0].strip(), 'about 7.2 billion dollars')
         self.assertEqual(cuts[2][0].strip(), 'Over 1,000 people')
 
+    def test_abbreviations_stay_in_the_spoken_phrase(self):
+        cuts = V.phrases('Dr. Smith used U.S. dollars, e.g. cash.')
+        self.assertEqual([stop for _, stop in cuts], ['comma', 'none'])
+        self.assertEqual(cuts[0][0], 'Dr. Smith used U.S. dollars')
+        self.assertEqual(cuts[1][0].strip(), 'e.g. cash')
+
     def test_digit_followed_by_a_sentence_end_still_splits(self):
         cuts = V.phrases('It happened in 2007. Then the market changed.')
         self.assertEqual([c[1] for c in cuts], ['stop', 'none'])

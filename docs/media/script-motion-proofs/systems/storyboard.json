@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "scenes": [
+    {
+      "scene": 1,
+      "shots": [
+        {
+          "id": "b0001",
+          "scene": 1,
+          "narration": "A server sends a message to a laptop.",
+          "visualCues": [
+            {
+              "cue": "",
+              "visual": "transfer: server / sends / message to laptop",
+              "start": 0.0,
+              "end": 3.2666666666666666
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "scene": 2,
+      "shots": [
+        {
+          "id": "b0002",
+          "scene": 2,
+          "narration": "The laptop does not send a message to the server.",
+          "visualCues": [
+            {
+              "cue": "",
+              "visual": "blocked: laptop / does not send / message to server",
+              "start": 3.2666666666666666,
+              "end": 7.466666666666667
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

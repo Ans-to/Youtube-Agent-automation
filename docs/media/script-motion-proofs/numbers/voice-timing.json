@@ -1,0 +1,12 @@
+[
+  {
+    "shot": "b0001",
+    "file": "b0001.wav",
+    "start": 0.267,
+    "end": 3.289,
+    "vo": 3.0220416666666665,
+    "samples": 145058,
+    "sample_rate": 48000,
+    "text": "Water usage fell from 20 to 10 liters."
+  }
+]

@@ -1,0 +1,71 @@
+{
+  "file": "/home/user/Youtube-Agent-automation/workspace/script-motion-delivery-nature/video.mp4",
+  "video_sha256": "9a644047e9ab8dec8925c66ad094d2175de04c28a231f91e2e27d28fb7578f41",
+  "duration_seconds": 4.833333,
+  "video": {
+    "codec_name": "h264",
+    "codec_type": "video",
+    "width": 1920,
+    "height": 1080,
+    "avg_frame_rate": "30/1"
+  },
+  "audio_stream_count": 1,
+  "checks": {
+    "black_frames": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 0.2
+    },
+    "freezes": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 3.0
+    },
+    "repeat_frames": {
+      "sampled_frames": 48,
+      "judged_frames": 43,
+      "lag_seconds": 0.5,
+      "lag_frames": 5,
+      "longest_still_seconds": 0.7,
+      "still_share_of_frames": 0.2708,
+      "mean_changed_share": 0.1343,
+      "spans": [
+        {
+          "start": 2.7,
+          "end": 3.4,
+          "seconds": 0.7
+        },
+        {
+          "start": 4.2,
+          "end": 4.8,
+          "seconds": 0.6
+        }
+      ],
+      "thresholds": {
+        "sample_fps": 10.0,
+        "lag_seconds": 0.5,
+        "blocks": [
+          32,
+          18
+        ],
+        "block_delta": 10.0,
+        "still_share": 0.02,
+        "min_span_seconds": 0.5
+      },
+      "file": "/home/user/Youtube-Agent-automation/workspace/script-motion-delivery-nature/video.mp4",
+      "limit_seconds": 1.0,
+      "passed": true,
+      "status": "passed",
+      "statement": "REPEAT CHECK: PASSED - no span longer than 1.0 s (longest 0.7 s)"
+    },
+    "audio_silence": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 1.5
+    }
+  },
+  "warnings": [],
+  "passed": true,
+  "strict": true,
+  "scope_note": "Technical heuristics only. Does not judge artistic quality, Urdu/English pronunciation or voice naturalness, factual accuracy, subtitle-to-speech alignment, or phoneme-level lip-sync."
+}

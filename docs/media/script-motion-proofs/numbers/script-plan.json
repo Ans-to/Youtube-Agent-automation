@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "profile": "script-motion-v1",
+  "script_sha256": "b6191dcc8e1242e8301ccbfc2ea9a7a6aeeb1638f19fc6dd98581584b73980fd",
+  "origin": "authored; semantic meaning unverified",
+  "beats": [
+    {
+      "id": "b0001",
+      "source_start": 0,
+      "source_end": 39,
+      "text": "Water usage fell from 20 to 10 liters.",
+      "visual": {
+        "subject": "water usage",
+        "action": "fell",
+        "object": "20 to 10 liters",
+        "qualifiers": "liters",
+        "focus_quote": "Water usage fell from 20 to 10 liters",
+        "mood": "sparse",
+        "graphic": {
+          "type": "chart",
+          "bars": [
+            {
+              "label": "Before",
+              "value": "20",
+              "source": "20"
+            },
+            {
+              "label": "After",
+              "value": "10",
+              "source": "10"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "semantic_status": "unverified",
+  "note": "Structural checks are not proof of visual meaning or audible timing."
+}

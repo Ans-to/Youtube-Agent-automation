@@ -75,6 +75,27 @@ class NokiaMixTests(unittest.TestCase):
             measured = measure_stems(root / "voice-stem.wav", root / "music-stem.wav", 3)
             self.assertGreater(measured["voice_above_music_db"], 6)
 
+    def test_optional_voice_peak_limit_preserves_reconstructable_stems(self):
+        sr = narrate.SR
+        with tempfile.TemporaryDirectory() as name:
+            root = Path(name); voice = root / 'voice'; voice.mkdir()
+            waveform = (0.8 * np.sin(2 * math.pi * 220 * np.arange(sr) / sr)).astype(np.float32)
+            narrate.V.write_wav(voice / '1.wav', waveform)
+            (voice / 'timing.json').write_text(json.dumps([{'shot': 'a', 'file': '1.wav', 'vo': 1.0, 'text': 'hello'}]))
+            starts = root / 'starts.json'
+            starts.write_text(json.dumps([{'id': 'a', 'start': 0, 'end': 2, 'voStart': .3}]))
+            score = root / 'score.wav'
+            narrate.V.write_wav(score, np.zeros(sr * 2, np.float32))
+            narrate.mix(voice, score, root / 'out.wav', starts_path=starts, target_lufs=-10,
+                        stems_dir=root, voice_peak_limit_dbfs=-3.3)
+            spoken, _ = narrate.read_wav(root / 'voice-stem.wav')
+            music, _ = narrate.read_wav(root / 'music-stem.wav')
+            master, _ = narrate.read_wav(root / 'out.wav')
+            self.assertLessEqual(float(np.max(np.abs(spoken))), 10 ** (-3.3 / 20) + 1 / 32768)
+            self.assertLess(float(np.max(np.abs(master - spoken - music))), 4 / 32768)
+            with self.assertRaisesRegex(ValueError, 'requires measurable stems'):
+                narrate.mix(voice, score, root / 'bad.wav', starts_path=starts, voice_peak_limit_dbfs=-3.3)
+
     def test_voice_wav_cannot_disagree_with_recorded_timing(self):
         sr = narrate.SR
         with tempfile.TemporaryDirectory() as name:

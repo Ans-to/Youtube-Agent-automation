@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "profile": "script-motion-v1",
+  "status": "INCOMPLETE",
+  "video_sha256": "9a644047e9ab8dec8925c66ad094d2175de04c28a231f91e2e27d28fb7578f41",
+  "inputs": {
+    "frame-timing.json": "2a2e58dac9604d3d767061c317522187afd4b9b900a68fe39c6dfa9ca65a9929",
+    "music-plan.json": "fe60fd90f5d372bc181852a27da39acb759e12feaa93428f0aa75c4080b546a8",
+    "music-stem.wav": "aeacd856012735995427397a11515b258f18dc101776d9b120aaebe70dcd12bc",
+    "release-profile.json": "82fcf31c2708d7ba2b1fd14bafe73bdd48e2e208fcdcb686140d866f0012997f",
+    "render-plan.json": "d64ccbefeb495fe5b245a5fa81326ec45cceafff35970e6db27b442015d2ac1d",
+    "script-plan.json": "b53b580c5fd4ac4b0ace7e2560c0251cf0104e3d87bfca8d9d253e999cc37d55",
+    "script-review.json": "9d5807eb745e6a8ff5e29f559995954052930e713677860a88b4add334633538",
+    "script.md": "d8a43dd96660df22f229b9dec203093f457b4bed296c544c9b400714c3eef8be",
+    "script.txt": "d8a43dd96660df22f229b9dec203093f457b4bed296c544c9b400714c3eef8be",
+    "shots.json": "02373db9a367417581d7326cbf74696647f6aa22f7b16822f37127c41dce55b9",
+    "storyboard.json": "c7a243dff43ed0d9b01f64a5a8b9a5bb071723350f116e114ef4b1e3c862d08e",
+    "video.mp4": "9a644047e9ab8dec8925c66ad094d2175de04c28a231f91e2e27d28fb7578f41",
+    "video.qc.json": "57e23e6c7a57cceb3cd6e5d2fedffeccd9b3c2abea633ad2a534d9c232383b69",
+    "voice-stem.wav": "de31bd9f038bc3889821864d55bdfcc0ee4c38de7b51c4f046e86e901d62bb84",
+    "voice-timing.json": "e1dd7fc3ccf540e088c32626890541af2bc6f17a265d3d6f94883142d35ef29c"
+  },
+  "missing_inputs": [],
+  "duration_seconds": 4.833333,
+  "master": {
+    "integrated_lufs": -14.9,
+    "true_peak_dbtp": -2.1
+  },
+  "stem_levels": {
+    "method": "50 ms windows with voice RMS >= -45 dBFS; energy-weighted RMS",
+    "active_seconds": 3.45,
+    "narration_active_rms_dbfs": -16.75,
+    "narration_sample_peak_dbfs": -3.3,
+    "music_under_narration_rms_dbfs": -26.8,
+    "voice_above_music_db": 10.05,
+    "music_sample_peak_dbfs": -15.76
+  },
+  "recommendations": [],
+  "checks": {
+    "profile": {
+      "status": "passed",
+      "detail": "Script-first profile and required evidence are present."
+    },
+    "stream_coverage": {
+      "status": "passed",
+      "detail": "One video and one audio stream cover 4.833s."
+    },
+    "script_coverage": {
+      "status": "passed",
+      "detail": "2 exact source spans on a contiguous measured clip clock.",
+      "limitation": "Clip boundaries do not verify the actual spoken words or word-level sync."
+    },
+    "technical_quality": {
+      "status": "passed",
+      "detail": "Strict black, silence, freeze and held-picture checks passed."
+    },
+    "frame_cadence": {
+      "status": "passed",
+      "detail": "145 regular 30 fps timestamps."
+    },
+    "master_audio": {
+      "status": "passed",
+      "detail": "-14.9 LUFS, -2.1 dBTP."
+    },
+    "stem_measurements": {
+      "status": "passed",
+      "detail": "Aligned stem levels measured; intelligibility requires listening."
+    },
+    "narration_sync": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    },
+    "narration_delivery": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    },
+    "visual_relevance": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    },
+    "pacing_motion": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    },
+    "music_balance": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    },
+    "captions": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    },
+    "clean_ending": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    },
+    "factual_review": {
+      "status": "unverified",
+      "detail": "A named human review bound to these exact files is required."
+    }
+  },
+  "scope_note": "Technical/structural checks do not prove semantic meaning, actual speech, perceptual motion, mix intelligibility or factual accuracy."
+}

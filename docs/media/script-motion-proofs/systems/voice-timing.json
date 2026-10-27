@@ -1,0 +1,22 @@
+[
+  {
+    "shot": "b0001",
+    "file": "b0001.wav",
+    "start": 0.267,
+    "end": 3.064,
+    "vo": 2.7971041666666667,
+    "samples": 134261,
+    "sample_rate": 48000,
+    "text": "A server sends a message to a laptop."
+  },
+  {
+    "shot": "b0002",
+    "file": "b0002.wav",
+    "start": 3.433,
+    "end": 6.777,
+    "vo": 3.3432916666666666,
+    "samples": 160478,
+    "sample_rate": 48000,
+    "text": "The laptop does not send a message to the server."
+  }
+]

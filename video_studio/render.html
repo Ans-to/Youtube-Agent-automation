@@ -75,10 +75,10 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0b0f}can
   }else if(type==="stat"){
     rounded(gx,gy,gw,gh,14,panel,line);
     ctx.fillStyle=accent;ctx.fillRect(gx+14,gy+14,Math.max(28,gw*.12),4);
-    label(scene.stat_value||"3.2×",gx+gw*.5,gy+gh*.56,Math.min(56*gs,gw*.19),accent,"700");
-    label(scene.stat_label||"MEASURED IMPACT",gx+gw*.5,gy+gh*.80,Math.max(12,Math.min(18*gs,gw*.055)),muted,"600");
+    label(scene.stat_value||"",gx+gw*.5,gy+gh*.56,Math.min(56*gs,gw*.19),accent,"700");
+    label(scene.stat_label||"",gx+gw*.5,gy+gh*.80,Math.max(12,Math.min(18*gs,gw*.055)),muted,"600");
   }else if(type==="diagram"){
-    const items=nodes.length?nodes:["INPUT","PROCESS","OUTPUT"],gap=gh*.07,nh=(gh-gap*(items.length-1))/items.length;
+    const items=nodes,gap=gh*.07,nh=(gh-gap*(items.length-1))/Math.max(1,items.length);
     ctx.strokeStyle=accent;ctx.lineWidth=Math.max(1.5,2*gs);ctx.globalAlpha=.75;
     items.forEach((item,i)=>{
       const nodeProgress=easeSmooth(clamp((progress-i*.17)/.28,0,1));
@@ -93,35 +93,35 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0b0f}can
     ctx.globalAlpha=1;
   }else if(type==="timeline"){
     rounded(gx,gy,gw,gh,14,panel,line);
-    const items=events.length?events:["PLAN","BUILD","REVIEW","SHIP"],y=gy+gh*.43,pad=gw*.10,usable=gw-pad*2;
+    const items=events,y=gy+gh*.43,pad=gw*.10,usable=gw-pad*2;
     ctx.strokeStyle=line;ctx.lineWidth=Math.max(2,3*gs);ctx.beginPath();ctx.moveTo(gx+pad,y);ctx.lineTo(gx+pad+usable*clamp(progress,0,1),y);ctx.stroke();
     items.forEach((item,i)=>{const x=gx+pad+usable*(items.length===1?0:i/(items.length-1));ctx.beginPath();ctx.arc(x,y,Math.max(5,Math.max(5*gs,gw*.018)),0,Math.PI*2);ctx.fillStyle=i/(Math.max(1,items.length-1))<=progress?accent:line;ctx.fill();label(item,x,y+gh*.25,Math.max(10,Math.min(16*gs,gw*.043)),muted,"600")});
   }else if(type==="comparison"){
     rounded(gx,gy,gw,gh,14,panel,line);ctx.strokeStyle=line;ctx.beginPath();ctx.moveTo(gx+gw/2,gy+12);ctx.lineTo(gx+gw/2,gy+gh-12);ctx.stroke();
-    label(scene.comparison_left_title||"BEFORE",gx+gw*.25,gy+gh*.28,Math.max(12,Math.min(17*gs,gw*.05)),muted);
-    label(scene.comparison_right_title||"AFTER",gx+gw*.75,gy+gh*.28,Math.max(12,Math.min(17*gs,gw*.05)),accent);
-    const a=Array.isArray(scene.comparison_left)?scene.comparison_left:["Manual","Slow","Scattered"];
-    const b=Array.isArray(scene.comparison_right)?scene.comparison_right:["Automated","Faster","Consistent"];
+    label(scene.comparison_left_title||"",gx+gw*.25,gy+gh*.28,Math.max(12,Math.min(17*gs,gw*.05)),muted);
+    label(scene.comparison_right_title||"",gx+gw*.75,gy+gh*.28,Math.max(12,Math.min(17*gs,gw*.05)),accent);
+    const a=Array.isArray(scene.comparison_left)?scene.comparison_left:[];
+    const b=Array.isArray(scene.comparison_right)?scene.comparison_right:[];
     for(let i=0;i<3;i++){label(a[i]||"",gx+gw*.25,gy+gh*(.48+i*.16),Math.max(10,Math.min(15*gs,gw*.043)),fg,"400");label(b[i]||"",gx+gw*.75,gy+gh*(.48+i*.16),Math.max(10,Math.min(15*gs,gw*.043)),fg,"400")}
   }else if(type==="code"){
     rounded(gx,gy,gw,gh,12,panel,line);
     ctx.fillStyle=hexToRgba(line,.45);ctx.fillRect(gx,gy,gw,Math.max(20,gh*.14));
     for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(gx+12+i*12,gy+gh*.07,3,0,Math.PI*2);ctx.fillStyle=[p.accent,p.support,p.muted][i];ctx.fill()}
-    const lines=Array.isArray(scene.code_lines)?scene.code_lines.slice(0,6):["function render(frame) {","  drawScene(frame);","  return output;","}"];
+    const lines=Array.isArray(scene.code_lines)?scene.code_lines.slice(0,6):[];
     const fs=Math.max(10,Math.min(14*gs,gw*.032)),start=gy+gh*.27;
     lines.forEach((ln,i)=>{const lineT=easeSmooth(clamp((progress-i*.12)/.24,0,1));ctx.save();ctx.globalAlpha=lineT;ctx.font=fs+"px "+TEXT_FONT;ctx.fillStyle=i===0?accent:(i%2?fg:muted);ctx.fillText(String(ln).slice(0,48),gx+12+(1-lineT)*10,start+i*fs*1.45);ctx.restore()});
     if(Math.floor(frame/12)%2===0){ctx.fillStyle=accent;ctx.fillRect(gx+12,Math.min(gy+gh-7,start+lines.length*fs*1.45),8,2)}
   }else if(type==="quote"){
     rounded(gx,gy,gw,gh,14,panel,line);
     ctx.fillStyle=accent;ctx.font="700 "+Math.max(28,Math.min(54*gs,gw*.15))+"px "+DISPLAY_FONT;ctx.fillText("“",gx+14,gy+gh*.43);
-    const quote=String(scene.quote||scene.stat_label||"The clearest idea wins.").slice(0,180);
+    const quote=String(scene.quote||"").slice(0,180);
     const quoteSize=Math.max(13,Math.min(19*gs,gw*.05)),quoteLines=wrap(quote,gw-28,"italic "+quoteSize+"px "+TEXT_FONT).slice(0,4);
     ctx.font="italic "+quoteSize+"px "+TEXT_FONT;ctx.fillStyle=fg;
     quoteLines.forEach((line,i)=>ctx.fillText(line,gx+14,gy+gh*.57+i*Math.max(16,gh*.09)));
     if(scene.quote_source)label(scene.quote_source,gx+gw*.53,gy+gh*.91,Math.max(10,Math.min(13*gs,gw*.036)),muted,"400");
   }else if(type==="bar-chart"){
     rounded(gx,gy,gw,gh,14,panel,line);
-    const values=Array.isArray(scene.chart_values)?scene.chart_values.slice(0,6):[4,7,5,9],labels=Array.isArray(scene.chart_labels)?scene.chart_labels.slice(0,6):["A","B","C","D"],maxValue=Math.max(1,...values.map(v=>Number(v)||0));
+    const values=Array.isArray(scene.chart_values)?scene.chart_values.slice(0,6):[],labels=Array.isArray(scene.chart_labels)?scene.chart_labels.slice(0,6):[],maxValue=Math.max(1,...values.map(v=>Number(v)||0));
     const plotLeft=gx+gw*.08,plotRight=gx+gw*.94,baseY=gy+gh*.78,plotHeight=gh*.52,slot=(plotRight-plotLeft)/Math.max(1,values.length),bw=slot*.52;
     ctx.strokeStyle=line;ctx.lineWidth=Math.max(1,1.5*gs);ctx.beginPath();ctx.moveTo(plotLeft,baseY);ctx.lineTo(plotRight,baseY);ctx.stroke();
     values.forEach((value,i)=>{
@@ -148,7 +148,7 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#0b0b0f}can
     for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(cx,cy,r*(1+i*.48),0,Math.PI*2);ctx.stroke()}
     ctx.globalAlpha=1;
     const orbitOuter=r*1.96,labelY=Math.min(gy+gh*.98,cy+orbitOuter+Math.max(20,24*gs));
-    label(scene.graphic_label||"CORE IDEA",cx,labelY,Math.max(11,Math.min(15*gs,gw*.045)),muted);
+    label(scene.graphic_label||"",cx,labelY,Math.max(11,Math.min(15*gs,gw*.045)),muted);
   }
   ctx.restore();
  }

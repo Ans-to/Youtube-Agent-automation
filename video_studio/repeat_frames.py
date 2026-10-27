@@ -217,8 +217,8 @@ def iter_video_frames(path: Path, *, fps: float, width: int, height: int, ffmpeg
         stderr = process.stderr.read().decode("utf-8", "replace")
         process.stderr.close()
         process.wait(timeout=60)
-        if process.returncode not in (0, None) and not stderr.strip():
-            raise RuntimeError("ffmpeg failed while decoding %s" % path)
+        if process.returncode not in (0, None):
+            raise RuntimeError("ffmpeg failed while decoding %s: %s" % (path, stderr[-500:].strip()))
 
 
 def analyse_video(

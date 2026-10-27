@@ -145,7 +145,8 @@ def smooth_same(signal: np.ndarray, kernel: np.ndarray, *, block_size: int = 1 <
 def mix(vo_dir: Path, score_path: Path, out_path: Path, duck: float = 0.42,
         starts_path: Path | None = None, *, target_lufs: float = -16.0,
         ceiling_dbfs: float = -1.5, score_gain: float = 0.62,
-        timing_out: Path | None = None, stems_dir: Path | None = None) -> Path:
+        timing_out: Path | None = None, stems_dir: Path | None = None,
+        voice_peak_limit_dbfs: float | None = None) -> Path:
     """Mix against the film clock; optionally preserve separately measurable buses.
 
     The legacy path retains its existing normaliser. When stems are requested,
@@ -159,6 +160,11 @@ def mix(vo_dir: Path, score_path: Path, out_path: Path, duck: float = 0.42,
         raise ValueError('score gain must be finite and non-negative')
     if not math.isfinite(target_lufs) or not math.isfinite(ceiling_dbfs) or ceiling_dbfs > 0:
         raise ValueError('loudness and non-positive sample-peak ceiling must be finite')
+    if voice_peak_limit_dbfs is not None:
+        if not math.isfinite(voice_peak_limit_dbfs) or voice_peak_limit_dbfs > 0:
+            raise ValueError('voice peak limit must be finite and non-positive')
+        if stems_dir is None:
+            raise ValueError('a voice peak limit requires measurable stems')
     timing = json.loads((vo_dir / 'timing.json').read_text())
     if not isinstance(timing, list) or not timing:
         raise ValueError('the narration timing file is empty')
@@ -221,6 +227,7 @@ def mix(vo_dir: Path, score_path: Path, out_path: Path, duck: float = 0.42,
         # honestly attributed to separate instruments. The stereo writer duplicates
         # the mono mix, so its BS.1770 loudness is roughly 3 dB higher than mono.
         # Reuse the master buffer to keep memory bounded on long-form cuts.
+        voice_peak = float(np.max(np.abs(master))) if master.size else 0.0
         master += score
         peak = float(np.max(np.abs(master))) if master.size else 0.0
         if peak <= 1e-10:
@@ -228,6 +235,11 @@ def mix(vo_dir: Path, score_path: Path, out_path: Path, duck: float = 0.42,
         stereo_lufs = V.lufs(master) + 10 * math.log10(2)
         linear_gain = min(10 ** ((target_lufs - stereo_lufs) / 20),
                           10 ** (ceiling_dbfs / 20) / peak)
+        if voice_peak_limit_dbfs is not None and voice_peak > 0:
+            # A separate narration peak can exceed the master peak when music
+            # cancels it. Bound the post-gain voice stem as well, without a
+            # nonlinear limiter that would invalidate the exported buses.
+            linear_gain = min(linear_gain, 10 ** (voice_peak_limit_dbfs / 20) / voice_peak)
         master *= linear_gain
         score *= linear_gain
         stems_dir.mkdir(parents=True, exist_ok=True)

@@ -8,7 +8,8 @@ BASE=Path(__file__).resolve().parent
 ROOT=BASE.parent
 if str(BASE) not in sys.path:sys.path.insert(0,str(BASE))
 if str(ROOT) not in sys.path:sys.path.insert(0,str(ROOT))
-from release_gate import validate_qc_report,validate_project_audit,requires_nokia_profile
+from release_gate import (validate_qc_report, validate_project_audit, requires_nokia_profile,
+                          requires_script_profile, require_nokia_audit_if_applicable)
 
 def sha256(path):
  h=hashlib.sha256()
@@ -61,9 +62,11 @@ def validate_approval(approval, video, requested):
  except (OSError,json.JSONDecodeError,ValueError) as exc:
   raise ValueError("Strict video quality audit is no longer valid: "+str(exc))
  project_at_approval=approval.get("project_audit")
- if project_at_approval is not None or (video.parent/"release-profile.json").exists() or requires_nokia_profile(video.parent,title=requested.get("title","")):
+ if (project_at_approval is not None or (video.parent/"release-profile.json").exists()
+     or requires_script_profile(video.parent) or requires_nokia_profile(video.parent,title=requested.get("title",""))):
   try:
    project_now=validate_project_audit(video.parent,required=True)
+   require_nokia_audit_if_applicable(video.parent,project_now,title=requested.get("title",""))
   except ValueError as exc:
    raise ValueError("Project audit is no longer valid: "+str(exc))
   if not isinstance(project_at_approval,dict) or project_at_approval!=project_now:

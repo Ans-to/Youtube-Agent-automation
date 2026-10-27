@@ -1,0 +1,15 @@
+{
+  "sections": [
+    {
+      "mood": "warm",
+      "start": 0.0,
+      "end": 2.1666666666666665
+    },
+    {
+      "mood": "build",
+      "start": 2.1666666666666665,
+      "end": 4.833333333333333
+    }
+  ],
+  "note": "Procedural score is a draft; encoded mix and intelligibility require listening."
+}

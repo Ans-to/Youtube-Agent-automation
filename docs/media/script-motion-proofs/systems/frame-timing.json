@@ -1,0 +1,9 @@
+{
+  "video_sha256": "77071784cb71173d516cb7a265e82127fdbcae47e8402a755b7baed75969273e",
+  "fps": 30,
+  "expected_frames": 224,
+  "decoded_frames": 224,
+  "max_timestamp_error_seconds": 3.33333333379926e-07,
+  "passed": true,
+  "scope": "Encoded frame timestamps only; not perceptual smoothness."
+}

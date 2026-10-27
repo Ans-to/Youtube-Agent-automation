@@ -5,6 +5,8 @@
     "model": "local-model",
     "max_output_tokens": 900,
     "product_max_output_tokens": 3500,
+    "visual_batch_size": 2,
+    "visual_max_output_tokens": 1200,
     "timeout_seconds": 240
   },
   "runner": {

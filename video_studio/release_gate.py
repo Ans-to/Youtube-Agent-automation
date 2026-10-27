@@ -67,29 +67,56 @@ def requires_nokia_profile(root, title=""):
     return False
 
 
-def validate_project_audit(root, *, required=False):
-    """Require a project-specific audit when a package declares a release profile.
+def requires_script_profile(root):
+    """Do not let deleting the profile bypass a script-first package's review."""
+    root = Path(root)
+    if any((root / name).exists() for name in
+           ("script-plan.json", "render-plan.json", "script-review.json", "script.audit.json")):
+        return True
+    try:
+        status = json.loads((root / "package-status.json").read_text(encoding="utf-8"))
+        return isinstance(status, dict) and status.get("profile") == "script-motion-v1"
+    except (OSError, UnicodeError, json.JSONDecodeError):
+        return False
 
-    Generic packages retain their existing strict-QA gate. Nokia packages opt in
-    by placing release-profile.json beside the video; once approved, both that
-    profile and the matching audit remain mandatory during upload.
-    """
+
+def validate_project_audit(root, *, required=False):
+    """Validate the exact declared project profile and its hash-bound evidence."""
     root = Path(root).resolve()
     profile_path = root / "release-profile.json"
     if not profile_path.exists():
-        if required:
+        if required or requires_script_profile(root):
             raise ValueError("The approved project release profile is missing.")
         return None
     try:
-        try:
-            from .nokia_audit import PROFILE, REPORT_FILE, validate_release_report
-        except ImportError:  # executed as a script from video_studio/
-            from nokia_audit import PROFILE, REPORT_FILE, validate_release_report
+        profile = json.loads(profile_path.read_text(encoding="utf-8"))
+        if not isinstance(profile, dict) or set(profile) != {"profile"}:
+            raise ValueError("Invalid release profile.")
+        name = profile.get("profile")
+        if name == "nokia-empire-15m-v1":
+            try:
+                from .nokia_audit import REPORT_FILE, validate_release_report
+            except ImportError:
+                from nokia_audit import REPORT_FILE, validate_release_report
+        elif name == "script-motion-v1":
+            try:
+                from .script_audit import REPORT_FILE, validate_release_report
+            except ImportError:
+                from script_audit import REPORT_FILE, validate_release_report
+        else:
+            raise ValueError("Unknown release profile.")
         report = validate_release_report(root)
-    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+    except (OSError, ValueError, TypeError, KeyError, json.JSONDecodeError) as exc:
         raise ValueError("Project-specific audit is not valid: " + str(exc)) from exc
-    return {"profile": PROFILE, "profile_sha256": sha256(profile_path),
+    return {"profile": name, "profile_sha256": sha256(profile_path),
             "report_sha256": sha256(root / REPORT_FILE), "audit_status": report["status"]}
+
+
+def require_nokia_audit_if_applicable(root, project_audit, *, title=""):
+    """A generic script audit must never replace the Nokia 15-minute checks."""
+    if requires_nokia_profile(root, title=title) and (
+            not isinstance(project_audit, dict) or project_audit.get("profile") != "nokia-empire-15m-v1"):
+        raise ValueError("This Nokia film requires the Nokia 15-minute release audit.")
 
 
 def main():
@@ -106,7 +133,8 @@ def main():
     try:
         qc_report = json.loads(qc_path.read_text(encoding="utf-8"))
         validate_qc_report(qc_report, video)
-        project_audit = validate_project_audit(root, required=requires_nokia_profile(root))
+        project_audit = validate_project_audit(root, required=requires_nokia_profile(root) or requires_script_profile(root))
+        require_nokia_audit_if_applicable(root, project_audit)
     except (OSError, json.JSONDecodeError, ValueError) as exc:
         raise SystemExit("Release QA failed; approval is blocked: " + str(exc))
 
@@ -137,6 +165,7 @@ def main():
     if requires_nokia_profile(root, title=title):
         try:
             current = validate_project_audit(root, required=True)
+            require_nokia_audit_if_applicable(root, current, title=title)
             if project_audit is not None and current != project_audit:
                 raise ValueError("Project audit changed during approval; start over.")
             project_audit = current

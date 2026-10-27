@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "reviewed_by": "",
+  "reviewed_inputs": {
+    "frame-timing.json": "5b611475ad7fd2ca3db5aeae936ee6231f935e6300937574715cbc22d3e08e3a",
+    "music-plan.json": "30451e0794f0e149afd6f108a74e8c7393cf721c1f1af18082b1b8b155dcdaeb",
+    "music-stem.wav": "293d0fb91e332035d769dc51b060b4a15325cc108ddce16b5f703c540892333c",
+    "release-profile.json": "82fcf31c2708d7ba2b1fd14bafe73bdd48e2e208fcdcb686140d866f0012997f",
+    "render-plan.json": "e01b8a0a8def23e2efb5c6b1a4559fb67cff051c68f391bddd7db30278d4f8fc",
+    "script-plan.json": "4aae50bb08f5d1310fef467dc913ba480c187bdac8dec63a14a8f0ea93ee4fdf",
+    "script.md": "b6191dcc8e1242e8301ccbfc2ea9a7a6aeeb1638f19fc6dd98581584b73980fd",
+    "script.txt": "b6191dcc8e1242e8301ccbfc2ea9a7a6aeeb1638f19fc6dd98581584b73980fd",
+    "shots.json": "481f95a6165618dba101da9ea2f4ed79f49263fd63cbd944279b317053f1e899",
+    "storyboard.json": "298c517ffce7b6325f66571898bbcee4c2a0a048488865e61ea7c8a57925c0e8",
+    "video.mp4": "8ca6fe5150ad378201809c147a10d5ef7ef9f7563138bfe280ef12b7018825ca",
+    "video.qc.json": "c6fd2a2b96b3cb6f3f1e5b21f55554e3607c3494b79b6af5936fe84f9f3e2179",
+    "voice-stem.wav": "06f6f5f4a794e393a18200105a217bfb2c2d21facd8df33d011316fb0683ebc6",
+    "voice-timing.json": "46c00bae041b1e458c3997ebd294c5602cec39b47cad9206afd5af8caf8ba9b6"
+  },
+  "checks": {
+    "narration_sync": {
+      "status": "unverified",
+      "note": ""
+    },
+    "narration_delivery": {
+      "status": "unverified",
+      "note": ""
+    },
+    "visual_relevance": {
+      "status": "unverified",
+      "note": "",
+      "beats": [
+        {
+          "shot": "b0001",
+          "cue_index": 0,
+          "start": 0.0,
+          "end": 3.966666666666667,
+          "visual": "chart: water usage / fell / 20 to 10 liters",
+          "spoken_span": "Water usage fell from 20 to 10 liters.",
+          "status": "unverified",
+          "subject": "",
+          "action": "",
+          "relationship": "",
+          "evidence": ""
+        }
+      ]
+    },
+    "pacing_motion": {
+      "status": "unverified",
+      "note": ""
+    },
+    "music_balance": {
+      "status": "unverified",
+      "note": ""
+    },
+    "captions": {
+      "status": "unverified",
+      "note": "",
+      "mode": "unverified"
+    },
+    "clean_ending": {
+      "status": "unverified",
+      "note": ""
+    },
+    "factual_review": {
+      "status": "unverified",
+      "note": ""
+    }
+  },
+  "instructions": "Watch and listen to the entire encoded video. Describe actual evidence; assess subject, action, relationship, qualifiers and timing for each beat."
+}

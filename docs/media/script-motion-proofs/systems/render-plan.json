@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "profile": "script-motion-v1",
+  "fps": 30,
+  "frames": 224,
+  "script_sha256": "62582a6914270c397ee988d637547ea211b3861d9678b2952f8691288c57576c",
+  "beats": [
+    {
+      "id": "b0001",
+      "start_frame": 0,
+      "end_frame": 98,
+      "voice_start_frame": 8,
+      "voice_end": 3.0637708333333333,
+      "visual": {
+        "subject": "server",
+        "action": "sends",
+        "object": "message to laptop",
+        "qualifiers": "none",
+        "focus_quote": "A server sends a message to a laptop",
+        "mood": "moving",
+        "graphic": {
+          "type": "transfer",
+          "from": {
+            "icon": "server",
+            "label": "server"
+          },
+          "to": {
+            "icon": "laptop",
+            "label": "laptop"
+          },
+          "item": {
+            "icon": "message",
+            "label": "message"
+          },
+          "relation": "sends"
+        }
+      }
+    },
+    {
+      "id": "b0002",
+      "start_frame": 98,
+      "end_frame": 224,
+      "voice_start_frame": 103,
+      "voice_end": 6.776624999999999,
+      "visual": {
+        "subject": "laptop",
+        "action": "does not send",
+        "object": "message to server",
+        "qualifiers": "negated",
+        "focus_quote": "The laptop does not send a message",
+        "mood": "tense",
+        "graphic": {
+          "type": "blocked",
+          "from": {
+            "icon": "laptop",
+            "label": "laptop"
+          },
+          "to": {
+            "icon": "server",
+            "label": "server"
+          },
+          "item": {
+            "icon": "message",
+            "label": "message"
+          },
+          "relation": "does not send"
+        }
+      }
+    }
+  ],
+  "timing_note": "PCM clip boundaries measured; within-clip word alignment is unverified."
+}

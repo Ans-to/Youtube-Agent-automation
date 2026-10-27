@@ -220,6 +220,31 @@ def create_outline(topic, source_notes, cfg, target_minutes, scene_count, fmt, l
     return outline
 
 
+def require_authored_visual_content(scene, index):
+    """Refuse legacy graphic templates that would otherwise invent content.
+
+    Presence is not semantic validation; the script-first path still performs
+    stronger source-bound checks and all rendered films need human review.
+    """
+    kind = scene.get("visual_type", "hero")
+    def text(key):
+        return isinstance(scene.get(key), str) and bool(scene[key].strip())
+    def items(key):
+        return (isinstance(scene.get(key), list) and bool(scene[key]) and
+                all(isinstance(value, str) and value.strip() for value in scene[key]))
+    valid = {
+        "stat": lambda: text("stat_value") and text("stat_label"),
+        "diagram": lambda: items("visual_nodes"),
+        "timeline": lambda: items("timeline_events"),
+        "comparison": lambda: (text("comparison_left_title") and text("comparison_right_title") and
+                               items("comparison_left") and items("comparison_right")),
+        "code": lambda: items("code_lines"),
+        "quote": lambda: text("quote"),
+    }
+    if kind in valid and not valid[kind]():
+        raise ValueError(f"Scene {index} {kind} requires explicit visual content; missing graphics are not invented.")
+
+
 def create_scene(topic, outline, section, source_notes, cfg, index, total, target_words, previous_scene, language, available_source_ids=None):
     visual_list = ", ".join(sorted(VISUAL_TYPES))
     available_source_ids = [
@@ -345,6 +370,7 @@ def create_scene(topic, outline, section, source_notes, cfg, index, total, targe
             raise ValueError("bar-chart requires 2–6 chart_values and one chart_label per value.")
     if "caption" in scene and (not isinstance(scene["caption"], str) or len(scene["caption"]) > 12000):
         raise ValueError("Scene " + str(index) + " caption must be text up to 12000 characters.")
+    require_authored_visual_content(scene, index)
     return scene
 
 
@@ -832,4 +858,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # Exact-script productions use a separate, source-preserving director. The
+    # historical topic/research flow remains available for topic-based drafts.
+    if any(arg == "--script" or arg.startswith("--script=") for arg in sys.argv[1:]):
+        from script_production import main as script_main
+        raise SystemExit(script_main(sys.argv[1:]))
     main()

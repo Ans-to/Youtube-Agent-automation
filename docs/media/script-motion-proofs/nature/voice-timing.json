@@ -1,0 +1,22 @@
+[
+  {
+    "shot": "b0001",
+    "file": "b0001.wav",
+    "start": 0.267,
+    "end": 1.95,
+    "vo": 1.6838333333333333,
+    "samples": 80824,
+    "sample_rate": 48000,
+    "text": "Sunlight reaches a leaf."
+  },
+  {
+    "shot": "b0002",
+    "file": "b0002.wav",
+    "start": 2.333,
+    "end": 4.14,
+    "vo": 1.8065625,
+    "samples": 86715,
+    "sample_rate": 48000,
+    "text": "A seed becomes a plant."
+  }
+]

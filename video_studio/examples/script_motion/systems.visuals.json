@@ -1,0 +1,16 @@
+{
+  "visuals": [
+    {
+      "id": "b0001", "subject": "server", "action": "sends", "object": "message to laptop", "qualifiers": "none",
+      "focus_quote": "A server sends a message to a laptop", "mood": "moving",
+      "graphic": {"type": "transfer", "from": {"icon": "server", "label": "server"},
+        "to": {"icon": "laptop", "label": "laptop"}, "item": {"icon": "message", "label": "message"}, "relation": "sends"}
+    },
+    {
+      "id": "b0002", "subject": "laptop", "action": "does not send", "object": "message to server", "qualifiers": "negated",
+      "focus_quote": "The laptop does not send a message", "mood": "tense",
+      "graphic": {"type": "blocked", "from": {"icon": "laptop", "label": "laptop"},
+        "to": {"icon": "server", "label": "server"}, "item": {"icon": "message", "label": "message"}, "relation": "does not send"}
+    }
+  ]
+}

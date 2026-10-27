@@ -2,6 +2,17 @@
 
 This module renders MP4s from JSON storyboards using Canvas2D in headless Chromium and FFmpeg. The production language profile is configurable and defaults to **Pakistani Urdu narration written in Urdu/Arabic script, preserving common English technical terms** (ur-en). English narration is supported only when explicitly requested. SRT/WebVTT subtitle text follows the narration profile. The YouTube uploader is separate and approval-gated.
 
+## Supplied narration: script-first motion graphics
+
+For an existing script, use the [script-first workflow](../docs/script-first-motion.md):
+
+```bash
+python video_studio/production.py --script path/to/narration.txt --language en \
+  --out workspace/my-script-film --render
+```
+
+It preserves the supplied words, performs no topic research or rewrite, plans code-drawn visual beats and times them to recorded voice clips. A configured local model is required for automatic direction; `--plan` accepts an authored plan instead. It checks exact source coverage and selected semantic tripwires, but **does not automatically verify meaning, speech, word-level sync, intelligibility or factual accuracy**. Every draft requires the named beat-by-beat review and technical audit documented at the link before release. This separate path does not replace the Nokia film's stricter release profile.
+
 ## Requirements
 
 - Python 3.10 or newer
