@@ -529,7 +529,16 @@ function endShot(worldId, { lines, small } = {}) {
 
 /* --------------------------------------------------------------- exports ---- */
 
-export { P, W, H };
+/*
+ * The grammar is exported so a second film can be written against it: the
+ * builders are the house style, and a film that re-implements them is a film
+ * that will drift. `films/nokia_empire.mjs` imports every one of these.
+ */
+export {
+  P, W, H, SERIF, SANS, POSTER, text, caps, rise, rule,
+  fieldLayer, airLayer, scene, words,
+  typeShot, objectShot, chartShot, mapShot, bandsShot, compareShot, endShot, T,
+};
 
 /* ---------------------------------------------------------------- joins ---- */
 

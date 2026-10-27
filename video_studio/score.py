@@ -79,29 +79,70 @@ SECTIONS = {
 # anything that opens over time.
 # --------------------------------------------------------------------------
 
+def _masked_filter(x: np.ndarray, mask, block: int = 1 << 21) -> np.ndarray:
+    """Apply a spectral mask in overlapping blocks.
+
+    A single transform over a twenty-eight-minute score needs 41 million complex
+    points, and two copies of the signal besides; the machine answers that with
+    an OOM kill and no message. Each block is analysed with half a second of
+    context on both sides, and the blocks are crossfaded over an eighth of a
+    second, so the result is the same filter without the memory.
+    """
+    n = len(x)
+    if n == 0:
+        return x
+    if n <= block:
+        spec = np.fft.rfft(x)
+        return np.fft.irfft(spec * mask(np.fft.rfftfreq(n, 1 / SR)), n)
+    out = np.zeros(n)
+    weight = np.zeros(n)
+    pad = SR // 2
+    fade = SR // 8
+    for a in range(0, n, block):
+        b = min(n, a + block)
+        a_p, b_p = max(0, a - pad), min(n, b + pad)
+        seg = x[a_p:b_p]
+        spec = np.fft.rfft(seg)
+        freqs = np.fft.rfftfreq(len(seg), 1 / SR)
+        shaped = np.fft.irfft(spec * mask(freqs), len(seg))
+        inner = shaped[a - a_p: a - a_p + (b - a)]
+        w = np.ones(b - a)
+        k = min(fade, (b - a) // 2)
+        if a > 0 and k:
+            w[:k] = np.linspace(0, 1, k)
+        if b < n and k:
+            w[-k:] = np.linspace(1, 0, k)
+        out[a:b] += inner * w
+        weight[a:b] += w
+    return out / np.maximum(weight, 1e-9)
+
+
 def lowpass(x: np.ndarray, cutoff: float, order: float = 2.0) -> np.ndarray:
     """Smooth low-pass by masking the spectrum with a raised cosine above cutoff."""
     n = len(x)
     if n == 0:
         return x
-    spec = np.fft.rfft(x)
-    freqs = np.fft.rfftfreq(n, 1 / SR)
-    roll = np.ones_like(freqs)
     band = cutoff * 0.6
-    over = freqs > cutoff
-    roll[over] = 0.5 * (1 + np.cos(np.pi * np.clip((freqs[over] - cutoff) / band, 0, 1))) ** order
-    return np.fft.irfft(spec * roll, n)
+
+    def mask(freqs):
+        roll = np.ones_like(freqs)
+        over = freqs > cutoff
+        roll[over] = 0.5 * (1 + np.cos(np.pi * np.clip((freqs[over] - cutoff) / band, 0, 1))) ** order
+        return roll
+
+    return _masked_filter(x, mask)
 
 
 def highpass(x: np.ndarray, cutoff: float) -> np.ndarray:
-    n = len(x)
-    spec = np.fft.rfft(x)
-    freqs = np.fft.rfftfreq(n, 1 / SR)
-    roll = np.ones_like(freqs)
     band = max(cutoff * 0.5, 1)
-    under = freqs < cutoff
-    roll[under] = 0.5 * (1 - np.cos(np.pi * np.clip((cutoff - freqs[under]) / band, 0, 1)))
-    return np.fft.irfft(spec * roll, n)
+
+    def mask(freqs):
+        roll = np.ones_like(freqs)
+        under = freqs < cutoff
+        roll[under] = 0.5 * (1 - np.cos(np.pi * np.clip((cutoff - freqs[under]) / band, 0, 1)))
+        return roll
+
+    return _masked_filter(x, mask)
 
 
 def opening_filter(x: np.ndarray, start_hz: float, end_hz: float, blocks: int = 12) -> np.ndarray:
@@ -434,16 +475,40 @@ def place(track: np.ndarray, seg: np.ndarray, at: float) -> None:
 
 
 def reverb(x: np.ndarray, wet: float = 0.20, decay: float = 1.9) -> np.ndarray:
-    """A small room, made from filtered noise and convolved with FFT."""
+    """A small room, made from filtered noise and convolved with FFT.
+
+    Overlap-add, not one FFT over the whole signal. A single transform needs the
+    next power of two above the film's length, and at twenty-eight minutes that
+    is a 134-million-point complex spectrum - two of them, plus the mix itself,
+    which is more than the machine has. It was killed by the OOM reaper with no
+    message, which reads exactly like a silent failure. Blocks of 2^18 produce
+    the same convolution, sample for sample, in bounded memory.
+    """
     n_ir = int(decay * SR)
     rng = np.random.default_rng(11)
     ir = rng.normal(0, 1, n_ir) * np.exp(-np.arange(n_ir) / (SR * decay * 0.42))
     ir = lowpass(ir, 3200)
     ir[0] = 1.0
     ir /= np.sqrt(np.sum(ir ** 2)) + 1e-9
-    size = 1 << int(math.ceil(math.log2(len(x) + len(ir))))
-    wet_sig = np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[:len(x)]
-    return (1 - wet) * x + wet * wet_sig
+    size = 1 << 18
+    while size < 4 * n_ir:
+        size *= 2
+    hop = size - n_ir + 1
+    ir_f = np.fft.rfft(ir, size)
+    out = np.zeros(len(x), dtype=np.float32)
+    for start in range(0, len(x), hop):
+        seg = x[start:start + hop]
+        if len(seg) == 0:
+            break
+        block = np.fft.irfft(np.fft.rfft(seg, size) * ir_f, size)
+        end = min(len(x), start + block.shape[0])
+        out[start:end] += block[:end - start].astype(np.float32)
+    # dry and wet mixed in place: `(1 - wet) * x + wet * out` allocates two more
+    # copies of a file that is already the biggest object in memory
+    out *= wet
+    x32 = x if x.dtype == np.float32 else x.astype(np.float32)
+    out += x32 * (1.0 - wet)
+    return out
 
 
 # --------------------------------------------------------------------------
@@ -452,7 +517,7 @@ def reverb(x: np.ndarray, wet: float = 0.20, decay: float = 1.9) -> np.ndarray:
 
 def cue_bus(total: int, cues: list[tuple[float, ...]]) -> np.ndarray:
     """Place every effect in stereo, at equal power, at its own pan position."""
-    bus = np.zeros((2, total))
+    bus = np.zeros((2, total), np.float32)
     for row in cues:
         at, kind = float(row[0]), str(row[1])
         level = float(row[2]) if len(row) > 2 else 1.0
@@ -476,11 +541,39 @@ def cue_bus(total: int, cues: list[tuple[float, ...]]) -> np.ndarray:
     return bus
 
 
+def place_cues(out: np.ndarray, events: list[tuple[float, ...]]) -> None:
+    """Every effect, panned and weighted, added straight into the bed.
+
+    `cue_bus` builds a full-length stereo bus first, which is 660 MB on a
+    twenty-eight-minute film and exists only to be added to the mix one line
+    later. This writes the same events into the array that is already there.
+    """
+    for row in events:
+        at, kind = float(row[0]), str(row[1])
+        level = float(row[2]) if len(row) > 2 else 1.0
+        pan = float(row[3]) if len(row) > 3 else 0.0
+        seg = cue(kind, gain=level)
+        top = float(np.abs(seg).max()) + 1e-9
+        seg = seg / top * 10 ** (-12.0 / 20)
+        start = int(at * SR)
+        if start >= out.shape[-1] or start < 0:
+            continue
+        end = min(out.shape[-1], start + len(seg))
+        seg = seg[:end - start]
+        angle = (np.clip(pan, -1, 1) + 1) * math.pi / 4
+        out[0, start:end] += seg * math.cos(angle)
+        out[1, start:end] += seg * math.sin(angle)
+
+
 def build(seconds: float, sections: list[tuple[str, float, float]], gain: float = 1.0,
           cues: list[tuple[str, float]] | None = None, starts: list[dict] | None = None,
           stereo: bool = False):
     total = int(seconds * SR)
-    mix = np.zeros(total)
+    # float32, not float64. At twenty-eight minutes one channel of float64 is
+    # 660 MB and every operation that touches it allocates another; the score was
+    # being killed by the OOM reaper before it wrote a single byte, with no
+    # message, which reads exactly like a crash in the maths.
+    mix = np.zeros(total, np.float32)
 
     for name, start, end in sections:
         # A typo used to fall through to 'calm' and quietly change the mood of a
@@ -555,16 +648,21 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
     events = list(cues or [])
     if starts:
         events += cues_from_starts(starts)
-    bus = cue_bus(total, events)
 
     delay = int(0.011 * SR)
-    wide = np.stack([mix, np.concatenate([np.zeros(delay), mix[:-delay]]) * 0.96])
+    # One buffer, filled in place. `np.stack([mix, shifted])` plus the addition
+    # afterwards is three more full-length arrays than the film has memory for.
+    wide = np.empty((2, total), np.float32)
+    wide[0] = mix
+    wide[1, :delay] = 0.0
+    wide[1, delay:] = mix[:total - delay] * 0.96
+    del mix
     # The bed is limited on its own and leaves the effects three decibels of
     # room. Limiting the sum instead meant every effect at every join was squashed
     # by the music it was supposed to punctuate - measured, a -17 dBFS tick was
     # arriving 14 dB quieter than it was rendered.
-    bed = soft_limit(wide, ceiling * 0.80)
-    out = bed + bus
+    out = soft_limit(wide, ceiling * 0.80)
+    place_cues(out, events)
     if np.abs(out).max() > ceiling:
         out = soft_limit(out, ceiling)
     # (frames, channels) on the way out: a stereo pair written row-major as
@@ -573,30 +671,69 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
 
 
 def soft_limit(x: np.ndarray, ceiling: float) -> np.ndarray:
+    """A soft knee, applied in place and in blocks.
+
+    The obvious version builds `abs`, `sign` and a copy of `abs` before it
+    touches the signal - three more full-length arrays. On a twenty-eight-minute
+    score that is the difference between running and being killed.
+    """
     knee = ceiling * 0.62
-    mag = np.abs(x)
-    sign = np.sign(x)
-    over = mag > knee
-    out = mag.copy()
-    out[over] = knee + (ceiling - knee) * np.tanh((mag[over] - knee) / (ceiling - knee) * 1.2) / math.tanh(1.2)
-    return np.clip(sign * out, -ceiling, ceiling)
+    span = ceiling - knee
+    shape = 1.2 / math.tanh(1.2)
+    block = 1 << 22
+    frames = x.shape[-1]
+    for start in range(0, frames, block):
+        # `x` is (frames,) for the bed and (2, frames) for the widened bus; the
+        # slice has to follow the last axis or the second case limps each channel
+        # in two frames' worth of blocks.
+        seg = x[..., start:start + block]
+        mag = np.abs(seg)
+        over = mag > knee
+        if not over.any():
+            continue
+        mag[over] = knee + span * np.tanh((mag[over] - knee) / span * 1.2) * shape / 1.2
+        np.clip(mag, 0.0, ceiling, out=mag)
+        np.copysign(mag, seg, out=seg)
+    return x
 
 
 def write_wav(path: Path, data: np.ndarray) -> None:
-    """Write a stereo pair, or a mono signal widened by a hair."""
-    if data.ndim == 1:
-        delay = int(0.011 * SR)
-        left = data
-        right = np.concatenate([np.zeros(delay), data[:-delay]]) * 0.96
-        data = np.stack([left, right], axis=1)
-    elif data.shape[0] == 2 and data.shape[1] > 2:
-        data = data.T
-    pcm = (np.clip(data, -1, 1) * 32767).astype('<i2')
+    """Write a stereo pair, or a mono signal widened by a hair.
+
+    Interleaved in blocks. `data.T` plus an `astype` is two more copies of the
+    whole score, and on a twenty-eight-minute film that is the difference between
+    writing the file and being killed by the reaper one line before it.
+
+    The layout has to be read, not assumed. `build()` returns frames-first,
+    `(frames, 2)`; the library's other callers pass channels-first. Assuming one
+    of them wrote a stereo file whose left and right halves came from different
+    parts of the timeline - which measures as a level alternating every four
+    seconds, and sounds like a fault in the arrangement rather than in the writer.
+    """
+    mono = data.ndim == 1
+    channels_first = (not mono) and data.shape[0] == 2 and data.shape[1] > 2
+    frames = data.shape[0] if not channels_first else data.shape[1]
+    delay = int(0.011 * SR)
+    block = 1 << 20
     with wave.open(str(path), 'wb') as f:
         f.setnchannels(2)
         f.setsampwidth(2)
         f.setframerate(SR)
-        f.writeframes(pcm.tobytes())
+        for start in range(0, frames, block):
+            end = min(frames, start + block)
+            if mono:
+                left = data[start:end]
+                if start < delay:
+                    right = np.concatenate([np.zeros(delay - start), data[:max(0, end - delay)]])
+                else:
+                    right = data[start - delay:end - delay]
+                pair = np.stack([left, right * 0.96], axis=1)
+            elif channels_first:
+                pair = data[:, start:end].T
+            else:
+                pair = data[start:end]
+            pcm = (np.clip(pair, -1, 1) * 32767).astype('<i2')
+            f.writeframes(pcm.tobytes())
 
 
 def parse_cues(text: str) -> list[tuple[float, str, float, float]]:

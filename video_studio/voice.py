@@ -68,9 +68,37 @@ def _spectrum(x: np.ndarray):
     return np.fft.rfft(x), np.fft.rfftfreq(n, 1 / SR), n
 
 
-def _apply(x: np.ndarray, gain_of_freq) -> np.ndarray:
-    spec, freqs, n = _spectrum(x)
-    return np.fft.irfft(spec * gain_of_freq(freqs), n).astype(np.float32)
+def _apply(x: np.ndarray, gain_of_freq, block: int = 1 << 21) -> np.ndarray:
+    """Filter by masking the spectrum, in overlapping blocks.
+
+    A single transform is fine on one line of narration and is not fine on a
+    twenty-eight-minute film: 41 million complex points, two of them, plus the
+    signal. The process was killed with no message, which is why this is a block
+    loop now. Each block carries half a second of context on both sides and the
+    blocks crossfade over an eighth of a second.
+    """
+    n = len(x)
+    if n <= block:
+        spec, freqs, n2 = _spectrum(x)
+        return np.fft.irfft(spec * gain_of_freq(freqs), n2).astype(np.float32)
+    out = np.zeros(n)
+    weight = np.zeros(n)
+    pad = SR // 2
+    fade = SR // 8
+    for start in range(0, n, block):
+        end = min(n, start + block)
+        a, b = max(0, start - pad), min(n, end + pad)
+        spec, freqs, m = _spectrum(x[a:b])
+        shaped = np.fft.irfft(spec * gain_of_freq(freqs), m)
+        w = np.ones(end - start)
+        k = min(fade, (end - start) // 2)
+        if start > 0 and k:
+            w[:k] = np.linspace(0, 1, k)
+        if end < n and k:
+            w[-k:] = np.linspace(1, 0, k)
+        out[start:end] += shaped[start - a:start - a + (end - start)] * w
+        weight[start:end] += w
+    return (out / np.maximum(weight, 1e-9)).astype(np.float32)
 
 
 def highpass(x: np.ndarray, hz: float) -> np.ndarray:
@@ -307,7 +335,9 @@ def lufs(x: np.ndarray, channels: int = 1) -> float:
 
 def normalise(x: np.ndarray, target=-16.0, ceiling_db=-1.5) -> np.ndarray:
     gain = target - lufs(x)
-    x = x * (10 ** (gain / 20))
+    # In place: a copy of a twenty-eight-minute master is 330 MB that the
+    # machine does not have while it is also filtering the signal for LUFS.
+    x *= 10 ** (gain / 20)
     ceiling = 10 ** (ceiling_db / 20)
     peak = float(np.max(np.abs(x)))
     if peak > ceiling:
@@ -316,8 +346,8 @@ def normalise(x: np.ndarray, target=-16.0, ceiling_db=-1.5) -> np.ndarray:
         # applying it blindly made the mix louder than the target it had just been
         # set to. Normalise again afterwards, then hard-clamp the last millivolt.
         x = np.tanh(x / ceiling * 0.9) * ceiling / math.tanh(0.9)
-        x = x * (10 ** ((target - lufs(x)) / 20))
-        x = np.clip(x, -ceiling, ceiling)
+        x *= 10 ** ((target - lufs(x)) / 20)
+        np.clip(x, -ceiling, ceiling, out=x)
     return x
 
 

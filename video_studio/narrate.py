@@ -134,8 +134,16 @@ def mix(vo_dir: Path, score_path: Path, out_path: Path, duck: float = 0.42,
     k = np.hanning(int(0.22 * SR))
     k /= k.sum()
     speech = np.convolve(speech, k, mode='same')
-    gain = 1.0 - duck * np.clip(speech, 0, 1)
-    master_out = master + score * gain * 0.62
+    gain = 1.0 - duck * np.clip(speech, 0, 1).astype(np.float32)
+    del speech
+    # In place. `master + score * gain * 0.62` allocates three more copies of a
+    # twenty-eight-minute film, and the machine answers that with an OOM kill.
+    score *= gain
+    del gain
+    score *= 0.62
+    master += score
+    del score
+    master_out = master
 
     # Loudness first, peak second. Normalising to a peak left the film at -19 LUFS,
     # which is three decibels under every other video on the platform.
