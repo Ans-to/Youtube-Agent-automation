@@ -177,7 +177,7 @@ function composition(kind) {
   throw new Error(`no composition for ${kind}`);
 }
 
-function makeShots(plan) {
+export function makeShots(plan) {
   return plan.rows.map((row, i) => {
     const shot = composition(row.visual);
     // The house builders normally fade in from an empty field. On a spoken

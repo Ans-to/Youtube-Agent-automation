@@ -8,7 +8,8 @@ received a complete watch-and-listen review.
 
 [Watch the opening pilot](nokia-opening-semantic-pilot.mp4) ·
 [Technical QA report](nokia-opening-semantic-pilot.qc.json) ·
-[Beat plan](../../../video_studio/films/nokia_semantic_pilot_plan.json)
+[Beat plan](../../../video_studio/films/nokia_semantic_pilot_plan.json) ·
+[Later pacing and visual revision](nokia-opening-pacing-pilot.md)
 
 ## What changed
 

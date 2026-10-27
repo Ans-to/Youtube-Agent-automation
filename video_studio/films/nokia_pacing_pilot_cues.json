@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "status": "working timing estimates, not verified listening or semantic review",
+  "method": "PocketSphinx forced alignment of the original individual narration WAVs, offset by the film's voice clock and rounded to frames; the pocket cut also uses the Kokoro duration estimate.",
+  "fps": 30,
+  "moments": [
+    {"shot": "s01-01", "frame": 0, "words": "Imagine", "visual_action": "The world map appears as the company is introduced."},
+    {"shot": "s01-01", "frame": 107, "words": "billions", "visual_action": "Routes spread across the map as a symbolic group of people holding phones assembles; the icons are not a measured count."},
+    {"shot": "s01-01", "frame": 137, "words": "around the world", "visual_action": "Connections reach different regions of the world."},
+    {"shot": "s01-01", "frame": 172, "words": "carry", "visual_action": "The drawing changes to a handset moving into a pocket."},
+    {"shot": "s01-01", "frame": 212, "words": "pockets", "visual_action": "The handset continues into the pocket."},
+    {"shot": "s01-04", "frame": 274, "words": "millions", "visual_action": "Several drawn phones assemble, representing many users rather than a measured count."},
+    {"shot": "s01-04", "frame": 366, "words": "Nokia", "visual_action": "The name is visible as the illustrated phones resolve toward the central handset."},
+    {"shot": "s01-05", "frame": 438, "words": "peak", "visual_action": "The Nokia market-share bar grows alongside rivals' shares on the same scale."},
+    {"shot": "s01-05", "frame": 478, "words": "dominated", "visual_action": "Nokia remains the tallest vendor bar in the 2008 comparison."},
+    {"shot": "s01-08", "frame": 625, "words": "few years", "visual_action": "A year-labeled series begins to build."},
+    {"shot": "s01-08", "frame": 679, "words": "once ruled", "visual_action": "The earliest and highest Nokia share remains legible."},
+    {"shot": "s01-08", "frame": 754, "words": "struggling", "visual_action": "The plotted path and later years make the decline visible."},
+    {"shot": "s01-09", "frame": 876, "words": "smartphones", "visual_action": "Several touchscreen handsets fan out and their app screens build."},
+    {"shot": "s01-10", "frame": 957, "words": "Touchscreens", "visual_action": "A touchscreen and keypad are compared."},
+    {"shot": "s01-10", "frame": 982, "words": "replaced", "visual_action": "The transition arrow draws from keypad toward touchscreen."},
+    {"shot": "s01-10", "frame": 996, "words": "buttons", "visual_action": "A touch indicator reaches the new screen, which opens an interface panel."}
+  ]
+}
