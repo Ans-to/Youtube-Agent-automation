@@ -1,0 +1,109 @@
+name: Render Stop Coding Blind (Remotion)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - arena/5bcb42d8-youtube-agent-automation
+    paths:
+      - "video_studio/remotion/**"
+      - ".github/workflows/render-stop-coding-blind.yml"
+      - "Skill.md"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-stop-coding-blind-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    name: Render 10-second portrait video
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/remotion/package-lock.json
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Install Remotion dependencies
+        working-directory: video_studio/remotion
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck and test the composition
+        working-directory: video_studio/remotion
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Render MP4
+        working-directory: video_studio/remotion
+        run: npm run render -- --gl=swangle
+
+      - name: Verify MP4 streams and duration
+        working-directory: video_studio/remotion
+        run: |
+          set -euo pipefail
+          video="out/stop-coding-blind.mp4"
+          test -s "$video"
+          ffprobe -v error -count_frames \
+            -show_entries format=duration:stream=codec_type,codec_name,width,height,nb_read_frames \
+            -of json "$video" > out/probe.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const info = JSON.parse(fs.readFileSync('out/probe.json', 'utf8'));
+          const video = info.streams.find((stream) => stream.codec_type === 'video');
+          const audio = info.streams.find((stream) => stream.codec_type === 'audio');
+          const duration = Number(info.format.duration);
+          const frames = Number(video?.nb_read_frames);
+          const errors = [];
+          if (!video) errors.push('missing video stream');
+          if (video && (video.codec_name !== 'h264' || video.width !== 1080 || video.height !== 1920)) {
+            errors.push(`unexpected video stream: ${JSON.stringify(video)}`);
+          }
+          if (video && frames !== 300) errors.push(`expected 300 frames, got ${frames}`);
+          if (!audio || audio.codec_name !== 'aac') errors.push('missing AAC soundtrack');
+          if (!Number.isFinite(duration) || Math.abs(duration - 10) > 0.1) {
+            errors.push(`expected 10-second duration, got ${duration}`);
+          }
+          if (errors.length) {
+            for (const error of errors) console.error(`FAIL: ${error}`);
+            process.exit(1);
+          }
+          console.log(`PASS: H.264 1080x1920, ${frames} frames, ${duration.toFixed(3)}s, AAC audio`);
+          NODE
+
+      - name: Upload rendered video
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: stop-coding-blind-mp4
+          path: video_studio/remotion/out/stop-coding-blind.mp4
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarize render
+        if: always()
+        run: |
+          {
+            echo "### Stop Coding Blind — Remotion render"
+            echo ""
+            echo "The job typechecks and tests the 10-second, 1080×1920 composition, renders its MP4, and verifies the video and audio streams."
+            echo "On success, download **stop-coding-blind-mp4** from this run's Artifacts section."
+          } >> "$GITHUB_STEP_SUMMARY"
