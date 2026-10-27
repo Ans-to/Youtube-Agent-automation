@@ -11,9 +11,9 @@ import {
 } from './storyboard';
 
 export type NokiaEvolutionProps = {
-  /** Full-length VO mix, beginning at frame zero. Use the measured word cues below. */
+  /** Public-dir relative audio path (or URL); null disables narration. */
   narrationSrc?: string | null;
-  /** Global frame ranges from alignment of the final narration file. */
+  /** Global cue frames; generated from measured line durations, estimated within each line. */
   wordCues?: NokiaWordCue[];
 };
 
@@ -181,10 +181,11 @@ export const NokiaEvolution: React.FC<NokiaEvolutionProps> = ({ narrationSrc, wo
   const { fps } = useVideoConfig();
   useHouseFont();
   const sceneId = currentSceneId(frame);
+  const audioSource = narrationSrc?.startsWith('audio/') ? staticFile(narrationSrc) : narrationSrc;
 
   return (
     <AbsoluteFill style={{ backgroundColor: '#0b0f19', overflow: 'hidden' }}>
-      {narrationSrc && <Audio src={narrationSrc} />}
+      {audioSource && <Audio src={audioSource} />}
       <NokiaSceneArt frame={frame} />
       {NOKIA_SCENES.map((scene) => {
         const alpha = sceneFade(frame, scene.id);

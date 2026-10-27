@@ -1,0 +1,29 @@
+{
+  "voice": "am_michael",
+  "backend": "kokoro",
+  "sample_rate": 24000,
+  "timing_note": "Line sample durations are measured from the synthesized WAV. Word boundaries are estimated within each line; they are not forced-alignment output.",
+  "lines": [
+    {
+      "id": "mill",
+      "sceneId": "mill",
+      "start_seconds": 0.25,
+      "rate": 1.0,
+      "text": "Nokia began in 1865 at a Finnish timber mill. Paper was only the beginning."
+    },
+    {
+      "id": "pivot",
+      "sceneId": "pivot",
+      "start_seconds": 8.0,
+      "rate": 1.0,
+      "text": "Nokia expanded beyond paper into rubber boots, cables, and electricity, helping Finland modernize before mobile phones arrived."
+    },
+    {
+      "id": "world",
+      "sceneId": "world",
+      "start_seconds": 18.0,
+      "rate": 1.0,
+      "text": "When the digital age arrived, Nokia pivoted once more—redefining mobile phones and connecting people around the world."
+    }
+  ]
+}

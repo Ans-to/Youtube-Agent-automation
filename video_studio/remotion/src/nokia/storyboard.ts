@@ -20,21 +20,21 @@ export const NOKIA_SCENES = [
     startFrame: 0,
     endFrame: 8 * NOKIA_FPS,
     heading: 'THE TIMBER MILL',
-    voiceover: 'In 1865, deep in the frozen forests of Finland, a quiet timber mill was born. No one knew it yet... but this small paper company would change history.',
+    voiceover: 'Nokia began in 1865 at a Finnish timber mill. Paper was only the beginning.',
   },
   {
     id: 'pivot',
     startFrame: 8 * NOKIA_FPS,
     endFrame: 18 * NOKIA_FPS,
     heading: 'THE INDUSTRIAL PIVOT',
-    voiceover: 'Decades before cell phones, Nokia evolved into an industrial powerhouse—manufacturing rubber boots, cables, and electricity for a rapidly modernizing nation.',
+    voiceover: 'Nokia expanded beyond paper into rubber boots, cables, and electricity, helping Finland modernize before mobile phones arrived.',
   },
   {
     id: 'world',
     startFrame: 18 * NOKIA_FPS,
     endFrame: 30 * NOKIA_FPS,
     heading: 'CONNECTING THE WORLD',
-    voiceover: 'When the digital age arrived, Nokia pivoted once more—connecting billions of people and redefining what a mobile phone could be.',
+    voiceover: 'When the digital age arrived, Nokia pivoted once more—redefining mobile phones and connecting people around the world.',
   },
 ] as const;
 

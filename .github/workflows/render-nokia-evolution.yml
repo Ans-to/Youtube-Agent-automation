@@ -31,6 +31,11 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -45,6 +50,24 @@ jobs:
           ffmpeg -version | head -1
           ffprobe -version | head -1
 
+      - name: Install the pinned Kokoro narrator runtime
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==2.4.6 onnxruntime==1.31.1 kokoro-onnx==0.6.1
+
+      - name: Fetch the configured narrator's pinned weights
+        env:
+          AGENTHQ_KOKORO_DIR: ${{ runner.temp }}/nokia-kokoro
+        run: python video_studio/kokoro_voice.py --dir "$AGENTHQ_KOKORO_DIR" --voice am_michael
+
+      - name: Generate narration, score bed, and measured-line word cue props
+        env:
+          AGENTHQ_KOKORO_DIR: ${{ runner.temp }}/nokia-kokoro
+          PYTHONPATH: video_studio
+          OPENBLAS_NUM_THREADS: "1"
+          OMP_NUM_THREADS: "1"
+        run: python video_studio/remotion/scripts/prepare_nokia_voice.py
+
       - name: Install Remotion dependencies
         working-directory: video_studio/remotion
         run: npm ci --no-audit --no-fund
@@ -57,7 +80,7 @@ jobs:
 
       - name: Render MP4
         working-directory: video_studio/remotion
-        run: npm run render:nokia -- --gl=swangle
+        run: npm run render:nokia -- --gl=swangle --props=out/nokia-evolution-props.json
 
       - name: Verify MP4 dimensions, frame rate, frame count, and duration
         working-directory: video_studio/remotion
@@ -66,12 +89,13 @@ jobs:
           video="out/nokia-evolution.mp4"
           test -s "$video"
           ffprobe -v error -count_frames \
-            -show_entries format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_frames \
+            -show_entries format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_frames,sample_rate,channels \
             -of json "$video" > out/nokia-probe.json
           node --input-type=module <<'NODE'
           import fs from 'node:fs';
           const info = JSON.parse(fs.readFileSync('out/nokia-probe.json', 'utf8'));
           const video = info.streams.find((stream) => stream.codec_type === 'video');
+          const audio = info.streams.find((stream) => stream.codec_type === 'audio');
           const duration = Number(info.format.duration);
           const frames = Number(video?.nb_read_frames);
           const errors = [];
@@ -83,6 +107,9 @@ jobs:
             errors.push(`expected 30 fps, got ${video.avg_frame_rate}`);
           }
           if (video && frames !== 900) errors.push(`expected 900 frames, got ${frames}`);
+          if (!audio || audio.codec_name !== 'aac' || audio.sample_rate !== '48000' || audio.channels !== 2) {
+            errors.push(`expected 48 kHz stereo AAC narration/music, got ${JSON.stringify(audio)}`);
+          }
           if (!Number.isFinite(duration) || Math.abs(duration - 30) > 0.1) {
             errors.push(`expected 30-second duration, got ${duration}`);
           }
@@ -90,8 +117,42 @@ jobs:
             for (const error of errors) console.error(`FAIL: ${error}`);
             process.exit(1);
           }
-          console.log(`PASS: H.264 1080x1920, 30 fps, ${frames} frames, ${duration.toFixed(3)}s`);
+          console.log(`PASS: H.264 1080x1920, 30 fps, ${frames} frames, ${duration.toFixed(3)}s, 48 kHz stereo AAC`);
           NODE
+
+      - name: Check black frames, freezes, audio continuity, and clipping
+        working-directory: video_studio/remotion
+        run: |
+          set -euo pipefail
+          video="out/nokia-evolution.mp4"
+          ffmpeg -hide_banner -i "$video" -vf "blackdetect=d=0.25:pix_th=0.02:pic_th=0.98" -an -f null - 2> out/black-detect.log
+          ffmpeg -hide_banner -i "$video" -vf "freezedetect=n=-55dB:d=2.0" -an -f null - 2> out/freeze-detect.log
+          ffmpeg -hide_banner -i "$video" -vn -af "silencedetect=n=-45dB:d=1.5,volumedetect" -f null - 2> out/audio-qc.log
+          python - <<'PY'
+          import re
+          from pathlib import Path
+
+          root = Path("out")
+          black = (root / "black-detect.log").read_text(errors="replace")
+          freezes = (root / "freeze-detect.log").read_text(errors="replace")
+          audio = (root / "audio-qc.log").read_text(errors="replace")
+          black_runs = [float(x) for x in re.findall(r"black_duration:([0-9.]+)", black)]
+          freeze_runs = [float(x) for x in re.findall(r"freeze_duration:\s*([0-9.]+)", freezes)]
+          silences = [float(x) for x in re.findall(r"silence_duration:\s*([0-9.]+)", audio)]
+          peak_match = re.findall(r"max_volume:\s*(-?[0-9.]+) dB", audio)
+          mean_match = re.findall(r"mean_volume:\s*(-?[0-9.]+) dB", audio)
+          if any(duration > 0.5 for duration in black_runs):
+              raise SystemExit(f"black-frame interval(s) exceed 0.5s: {black_runs}")
+          if any(duration > 4.0 for duration in freeze_runs):
+              raise SystemExit(f"freeze interval(s) exceed 4s: {freeze_runs}")
+          if any(duration > 2.0 for duration in silences):
+              raise SystemExit(f"unexpected audio silence(s) exceed 2s: {silences}")
+          if not peak_match or float(peak_match[-1]) >= -0.1:
+              raise SystemExit(f"audio peak is missing or risks clipping: {peak_match}")
+          if not mean_match:
+              raise SystemExit("FFmpeg did not report audio loudness")
+          print(f"PASS: black intervals={black_runs}; freeze checks={freeze_runs}; silence checks={silences}; mean={mean_match[-1]} dB, peak={peak_match[-1]} dB")
+          PY
 
       - name: Upload run-specific MP4 artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -107,7 +168,7 @@ jobs:
           NOKIA_RENDER_TAG: nokia-evolution-preview
           NOKIA_RENDER_TITLE: Nokia Evolution — latest preview render
           NOKIA_RENDER_NOTES: |
-            Automated 30-second Remotion preview. This is an editorial draft: no matching narration audio is bundled yet, and its word cue timings are provisional rather than measured audio alignment. Human review is required before publication.
+            Automated 30-second Remotion preview with the repository-configured Kokoro am_michael narration and a procedural score bed. Scene clip boundaries are sample-measured; intra-line word cues are estimated, not forced alignment. This remains an editorial draft requiring human audio/visual review before publication.
         run: |
           set -euo pipefail
           video="video_studio/remotion/out/nokia-evolution.mp4"
@@ -137,5 +198,7 @@ jobs:
             echo ""
             echo "Run-specific artifact: download **nokia-evolution-preview-mp4** from this run's Artifacts section."
             echo ""
-            echo "Preview limitation: no matching VO audio is bundled, and karaoke cue frames are provisional, not measured audio synchronization."
+            echo "Audio: repository-configured Kokoro am_michael narration plus a procedural score bed. Scene line boundaries are measured from the rendered WAV; word boundaries remain estimates (not forced alignment)."
+            echo ""
+            echo "A human must review the exact video and mix before publication; the workflow performs technical checks only."
           } >> "$GITHUB_STEP_SUMMARY"

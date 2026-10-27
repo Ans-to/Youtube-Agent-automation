@@ -58,6 +58,18 @@ Additional short glitch accents occur every two beats. The camera path is frame-
 
 The **Render Nokia Evolution (Remotion)** GitHub Action runs on pushes to `main` or the Arena task branch when Remotion sources, the workflow, or `Skill.md` change; it can also be started manually. It typechecks, tests, renders, and verifies the 900-frame MP4. Each successful render updates a public, prerelease preview asset at [Nokia Evolution — latest preview MP4](https://github.com/Ans-to/Youtube-Agent-automation/releases/download/nokia-evolution-preview/nokia-evolution.mp4). The run also keeps its own artifact for 30 days.
 
-This is currently a visual preview: there is no matching narration audio bundled, and the karaoke word cues are provisional rather than measured audio alignment. Review and audio-sync the video before treating it as final.
+The render uses the repository-configured Kokoro `am_michael` narrator and a quiet procedural score bed. Scene-line audio boundaries are measured from the generated WAV; individual word boundaries are estimates within those measured clips (not forced-alignment results). The Action checks the final MP4's streams, duration, frame count, frame rate, loudness/clipping, long silence, black-frame intervals, and freezes. Technical QA does not substitute for listening to and watching the exact output; this remains a review draft until a person does so.
+
+For a local narrated render, install the pinned voice runtime, prepare the cached model, generate audio/cue props, then render:
+
+```bash
+cd video_studio/remotion
+python -m pip install numpy==2.4.6 onnxruntime==1.31.1 kokoro-onnx==0.6.1
+python ../kokoro_voice.py --dir "$HOME/.cache/agent-hq/kokoro" --voice am_michael
+AGENTHQ_KOKORO_DIR="$HOME/.cache/agent-hq/kokoro" PYTHONPATH=.. python scripts/prepare_nokia_voice.py
+npm run render:nokia -- --gl=swangle --props=out/nokia-evolution-props.json
+```
+
+The generated narration WAV is intentionally ignored by Git and can be recreated from `src/nokia/voiceover.json`. The direct-download release URL is updated on each successful workflow run.
 
 The root [Skill.md](../../Skill.md) is the single shared source for current video-production rules. Technical checks do not substitute for visual or audio review.

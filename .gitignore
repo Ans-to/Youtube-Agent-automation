@@ -33,6 +33,7 @@ __pycache__/
 /video_studio/node_modules/
 /video_studio/remotion/node_modules/
 /video_studio/remotion/out/
+/video_studio/remotion/public/audio/nokia-evolution-voice.wav
 /video_studio/voices/
 /video_studio/frames/
 /video_studio/outputs/

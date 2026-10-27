@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   NOKIA_DURATION_FRAMES, NOKIA_FPS, NOKIA_HEIGHT, NOKIA_SCENES,
@@ -15,9 +16,20 @@ test('scene windows preserve the requested 8/10/12-second structure and VO', () 
   assert.deepEqual(NOKIA_SCENES.map(({ startFrame, endFrame }) => [startFrame, endFrame]), [
     [0, 240], [240, 540], [540, 900],
   ]);
-  assert.match(NOKIA_SCENES[0].voiceover, /^In 1865,/);
+  assert.match(NOKIA_SCENES[0].voiceover, /began in 1865 at a Finnish timber mill/);
   assert.match(NOKIA_SCENES[1].voiceover, /rubber boots, cables, and electricity/);
-  assert.match(NOKIA_SCENES[2].voiceover, /redefining what a mobile phone could be\.$/);
+  assert.match(NOKIA_SCENES[2].voiceover, /redefining mobile phones and connecting people around the world\.$/);
+});
+
+test('the TTS source script exactly matches the on-screen scene VO', () => {
+  const scriptUrl = new URL('../src/nokia/voiceover.json', import.meta.url);
+  const script = JSON.parse(readFileSync(scriptUrl, 'utf8')) as {
+    lines: Array<{ sceneId: string; text: string }>;
+  };
+  assert.deepEqual(
+    script.lines.map((line) => [line.sceneId, line.text]),
+    NOKIA_SCENES.map((scene) => [scene.id, scene.voiceover]),
+  );
 });
 
 test('every supplied VO word has a monotonic word-level cue in its scene', () => {

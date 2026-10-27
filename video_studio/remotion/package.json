@@ -9,6 +9,7 @@
     "render": "remotion render src/index.ts StopCodingBlind out/stop-coding-blind.mp4 --codec=h264 --crf=18 --image-format=png --audio-codec=aac --audio-bitrate=192k",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts",
+    "voice:nokia": "python scripts/prepare_nokia_voice.py",
     "render:nokia": "remotion render src/index.ts NokiaEvolution out/nokia-evolution.mp4 --codec=h264 --crf=18 --image-format=png --audio-codec=aac --audio-bitrate=192k"
   },
   "dependencies": {
