@@ -48,15 +48,25 @@ CHORDS = {
 }
 
 # name: chord, pad gain, pluck pattern on/off, pulse per second, brightness
+# A section is (chord, pad gain, plucks, pulse rate, brightness, level).
+#
+# The level is the fix for a mix that measured flat: every two seconds of the
+# delivered film sat between -15 and -22 dB, so fifty-seven seconds of music had
+# the dynamic range of a room tone. Each mood had its own harmony and its own
+# pulse, but they all arrived at the master at the same loudness, because the
+# whole score was normalised once at the end. A quiet passage has to *be* quiet.
+# These are decibels relative to the loudest section, and they follow the film:
+# under the first hook it is present, under "too late" it almost leaves, and the
+# reveal at 48.7 s opens up.
 SECTIONS = {
-    'calm':    ('am-low', 0.30, False, 0.0, 0.30),
-    'warm':    ('f', 0.24, True, 0.0, 0.35),
-    'moving':  ('am7', 0.22, True, 0.9, 0.32),
-    'tense':   ('dm', 0.24, True, 1.15, 0.28),
-    'sparse':  ('am-low', 0.18, False, 0.55, 0.22),
-    'history': ('c', 0.24, True, 0.0, 0.38),
-    'build':   ('g', 0.22, True, 0.85, 0.36),
-    'resolve': ('am', 0.26, True, 0.0, 0.30),
+    'calm':    ('am-low', 0.30, False, 0.0, 0.30, -6.0),
+    'warm':    ('f', 0.24, True, 0.0, 0.35, -3.0),
+    'moving':  ('am7', 0.22, True, 0.9, 0.32, -1.0),
+    'tense':   ('dm', 0.24, True, 1.15, 0.28, -2.5),
+    'sparse':  ('am-low', 0.18, False, 0.55, 0.22, -6.0),
+    'history': ('c', 0.24, True, 0.0, 0.38, -4.0),
+    'build':   ('g', 0.22, True, 0.85, 0.36, 0.0),
+    'resolve': ('am', 0.26, True, 0.0, 0.30, -1.5),
 }
 
 
@@ -323,12 +333,14 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
         # whole passage. Fail instead.
         if name not in SECTIONS:
             raise SystemExit(f'unknown section {name!r}; known: {", ".join(sorted(SECTIONS))}')
-        chord, pad_gain, plucks, rate, bright = SECTIONS[name]
+        chord, pad_gain, plucks, rate, bright, level_db = SECTIONS[name]
         length = max(0.2, end - start)
-        place(mix, pad(chord, length, bright, pad_gain), start)
+        # the section's own loudness, so the score breathes with the film
+        const_gain = 10 ** (level_db / 20)
+        place(mix, pad(chord, length, bright, pad_gain) * const_gain, start)
 
         if rate:
-            place(mix, pulse(length, 0.16, rate), start)
+            place(mix, pulse(length, 0.16, rate) * const_gain, start)
 
         if plucks:
             # A slow figure, four notes to the bar at about 72 bpm.
@@ -338,10 +350,10 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
             i = 0
             while at < length - 0.9:
                 note = notes[i % len(notes)]
-                place(mix, pluck(NOTE[note]) * 0.13, start + at)
+                place(mix, pluck(NOTE[note]) * 0.13 * const_gain, start + at)
                 # Every other note an octave up, quietly, for movement.
                 if i % 4 == 2:
-                    place(mix, pluck(NOTE[note] * 2, bright=0.5) * 0.05, start + at + 0.30)
+                    place(mix, pluck(NOTE[note] * 2, bright=0.5) * 0.05 * const_gain, start + at + 0.30)
                 at += step
                 i += 1
 
@@ -363,6 +375,8 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
     mix[-tail:] *= np.linspace(1, 0, tail) ** 1.2
 
     mix *= gain
+    # Normalise on the loud passages, not on the average: normalising the mean
+    # is what flattened the score in the first place.
     target = 10 ** ((-14.0 + 3.0) / 20)
     ceiling = 10 ** (-1.5 / 20)
     for _ in range(4):

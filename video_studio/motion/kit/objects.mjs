@@ -299,6 +299,74 @@ export function drawRooftop(ctx, { x, y, w, h, baseline, colour = '#040302' }) {
   ctx.restore();
 }
 
+/* ------------------------------------------------------------ the air ---- */
+
+/**
+ * Air in the room: motes, and a light that is never quite still.
+ *
+ * Between the shots' entrances the frame had nothing moving in it. Dust is what
+ * a real interior has - it catches the key light, it drifts on a current you
+ * cannot see, and because it moves at a different rate from everything else it
+ * tells the eye the shot is alive even when nothing is happening.
+ *
+ * Motes are drawn as soft, slightly out-of-focus discs so they read as being
+ * closer to the lens than the subject. Deterministic in `t`.
+ */
+export function drawMotes(ctx, {
+  w, h, t = 0, count = 90, seed = 3,
+  colour = '232,226,210',
+  strength = 1,
+  focusX = 0.5, focusY = 0.45, focusR = 0.6,
+}) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < count; i += 1) {
+    const s1 = noise(seed * 11.3 + i * 3.7);
+    const s2 = noise(seed * 5.9 + i * 7.1);
+    const s3 = noise(seed * 2.3 + i * 5.3);
+    /* each mote drifts on its own slow cycle, and a few are nearly still */
+    const speed = 0.012 + s3 * 0.05;
+    const x = (s1 + Math.sin(t * speed * 6.1 + i) * 0.012 + t * speed * 0.22) % 1;
+    const y = (s2 - t * speed * 0.55 + Math.cos(t * speed * 4.3 + i * 1.7) * 0.008 + 4) % 1;
+    const px = x * w;
+    const py = y * h;
+    /* they are only lit where the key light is */
+    const dx = (x - focusX) / focusR;
+    const dy = (y - focusY) / (focusR * 0.9);
+    const lit = Math.max(0, 1 - (dx * dx + dy * dy));
+    if (lit <= 0.02) continue;
+    const r = 0.8 + s3 * 2.6;
+    const a = (0.05 + s1 * 0.16) * lit * strength;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r * 3);
+    g.addColorStop(0, `rgba(${colour},${a})`);
+    g.addColorStop(0.4, `rgba(${colour},${a * 0.45})`);
+    g.addColorStop(1, `rgba(${colour},0)`);
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(px, py, r * 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * A key light that breathes, as a practical does when it is a real bulb behind
+ * glass. Two percent of brightness, at a rate nothing in the frame shares.
+ */
+export function drawBreathe(ctx, { w, h, t = 0, amount = 0.03, colour = '255,220,170', cx = 0.5, cy = 0.4, r = 0.7 }) {
+  const k = 1 + Math.sin(t * 1.7) * 0.5 + Math.sin(t * 2.9 + 1.1) * 0.5;
+  const a = amount * (0.35 + 0.65 * (k + 1) / 2);
+  const g = ctx.createRadialGradient(w * cx, h * cy, 0, w * cx, h * cy, w * r);
+  g.addColorStop(0, `rgba(${colour},${a})`);
+  g.addColorStop(0.55, `rgba(${colour},${a * 0.30})`);
+  g.addColorStop(1, `rgba(${colour},0)`);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
 /* ------------------------------------------------------- a smartphone ---- */
 
 /** The other end of the story: a glass slab, lit, with a grid of apps. */
@@ -398,18 +466,26 @@ export function drawSmartphone(ctx, {
  * and a small scallop where it meets the one below.
  */
 export function drawPine(ctx, {
-  x, y, w, h,
+  x, y, w, h, tiers = 5, lean = 0,
   colour = '#1D3B32', dark = '#0A1512', rim = 'rgba(190,214,180,0.22)',
 }) {
   ctx.save();
+  /* A forest of one tree is a wallpaper. A lean of a degree or two, and a
+     different number of tiers, is enough for the eye to read them as trees that
+     grew rather than as a stamp. */
+  if (lean) {
+    ctx.translate(x + w * 0.5, y + h);
+    ctx.rotate(lean);
+    ctx.translate(-(x + w * 0.5), -(y + h));
+  }
   /* trunk */
   const tg = shade(ctx, x + w * 0.46, 0, x + w * 0.56, 0, [
     [0, '#2A2119'], [1, '#120D09'],
   ]);
   ctx.fillStyle = tg;
-  ctx.fillRect(x + w * 0.455, y + h * 0.74, w * 0.09, h * 0.26);
+  /* the trunk stops inside the lowest skirt: a leg under a fir is a lollipop */
+  ctx.fillRect(x + w * 0.455, y + h * 0.74, w * 0.09, h * 0.16);
 
-  const tiers = 5;
   for (let i = 0; i < tiers; i += 1) {
     const k = i / (tiers - 1);
     const top = y + h * (0.02 + k * 0.62);
@@ -590,6 +666,38 @@ export function drawMill(ctx, { x, y, w, h, t = 0, smoke = 1, wheel = 1, lit = 1
   ctx.fillRect(bx, bodyTop, bw, h * 0.10);
   ctx.restore();
 
+  /* --------------------------------------------------------- moon rim -- */
+  /* The moon is low and left, behind the trees, so the left roof slope and the
+     left corner board catch a hard, cool edge while everything else stays in the
+     warm dark. Without it the building was evenly lit, which no building is. */
+  ctx.save();
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.strokeStyle = 'rgba(206,214,208,0.30)';
+  ctx.lineWidth = Math.max(1.4, w * 0.0055);
+  ctx.beginPath();
+  ctx.moveTo(bx - w * 0.055, bodyTop + h * 0.006);
+  ctx.lineTo(cx, bodyTop - roofH);
+  ctx.stroke();
+  ctx.strokeStyle = 'rgba(206,214,208,0.22)';
+  ctx.lineWidth = Math.max(1, w * 0.003);
+  ctx.beginPath();
+  ctx.moveTo(bx, bodyTop);
+  ctx.lineTo(bx, foot);
+  ctx.stroke();
+  /* and a breath of moonlight along the eave */
+  const moonEdge = ctx.createLinearGradient(bx - w * 0.055, bodyTop, bx + bw * 0.5, bodyTop - roofH * 0.5);
+  moonEdge.addColorStop(0, 'rgba(190,202,200,0.055)');
+  moonEdge.addColorStop(1, 'rgba(190,202,200,0)');
+  ctx.fillStyle = moonEdge;
+  ctx.beginPath();
+  ctx.moveTo(bx - w * 0.055, bodyTop + h * 0.006);
+  ctx.lineTo(cx, bodyTop - roofH);
+  ctx.lineTo(bx, bodyTop);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
   /* ------------------------------------------------------------- roof -- */
   ctx.save();
   /* two planes: the slope toward the moon is lighter than the one away from it */
@@ -645,17 +753,32 @@ export function drawMill(ctx, { x, y, w, h, t = 0, smoke = 1, wheel = 1, lit = 1
   const winW = bw * 0.080;
   const winH = h * 0.20;
   const winY = bodyTop + h * 0.16;
+  /* No two windows in a working mill are lit the same. Identical panes at
+     identical brightness are the difference between a building and a drawing of
+     one: here one lamp is out, one is dim, and the rest vary by a few percent. */
+  const panes = [1.0, 0.62, 0.0, 0.88, 0.47];
   for (let i = 0; i < winCount; i += 1) {
     const wx = bx + bw * (0.065 + i * 0.152);
+    const on = panes[i % panes.length];
     /* the reveals: the wall is thick, so the opening has an edge */
     ctx.fillStyle = '#0A0806';
     ctx.fillRect(wx - winW * 0.10, winY - winH * 0.06, winW * 1.2, winH * 1.12);
-    /* the light behind the glass */
-    const glow = ctx.createLinearGradient(0, winY, 0, winY + winH);
-    glow.addColorStop(0, `rgba(255,206,124,${0.95 * lit})`);
-    glow.addColorStop(1, `rgba(226,150,62,${0.85 * lit})`);
-    ctx.fillStyle = glow;
-    ctx.fillRect(wx, winY, winW, winH);
+    /* the light behind the glass, or the room behind it */
+    if (on > 0.05) {
+      const glow = ctx.createLinearGradient(0, winY, 0, winY + winH);
+      glow.addColorStop(0, `rgba(255,206,124,${0.95 * lit * on})`);
+      glow.addColorStop(1, `rgba(226,150,62,${0.85 * lit * on})`);
+      ctx.fillStyle = glow;
+      ctx.fillRect(wx, winY, winW, winH);
+    } else {
+      /* a dark room: the glass keeps a little of the sky in it */
+      const dark = ctx.createLinearGradient(0, winY, 0, winY + winH);
+      dark.addColorStop(0, 'rgba(60,52,40,0.55)');
+      dark.addColorStop(0.5, 'rgba(22,19,15,0.85)');
+      dark.addColorStop(1, 'rgba(12,10,8,0.9)');
+      ctx.fillStyle = dark;
+      ctx.fillRect(wx, winY, winW, winH);
+    }
     /* mullion and transom */
     ctx.fillStyle = 'rgba(20,14,8,0.85)';
     ctx.fillRect(wx + winW * 0.46, winY, winW * 0.08, winH);
@@ -665,10 +788,30 @@ export function drawMill(ctx, { x, y, w, h, t = 0, smoke = 1, wheel = 1, lit = 1
       wx + winW / 2, winY + winH, 0,
       wx + winW / 2, winY + winH, winW * 1.9,
     );
-    spill.addColorStop(0, `rgba(255,196,110,${0.20 * lit})`);
+    spill.addColorStop(0, `rgba(255,196,110,${0.20 * lit * on})`);
     spill.addColorStop(1, 'rgba(255,196,110,0)');
     ctx.fillStyle = spill;
     ctx.fillRect(wx - winW, winY, winW * 3, winH * 1.6);
+    /* the window's light in the water below it: a broken column, not a stripe,
+       because a reflection on moving water is interrupted every few pixels */
+    if (on > 0.05) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let r = 0; r < 9; r += 1) {
+        const ry = waterTop + h * (0.006 + r * 0.012);
+        const fade = 1 - r / 9;
+        const wob = Math.sin(t * 1.6 + r * 1.9 + i) * winW * 0.16;
+        ctx.fillStyle = `rgba(255,182,96,${0.16 * lit * on * fade})`;
+        ctx.fillRect(wx - winW * 0.10 + wob, ry, winW * 1.2, h * 0.008);
+      }
+      ctx.restore();
+    }
+
+    /* a stone sill, so the opening sits in the wall rather than on it */
+    ctx.fillStyle = 'rgba(12,10,8,0.75)';
+    ctx.fillRect(wx - winW * 0.14, winY + winH, winW * 1.28, Math.max(1.5, h * 0.006));
+    ctx.fillStyle = 'rgba(255,214,160,0.10)';
+    ctx.fillRect(wx - winW * 0.14, winY + winH, winW * 1.28, Math.max(1, h * 0.002));
   }
 
   /* the door, with a lamp over it */
@@ -690,42 +833,73 @@ export function drawMill(ctx, { x, y, w, h, t = 0, smoke = 1, wheel = 1, lit = 1
 
   /* ------------------------------------------------------------- wheel -- */
   if (wheel > 0) {
-    const wx = bx - w * 0.015;
-    const wy = bodyBot - h * 0.12;
-    const wr = h * 0.16;
+    /* The wheel used to sit half behind the wall, drawn in light line over dark
+       boards - the one silhouette in the frame that had no silhouette. It is in
+       front now, large, and dark, and it crosses the lit windows, so it reads as
+       a working wheel between the camera and the mill. */
+    const wx = bx - w * 0.035;
+    const wy = bodyBot - h * 0.155;
+    const wr = h * 0.19;
     ctx.save();
     ctx.translate(wx, wy);
-    /* the wheel is lit from the building side and dark on the far side */
     ctx.rotate(t * 0.5);
-    ctx.strokeStyle = 'rgba(214,186,140,0.55)';
-    ctx.lineWidth = Math.max(1.4, wr * 0.085);
+    /* the structure is dark, and stays dark: it is a silhouette between the
+       camera and the mill, not a line drawing pinned to the wall */
+    ctx.strokeStyle = 'rgba(8,8,6,0.95)';
+    ctx.lineWidth = Math.max(2.2, wr * 0.085);
     ctx.beginPath(); ctx.arc(0, 0, wr, 0, Math.PI * 2); ctx.stroke();
-    ctx.lineWidth = Math.max(1.2, wr * 0.06);
-    ctx.beginPath(); ctx.arc(0, 0, wr * 0.72, 0, Math.PI * 2); ctx.stroke();
-    ctx.lineWidth = Math.max(1, wr * 0.038);
+    ctx.lineWidth = Math.max(1.6, wr * 0.06);
+    ctx.beginPath(); ctx.arc(0, 0, wr * 0.70, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = Math.max(1.4, wr * 0.042);
     for (let i = 0; i < 12; i += 1) {
       const a = (i / 12) * Math.PI * 2;
       ctx.beginPath();
-      ctx.moveTo(Math.cos(a) * wr * 0.14, Math.sin(a) * wr * 0.14);
+      ctx.moveTo(Math.cos(a) * wr * 0.12, Math.sin(a) * wr * 0.12);
       ctx.lineTo(Math.cos(a) * wr, Math.sin(a) * wr);
       ctx.stroke();
-      /* paddles */
+      /* paddles, on the rim, angled against the spokes */
       ctx.beginPath();
       ctx.moveTo(Math.cos(a) * wr, Math.sin(a) * wr);
-      ctx.lineTo(Math.cos(a + 0.22) * wr * 1.16, Math.sin(a + 0.22) * wr * 1.16);
+      ctx.lineTo(Math.cos(a + 0.20) * wr * 1.13, Math.sin(a + 0.20) * wr * 1.13);
       ctx.stroke();
     }
-    ctx.fillStyle = 'rgba(226,200,156,0.85)';
+    ctx.fillStyle = 'rgba(8,8,6,0.95)';
     ctx.beginPath(); ctx.arc(0, 0, wr * 0.10, 0, Math.PI * 2); ctx.fill();
+
+    /* and the rim the mill's own windows put on it: only the arc facing the
+       building, plus the joints where a spoke meets the light */
+    ctx.strokeStyle = 'rgba(255,208,142,0.40)';
+    ctx.lineWidth = Math.max(1.1, wr * 0.022);
+    ctx.beginPath(); ctx.arc(0, 0, wr * 0.988, -0.55 * Math.PI, 0.55 * Math.PI); ctx.stroke();
+    ctx.lineWidth = Math.max(1, wr * 0.016);
+    ctx.beginPath(); ctx.arc(0, 0, wr * 0.70, -0.42 * Math.PI, 0.42 * Math.PI); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,208,142,0.30)';
+    for (let i = 0; i < 12; i += 1) {
+      const a = (i / 12) * Math.PI * 2;
+      if (Math.cos(a) < 0.1) continue;
+      ctx.beginPath();
+      ctx.arc(Math.cos(a) * wr * 0.985, Math.sin(a) * wr * 0.985, Math.max(0.8, wr * 0.018), 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+
+    /* the axle, back to the wall it turns */
+    ctx.save();
+    ctx.strokeStyle = 'rgba(12,10,8,0.85)';
+    ctx.lineWidth = Math.max(2, wr * 0.055);
+    ctx.beginPath();
+    ctx.moveTo(wx, wy);
+    ctx.lineTo(bx + w * 0.01, wy + h * 0.01);
+    ctx.stroke();
     ctx.restore();
 
     /* the wheel's reflection in the water */
     ctx.save();
-    ctx.globalAlpha = 0.16;
+    ctx.globalAlpha = 0.13;
     ctx.translate(wx, bodyBot * 2 - wy + h * 0.02);
     ctx.scale(1, -1);
-    ctx.strokeStyle = 'rgba(214,186,140,0.7)';
-    ctx.lineWidth = Math.max(1.2, wr * 0.07);
+    ctx.strokeStyle = 'rgba(255,206,140,0.55)';
+    ctx.lineWidth = Math.max(1.2, wr * 0.06);
     ctx.beginPath(); ctx.arc(0, 0, wr, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }

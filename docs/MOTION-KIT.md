@@ -409,3 +409,91 @@ on it; at 1080p it had to be a building — board walls, a roof with two planes 
 an eave that throws a shadow, a stone foot, chimney courses, windows set back
 behind reveals with light spilling under the sills, a door with a lamp, and water
 that catches the wheel.
+
+## The film was a slideshow, and every review missed it
+
+The cut that shipped before this one passed the gate, the coverage audit, the
+optics test and a visual review of eight stills. Then the frames were measured
+against each other: of 859 frames, **596 changed by less than 0.4 out of 255**
+from the frame before, and the median change was **0.27**. Only five moments in
+fifty-seven seconds moved: the five transitions.
+
+The cause was not a bug. Every shot was built to *enter* — the type rises, the
+objects land, the map draws itself — and then to hold. A hold is a still
+photograph. Eight still photographs with cuts between them is a slideshow, and no
+amount of better artwork fixes it.
+
+**The breath.** `stage.mjs` now moves every shot for its whole life: a push, a
+pull, or a drift across, of four and a half percent over the shot, direction taken
+from a hash of the shot's id so no two neighbours travel the same way. A shot can
+opt out with `drift: false` and set its own amount with `driftAmount`.
+
+The first version used two percent, and it measured as nothing. Two percent of a
+frame over five seconds is under the noise floor of a 640-pixel measurement, and
+under the threshold at which a viewer sees a camera move at all — it was a camera
+move in the code and a still frame on the screen. **A move has to be measured at
+the size it will be seen at, and against the thing it is meant to defeat.**
+
+**The air.** `drawMotes()` puts drifting dust in five shots, lit only inside the
+key light, and `drawBreathe()` makes a practical lamp change brightness by two
+percent on a cycle nothing else in the frame shares. Neither is visible on its
+own. Together they are the difference between a frame that is waiting and a frame
+that is alive.
+
+**The measurement that matters.** The mean difference over a whole frame is the
+wrong instrument: a wheel turning in the corner of a dark room barely moves it. The
+gate in `tests/test_film_motion_and_dynamics.py` uses the **busiest tile** — the
+frame cut into 144 tiles, the 90th-percentile tile's mean change — because that is
+what "something is moving on screen" means numerically.
+
+| cut | median frame | frames < 0.4 | busiest-tile median |
+|---|---|---|---|
+| shipped, `f147421` | 0.31 | 529 / 859 | 0.37 |
+| breath at 2 % | 0.35 | 479 / 859 | 0.63 |
+| breath at 4.5 %, moving light | 0.51 | 263 / 857 | 1.06 |
+
+## Fifty-seven seconds of music at one volume
+
+The same audit, run on the sound, found the other half of the problem: the score's
+RMS never left a seven-decibel window for the whole film. Every section had its
+own harmony, its own pulse and its own brightness, and all of it arrived at the
+master at the same loudness — because `score.build()` normalised the finished
+render to one target and then soft-limited the peaks. Normalising a film's music
+to a single number is a decision that music has no dynamics.
+
+Sections now carry a **level** of their own, in decibels relative to the loudest
+one: `calm` −6, `moving` −1, `tense` −2.5, `sparse` −6 (the beat where the phone
+is alone, and the score all but leaves), `build` 0, `resolve` −1.5. The
+normaliser still runs on the finished mix, so the film sits at −16 LUFS with the
+peaks where they were — but it is level *structure* that survives the trip now,
+not just level.
+
+| master | 2-second RMS range | short-term p5–p95 |
+|---|---|---|
+| shipped, `f147421` | 7.2 dB | 12.6 dB |
+| this cut | 11.5 dB | 14.4 dB |
+
+The narration is re-rendered from `films/nokia_vo.json` on every build
+(`narrate.py synth --voice am_michael --profile calm`), so the mix is reproducible
+from the repository rather than from a stem that existed on one machine for an
+afternoon. `narrate.py mix --starts` places each line on the film's own clock, so
+a read that comes out a few hundred milliseconds shorter cannot move the picture:
+the cut is locked by `nokia_atlas.lock.json` and the lock is binding.
+
+## Four defects a thumbnail cannot show
+
+The stills for this pass were reviewed at 1080p and at the size the film is
+watched at, which is where these came from:
+
+- **The shadow pool was painted after the headline**, in the same layer, so it lay
+  over the words it existed to separate them from the city. It is under the type
+  now, and stronger, and the city falls away into it.
+- **A gold seam ran through the middle of a word.** The turn's headline was
+  centred on the divide. The sentence breaks across it now — old world left, new
+  world right — which is the shot's own idea, drawn in type.
+- **A caption crossed a parapet of lit windows** and half of it disappeared into
+  the city. It sits on the dark ground below the skyline, in the only part of the
+  frame that had nothing in it.
+- **The mill's five windows were one brightness and one size.** No working mill
+  has five identical lamps: one is out, one is dim, and the rest vary. The water
+  under each one carries a broken column of its light.

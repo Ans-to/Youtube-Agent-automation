@@ -30,6 +30,7 @@ import { drawHandset, drawStudio, drawReflection } from '../motion/kit/product.m
 import {
   drawCityscape, drawRooftop, drawSmartphone, drawMill, drawPine, drawPaperReam,
   drawRubberSheet, drawCableDrum, drawChip, drawPlinth, contact,
+  drawMotes, drawBreathe,
 } from '../motion/kit/objects.mjs';
 import { drawMap } from '../motion/kit/world.mjs';
 import { direct } from '../motion/kit/direction.mjs';
@@ -150,6 +151,13 @@ const SCRIPT = [
     grade: { vignetteStrength: 0.5, grainAmount: 0.22, paper: false, riso: 0, tooth: 0.03 },
     layers: [
       {
+        id: 'atmosphere', depth: 1,
+        draw: (ctx, { t }) => {
+          drawMotes(ctx, { w: W, h: H, t, count: 120, seed: 5, strength: 1.0, focusX: 0.60, focusY: 0.42, focusR: 0.55 });
+          drawBreathe(ctx, { w: W, h: H, t, amount: 0.030, cx: 0.52, cy: 0.34, r: 0.62 });
+        },
+      },
+      {
         id: 'room', depth: 1,
         draw: (ctx, { t }) => {
           /* a dark room, lit by one practical, and a handset standing in it */
@@ -225,27 +233,39 @@ const SCRIPT = [
       {
         id: 'words', screen: true, depth: 1,
         draw: (ctx, { p }) => {
+          /* The shadow pool was painted *after* the type, in the same layer, so
+             it lay over the words and greyed them - and it was too weak to do
+             the job it was added for. On screen the headline sat across a lit
+             tower and the caption crossed a parapet of lit windows. It is under
+             the words now, from the left edge, and the city falls away into it. */
+          const sc = ctx.createLinearGradient(0, 0, W * 0.62, 0);
+          sc.addColorStop(0, 'rgba(12,7,3,0.90)');
+          sc.addColorStop(0.45, 'rgba(12,7,3,0.66)');
+          sc.addColorStop(1, 'rgba(12,7,3,0)');
+          ctx.fillStyle = sc;
+          ctx.fillRect(0, 0, W * 0.62, H);
+          const scv = ctx.createLinearGradient(0, 0, 0, H);
+          scv.addColorStop(0, 'rgba(12,7,3,0.18)');
+          scv.addColorStop(0.62, 'rgba(12,7,3,0)');
+          scv.addColorStop(1, 'rgba(12,7,3,0.55)');
+          ctx.fillStyle = scv;
+          ctx.fillRect(0, 0, W * 0.62, H);
+
           caps(ctx, 'AT THE SAME MOMENT', W * 0.075, H * 0.215, span(p, 0.08, 0.45), { colour: '#F0B44A' });
           rise(ctx, 'a hundred', W * 0.072, H * 0.345, span(p, 0.12, 0.55), { size: 92, colour: P.amber.ink });
           rise(ctx, 'countries', W * 0.072, H * 0.455, span(p, 0.22, 0.68), { size: 92, colour: P.amber.ink });
-          /* the type sits in a pool of shadow so it keeps contrast over the sky,
-             without a visible rectangle across the city */
-          ctx.save();
-          const sc = ctx.createRadialGradient(W * 0.06, H * 0.36, 0, W * 0.10, H * 0.40, W * 0.56);
-          sc.addColorStop(0, 'rgba(10,6,3,0.74)');
-          sc.addColorStop(0.55, 'rgba(10,6,3,0.32)');
-          sc.addColorStop(1, 'rgba(10,6,3,0)');
-          ctx.fillStyle = sc;
-          ctx.fillRect(0, 0, W * 0.72, H);
-          ctx.restore();
         },
       },
       {
         id: 'pocket', screen: true, depth: 1,
         draw: (ctx, { p }) => {
-          rule(ctx, W * 0.075, H * 0.535, W * 0.21, span(p, 0.55, 0.9), P.amber.gold);
-          caps(ctx, 'IN SOMEONE’S POCKET', W * 0.075, H * 0.60, span(p, 0.62, 1), {
-            size: 12, colour: 'rgba(244,231,210,0.62)',
+          /* The caption used to cross a row of lit windows at the foot of the
+             towers, where half of it disappeared into the city. It sits on the
+             dark ground below the skyline now, which is also the only part of
+             the frame that had nothing in it. */
+          rule(ctx, W * 0.075, H * 0.755, W * 0.21, span(p, 0.55, 0.9), P.amber.gold);
+          caps(ctx, 'IN SOMEONE’S POCKET', W * 0.075, H * 0.815, span(p, 0.62, 1), {
+            size: 12, colour: 'rgba(244,231,210,0.72)',
           });
         },
       },
@@ -346,6 +366,12 @@ const SCRIPT = [
     grade: { vignetteStrength: 0.30, grainAmount: 0.16, paper: false, riso: 0, tooth: 0.03 },
     layers: [
       {
+        id: 'atmosphere', depth: 1,
+        draw: (ctx, { t }) => {
+          drawMotes(ctx, { w: W, h: H, t, count: 80, seed: 9, strength: 0.7, focusX: 0.5, focusY: 0.45, focusR: 0.7 });
+        },
+      },
+      {
         id: 'fields', depth: 1,
         draw: (ctx) => {
           /* a hard seam down the middle: the old world, the new one */
@@ -390,11 +416,15 @@ const SCRIPT = [
       {
         id: 'line', screen: true, depth: 1,
         draw: (ctx, { p }) => {
-          rise(ctx, 'Then it stopped', W * 0.5, H * 0.090, span(p, 0.26, 0.62), {
-            size: 36, align: 'center', colour: P.graphite.ink,
+          /* The seam ran straight through the headline - a gold rule through
+             the middle of a word. The line breaks across it now: the old
+             sentence to the left of the divide, the new one to the right, which
+             is the same idea the shot is about, made in type. */
+          rise(ctx, 'Then it stopped', W * 0.5 - 26, H * 0.090, span(p, 0.26, 0.62), {
+            size: 36, align: 'right', colour: P.graphite.ink,
           });
-          rise(ctx, 'being a phone.', W * 0.5, H * 0.163, span(p, 0.36, 0.74), {
-            size: 36, align: 'center', colour: P.graphite.gold,
+          rise(ctx, 'being a phone.', W * 0.5 + 26, H * 0.163, span(p, 0.36, 0.74), {
+            size: 36, align: 'left', colour: P.graphite.gold,
           });
         },
       },
@@ -412,6 +442,12 @@ const SCRIPT = [
     camera: (t, dur) => ({ zoom: 1 + (t / dur) * 0.03, at: [0.46, 0.5], rotate: 0 }),
     grade: { vignetteStrength: 0.62, grainAmount: 0.20, paper: false, riso: 0, tooth: 0.03 },
     layers: [
+      {
+        id: 'atmosphere', depth: 1,
+        draw: (ctx, { t }) => {
+          drawMotes(ctx, { w: W, h: H, t, count: 60, seed: 13, strength: 0.55, focusX: 0.28, focusY: 0.62, focusR: 0.5 });
+        },
+      },
       {
         id: 'void', depth: 1,
         draw: (ctx) => {
@@ -470,13 +506,13 @@ const SCRIPT = [
       {
         id: 'words', screen: true, depth: 1,
         draw: (ctx, { p }) => {
-          rise(ctx, 'It answered', W * 0.955, H * 0.40, span(p, 0.34, 0.74), {
+          rise(ctx, 'It answered', W * 0.928, H * 0.40, span(p, 0.34, 0.74), {
             size: 76, align: 'right', colour: '#EDEAE2',
           });
-          rise(ctx, 'too late.', W * 0.955, H * 0.515, span(p, 0.46, 0.86), {
+          rise(ctx, 'too late.', W * 0.928, H * 0.515, span(p, 0.46, 0.86), {
             size: 76, align: 'right', colour: 'rgba(237,234,226,0.55)',
           });
-          caps(ctx, 'NOKIA · 2007 — 2013', W * 0.955, H * 0.60, span(p, 0.62, 1), {
+          caps(ctx, 'NOKIA · 2007 — 2013', W * 0.928, H * 0.60, span(p, 0.62, 1), {
             align: 'right', size: 11, colour: 'rgba(237,234,226,0.35)', from: 3, to: 8,
           });
         },
@@ -495,6 +531,13 @@ const SCRIPT = [
     camera: (t, dur) => ({ zoom: 1.0 + (t / dur) * 0.06, at: [0.52, 0.54], rotate: 0 }),
     grade: { vignetteStrength: 0.42, grainAmount: 0.26, paper: false, riso: 0, tooth: 0.05 },
     layers: [
+      {
+        id: 'atmosphere', depth: 1,
+        draw: (ctx, { t }) => {
+          drawMotes(ctx, { w: W, h: H, t, count: 70, seed: 21, strength: 0.55, focusX: 0.55, focusY: 0.62, focusR: 0.55 });
+          drawBreathe(ctx, { w: W, h: H, t, amount: 0.022, colour: '255,196,120', cx: 0.52, cy: 0.66, r: 0.5 });
+        },
+      },
       {
         id: 'dusk', depth: 1,
         draw: (ctx, { p, t }) => {
@@ -515,11 +558,88 @@ const SCRIPT = [
           ctx.fillRect(0, 0, W, H);
 
           const k = span(p, 0.0, 0.55);
-          drawPine(ctx, { x: W * 0.015, y: H * 0.20, w: 128, h: H * 0.62, colour: '#0F1D17' });
-          drawPine(ctx, { x: W * 0.115, y: H * 0.33, w: 96, h: H * 0.47, colour: '#132419' });
-          drawPine(ctx, { x: W * 0.86, y: H * 0.26, w: 110, h: H * 0.55, colour: '#0F1D17' });
+          /* Three pines of one shape at three sizes read as a wallpaper, and a
+             print of one at the edge of the frame crossed the headline. The
+             treeline is now a far one - small, hazed, six of them, no two the
+             same height or lean - and the only near tree is off the frame edge
+             on the right, where the type cannot reach it. */
+          const far = [
+            [W * -0.04, H * 0.345, 74, H * 0.40, 4, -0.02],
+            [W * 0.045, H * 0.315, 88, H * 0.44, 5, 0.016],
+            [W * 0.60, H * 0.345, 76, H * 0.40, 6, 0.02],
+            [W * 0.655, H * 0.30, 90, H * 0.45, 4, -0.014],
+            [W * 0.905, H * 0.325, 96, H * 0.43, 5, 0.012],
+            [W * 0.985, H * 0.365, 68, H * 0.36, 6, 0.0],
+          ];
+          for (const [tx, ty, tw, th, tiers, lean] of far) {
+            drawPine(ctx, {
+              x: tx, y: ty, w: tw, h: th, tiers, lean,
+              colour: '#191309', dark: '#0C0904', rim: 'rgba(196,182,150,0.05)',
+            });
+          }
           contact(ctx, W * 0.55, H * 0.955, W * 0.30, H * 0.026, 0.55);
           drawMill(ctx, { x: W * 0.24, y: H * 0.16, w: W * 0.58, h: H * 0.80, t, smoke: k, wheel: k });
+        },
+      },
+      {
+        id: 'near', depth: 2,
+        draw: (ctx, { p, t }) => {
+          /* The foreground. Until this existed the mill floated: the frame had
+             sky, building and water, and nothing between the lens and the
+             subject. Mist sits on the water at the building's foot and a bank of
+             reeds crosses the bottom corner - two more planes, and the shot has
+             depth without the building moving a pixel. */
+          ctx.save();
+          const mist = ctx.createLinearGradient(0, H * 0.78, 0, H * 0.96);
+          mist.addColorStop(0, 'rgba(196,170,140,0)');
+          mist.addColorStop(0.55, 'rgba(196,170,140,0.10)');
+          mist.addColorStop(1, 'rgba(150,132,112,0.16)');
+          ctx.fillStyle = mist;
+          ctx.fillRect(0, H * 0.78, W, H * 0.20);
+          ctx.globalCompositeOperation = 'lighter';
+          for (let i = 0; i < 7; i += 1) {
+            const yy = H * (0.82 + i * 0.021);
+            const drift = Math.sin(t * 0.22 + i * 1.3) * W * 0.02;
+            const g = ctx.createLinearGradient(0, yy - H * 0.02, 0, yy + H * 0.02);
+            g.addColorStop(0, 'rgba(226,196,158,0)');
+            g.addColorStop(0.5, `rgba(226,196,158,${0.035 - i * 0.003})`);
+            g.addColorStop(1, 'rgba(226,196,158,0)');
+            ctx.fillStyle = g;
+            ctx.fillRect(drift - W * 0.05, yy - H * 0.02, W * 1.1, H * 0.04);
+          }
+          ctx.restore();
+
+          /* the bank itself: a dark mass, soft at its top edge, reeds against
+             the water light */
+          ctx.save();
+          const bank = ctx.createLinearGradient(0, H * 0.955, 0, H);
+          bank.addColorStop(0, 'rgba(5,5,4,0)');
+          bank.addColorStop(0.45, 'rgba(5,5,4,0.55)');
+          bank.addColorStop(1, 'rgba(3,3,3,0.92)');
+          ctx.fillStyle = bank;
+          ctx.fillRect(0, H * 0.94, W, H * 0.06);
+          const grow = ease.outCubic(clamp(p * 2.2));
+          ctx.strokeStyle = 'rgba(6,6,5,0.9)';
+          for (let i = 0; i < 44; i += 1) {
+            const r = noise(i * 7.7 + 3);
+            const rx = (i < 26 ? 0.63 + r * 0.40 : -0.01 + r * 0.07) * W;
+            const rh = H * (0.05 + r * 0.13);
+            const tip = H * 0.985 - rh * grow;
+            ctx.lineWidth = 1 + r * 1.6;
+            ctx.beginPath();
+            ctx.moveTo(rx, H * 1.005);
+            ctx.quadraticCurveTo(rx + (r - 0.5) * 26, H * 0.985 - rh * 0.5 * grow, rx + (r - 0.5) * 52, tip);
+            ctx.stroke();
+            /* a head, so it is a reed and not a scratch */
+            if (r > 0.55) {
+              ctx.fillStyle = 'rgba(6,6,5,0.85)';
+              ctx.beginPath();
+              ctx.ellipse(rx + (r - 0.5) * 52, tip, 1.6 + r * 1.4, 5 + r * 5, (r - 0.5) * 0.4, 0, Math.PI * 2);
+              ctx.fill();
+              ctx.strokeStyle = 'rgba(6,6,5,0.9)';
+            }
+          }
+          ctx.restore();
         },
       },
       {
@@ -564,7 +684,22 @@ const SCRIPT = [
       },
       {
         id: 'objects', depth: 1,
-        draw: (ctx, { p }) => {
+        draw: (ctx, { p, t }) => {
+          /* A row of objects on plinths is a still life, and a still life on
+             screen is a photograph of a still life unless the light moves. The
+             shadows lean as the key light crosses the wall, and a soft shaft
+             travels with it - thirty seconds of nothing else moving would be a
+             pause in the film, not a shot in it. */
+          const sweep = 0.30 + 0.45 * (t / 6);
+          ctx.save();
+          ctx.globalCompositeOperation = 'lighter';
+          const shaft = ctx.createLinearGradient(W * (sweep - 0.22), H * 0.10, W * (sweep + 0.18), H * 0.95);
+          shaft.addColorStop(0, 'rgba(255,244,220,0)');
+          shaft.addColorStop(0.5, 'rgba(255,244,220,0.055)');
+          shaft.addColorStop(1, 'rgba(255,244,220,0)');
+          ctx.fillStyle = shaft;
+          ctx.fillRect(0, 0, W, H);
+          ctx.restore();
           const items = [
             ['PAPER', (x, y, w, h) => drawPaperReam(ctx, { x, y, w, h })],
             ['RUBBER', (x, y, w, h) => drawRubberSheet(ctx, { x, y, w, h })],
@@ -578,7 +713,7 @@ const SCRIPT = [
             const top = H * 0.30;
             ctx.save();
             ctx.globalAlpha *= clamp(k * 1.5);
-            contact(ctx, cx, top + size + 16, size * 0.62, 12, 0.16);
+            contact(ctx, cx + Math.sin(t * 0.45 + i * 0.9) * 7, top + size + 16, size * 0.64, 12, 0.16);
             ctx.translate(cx, top + size / 2 + (1 - k) * 26);
             draw(-size / 2, -size / 2, size, size);
             ctx.restore();
@@ -618,8 +753,14 @@ const SCRIPT = [
     grade: { vignetteStrength: 0.40, grainAmount: 0.20, paper: false, riso: 0, tooth: 0.03 },
     layers: [
       {
+        id: 'atmosphere', depth: 1,
+        draw: (ctx, { t }) => {
+          drawMotes(ctx, { w: W, h: H, t, count: 55, seed: 27, strength: 0.45, focusX: 0.6, focusY: 0.5, focusR: 0.6 });
+        },
+      },
+      {
         id: 'bars', depth: 1,
-        draw: (ctx, { p }) => {
+        draw: (ctx, { p, t }) => {
           const g = ctx.createLinearGradient(0, 0, 0, H);
           g.addColorStop(0, P.rise.ground);
           g.addColorStop(1, '#101216');
@@ -646,6 +787,16 @@ const SCRIPT = [
             /* cap light on each bar */
             ctx.fillStyle = 'rgba(255,232,170,0.55)';
             ctx.fillRect(bx, by, bw, 2);
+            /* and a highlight travelling across the face of the bar, out of
+               step with its neighbour, so a chart that has finished growing is
+               still a surface with light on it */
+            const sweepX = bx + bw * (0.15 + 0.7 * (0.5 + 0.5 * Math.sin(t * 0.55 + i * 0.8)));
+            const sw = ctx.createLinearGradient(sweepX - bw * 0.35, 0, sweepX + bw * 0.35, 0);
+            sw.addColorStop(0, 'rgba(255,236,180,0)');
+            sw.addColorStop(0.5, 'rgba(255,236,180,0.16)');
+            sw.addColorStop(1, 'rgba(255,236,180,0)');
+            ctx.fillStyle = sw;
+            ctx.fillRect(bx, by, bw, bh);
           }
           /* the baseline */
           ctx.fillStyle = 'rgba(243,238,226,0.16)';
