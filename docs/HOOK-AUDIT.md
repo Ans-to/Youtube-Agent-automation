@@ -197,11 +197,16 @@ event is now the bed itself, not a ringtone arriving alone.
 
 | | measured |
 |---|---|
-| integrated loudness | **−16.0 LUFS** |
-| true peak | **−2.3 dBFS** |
-| first half second | **−20.2 dBFS RMS** (target was ≥ −22.0) |
-| 2-second RMS span | **11.4 dB** |
+| integrated loudness | **−16.0 LUFS** (master) |
+| true peak | **−2.4 dBFS** |
+| first half second | **−20.1 dBFS RMS** |
+| 2-second RMS span | **8.3 dB** |
 | spoken | 41.8 s across 10 lines |
+| holes (below −32 dBFS for > 150 ms) | **none** |
+
+The span came down from 11.4 dB when the holes were filled: a film cannot be
+silent for a second and still show a wide dynamic range. Continuity was the
+fault the owner heard, so continuity won.
 
 ## What the cold open cost
 
@@ -235,3 +240,39 @@ ffmpeg -i /tmp/film.mp4 -i /tmp/master.wav -c:v libx264 -preset slow -crf 21 \
   -pix_fmt yuv420p -c:a aac -b:a 192k -ar 48000 -shortest \
   -movflags +faststart docs/media/nokia/nokia-atlas.mp4
 ```
+
+
+---
+
+# "There is silence in scenes" (round 8i)
+
+Three separate faults, all of them audible in the delivered cut.
+
+1. **Every bed faded out before its own cut.** `pad()` shaped each section with a
+   0.9 s rise and a 1.2 s fall *inside the section's own length*, so the music was
+   already quiet 1.2 s before the boundary and the next section took another 0.9 s
+   to arrive: a notch at every join. Beds now spill 1.2 s past their own cut and
+   the next one rises under them — a crossfade instead of a gap.
+2. **The "too late" beat was a hole.** `sparse` (36.4–42.4 s) sat at **−24.7 dBFS
+   RMS** with a floor of −31.9: six seconds of near-silence in the middle of the
+   film. It has a quiet pulse and a level that is still the quietest in the film,
+   and it now measures **−21.3 dBFS** with a floor of −31.6.
+3. **The film ended in digital silence.** The score's tail fade was **2.0 s** on a
+   67.2 s film, so the last **1.25 s** measured −73 dBFS: the sound stopped, the
+   picture kept going. The last chord now decays with the film and the fade is
+   0.2 s — the final 300 ms measure **−32 dBFS**, which is a ringing chord, not a
+   mute.
+
+Measured on the delivered file, before → after:
+
+| | before | after |
+|---|---|---|
+| quietest 6 s of the score | −24.7 dBFS | **−21.3 dBFS** |
+| longest hole below −32 dBFS | **1.10 s** | **none** |
+| level 0.2 s before each cut | −18 … −31 | −18 … −26 |
+| last 300 ms of the film | −53 dBFS | **−32 dBFS** |
+| 2 s RMS span | 11.4 dB | 8.3 dB |
+
+`tests/test_film_motion_and_dynamics.py::ScoreContinuityTest` now fails the build
+if a hole opens, if the bed is quiet going into a cut, or if the film fades out
+before its last frame.

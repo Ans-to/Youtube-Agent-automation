@@ -67,10 +67,10 @@ SECTIONS = {
     'warm':    ('f', 0.24, True, 0.0, 0.35, -3.0),
     'moving':  ('am7', 0.22, True, 0.9, 0.32, -1.0),
     'tense':   ('dm', 0.24, True, 1.15, 0.28, -2.5),
-    'sparse':  ('am-low', 0.18, False, 0.55, 0.22, -6.0),
+    'sparse':  ('am-low', 0.24, True, 0.42, 0.24, -5.0),
     'history': ('c', 0.24, True, 0.0, 0.38, -4.0),
-    'build':   ('g', 0.22, True, 0.85, 0.36, 0.0),
-    'resolve': ('am', 0.26, True, 0.0, 0.30, -1.5),
+    'build':   ('g', 0.34, True, 0.85, 0.36, 0.0),
+    'resolve': ('am', 0.30, True, 0.0, 0.30, -0.5),
 }
 
 
@@ -152,8 +152,16 @@ def pluck(freq: float, seconds: float = 1.6, bright: float = 0.4) -> np.ndarray:
     return (out + felt) * 0.5
 
 
-def pad(chord: str, seconds: float, bright: float, gain: float) -> np.ndarray:
-    """A soft choir-ish pad: detuned sines, low-passed, slow in and out."""
+def pad(chord: str, seconds: float, bright: float, gain: float,
+        fade_in: float = 0.35, fade_out: float = 1.4) -> np.ndarray:
+    """A soft choir-ish pad: detuned sines, low-passed, slow in and out.
+
+    The envelope is short at the front and long at the back on purpose. It used
+    to be 0.9 in and 1.2 out inside the section's own length, so every bed had
+    gone quiet 1.2 s before its cut and the next one only reached level 0.9 s
+    after it: a hole at every join. The bed now spills past its cut and the next
+    one rises under it, which is a crossfade rather than a gap.
+    """
     n = int(seconds * SR)
     out = np.zeros(n)
     for i, name in enumerate(CHORDS[chord]):
@@ -166,10 +174,15 @@ def pad(chord: str, seconds: float, bright: float, gain: float) -> np.ndarray:
         out += voice * (1.0 - i * 0.10)
     out = lowpass(out, 2600)
     out /= len(CHORDS[chord])
+    fi, fo = int(fade_in * SR), int(fade_out * SR)
+    if fi + fo >= n:
+        # A very short section: keep the shape, squeeze it to fit.
+        fi = max(1, int(n * fade_in / max(fade_in + fade_out, 1e-6)))
+        fo = max(1, n - fi - 1)
     env = np.concatenate([
-        np.linspace(0, 1, int(0.9 * SR)),
-        np.ones(max(1, n - int(2.1 * SR))),
-        np.linspace(1, 0, int(1.2 * SR)),
+        np.linspace(0, 1, fi),
+        np.ones(max(1, n - fi - fo)),
+        np.linspace(1, 0, fo),
     ])
     if len(env) < n:
         env = np.pad(env, (0, n - len(env)))
@@ -478,7 +491,14 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
         length = max(0.2, end - start)
         # the section's own loudness, so the score breathes with the film
         const_gain = 10 ** (level_db / 20)
-        place(mix, pad(chord, length, bright, pad_gain) * const_gain, start)
+        # Beds overlap across a cut, so the join is a crossfade and not a hole.
+        # The last one does not spill: it ends *with* the film, on a short decay,
+        # so the final chord is still ringing when the picture goes black.
+        last = end >= seconds - 0.05
+        spill = 0.0 if last else 1.2
+        place(mix, pad(chord, length + spill, bright, pad_gain,
+                       fade_in=(0.45 if start <= 0.01 else 0.35),
+                       fade_out=(0.35 if last else 1.4)) * const_gain, start)
 
         if rate:
             place(mix, pulse(length, 0.16, rate) * const_gain, start)
@@ -516,8 +536,11 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
     mix = highpass(mix, 38)
     fade = int(0.12 * SR)
     mix[:fade] *= np.linspace(0, 1, fade) ** 1.2
-    tail = int(2.0 * SR)
-    mix[-tail:] *= np.linspace(1, 0, tail) ** 1.2
+    # The old tail was two seconds, which on this film was a second and a quarter
+    # of digital silence after the last word: it read as the sound dropping out.
+    # The chord now decays on its own and this fade only stops the click.
+    tail = int(0.2 * SR)
+    mix[-tail:] *= np.linspace(1, 0, tail) ** 1.1
 
     mix *= gain
     # Normalise on the loud passages, not on the average: normalising the mean

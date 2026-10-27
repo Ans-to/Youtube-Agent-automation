@@ -143,5 +143,71 @@ class ScoreDynamicsTest(unittest.TestCase):
         self.assertGreaterEqual(len(levels), 5, 'the sections share one loudness')
 
 
+class ScoreContinuityTest(unittest.TestCase):
+    """The bed may breathe; it may not leave the room.
+
+    The owner's note on the delivered cut was "there is silence in scenes", and
+    measuring the mix said they were right on three counts: every section's pad
+    faded out inside its own length (so the bed was 1.2 s quiet before every cut
+    while the next one took 0.9 s to arrive), the "too late" beat sat at -24 dBFS
+    RMS for six seconds, and the last 1.25 s of the film was digital silence
+    because the score ended with a two-second fade.
+
+    A bed is allowed to be quiet. It is not allowed to stop.
+    """
+
+    SECTIONS = ('tense:0:5,sparse:5:11,history:11:17,moving:17:23,build:23:29,'
+                'resolve:29:35')
+
+    @classmethod
+    def setUpClass(cls):
+        cls.out = Path(tempfile.mkdtemp()) / 'continuity.wav'
+        subprocess.run([sys.executable, str(SCORE), '--seconds', '35',
+                        '--sections', cls.SECTIONS, '--out', str(cls.out)],
+                       check=True, capture_output=True)
+
+    def _envelope(self, win=0.05):
+        with wave.open(str(self.out)) as f:
+            sr, channels = f.getframerate(), f.getnchannels()
+            data = np.frombuffer(f.readframes(f.getnframes()), dtype='<i2')
+        data = data.reshape(-1, channels).astype(np.float32).mean(axis=1) / 32768
+        hop = int(sr * win)
+        n = len(data) // hop
+        return np.array([
+            20 * np.log10(max(float(np.sqrt((data[i * hop:(i + 1) * hop] ** 2).mean())), 1e-9))
+            for i in range(n)
+        ]), sr, len(data)
+
+    def test_no_hole_opens_inside_the_film(self):
+        env, _, _ = self._envelope()
+        quiet = env < -32.0
+        runs, start = [], None
+        for i, q in enumerate(quiet):
+            if q and start is None:
+                start = i
+            elif not q and start is not None:
+                runs.append((start * 0.05, i * 0.05))
+                start = None
+        if start is not None:
+            runs.append((start * 0.05, len(env) * 0.05))
+        holes = [r for r in runs if r[1] - r[0] >= 0.15]
+        self.assertEqual(holes, [], f"the score drops out at {holes}")
+
+    def test_the_beat_before_a_cut_is_not_the_quietest_thing_in_the_film(self):
+        """The bed has to be present going *into* a cut, not fading out of it."""
+        env, _, _ = self._envelope()
+        for cut in (5, 11, 17, 23, 29):
+            with self.subTest(cut=cut):
+                before = env[int((cut - 0.8) / 0.05):int(cut / 0.05)]
+                self.assertGreater(float(np.mean(before)), -30.0,
+                                   f"the bed is {np.mean(before):.1f} dBFS into the cut at {cut}s")
+
+    def test_the_film_ends_on_sound(self):
+        env, sr, n = self._envelope()
+        tail = env[int((n / sr - 0.4) / 0.05):]
+        self.assertGreater(float(np.min(tail)), -40.0,
+                           f"the last 400 ms fade to {np.min(tail):.1f} dBFS")
+
+
 if __name__ == '__main__':
     unittest.main()
