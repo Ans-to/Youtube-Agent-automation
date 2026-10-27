@@ -497,3 +497,49 @@ watched at, which is where these came from:
 - **The mill's five windows were one brightness and one size.** No working mill
   has five identical lamps: one is out, one is dim, and the rest vary. The water
   under each one carries a broken column of its light.
+
+## A join is a sound event too
+
+The film already knew what kind of join it was making at every boundary — `cut`,
+`rack`, `dissolve`, `fade-paper`, `iris`, `wipe-left`, `push-left` — because the
+director picked one for a reason. The soundtrack read a list a person had typed
+by hand, which is the second source of truth this studio keeps deleting: change
+the transition and the sound no longer matches the picture, and nobody notices
+until it is rendered.
+
+`score.py --starts <the film's starts.json>` now derives one effect per join from
+the transition itself:
+
+| join | sound | what it is |
+|---|---|---|
+| `cut` | tick | 55 ms of felt and a small thud. A transient, not a boom |
+| `rack` | pull | dark noise closing from 2.2 kHz to 520 Hz — a focus pulling |
+| `dissolve` | bloom | a held chord that opens; it starts 1.9 s early and peaks on the cut |
+| `fade-paper` | rustle | three page grains, all under 3.4 kHz |
+| `iris` | close | a tone falling 132 → 56 Hz under a thud: the light leaving |
+| `wipe-left` / `push-left` | whoosh | noise opening and closing, panned left |
+| `wipe-right` / `push-right` | whoosh | the same, panned right |
+
+Three things make this work rather than merely exist:
+
+- **The table records where the energy peaks, not where the file starts.** A
+  whoosh peaks 356 ms into its own sweep; placed on the cut, it would arrive a
+  third of a second late, after the new shot had already landed by itself. The
+  offsets are measured from the effects (`tick` 7 ms, `pull` 124 ms, `rustle`
+  162 ms, `close` 132 ms, `bloom` 1861 ms, `whoosh` 356 ms), so every effect's
+  loudest moment falls within 45 ms of its frame — measured on the delivered
+  film at +33, +5, +45, 0, −10 and −10 ms. (The dissolve reads +265 ms in that
+  measurement, but the cue bus puts its peak exactly on the cut: the difference is
+  the master's limiter shaving a 3.4 s swell, not the placement.)
+- **Effects are normalised one by one, not as a bus.** Normalising the bus made
+  the iris peak 12 dB above the dissolve — the balance was an artefact of how long
+  each effect happened to be.
+- **The bed leaves room.** Limiting the sum meant every effect at every join was
+  squashed by the music it was meant to punctuate: a −17 dBFS tick arrived 14 dB
+  quieter than it was rendered. The bed is limited on its own and the effects are
+  added after it.
+
+`tests/test_join_sound.py` gates all of it: one sound per join, every peak within
+two frames of its cut, every effect pre-lapped (the sound starts before the cut),
+a wipe panned and a cut not, the effects within 8 dB of each other, and an unknown
+join name failing rather than falling back to silence.

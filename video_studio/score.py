@@ -20,6 +20,7 @@ Deterministic: the same section list gives the same file.
 from __future__ import annotations
 
 import argparse
+import json
 import math
 import wave
 from pathlib import Path
@@ -295,7 +296,117 @@ def cue(kind: str, gain: float = 1.0) -> np.ndarray:
         return thud(1.8, 0.62 * gain)
     if kind == 'bloom':
         return cluster([NOTE['F4'], NOTE['A4'], NOTE['C5']], 3.4, 0.26 * gain)
+    if kind == 'tick':
+        # A hard cut: a transient, not a boom. Thirty milliseconds of felt on a
+        # table, low enough to sit under a word and short enough to be gone
+        # before the next frame.
+        n = int(0.20 * SR)
+        out = np.zeros(n)
+        place(out, lowpass(_grain(0.055, 5), 2600) * 0.55, 0.0)
+        place(out, thud(0.20, 0.30 * gain), 0.0)
+        return out * gain
+    if kind == 'whoosh':
+        # A wipe or a push: the room moving past the lens. Dark noise that opens
+        # and closes again - two filtered copies crossfaded, because a filter
+        # whose cutoff changes needs a filter per block and this needs to stay
+        # cheap and deterministic.
+        dur = 0.62
+        n = int(dur * SR)
+        x = _grain(dur, 9)
+        t = np.arange(n) / SR
+        env = np.minimum(1, t / (dur * 0.6)) ** 1.6 * np.exp(-np.maximum(0, t - dur * 0.6) / (dur * 0.13))
+        dark = lowpass(x, 700) * env
+        bright = lowpass(x, 2400) * env
+        k = np.clip((t / dur - 0.35) / 0.5, 0, 1)
+        out = dark * (1 - k) + bright * k
+        return out * gain
+    if kind == 'rustle':
+        # Paper: a join that turns from one era to the next. Three grains, all
+        # under 3.6 kHz, so it reads as a page and not as a hiss.
+        dur = 0.42
+        n = int(dur * SR)
+        out = np.zeros(n)
+        for i, at in enumerate((0.0, 0.07, 0.16)):
+            seg = _grain(0.09, 13 + i)
+            seg = highpass(lowpass(seg, 3400), 700)
+            env = np.exp(-np.arange(len(seg)) / (0.022 * SR))
+            place(out, seg * env * (0.5 - i * 0.09) * gain, at)
+        return out
+    if kind == 'pull':
+        # A rack focus: the same trick as the whoosh, closing instead of opening.
+        dur = 0.55
+        n = int(dur * SR)
+        x = _grain(dur, 17)
+        t = np.arange(n) / SR
+        # a focus pull opens before it closes: 110 ms to rise, then decay
+        env = np.minimum(1, t / 0.11) ** 1.5 * np.exp(-np.maximum(0, t - 0.11) / (dur * 0.34))
+        bright = lowpass(x, 2200) * env
+        dark = lowpass(x, 520) * env
+        k = np.clip(t / dur, 0, 1)
+        return (bright * (1 - k) + dark * k) * gain * 0.9
+    if kind == 'close':
+        # An iris: the light going out of the frame. A tone falling, under a thud.
+        n = int(1.1 * SR)
+        t = np.arange(n) / SR
+        sweep = 132 - 76 * np.minimum(1, t / 0.9)
+        phase = 2 * math.pi * np.cumsum(sweep) / SR
+        tone = np.sin(phase) * np.minimum(1, t / 0.13) ** 1.4 * np.exp(-t / 0.55)
+        out = tone * 0.35
+        place(out, thud(0.9, 0.42 * gain), 0.0)
+        return out * gain
     raise SystemExit(f'unknown cue {kind!r}')
+
+
+def _grain(seconds: float, seed: int) -> np.ndarray:
+    """Deterministic noise. The score has to render the same film twice."""
+    n = int(seconds * SR)
+    return np.random.default_rng(seed).normal(0, 1, n)
+
+
+# --------------------------------------------------------------------------
+# Which sound belongs on which join.
+#
+# A cut is not a cue sheet entry, it is a decision the director already made:
+# `motion/director.mjs` picks `cut` when something changes, `dissolve` when time
+# passes in the same place, `wipe-left` when the film travels. The soundtrack
+# reads the same list, so the sound follows the picture's own grammar - and a
+# different film gets its own effects without anybody typing them again.
+#
+# `lead` is how far *before* the boundary the sound starts. A transient that
+# begins exactly on the cut arrives after it - the ear hears sound as the
+# consequence of an edit instead of the two landing together. Everything here is
+# pre-lapped so its energy peaks on the frame.
+# --------------------------------------------------------------------------
+# kind, seconds from the start of the sound to its loudest moment, pan, level.
+#
+# Measured, not guessed: each of these was rendered, its envelope smoothed and
+# its maximum located. A cut's transient peaks in 10 ms, a whoosh halfway through
+# its sweep, a bloom three tenths after it opens.
+TRANSITION_CUE = {
+    'cut':        ('tick', 0.007, 0.0, 1.00),
+    'rack':       ('pull', 0.124, 0.0, 0.80),
+    'dissolve':   ('bloom', 1.861, 0.0, 0.85),
+    'fade-paper': ('rustle', 0.162, 0.0, 0.90),
+    'iris':       ('close', 0.132, 0.0, 0.85),
+    'wipe-left':  ('whoosh', 0.356, -0.55, 1.00),
+    'push-left':  ('whoosh', 0.356, -0.35, 0.85),
+    'wipe-right': ('whoosh', 0.356, 0.55, 1.00),
+    'push-right': ('whoosh', 0.356, 0.35, 0.85),
+    'push-up':    ('whoosh', 0.356, 0.0, 0.80),
+}
+
+
+def cues_from_starts(shots: list[dict]) -> list[tuple[float, str, float, float]]:
+    """One sound per join, read off the film's own edit list."""
+    out = []
+    for shot in shots[1:]:
+        row = TRANSITION_CUE.get((shot.get('transition') or 'cut').strip())
+        if row is None:
+            raise SystemExit(f'no sound for the {shot.get("transition")!r} join in {shot.get("id")!r}')
+        kind, peak, pan, level = row
+        at = max(0.0, float(shot['start']) - peak)
+        out.append((at, kind, level, pan))
+    return out
 
 
 def place(track: np.ndarray, seg: np.ndarray, at: float) -> None:
@@ -323,8 +434,35 @@ def reverb(x: np.ndarray, wet: float = 0.20, decay: float = 1.9) -> np.ndarray:
 # Arrangement
 # --------------------------------------------------------------------------
 
+def cue_bus(total: int, cues: list[tuple[float, ...]]) -> np.ndarray:
+    """Place every effect in stereo, at equal power, at its own pan position."""
+    bus = np.zeros((2, total))
+    for row in cues:
+        at, kind = float(row[0]), str(row[1])
+        level = float(row[2]) if len(row) > 2 else 1.0
+        pan = float(row[3]) if len(row) > 3 else 0.0
+        seg = cue(kind, gain=level)
+        # Normalise the event itself, then weigh it: otherwise a 20 ms tick and a
+        # 3 s bloom land at wildly different levels for the same `level`. Twelve
+        # decibels under full scale is two above the bed's RMS and eight under its
+        # peaks - a join you hear without the music getting out of its way.
+        top = float(np.abs(seg).max()) + 1e-9
+        seg = seg / top * 10 ** (-12.0 / 20)
+        start = int(at * SR)
+        if start >= total or start < 0:
+            continue
+        end = min(total, start + len(seg))
+        seg = seg[:end - start]
+        # equal power: -1 hard left, 0 centre, +1 hard right
+        angle = (np.clip(pan, -1, 1) + 1) * math.pi / 4
+        bus[0, start:end] += seg * math.cos(angle)
+        bus[1, start:end] += seg * math.sin(angle)
+    return bus
+
+
 def build(seconds: float, sections: list[tuple[str, float, float]], gain: float = 1.0,
-          cues: list[tuple[float, str, float]] | None = None) -> np.ndarray:
+          cues: list[tuple[str, float]] | None = None, starts: list[dict] | None = None,
+          stereo: bool = False):
     total = int(seconds * SR)
     mix = np.zeros(total)
 
@@ -383,7 +521,25 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
         rms = float(np.sqrt(np.mean(mix ** 2)) + 1e-12)
         mix *= min(target / rms, 6.0)
         mix = soft_limit(mix, ceiling)
-    return mix
+
+    events = list(cues or [])
+    if starts:
+        events += cues_from_starts(starts)
+    bus = cue_bus(total, events)
+
+    delay = int(0.011 * SR)
+    wide = np.stack([mix, np.concatenate([np.zeros(delay), mix[:-delay]]) * 0.96])
+    # The bed is limited on its own and leaves the effects three decibels of
+    # room. Limiting the sum instead meant every effect at every join was squashed
+    # by the music it was supposed to punctuate - measured, a -17 dBFS tick was
+    # arriving 14 dB quieter than it was rendered.
+    bed = soft_limit(wide, ceiling * 0.80)
+    out = bed + bus
+    if np.abs(out).max() > ceiling:
+        out = soft_limit(out, ceiling)
+    # (frames, channels) on the way out: a stereo pair written row-major as
+    # (channels, frames) is white noise, and it sounds like a fault in the mixer.
+    return out.T if stereo else out.mean(axis=0)
 
 
 def soft_limit(x: np.ndarray, ceiling: float) -> np.ndarray:
@@ -396,11 +552,15 @@ def soft_limit(x: np.ndarray, ceiling: float) -> np.ndarray:
     return np.clip(sign * out, -ceiling, ceiling)
 
 
-def write_wav(path: Path, mono: np.ndarray) -> None:
-    delay = int(0.011 * SR)
-    left = mono
-    right = np.concatenate([np.zeros(delay), mono[:-delay]]) * 0.96
-    data = np.stack([left, right], axis=1)
+def write_wav(path: Path, data: np.ndarray) -> None:
+    """Write a stereo pair, or a mono signal widened by a hair."""
+    if data.ndim == 1:
+        delay = int(0.011 * SR)
+        left = data
+        right = np.concatenate([np.zeros(delay), data[:-delay]]) * 0.96
+        data = np.stack([left, right], axis=1)
+    elif data.shape[0] == 2 and data.shape[1] > 2:
+        data = data.T
     pcm = (np.clip(data, -1, 1) * 32767).astype('<i2')
     with wave.open(str(path), 'wb') as f:
         f.setnchannels(2)
@@ -409,7 +569,7 @@ def write_wav(path: Path, mono: np.ndarray) -> None:
         f.writeframes(pcm.tobytes())
 
 
-def parse_cues(text: str) -> list[tuple[float, str, float]]:
+def parse_cues(text: str) -> list[tuple[float, str, float, float]]:
     out = []
     for part in text.split(','):
         if not part.strip():
@@ -417,7 +577,8 @@ def parse_cues(text: str) -> list[tuple[float, str, float]]:
         bits = part.split(':')
         at, kind = float(bits[0]), bits[1].strip()
         level = float(bits[2]) if len(bits) > 2 else 1.0
-        out.append((at, kind, level))
+        pan = float(bits[3]) if len(bits) > 3 else 0.0
+        out.append((at, kind, level, pan))
     return out
 
 
@@ -435,11 +596,17 @@ def main() -> None:
     ap.add_argument('--sections', default='calm:0:4,warm:4:9,moving:9:16,tense:16:23,sparse:23:30,history:30:37,build:37:44,resolve:44:51')
     ap.add_argument('--out', default='score.wav')
     ap.add_argument('--gain', type=float, default=1.0)
-    ap.add_argument('--cues', default='', help='time:kind[:level], comma separated')
+    ap.add_argument('--cues', default='', help='time:kind[:level[:pan]], comma separated')
+    ap.add_argument('--starts', default='',
+                    help="the film's --starts.json: one sound per join, from its transitions")
     args = ap.parse_args()
 
+    starts = None
+    if args.starts:
+        starts = json.loads(Path(args.starts).read_text())
     mix = build(args.seconds, parse_sections(args.sections), args.gain,
-                parse_cues(args.cues) if args.cues else None)
+                parse_cues(args.cues) if args.cues else None,
+                starts=starts, stereo=True)
     write_wav(Path(args.out), mix)
     rms = 20 * math.log10(float(np.sqrt(np.mean(mix ** 2))) + 1e-12)
     peak = 20 * math.log10(float(np.max(np.abs(mix))) + 1e-12)
