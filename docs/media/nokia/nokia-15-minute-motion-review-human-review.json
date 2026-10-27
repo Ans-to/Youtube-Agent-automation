@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "reviewed_by": "",
+  "reviewed_inputs": {
+    "facts.json": "23ae81d359c114d21643c0912c7102db35431af9ab73e6615a2d1b1a314b3102",
+    "music-stem.wav": "537df58757e0dcbe98d412853b3ef3a30537fd8149265b3ac23967b60313669b",
+    "release-profile.json": "78e303e668b0c1a9e78da2d766bc7b249297b878dbb5992749bd65357fbe34ab",
+    "script.md": "51ba255955f5da2444253a95d02ad02a7ca67ff6a905c677bb29a459ffd1a953",
+    "shots.json": "0ef30ae35c60123d91de15809cf5dfc2a6362475ba7cd0e0c883f8b6a8b91e34",
+    "storyboard.json": "09a6409405ec676615d8b86f49528084e3d99d407112762f7f48daa850f87025",
+    "video.mp4": "7d4e12bbe195399576abef1c8af93c8a79337b9f5f54dd933848efe453138ab0",
+    "video.qc.json": "8f3c04a0b613bc03ed74efc934b5c272261eae81156763aef830f0855054845e",
+    "voice-stem.wav": "50e44eed02755dabf1186a9ab291bac14957314f7121de3c99131b8ec6b9e72e",
+    "voice-timing.json": "e41cb665a9f37e70a6c376c0ce99cab207c86ebabf44b266b9438a0f323cb730"
+  },
+  "checks": {
+    "narration_sync": {
+      "status": "unverified",
+      "note": ""
+    },
+    "visual_relevance": {
+      "status": "unverified",
+      "note": "",
+      "scenes": []
+    },
+    "historical_accuracy": {
+      "status": "unverified",
+      "note": ""
+    },
+    "music_balance": {
+      "status": "unverified",
+      "note": ""
+    },
+    "captions": {
+      "status": "unverified",
+      "note": "",
+      "mode": "unverified"
+    },
+    "clean_ending": {
+      "status": "unverified",
+      "note": ""
+    }
+  }
+}

@@ -1,0 +1,1344 @@
+{
+  "schema_version": 1,
+  "status": "UNAPPROVED REVIEW",
+  "notes": [
+    "Motion graphics only. All imagery is original vector artwork, not photographs or generated images.",
+    "Voice timing is preserved; intra-line cue positions are estimated from spoken text and require human listening review.",
+    "On-screen headings summarize narration; they are not captions.",
+    "The phone models are simplified illustrations, not exact product renders."
+  ],
+  "shots": {
+    "s01-01": [
+      {
+        "cue": "",
+        "visual": "factory",
+        "headline": "A MOBILE PHONE EMPIRE",
+        "detail": "The mobile-phone era"
+      },
+      {
+        "cue": "around the world",
+        "visual": "distribution",
+        "headline": "A GLOBAL REACH",
+        "detail": "A Finnish company goes worldwide"
+      }
+    ],
+    "s01-04": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "NOKIA",
+        "detail": "A familiar name in mobile phones"
+      }
+    ],
+    "s01-05": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "A MOBILE PHONE LEADER",
+        "detail": "At its peak"
+      }
+    ],
+    "s01-08": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "FROM LEADER TO STRUGGLE",
+        "detail": "The market was changing"
+      },
+      {
+        "cue": "struggling to survive",
+        "visual": "software",
+        "headline": "A TURNING POINT",
+        "detail": "The challenge went beyond hardware"
+      }
+    ],
+    "s01-09": [
+      {
+        "cue": "",
+        "visual": "iphone",
+        "headline": "A NEW GENERATION",
+        "detail": "The smartphone era"
+      }
+    ],
+    "s01-10": [
+      {
+        "cue": "",
+        "visual": "compare",
+        "headline": "FROM BUTTONS TO TOUCH",
+        "detail": "A shift in the experience"
+      }
+    ],
+    "s01-12": [
+      {
+        "cue": "",
+        "visual": "tower",
+        "headline": "CONNECTING THE WORLD",
+        "detail": "A changing industry"
+      },
+      {
+        "cue": "unable to understand",
+        "visual": "strategy",
+        "headline": "THE RULES WERE CHANGING",
+        "detail": "A challenge to Nokia"
+      }
+    ],
+    "s01-13": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "THE NOKIA STORY",
+        "detail": "Rise, fall and reinvention"
+      }
+    ],
+    "s01-17": [
+      {
+        "cue": "",
+        "visual": "factory",
+        "headline": "NOT JUST A PHONE",
+        "detail": "The deeper question"
+      },
+      {
+        "cue": "rules of the entire industry",
+        "visual": "apps",
+        "headline": "THE RULES CHANGED",
+        "detail": "Hardware, software and services"
+      }
+    ],
+    "s02-02": [
+      {
+        "cue": "",
+        "visual": "origin",
+        "headline": "1865",
+        "detail": "A wood-pulp mill near Tampere"
+      },
+      {
+        "cue": "wood-pulp mill",
+        "visual": "mill",
+        "headline": "A FINNISH BEGINNING",
+        "detail": "Fredrik Idestam and the paper industry"
+      }
+    ],
+    "s02-04": [
+      {
+        "cue": "",
+        "visual": "river",
+        "headline": "ALONG THE NOKIANVIRTA",
+        "detail": "A second mill by the river"
+      }
+    ],
+    "s02-05": [
+      {
+        "cue": "",
+        "visual": "name",
+        "headline": "THE NAME NOKIA",
+        "detail": "Rooted in a Finnish place"
+      }
+    ],
+    "s02-08": [
+      {
+        "cue": "",
+        "visual": "industry",
+        "headline": "BEYOND PAPER",
+        "detail": "Finnish industry diversified"
+      },
+      {
+        "cue": "rubber products",
+        "visual": "portfolio",
+        "headline": "RUBBER + ELECTRICAL",
+        "detail": "Businesses that later came together"
+      }
+    ],
+    "s02-10": [
+      {
+        "cue": "",
+        "visual": "industry",
+        "headline": "1967",
+        "detail": "The formation of Nokia Corporation"
+      },
+      {
+        "cue": "merger of",
+        "visual": "merger",
+        "headline": "THREE BUSINESSES",
+        "detail": "Nokia Ab · Finnish Rubber Works · Finnish Cable Works"
+      }
+    ],
+    "s02-11": [
+      {
+        "cue": "",
+        "visual": "industry",
+        "headline": "A DIVERSIFIED COMPANY",
+        "detail": "Several industries under one company"
+      },
+      {
+        "cue": "interests spanning",
+        "visual": "portfolio",
+        "headline": "A BROAD PORTFOLIO",
+        "detail": "Cables, rubber and electronics"
+      },
+      {
+        "cue": "cables and rubber",
+        "visual": "portfolio",
+        "headline": "CABLES · RUBBER · ELECTRONICS",
+        "detail": "A broad industrial portfolio"
+      }
+    ],
+    "s02-13": [
+      {
+        "cue": "",
+        "visual": "tower",
+        "headline": "TELECOMMUNICATIONS",
+        "detail": "A new industry began to take shape"
+      },
+      {
+        "cue": "Nokia began investing",
+        "visual": "strategy",
+        "headline": "INVESTING IN TELECOMMUNICATIONS",
+        "detail": "Nokia’s business evolved"
+      },
+      {
+        "cue": "transform the way",
+        "visual": "tower",
+        "headline": "A MORE CONNECTED WORLD",
+        "detail": "The focus began to shift"
+      }
+    ],
+    "s03-01": [
+      {
+        "cue": "",
+        "visual": "car",
+        "headline": "MOBILE IN THE 1980s",
+        "detail": "Expensive and difficult to access"
+      },
+      {
+        "cue": "expensive, complicated",
+        "visual": "car",
+        "headline": "EXPENSIVE AND COMPLEX",
+        "detail": "Mobile access was limited"
+      },
+      {
+        "cue": "Early mobile phones",
+        "visual": "cityman",
+        "headline": "BULKY BY TODAY’S STANDARDS",
+        "detail": "A stylized early mobile handset"
+      },
+      {
+        "cue": "Networks were limited",
+        "visual": "tower",
+        "headline": "LIMITED NETWORKS",
+        "detail": "Mobile coverage was still developing"
+      },
+      {
+        "cue": "luxury reserved",
+        "visual": "car",
+        "headline": "A BUSINESS LUXURY",
+        "detail": "Early mobile users"
+      }
+    ],
+    "s03-03": [
+      {
+        "cue": "",
+        "visual": "tower",
+        "headline": "INVESTING IN MOBILE",
+        "detail": "Telecommunications equipment and phones"
+      },
+      {
+        "cue": "In 1987",
+        "visual": "cityman",
+        "headline": "1987 · MOBIRA CITYMAN",
+        "detail": "A stylized Mobira Cityman handset"
+      },
+      {
+        "cue": "a portable mobile phone",
+        "visual": "cityman",
+        "headline": "A PORTABLE PHONE",
+        "detail": "A stylized Cityman handset"
+      }
+    ],
+    "s03-05": [
+      {
+        "cue": "",
+        "visual": "tower",
+        "headline": "1991 · A GSM CALL",
+        "detail": "A commercial network in Finland"
+      },
+      {
+        "cue": "Nokia phone",
+        "visual": "tower",
+        "headline": "DIGITAL MOBILE",
+        "detail": "A commercial GSM call in Finland"
+      }
+    ],
+    "s03-08": [
+      {
+        "cue": "",
+        "visual": "car",
+        "headline": "BEYOND EARLY ADOPTERS",
+        "detail": "Mobile phones move toward wider use"
+      },
+      {
+        "cue": "phones began moving",
+        "visual": "3210",
+        "headline": "WIDER MOBILE ACCESS",
+        "detail": "Beyond wealthy early adopters"
+      },
+      {
+        "cue": "smaller, more affordable",
+        "visual": "factory",
+        "headline": "SMALLER · MORE ACCESSIBLE",
+        "detail": "The next manufacturing challenge"
+      }
+    ],
+    "s04-01": [
+      {
+        "cue": "",
+        "visual": "tower",
+        "headline": "THE 1990s",
+        "detail": "A turning point for Nokia"
+      },
+      {
+        "cue": "In 1992",
+        "visual": "1011",
+        "headline": "1992 · NOKIA 1011",
+        "detail": "An early mass-produced GSM phone"
+      },
+      {
+        "cue": "mass-produced GSM",
+        "visual": "factory",
+        "headline": "GSM AT SCALE",
+        "detail": "An early mass-produced GSM handset"
+      }
+    ],
+    "s04-02": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "A STRATEGIC DECISION",
+        "detail": "Nokia’s focus shifted in 1992"
+      },
+      {
+        "cue": "major strategic decision",
+        "visual": "strategy",
+        "headline": "A NEW DIRECTION",
+        "detail": "A focus on telecommunications"
+      },
+      {
+        "cue": "telecommunications",
+        "visual": "tower",
+        "headline": "FOCUS: TELECOMMUNICATIONS",
+        "detail": "From a diversified industrial group"
+      },
+      {
+        "cue": "multiple industries",
+        "visual": "industry",
+        "headline": "LEAVING DIVERSIFICATION BEHIND",
+        "detail": "Increasingly concentrated on telecoms"
+      },
+      {
+        "cue": "technology that would define",
+        "visual": "factory",
+        "headline": "A MOBILE FUTURE",
+        "detail": "Investment in a growing market"
+      }
+    ],
+    "s04-06": [
+      {
+        "cue": "",
+        "visual": "classicpair",
+        "headline": "CULTURAL ICONS",
+        "detail": "Mobile phones reached a new generation"
+      },
+      {
+        "cue": "The Nokia 3210",
+        "visual": "3210",
+        "headline": "NOKIA 3210",
+        "detail": "A phone that reached younger users"
+      },
+      {
+        "cue": "younger consumers",
+        "visual": "3210",
+        "headline": "A PHONE FOR YOUNGER USERS",
+        "detail": "The Nokia 3210"
+      },
+      {
+        "cue": "internal antenna",
+        "visual": "covers",
+        "headline": "A SMALLER SILHOUETTE",
+        "detail": "Internal antenna and changeable covers"
+      }
+    ],
+    "s04-07": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "2000 · NOKIA 3310",
+        "detail": "A widely remembered handset"
+      },
+      {
+        "cue": "sturdy construction",
+        "visual": "durable",
+        "headline": "BUILT FOR EVERYDAY LIFE",
+        "detail": "Durability and battery life"
+      },
+      {
+        "cue": "Snake became",
+        "visual": "snake",
+        "headline": "SNAKE",
+        "detail": "A familiar mobile game"
+      }
+    ],
+    "s04-11": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "MOBILE PHONE DOMINANCE",
+        "detail": "Nokia was a leader in the existing market"
+      },
+      {
+        "cue": "new danger",
+        "visual": "strategy",
+        "headline": "THE DANGER OF DOMINANCE",
+        "detail": "Success could obscure a coming change"
+      },
+      {
+        "cue": "phones people wanted",
+        "visual": "factory",
+        "headline": "A HARDWARE STRENGTH",
+        "detail": "Manufacturing the phones people knew"
+      },
+      {
+        "cue": "something entirely different",
+        "visual": "apps",
+        "headline": "A DIFFERENT KIND OF PHONE",
+        "detail": "The next shift was coming"
+      }
+    ],
+    "s05-04": [
+      {
+        "cue": "",
+        "visual": "9000",
+        "headline": "BEYOND CALLS",
+        "detail": "Nokia’s early mobile computing devices"
+      },
+      {
+        "cue": "exploring how mobile devices",
+        "visual": "9000",
+        "headline": "MORE THAN A PHONE",
+        "detail": "A communicator with mobile software"
+      },
+      {
+        "cue": "photography, music",
+        "visual": "functions",
+        "headline": "CAMERA · MUSIC · INTERNET",
+        "detail": "Photography, music and internet access"
+      },
+      {
+        "cue": "productivity",
+        "visual": "9000",
+        "headline": "MOBILE PRODUCTIVITY",
+        "detail": "Nokia 9000 Communicator"
+      }
+    ],
+    "s05-05": [
+      {
+        "cue": "",
+        "visual": "factory",
+        "headline": "MANUFACTURING AT SCALE",
+        "detail": "A core Nokia advantage"
+      },
+      {
+        "cue": "relationships with telecommunications",
+        "visual": "tower",
+        "headline": "OPERATOR RELATIONSHIPS",
+        "detail": "Working with network operators"
+      },
+      {
+        "cue": "global distribution network",
+        "visual": "distribution",
+        "headline": "GLOBAL DISTRIBUTION",
+        "detail": "Reaching markets around the world"
+      }
+    ],
+    "s05-07": [
+      {
+        "cue": "",
+        "visual": "share",
+        "headline": "AROUND 40%",
+        "detail": "Nokia’s 2007 mobile-phone share: estimates vary"
+      },
+      {
+        "cue": "depending on the market",
+        "visual": "sharegrid",
+        "headline": "THE MEASUREMENT MATTERS",
+        "detail": "Gartner: 37.8% of all mobile phones, full-year 2007"
+      }
+    ],
+    "s05-10": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "SUCCESS CAN HIDE RISK",
+        "detail": "The existing market was changing"
+      },
+      {
+        "cue": "so successful",
+        "visual": "factory",
+        "headline": "SUCCESS IN HARDWARE",
+        "detail": "The existing mobile phone market"
+      },
+      {
+        "cue": "underestimating",
+        "visual": "apps",
+        "headline": "A NEW KIND OF COMPETITION",
+        "detail": "The smartphone market was evolving"
+      }
+    ],
+    "s05-11": [
+      {
+        "cue": "",
+        "visual": "stage",
+        "headline": "JANUARY 2007",
+        "detail": "A warning for the mobile industry"
+      },
+      {
+        "cue": "a warning",
+        "visual": "stage",
+        "headline": "AN INDUSTRY WARNING",
+        "detail": "A new smartphone was coming"
+      }
+    ],
+    "s06-01": [
+      {
+        "cue": "",
+        "visual": "calendar",
+        "headline": "JANUARY 9, 2007",
+        "detail": "Steve Jobs introduces the iPhone"
+      },
+      {
+        "cue": "Steve Jobs",
+        "visual": "stage",
+        "headline": "SAN FRANCISCO",
+        "detail": "Steve Jobs introduces the iPhone"
+      },
+      {
+        "cue": "introduced the original iPhone",
+        "visual": "iphone",
+        "headline": "THE ORIGINAL iPHONE",
+        "detail": "A stylized 2007 iPhone"
+      }
+    ],
+    "s06-02": [
+      {
+        "cue": "",
+        "visual": "9000",
+        "headline": "NOT THE FIRST SMARTPHONE",
+        "detail": "Nokia had already built advanced devices"
+      },
+      {
+        "cue": "Nokia had already",
+        "visual": "9000",
+        "headline": "NOKIA’S EARLY SMARTPHONES",
+        "detail": "Advanced devices existed before the iPhone"
+      },
+      {
+        "cue": "internet connectivity",
+        "visual": "9000",
+        "headline": "EARLY MOBILE COMPUTING",
+        "detail": "Nokia 9000 Communicator"
+      }
+    ],
+    "s06-03": [
+      {
+        "cue": "",
+        "visual": "iphone",
+        "headline": "A DIFFERENT VISION",
+        "detail": "The first iPhone, shown as an illustration"
+      },
+      {
+        "cue": "Instead of relying primarily",
+        "visual": "3310",
+        "headline": "PHYSICAL BUTTONS",
+        "detail": "The previous dominant interaction"
+      },
+      {
+        "cue": "large touchscreen",
+        "visual": "iphone",
+        "headline": "TOUCH AT THE CENTER",
+        "detail": "A new interface for mobile computing"
+      }
+    ],
+    "s06-05": [
+      {
+        "cue": "",
+        "visual": "iphone",
+        "headline": "MORE THAN APPEARANCE",
+        "detail": "A change in the product experience"
+      },
+      {
+        "cue": "Apple was changing",
+        "visual": "compare",
+        "headline": "A DIFFERENT RELATIONSHIP",
+        "detail": "A new approach to the phone"
+      },
+      {
+        "cue": "hardware and software",
+        "visual": "platform",
+        "headline": "HARDWARE + SOFTWARE",
+        "detail": "Designed to work together"
+      },
+      {
+        "cue": "user experience",
+        "visual": "apps",
+        "headline": "THE USER EXPERIENCE",
+        "detail": "Software becomes central"
+      }
+    ],
+    "s06-09": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "NOT AN OVERNIGHT COLLAPSE",
+        "detail": "The direction of competition changed"
+      },
+      {
+        "cue": "changed the direction",
+        "visual": "platform",
+        "headline": "COMPETITION CHANGES",
+        "detail": "The market was moving toward platforms"
+      },
+      {
+        "cue": "best mobile phone",
+        "visual": "3310",
+        "headline": "FROM BEST PHONE",
+        "detail": "Hardware strength alone"
+      },
+      {
+        "cue": "mobile computing platform",
+        "visual": "platform",
+        "headline": "TO BEST PLATFORM",
+        "detail": "Hardware · software · apps · services"
+      }
+    ],
+    "s07-01": [
+      {
+        "cue": "",
+        "visual": "iphone",
+        "headline": "A CHANGING INDUSTRY",
+        "detail": "Apple’s premium smartphone"
+      },
+      {
+        "cue": "Google was helping",
+        "visual": "ecosystem",
+        "headline": "A SECOND FORCE",
+        "detail": "Google and the Android platform"
+      },
+      {
+        "cue": "Google acquired Android",
+        "visual": "software",
+        "headline": "2005 · GOOGLE + ANDROID",
+        "detail": "A different platform strategy"
+      },
+      {
+        "cue": "In 2007",
+        "visual": "apps",
+        "headline": "2007 · ANDROID ANNOUNCED",
+        "detail": "The Open Handset Alliance"
+      },
+      {
+        "cue": "alongside other members",
+        "visual": "ecosystem",
+        "headline": "OPEN HANDSET ALLIANCE",
+        "detail": "A platform announced by an alliance"
+      }
+    ],
+    "s07-02": [
+      {
+        "cue": "",
+        "visual": "g1",
+        "headline": "2008 · ANDROID ARRIVES",
+        "detail": "T-Mobile G1 / HTC Dream"
+      }
+    ],
+    "s07-03": [
+      {
+        "cue": "",
+        "visual": "apps",
+        "headline": "A DIFFERENT PATH",
+        "detail": "Android’s shared software platform"
+      },
+      {
+        "cue": "multiple manufacturers",
+        "visual": "ecosystem",
+        "headline": "MANY MANUFACTURERS",
+        "detail": "One platform, multiple device makers"
+      },
+      {
+        "cue": "common software foundation",
+        "visual": "software",
+        "headline": "A COMMON FOUNDATION",
+        "detail": "Shared software across devices"
+      }
+    ],
+    "s07-05": [
+      {
+        "cue": "",
+        "visual": "apps",
+        "headline": "MORE SMARTPHONE CHOICE",
+        "detail": "More devices reached more people"
+      },
+      {
+        "cue": "Developers could create",
+        "visual": "software",
+        "headline": "DEVELOPERS BUILD APPS",
+        "detail": "A growing audience"
+      },
+      {
+        "cue": "Consumers gained",
+        "visual": "apps",
+        "headline": "MORE CHOICE FOR USERS",
+        "detail": "The ecosystem expands"
+      },
+      {
+        "cue": "platform became increasingly",
+        "visual": "ecosystem",
+        "headline": "THE NETWORK EFFECT",
+        "detail": "Users · developers · manufacturers"
+      }
+    ],
+    "s07-06": [
+      {
+        "cue": "",
+        "visual": "iphone",
+        "headline": "APPLE",
+        "detail": "A controlled iPhone experience"
+      },
+      {
+        "cue": "Android was building",
+        "visual": "g1",
+        "headline": "ANDROID",
+        "detail": "A broad manufacturer network"
+      },
+      {
+        "cue": "manufacturers and developers",
+        "visual": "ecosystem",
+        "headline": "A BROAD NETWORK",
+        "detail": "Manufacturers and app developers"
+      },
+      {
+        "cue": "software, services, and applications",
+        "visual": "platform",
+        "headline": "SOFTWARE · SERVICES · APPS",
+        "detail": "The new competitive landscape"
+      }
+    ],
+    "s08-01": [
+      {
+        "cue": "",
+        "visual": "factory",
+        "headline": "NOT JUST HARDWARE",
+        "detail": "Nokia had hardware expertise"
+      },
+      {
+        "cue": "It was software",
+        "visual": "software",
+        "headline": "THE SOFTWARE CHALLENGE",
+        "detail": "Software became a central issue"
+      }
+    ],
+    "s08-02": [
+      {
+        "cue": "",
+        "visual": "5800",
+        "headline": "SYMBIAN",
+        "detail": "Nokia’s established smartphone platform"
+      },
+      {
+        "cue": "operating system",
+        "visual": "software",
+        "headline": "THE SYMBIAN PLATFORM",
+        "detail": "Software for Nokia smartphones"
+      },
+      {
+        "cue": "advanced mobile capabilities",
+        "visual": "9000",
+        "headline": "ADVANCED BEFORE THE iPHONE",
+        "detail": "Nokia had a long smartphone history"
+      },
+      {
+        "cue": "not an insignificant achievement",
+        "visual": "5800",
+        "headline": "A REAL ACHIEVEMENT",
+        "detail": "Nokia’s Symbian touchscreen devices"
+      }
+    ],
+    "s08-04": [
+      {
+        "cue": "",
+        "visual": "software",
+        "headline": "GROWING COMPLEXITY",
+        "detail": "Different devices and software versions"
+      },
+      {
+        "cue": "Different devices",
+        "visual": "platform",
+        "headline": "MANY DEVICES · MANY VERSIONS",
+        "detail": "A harder software environment to manage"
+      }
+    ],
+    "s08-07": [
+      {
+        "cue": "",
+        "visual": "appointment",
+        "headline": "2010 · A NEW CEO",
+        "detail": "Stephen Elop becomes chief executive"
+      },
+      {
+        "cue": "clear plan",
+        "visual": "strategy",
+        "headline": "A PLAN TO REGAIN MOMENTUM",
+        "detail": "Nokia’s strategic crossroads"
+      }
+    ],
+    "s08-08": [
+      {
+        "cue": "",
+        "visual": "memo",
+        "headline": "FEBRUARY 2011",
+        "detail": "A new smartphone strategy"
+      },
+      {
+        "cue": "Windows Phone platform",
+        "visual": "lumia",
+        "headline": "WINDOWS PHONE",
+        "detail": "Nokia’s new primary smartphone strategy"
+      },
+      {
+        "cue": "primary smartphone strategy",
+        "visual": "lumia",
+        "headline": "A NEW PRIMARY STRATEGY",
+        "detail": "Windows Phone on Nokia devices"
+      },
+      {
+        "cue": "compete against Apple and Android",
+        "visual": "ecosystem",
+        "headline": "A DIFFERENTIATED ECOSYSTEM",
+        "detail": "Competing against Apple and Android"
+      },
+      {
+        "cue": "moving away from Symbian",
+        "visual": "5800",
+        "headline": "MOVING BEYOND SYMBIAN",
+        "detail": "A major software transition"
+      }
+    ],
+    "s08-09": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "TRANSITION RISK",
+        "detail": "A new platform needed support"
+      },
+      {
+        "cue": "persuade consumers",
+        "visual": "lumia",
+        "headline": "CONSUMERS",
+        "detail": "Would customers move to the new ecosystem?"
+      },
+      {
+        "cue": "developers",
+        "visual": "software",
+        "headline": "DEVELOPERS",
+        "detail": "Would app creators follow?"
+      },
+      {
+        "cue": "competitors were rapidly expanding",
+        "visual": "ecosystem",
+        "headline": "THE COMPETITION",
+        "detail": "Other platforms continued to grow"
+      }
+    ],
+    "s09-01": [
+      {
+        "cue": "",
+        "visual": "memo",
+        "headline": "FEBRUARY 2011",
+        "detail": "Stephen Elop circulates a memo"
+      },
+      {
+        "cue": "a memo",
+        "visual": "memo",
+        "headline": "THE “BURNING PLATFORM” MEMO",
+        "detail": "A metaphor for the company’s situation"
+      },
+      {
+        "cue": "throughout the technology industry",
+        "visual": "burning",
+        "headline": "A MEMO TO NOKIA",
+        "detail": "A warning about the company’s situation"
+      },
+      {
+        "cue": "burning platform",
+        "visual": "burning",
+        "headline": "JUMP OR STAY?",
+        "detail": "The memo described a dangerous choice"
+      },
+      {
+        "cue": "cold water",
+        "visual": "burning",
+        "headline": "THE COST OF CHANGE",
+        "detail": "The metaphor pointed to a difficult transition"
+      }
+    ],
+    "s09-03": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "CHANGE HAS A COST",
+        "detail": "Uncertainty around products and direction"
+      },
+      {
+        "cue": "Windows Phone",
+        "visual": "lumia",
+        "headline": "WINDOWS PHONE TRANSITION",
+        "detail": "A new software foundation"
+      }
+    ],
+    "s09-06": [
+      {
+        "cue": "",
+        "visual": "lumia",
+        "headline": "NOKIA + MICROSOFT",
+        "detail": "The Lumia smartphone line"
+      },
+      {
+        "cue": "hardware strengths",
+        "visual": "lumia",
+        "headline": "NOKIA HARDWARE",
+        "detail": "Paired with Windows Phone software"
+      },
+      {
+        "cue": "design, cameras",
+        "visual": "lumia",
+        "headline": "DESIGN · CAMERA · COLOR",
+        "detail": "Some Lumia models earned praise"
+      }
+    ],
+    "s09-08": [
+      {
+        "cue": "",
+        "visual": "lumia",
+        "headline": "A SCALE PROBLEM",
+        "detail": "Windows Phone faced larger ecosystems"
+      },
+      {
+        "cue": "harder to attract users",
+        "visual": "ecosystem",
+        "headline": "USERS",
+        "detail": "A platform needs customers"
+      },
+      {
+        "cue": "harder to attract developers",
+        "visual": "software",
+        "headline": "DEVELOPERS",
+        "detail": "A platform also needs app creators"
+      },
+      {
+        "cue": "cycle to break",
+        "visual": "ecosystem",
+        "headline": "A DIFFICULT CYCLE",
+        "detail": "Users and developers depend on each other"
+      }
+    ],
+    "s10-02": [
+      {
+        "cue": "",
+        "visual": "calendar",
+        "headline": "SEPTEMBER 2013",
+        "detail": "Microsoft announces an acquisition agreement"
+      },
+      {
+        "cue": "Microsoft announced",
+        "visual": "deal",
+        "headline": "AN ACQUISITION AGREEMENT",
+        "detail": "Microsoft and Nokia"
+      },
+      {
+        "cue": "Devices and Services",
+        "visual": "lumia",
+        "headline": "DEVICES + SERVICES",
+        "detail": "Substantially all of Nokia’s business in that area"
+      }
+    ],
+    "s10-03": [
+      {
+        "cue": "",
+        "visual": "deal",
+        "headline": "€5.44 BILLION",
+        "detail": "Total announced value · including patent license"
+      },
+      {
+        "cue": "7.2 billion US dollars",
+        "visual": "convert",
+        "headline": "≈ $7.2 BILLION",
+        "detail": "Approximate value at the time"
+      }
+    ],
+    "s10-04": [
+      {
+        "cue": "",
+        "visual": "contract",
+        "headline": "THE PHONE BUSINESS",
+        "detail": "Devices, related assets and licensing"
+      },
+      {
+        "cue": "licensing arrangements",
+        "visual": "deal",
+        "headline": "ASSETS + LICENSES",
+        "detail": "The agreement included licensing arrangements"
+      },
+      {
+        "cue": "completed in April 2014",
+        "visual": "calendar",
+        "headline": "APRIL 25, 2014",
+        "detail": "The transaction completed"
+      }
+    ],
+    "s10-06": [
+      {
+        "cue": "",
+        "visual": "lumia",
+        "headline": "MICROSOFT’S STRATEGY",
+        "detail": "Strengthen its position in smartphones"
+      },
+      {
+        "cue": "Nokia, meanwhile",
+        "visual": "tower",
+        "headline": "NOKIA’S NEXT FOCUS",
+        "detail": "Telecommunications infrastructure"
+      },
+      {
+        "cue": "mapping and location",
+        "visual": "apps",
+        "headline": "MAPPING + LICENSING",
+        "detail": "Other parts of Nokia’s business at the time"
+      }
+    ],
+    "s10-08": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "THE PHONE BUSINESS CHANGED",
+        "detail": "The Nokia people remembered"
+      },
+      {
+        "cue": "no longer operating",
+        "visual": "strategy",
+        "headline": "A DIFFERENT CHAPTER",
+        "detail": "The company continued in other businesses"
+      }
+    ],
+    "s11-01": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "WHAT CAUSED THE DECLINE?",
+        "detail": "A more complicated story"
+      },
+      {
+        "cue": "touchscreen phone",
+        "visual": "5800",
+        "headline": "NOT JUST TOUCHSCREENS",
+        "detail": "Nokia made touchscreen devices"
+      }
+    ],
+    "s11-02": [
+      {
+        "cue": "",
+        "visual": "5800",
+        "headline": "NOKIA HAD TOUCHSCREENS",
+        "detail": "The Nokia 5800 XpressMusic"
+      },
+      {
+        "cue": "talented engineers",
+        "visual": "software",
+        "headline": "ENGINEERS + TECHNOLOGY",
+        "detail": "Hardware expertise remained"
+      },
+      {
+        "cue": "globally recognized brand",
+        "visual": "3310",
+        "headline": "A GLOBAL BRAND",
+        "detail": "Nokia’s enduring recognition"
+      }
+    ],
+    "s11-03": [
+      {
+        "cue": "",
+        "visual": "platform",
+        "headline": "THE CENTER OF COMPETITION",
+        "detail": "The smartphone experience shifted"
+      },
+      {
+        "cue": "software became more important",
+        "visual": "software",
+        "headline": "1 · SOFTWARE",
+        "detail": "A new competitive priority"
+      },
+      {
+        "cue": "hardware, operating systems",
+        "visual": "platform",
+        "headline": "HARDWARE + SOFTWARE + APPS",
+        "detail": "Services connect the experience"
+      }
+    ],
+    "s11-04": [
+      {
+        "cue": "",
+        "visual": "ecosystem",
+        "headline": "2 · ECOSYSTEMS",
+        "detail": "Communities became an advantage"
+      },
+      {
+        "cue": "Apple and Android",
+        "visual": "ecosystem",
+        "headline": "APPLE + ANDROID",
+        "detail": "Two expanding ecosystems"
+      },
+      {
+        "cue": "developers, application creators",
+        "visual": "software",
+        "headline": "DEVELOPERS + CREATORS",
+        "detail": "More people building for each platform"
+      },
+      {
+        "cue": "manufacturers, and users",
+        "visual": "ecosystem",
+        "headline": "MANUFACTURERS + USERS",
+        "detail": "A reinforcing network"
+      }
+    ],
+    "s11-05": [
+      {
+        "cue": "",
+        "visual": "software",
+        "headline": "3 · TRANSFORMATION",
+        "detail": "Nokia needed a faster software shift"
+      },
+      {
+        "cue": "legacy platforms",
+        "visual": "5800",
+        "headline": "LEGACY PLATFORMS",
+        "detail": "Existing systems and complexity"
+      },
+      {
+        "cue": "respond at the pace",
+        "visual": "strategy",
+        "headline": "THE PACE OF CHANGE",
+        "detail": "A difficult organizational challenge"
+      }
+    ],
+    "s11-06": [
+      {
+        "cue": "",
+        "visual": "lumia",
+        "headline": "4 · TRANSITION RISK",
+        "detail": "The move to Windows Phone"
+      },
+      {
+        "cue": "fresh direction",
+        "visual": "lumia",
+        "headline": "A NEW DIRECTION",
+        "detail": "Lumia combined Nokia hardware and Microsoft software"
+      },
+      {
+        "cue": "market scale",
+        "visual": "ecosystem",
+        "headline": "THE SCALE CHALLENGE",
+        "detail": "Competing platforms had larger ecosystems"
+      }
+    ],
+    "s11-07": [
+      {
+        "cue": "",
+        "visual": "functions",
+        "headline": "5 · NEW EXPECTATIONS",
+        "detail": "The phone became more than a phone"
+      },
+      {
+        "cue": "cameras, entertainment",
+        "visual": "functions",
+        "headline": "CAMERA · ENTERTAINMENT",
+        "detail": "More functions in a single device"
+      },
+      {
+        "cue": "navigation tools",
+        "visual": "functions",
+        "headline": "NAVIGATION · INTERNET",
+        "detail": "A pocket computer and connected services"
+      }
+    ],
+    "s11-08": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "MORE THAN DURABILITY",
+        "detail": "Battery life was no longer enough"
+      },
+      {
+        "cue": "entire digital experience",
+        "visual": "platform",
+        "headline": "THE DIGITAL EXPERIENCE",
+        "detail": "Hardware, software, apps and services"
+      }
+    ],
+    "s11-11": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "THE LESSON",
+        "detail": "Success at today’s market is not permanent"
+      },
+      {
+        "cue": "doesn't fall",
+        "visual": "factory",
+        "headline": "STRENGTH IS NOT ALWAYS ENOUGH",
+        "detail": "A business can be good at the wrong thing"
+      },
+      {
+        "cue": "no longer enough",
+        "visual": "apps",
+        "headline": "THE MARKET MOVES",
+        "detail": "The definition of value changes"
+      }
+    ],
+    "s12-01": [
+      {
+        "cue": "",
+        "visual": "tower",
+        "headline": "NOKIA DID NOT DISAPPEAR",
+        "detail": "After the sale of its phone business"
+      },
+      {
+        "cue": "company continued operating",
+        "visual": "strategy",
+        "headline": "A COMPANY REINVENTS ITSELF",
+        "detail": "Nokia continued beyond handsets"
+      },
+      {
+        "cue": "telecommunications network",
+        "visual": "tower",
+        "headline": "A NEW FOCUS",
+        "detail": "Network equipment and related technology"
+      }
+    ],
+    "s12-02": [
+      {
+        "cue": "",
+        "visual": "netmerge",
+        "headline": "2016 · ALCATEL-LUCENT",
+        "detail": "Nokia completed the acquisition"
+      },
+      {
+        "cue": "networking and communications",
+        "visual": "tower",
+        "headline": "NETWORKS + COMMUNICATIONS",
+        "detail": "Expanding infrastructure capabilities"
+      }
+    ],
+    "s12-04": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "FROM PHONES IN OUR HANDS",
+        "detail": "The business evolved"
+      },
+      {
+        "cue": "equipment and systems",
+        "visual": "tower",
+        "headline": "TO THE NETWORKS BEHIND THEM",
+        "detail": "Infrastructure connecting devices"
+      }
+    ],
+    "s12-07": [
+      {
+        "cue": "",
+        "visual": "tower",
+        "headline": "SURVIVAL MEANT CHANGE",
+        "detail": "The future did not have to resemble the past"
+      },
+      {
+        "cue": "its future",
+        "visual": "tower",
+        "headline": "A DIFFERENT FUTURE",
+        "detail": "From handsets to networks"
+      }
+    ],
+    "s13-01": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "A MOBILE PHONE EMPIRE",
+        "detail": "The rise and fall of Nokia’s handset business"
+      },
+      {
+        "cue": "rise and fall",
+        "visual": "strategy",
+        "headline": "RISE AND FALL",
+        "detail": "The handset business changed"
+      },
+      {
+        "cue": "danger of becoming",
+        "visual": "strategy",
+        "headline": "A WARNING ABOUT COMFORT",
+        "detail": "Success can make change harder to see"
+      }
+    ],
+    "s13-04": [
+      {
+        "cue": "",
+        "visual": "3310",
+        "headline": "FROM HARDWARE",
+        "detail": "Phones built around the device"
+      },
+      {
+        "cue": "software, services, and ecosystems",
+        "visual": "platform",
+        "headline": "TO SOFTWARE + ECOSYSTEMS",
+        "detail": "A different center of competition"
+      },
+      {
+        "cue": "struggled to make",
+        "visual": "strategy",
+        "headline": "A DIFFICULT TRANSITION",
+        "detail": "Nokia struggled to move in time"
+      }
+    ],
+    "s13-06": [
+      {
+        "cue": "",
+        "visual": "factory",
+        "headline": "YESTERDAY’S STRENGTH",
+        "detail": "Past leadership is not a guarantee"
+      },
+      {
+        "cue": "lead tomorrow",
+        "visual": "tower",
+        "headline": "TOMORROW’S CHALLENGE",
+        "detail": "Keep adapting as the market changes"
+      }
+    ],
+    "s13-07": [
+      {
+        "cue": "",
+        "visual": "strategy",
+        "headline": "THE WORLD MOVES ON",
+        "detail": "The hardest shift may be recognizing it"
+      },
+      {
+        "cue": "already moved on",
+        "visual": "distribution",
+        "headline": "THE NOKIA STORY",
+        "detail": "Rise, fall and reinvention"
+      }
+    ]
+  }
+}

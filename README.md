@@ -73,6 +73,8 @@ history rather than in a promise.
 
 ## The film this pipeline made
 
+**Nokia review:** A separate [15-minute motion-graphics revision](docs/media/nokia/nokia-15-minute-motion-review.md) is available as an **unapproved draft**, with its storyboard and audit results. It is not a release.
+
 A finished twelve-minute film, drawn frame by frame by `video_studio/films/vibe_coding.mjs`:
 
 **▶ [Vibe Coding on Arena, through GitHub](docs/media/vibe-coding-720p-web.mp4)** — 12:02, 1280×720, 30 fps, 155 subtitle cues. Play it in the page that link opens, or press **Download** there. Subtitles: [vibe-coding.srt](docs/media/vibe-coding.srt). What to publish with it: [the upload pack](docs/media/vibe-coding-upload-pack.md) — titles, description, chapters, tags.

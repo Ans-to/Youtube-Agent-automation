@@ -1,5 +1,7 @@
 # Nokia: 15-minute review cut
 
+> **Rejected and superseded:** the user found this 960×540/12 fps draft visually mismatched, low-resolution, and laggy. Do not treat it as an approved deliverable. See the [new motion-graphics-only review revision](nokia-15-minute-motion-review.md), which also remains unapproved pending its own audit and human review.
+
 **This is an unapproved review draft, not a finished or publishable video.** The author has not approved the shortened script or proposed title, and no one has completed the required listening, visual, caption, or factual review.
 
 - [Watch/download the review video](nokia-15-minute-review.mp4) — 15:35.616, 960×540, 12 fps, H.264/AAC. The lower-resolution render is for review.

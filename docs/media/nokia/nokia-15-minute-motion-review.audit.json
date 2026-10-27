@@ -1,0 +1,102 @@
+{
+  "schema_version": 1,
+  "profile": "nokia-empire-15m-v1",
+  "status": "FAILED",
+  "video_sha256": "7d4e12bbe195399576abef1c8af93c8a79337b9f5f54dd933848efe453138ab0",
+  "inputs": {
+    "facts.json": "23ae81d359c114d21643c0912c7102db35431af9ab73e6615a2d1b1a314b3102",
+    "music-stem.wav": "537df58757e0dcbe98d412853b3ef3a30537fd8149265b3ac23967b60313669b",
+    "nokia-review.json": "3bf90fb04e5bca8c1d2e5fbd3ba5f6d0038a1a86abf3c2968ee5e52e6b05b236",
+    "release-profile.json": "78e303e668b0c1a9e78da2d766bc7b249297b878dbb5992749bd65357fbe34ab",
+    "script.md": "51ba255955f5da2444253a95d02ad02a7ca67ff6a905c677bb29a459ffd1a953",
+    "shots.json": "0ef30ae35c60123d91de15809cf5dfc2a6362475ba7cd0e0c883f8b6a8b91e34",
+    "storyboard.json": "09a6409405ec676615d8b86f49528084e3d99d407112762f7f48daa850f87025",
+    "video.mp4": "7d4e12bbe195399576abef1c8af93c8a79337b9f5f54dd933848efe453138ab0",
+    "video.qc.json": "8f3c04a0b613bc03ed74efc934b5c272261eae81156763aef830f0855054845e",
+    "voice-stem.wav": "50e44eed02755dabf1186a9ab291bac14957314f7121de3c99131b8ec6b9e72e",
+    "voice-timing.json": "e41cb665a9f37e70a6c376c0ce99cab207c86ebabf44b266b9438a0f323cb730"
+  },
+  "missing_inputs": [],
+  "duration_seconds": 935.633333,
+  "master": {
+    "integrated_lufs": -15.2,
+    "true_peak_dbtp": -2.1,
+    "method": "FFmpeg ebur128=peak=true on the encoded video"
+  },
+  "stem_levels": {
+    "method": "50 ms windows with voice RMS >= -45 dBFS; energy-weighted RMS",
+    "active_seconds": 751.6,
+    "narration_active_rms_dbfs": -17.01,
+    "narration_sample_peak_dbfs": -3.61,
+    "music_under_narration_rms_dbfs": -29.04,
+    "voice_above_music_db": 12.04,
+    "music_sample_peak_dbfs": -14.0
+  },
+  "effects_levels": null,
+  "recommendations": [
+    "SFX level is unmeasured; if effects are used, review their separate bus against the -18 to -10 dBFS guide."
+  ],
+  "checks": {
+    "profile": {
+      "status": "passed",
+      "detail": "Nokia 15-minute release profile and required inputs are present."
+    },
+    "duration": {
+      "status": "passed",
+      "detail": "Measured 935.63s; target is 900s ± 60s."
+    },
+    "gaps": {
+      "status": "failed",
+      "detail": "Strict technical QA did not pass for this exact video."
+    },
+    "narration_sync": {
+      "status": "unverified",
+      "detail": "The review needs the reviewer's name.",
+      "shot_count": 72
+    },
+    "visual_relevance": {
+      "status": "unverified",
+      "detail": "The review needs the reviewer's name.",
+      "scenes": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13
+      ]
+    },
+    "historical_accuracy": {
+      "status": "unverified",
+      "detail": "the factual ledger must declare complete coverage after review"
+    },
+    "music_balance": {
+      "status": "unverified",
+      "detail": "The review needs the reviewer's name."
+    },
+    "captions": {
+      "status": "unverified",
+      "detail": "The review needs the reviewer's name.",
+      "sidecars": [],
+      "embedded_streams": 0,
+      "limitation": "Text/timing comparison is against the plan, not independent ASR; listen to the actual audio."
+    },
+    "clean_ending": {
+      "status": "unverified",
+      "detail": "The review needs the reviewer's name.",
+      "tail_seconds": 0.967
+    },
+    "master_audio": {
+      "status": "passed",
+      "detail": "Master is -15.2 LUFS and -2.1 dBTP."
+    }
+  },
+  "scope_note": "Human attestations are not machine verification of speech, visual meaning, historical truth, mix intelligibility, or the ending."
+}

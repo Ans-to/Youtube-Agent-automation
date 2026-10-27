@@ -10,14 +10,15 @@ cut/rewrite, re-recording, retiming and final render are required; do not simply
 speed up or truncate the voice. `docs/media/nokia/nokia-film.mp4` is a separate
 7:51.5 film, not the 28:35 empire cut and not a 15-minute final.
 
-A [15:35.6 review video](nokia-15-minute-review.mp4) and [proposed 72-shot
-script](nokia-15-minute-script-draft.md) are available for author review. The cut
-selects 1,688 words verbatim, in order, from the original narration and proposes
-a replacement title; it is not author approval of the omissions or title. A
-[partial research ledger](nokia-15-minute-facts-draft.json) records selected
-claims and unresolved issues; it does not cover every claim. The [review-cut
-report](nokia-15-minute-review.md) records a **failed** strict QA (held pictures)
-and the remaining human and editorial checks.
+A new [motion-graphics-only review revision](nokia-15-minute-motion-review.md)
+and [proposed 72-shot script](nokia-15-minute-script-draft.md) are available for
+author review. The earlier 960×540/12 fps [review](nokia-15-minute-review.md)
+was rejected for visual mismatch, low resolution and laggy motion; do not use it
+as the revised deliverable. The proposed cut selects 1,688 words verbatim, in
+order, from the original narration and proposes a replacement title; it is not
+author approval of the omissions or title. The [partial research ledger](nokia-15-minute-facts-draft.json)
+does not cover every claim. Consult the new revision's exact-file QA and audit;
+neither rendering nor a technical check constitutes human approval.
 
 No final 15-minute empire film, complete fact-check, listening/visual review,
 approval or upload has been completed. The profile and generated score are
