@@ -60,7 +60,10 @@ CHORDS = {
 # under the first hook it is present, under "too late" it almost leaves, and the
 # reveal at 48.7 s opens up.
 SECTIONS = {
-    'calm':    ('am-low', 0.30, False, 0.0, 0.30, -6.0),
+    # The opening was the quietest two seconds of the film and it faded in from
+    # nothing, so the first sound a viewer heard arrived at -29 dBFS half a second
+    # in. A hook is not the place for the score to be shy.
+    'calm':    ('am-low', 0.30, False, 0.62, 0.30, -2.0),
     'warm':    ('f', 0.24, True, 0.0, 0.35, -3.0),
     'moving':  ('am7', 0.22, True, 0.9, 0.32, -1.0),
     'tense':   ('dm', 0.24, True, 1.15, 0.28, -2.5),
@@ -495,9 +498,13 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
                 at += step
                 i += 1
 
-    # One breath of air into the two biggest turns, at low level.
+    # One breath of air into the turns, at low level.
+    #
+    # `moving` is in this list because of the film's first edit: between the end
+    # of the opening line and the cut at 5.9 s there was a 1.2 s hole at -29 dBFS,
+    # and the ear reads a hole in the sound as the film stopping.
     for name, start, _end in sections:
-        if name in ('tense', 'build'):
+        if name in ('moving', 'tense', 'build'):
             lead = min(1.6, start)
             place(mix, swell(lead, 0.055), max(0.0, start - lead))
 
@@ -507,8 +514,8 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
     # so the pad does not boom, and a soft top-and-tail.
     mix = lowpass(mix, 7000)
     mix = highpass(mix, 38)
-    fade = int(0.4 * SR)
-    mix[:fade] *= np.linspace(0, 1, fade) ** 1.4
+    fade = int(0.12 * SR)
+    mix[:fade] *= np.linspace(0, 1, fade) ** 1.2
     tail = int(2.0 * SR)
     mix[-tail:] *= np.linspace(1, 0, tail) ** 1.2
 

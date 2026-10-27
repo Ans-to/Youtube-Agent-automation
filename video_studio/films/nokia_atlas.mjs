@@ -70,6 +70,22 @@ function text(ctx, value, x, y, {
   ctx.restore();
 }
 
+/**
+ * The ring, made visible.
+ *
+ * The soundtrack rings for the first two seconds. The picture did not: the
+ * display was a lit rectangle at a fixed brightness, so the first two seconds of
+ * the film were the stillest two seconds in it, over the sound of a phone
+ * ringing in a dark room. The screen and the key light now pulse with the tone
+ * the score is playing, which is also the cheapest way to say "this is a phone,
+ * and it is ringing" before anybody has said a word.
+ */
+function ringPulse(t) {
+  if (t < 0.12 || t > 1.95) return 0;
+  const k = Math.max(0, Math.sin((t - 0.12) * Math.PI * 2 * 3.03));
+  return k * k;
+}
+
 /** A caps line that opens its tracking as it arrives. */
 function caps(ctx, value, x, y, p, { size = 12, colour = '#C9A227', align = 'left', from = 2, to = 7 } = {}) {
   const k = ease.outCubic(clamp(p));
@@ -166,14 +182,14 @@ const SCRIPT = [
           g.addColorStop(1, P.cobalt.mid);
           ctx.fillStyle = g;
           ctx.fillRect(0, 0, W, H);
-          drawStudio(ctx, { w: W, h: H, t, horizon: 0.86, intensity: 1.0 });
+          drawStudio(ctx, { w: W, h: H, t, horizon: 0.86, intensity: 1.0 + 0.22 * ringPulse(t) });
           const pw = 200;
           const ph = pw * 1.87;
           const bx = W * 0.605;
           const by = H * 0.895;
           const px = bx - pw / 2;
           const py = by - ph;
-          const o = { facing: -0.35 + 0.5 * (t / 6), screen: 'ring', glow: 1 };
+          const o = { facing: -0.35 + 0.5 * (t / 6), screen: 'ring', glow: 0.82 + 0.55 * ringPulse(t) };
           drawReflection(ctx, () => drawHandset(ctx, { x: px, y: py, w: pw, h: ph, ...o, shadow: false }),
             { h: H, mirrorAt: by, alpha: 0.16 });
           drawHandset(ctx, { x: px, y: py, w: pw, h: ph, ...o });
@@ -182,9 +198,12 @@ const SCRIPT = [
       {
         id: 'words', screen: true, depth: 1,
         draw: (ctx, { p }) => {
-          caps(ctx, 'ESPOO · FINLAND', W * 0.075, H * 0.30, span(p, 0.10, 0.5));
-          rise(ctx, 'It starts', W * 0.072, H * 0.44, span(p, 0.14, 0.62), { size: 84 });
-          rise(ctx, 'with a phone.', W * 0.072, H * 0.555, span(p, 0.24, 0.72), { size: 84 });
+          /* The first frame of the film is the most expensive frame it has: a
+             viewer decides in about a second and a half. The type used to arrive
+             at 0.8 s, which is after the decision. It is on screen by 0.25 s. */
+          caps(ctx, 'ESPOO · FINLAND', W * 0.075, H * 0.30, span(p, 0.005, 0.28));
+          rise(ctx, 'It starts', W * 0.072, H * 0.44, span(p, 0.01, 0.40), { size: 84 });
+          rise(ctx, 'with a phone.', W * 0.072, H * 0.555, span(p, 0.10, 0.55), { size: 84 });
           rule(ctx, W * 0.075, H * 0.625, W * 0.13, span(p, 0.45, 0.85));
           caps(ctx, '1994', W * 0.075, H * 0.685, span(p, 0.55, 0.95), { size: 11, colour: 'rgba(237,233,223,0.45)' });
         },

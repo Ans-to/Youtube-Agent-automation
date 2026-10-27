@@ -111,7 +111,12 @@ export function renderShot(ctx, shot, t, W, H, options = {}) {
     const kind = seed % 4;
     const amount = shot.driftAmount ?? 0.045;
     const prog = clamp(t / dur);
-    const eased = prog * prog * (3 - 2 * prog);
+    /* A smoothstep starts at zero velocity, which means the first half second
+       of every shot is a still frame that happens to be part of a slow move -
+       and the first half second of a film is the most expensive half second it
+       has. Two thirds of the travel is spread over the whole shot at constant
+       speed, and a third eases at each end for weight. */
+    const eased = 0.66 * prog + 0.34 * (prog * prog * (3 - 2 * prog));
     const zoom = kind === 0 ? 1 + eased * amount
       : kind === 1 ? 1 + amount - eased * amount
         : 1 + amount * 0.35 + eased * amount * 0.5;
