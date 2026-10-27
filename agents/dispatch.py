@@ -265,9 +265,9 @@ def run_role(role,task,context,cfg,perform_research=True):
     if lessons:
         playbook += "\n\nHUMAN-REVIEWED IMPROVEMENT NOTES (follow when applicable; do not repeat sensitive data)\n"+json.dumps(lessons,ensure_ascii=False)[:2500]
     if role["id"] in MOTION_ROLES:
-        motion_reference=BASE/"MOTION_DESIGN_SYSTEM.md"
+        motion_reference=ROOT/"Skill.md"
         if motion_reference.is_file():
-            playbook += "\n\nIMPLEMENTED MOTION DESIGN SYSTEM (compact reference)\n"+motion_reference.read_text(encoding="utf-8")[:2500]
+            playbook += "\n\nSHARED VIDEO PRODUCTION STANDARD\n"+motion_reference.read_text(encoding="utf-8")
     if not model.get("enabled"):
         return ("# "+role["name"]+" — template mode\n\n"
                 "**Mission:** "+role["mission"]+"\n\n"

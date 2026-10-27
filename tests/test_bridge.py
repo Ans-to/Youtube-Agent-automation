@@ -65,7 +65,7 @@ class BridgeTests(unittest.TestCase):
             leftovers = [path.name for path in Path(directory).iterdir() if path != target]
             self.assertEqual(leftovers, [])
 
-    def test_self_test_covers_practice_and_motion_documents(self):
+    def test_self_test_covers_practice_and_shared_video_skill(self):
         with patch.object(bridge, "PROJECT", ROOT):
             result = bridge.run_self_test()
         self.assertTrue(result["ok"], result)
@@ -75,7 +75,7 @@ class BridgeTests(unittest.TestCase):
         self.assertIn("quality_audit.py", checked)
         self.assertIn("run_quality_gate.py", checked)
         self.assertIn("config.example.json", checked)
-        self.assertIn("MOTION_DESIGN_SYSTEM.md", checked)
+        self.assertIn("Skill.md", checked)
         self.assertIn("TRAINING.md", checked)
 
 

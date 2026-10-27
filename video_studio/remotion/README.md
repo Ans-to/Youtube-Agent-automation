@@ -1,4 +1,4 @@
-# Stop coding blind — Skill.md voxel remake
+# Stop coding blind — Remotion production guide
 
 A 10-second, 1080×1920, 30 fps Remotion composition based on the root [Skill.md](../../Skill.md). The isometric environment, monitor, keyboard and desk remain React Three Fiber / Three.js voxel geometry. The character is a detailed, clean 2D film-noir detective illustration parsed from inline SVG and displayed on a camera-facing plane; there is no voxel character. An animated orthographic camera moves through the scene. Words land with spring overshoot, RGB-split impacts and pixel glitches, over faint CRT scanlines.
 
@@ -52,4 +52,12 @@ Additional short glitch accents occur every two beats. The camera path is frame-
 - `src/StopCodingBlind.tsx` / `src/Root.tsx` — synchronized composition and registration.
 - `public/audio` and `public/fonts` — bundled soundtrack and licensed Space Grotesk font.
 
-The root `Skill.md` is copied unchanged from [the specified main-branch version](https://github.com/Ans-to/Youtube-Agent-automation/blob/26fbc5a84d4ea7d093425da165a03715f00fe997/Skill.md). Earlier preview versions remain in Git history. Technical checks do not substitute for visual or audio review.
+## Nokia Evolution preview
+
+`src/nokia/NokiaEvolution.tsx` registers a separate 30-second, 1080×1920, 30 fps Remotion composition. Render locally with `npm run render:nokia`; the output is `out/nokia-evolution.mp4`.
+
+The **Render Nokia Evolution (Remotion)** GitHub Action runs on pushes to `main` or the Arena task branch when Remotion sources, the workflow, or `Skill.md` change; it can also be started manually. It typechecks, tests, renders, and verifies the 900-frame MP4. Each successful render updates a public, prerelease preview asset at [Nokia Evolution — latest preview MP4](https://github.com/Ans-to/Youtube-Agent-automation/releases/download/nokia-evolution-preview/nokia-evolution.mp4). The run also keeps its own artifact for 30 days.
+
+This is currently a visual preview: there is no matching narration audio bundled, and the karaoke word cues are provisional rather than measured audio alignment. Review and audio-sync the video before treating it as final.
+
+The root [Skill.md](../../Skill.md) is the single shared source for current video-production rules. Technical checks do not substitute for visual or audio review.

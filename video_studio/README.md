@@ -15,7 +15,7 @@ It preserves the supplied words, performs no topic research or rewrite, plans co
 
 ## Remotion portrait example
 
-The [Stop coding blind](remotion/README.md) composition is a separate 10-second Remotion / React Three Fiber example: an isometric voxel workspace with a camera-facing 2D SVG detective, moving camera and beat-synchronized spring typography in 9:16. It follows the root [Skill.md](../Skill.md) and includes a reproducible 120 BPM instrumental.
+The [Stop coding blind](remotion/README.md) composition is a separate 10-second Remotion / React Three Fiber example: an isometric 3D workspace with a camera-facing 2D SVG detective, moving camera and beat-synchronized spring typography in 9:16. It follows the root [Skill.md](../Skill.md) and includes a reproducible 120 BPM instrumental.
 
 ## Requirements
 
@@ -229,11 +229,9 @@ The renderer writes frames under `video_studio/frames/` and a render manifest be
 ## Current limits
 This is a deterministic starter renderer, not a professional editor or anime rig system. It draws typography, grids, progress bars, geometric accents, and a procedural 2D presenter. Eased fade, wipe, slide, and zoom transitions are supported. Advanced skeletal character rigs, forced phoneme alignment, independent claim-by-claim fact verification, and automatic YouTube publishing remain outside the current implementation. Publishing is approval-gated; the code cannot promise monetization or income.
 
-## Professional motion-design and character roadmap
+## Shared video-production standard
 
-The agent's creative/QA contract is in:
-- [Professional Motion Design Director](skills/PRO_MOTION_DIRECTOR.md): transition selection, easing, staging, typography, audio-led pacing, review rubric, and render QA.
-- [Character, Voice and Lip-Sync](skills/CHARACTER_VOICE_LIPSYNC.md): a realistic implementation path for a rigged presenter, audio-aligned lip sync, selected-language narration, and acceptance tests.
+`../Skill.md` is the single source of shared visual, motion, character, audio, and render-QA rules. Renderer-specific usage and capability limits are documented in this README and the Remotion guide; they do not define a second creative rule set.
 
 **Important status distinction:** the renderer now includes a more detailed procedural presenter (hands/fingers, clothing details, gaze, brows, expressions, blinking, and secondary head motion), but it is not a production-quality skeletal or anime rig. Piper output is not automatically natural-sounding. Direct `studio.py` renders can be silent when used for visual smoke tests; the `production.py` final-render path requires a verified English Piper model and generates SRT/WebVTT subtitles.
 

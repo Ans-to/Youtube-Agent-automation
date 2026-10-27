@@ -50,7 +50,7 @@ export const StopCodingBlind: React.FC<StopCodingBlindProps> = ({ audioSrc }) =>
         background: 'radial-gradient(ellipse 70% 46% at 50% 68%, #211a28 0%, #0c1119 58%, #08090f 100%)',
       }} />
 
-      {/* Frame-synchronized React Three Fiber scene; every object is voxel geometry. */}
+      {/* Frame-synchronized 3D workspace and camera-facing SVG character. */}
       <div style={{ position: 'absolute', top: 590, left: 0, width: WIDTH, height: 1280 }}>
         <ThreeCanvas width={WIDTH} height={1280} orthographic
           camera={{ position: [-8, 8, 9], zoom: 135, near: .1, far: 100 }}

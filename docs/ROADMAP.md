@@ -50,8 +50,7 @@ Work:
 5. **Typography:** variable-font weight animation, optical tracking, text on
    path, and measured reflow with collision detection.
 6. **Character:** skeletal 2D rig (bones, IK targets, viseme timeline) rendered
-   to RGBA frames and composited in FFmpeg — the pipeline described in
-   `video_studio/skills/CHARACTER_VOICE_LIPSYNC.md`.
+   to RGBA frames and composited in FFmpeg, following the character, audio, and render standards in `Skill.md`.
 
 **Acceptance test:** three reference storyboards (30 s each: explainer, product,
 kinetic type) render at 1080p30 and pass a written review against named

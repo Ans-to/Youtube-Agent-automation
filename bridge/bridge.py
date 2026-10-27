@@ -225,7 +225,7 @@ def run_self_test() -> dict:
         PROJECT / "tools" / "run_quality_gate.py",
     ]
     json_files = [PROJECT / "agents" / "roster.json", PROJECT / "agents" / "skillbooks.json", PROJECT / "config.example.json"]
-    documentation_files = [PROJECT / "agents" / "MOTION_DESIGN_SYSTEM.md", PROJECT / "agents" / "TRAINING.md"]
+    documentation_files = [PROJECT / "Skill.md", PROJECT / "agents" / "TRAINING.md"]
     required = python_files + json_files + documentation_files
     missing = [str(path.relative_to(PROJECT)) for path in required if not path.is_file()]
     if missing:

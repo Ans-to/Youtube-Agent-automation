@@ -1,0 +1,141 @@
+name: Render Nokia Evolution (Remotion)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - arena/5bcb42d8-youtube-agent-automation
+    paths:
+      - "video_studio/remotion/**"
+      - ".github/workflows/render-nokia-evolution.yml"
+      - "Skill.md"
+
+permissions:
+  contents: write # Update the stable, direct-download preview release asset.
+
+# The release tag intentionally holds one replaceable "latest preview" MP4.
+# Serialize main/branch renders so one cannot overwrite a newer upload mid-run.
+concurrency:
+  group: render-nokia-evolution-preview
+  cancel-in-progress: false
+
+jobs:
+  render:
+    name: Render 30-second portrait preview
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: video_studio/remotion/package-lock.json
+
+      - name: Install FFmpeg
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+          ffmpeg -version | head -1
+          ffprobe -version | head -1
+
+      - name: Install Remotion dependencies
+        working-directory: video_studio/remotion
+        run: npm ci --no-audit --no-fund
+
+      - name: Typecheck and test the composition
+        working-directory: video_studio/remotion
+        run: |
+          npm run typecheck
+          npm test
+
+      - name: Render MP4
+        working-directory: video_studio/remotion
+        run: npm run render:nokia -- --gl=swangle
+
+      - name: Verify MP4 dimensions, frame rate, frame count, and duration
+        working-directory: video_studio/remotion
+        run: |
+          set -euo pipefail
+          video="out/nokia-evolution.mp4"
+          test -s "$video"
+          ffprobe -v error -count_frames \
+            -show_entries format=duration:stream=codec_type,codec_name,width,height,avg_frame_rate,nb_read_frames \
+            -of json "$video" > out/nokia-probe.json
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const info = JSON.parse(fs.readFileSync('out/nokia-probe.json', 'utf8'));
+          const video = info.streams.find((stream) => stream.codec_type === 'video');
+          const duration = Number(info.format.duration);
+          const frames = Number(video?.nb_read_frames);
+          const errors = [];
+          if (!video) errors.push('missing video stream');
+          if (video && (video.codec_name !== 'h264' || video.width !== 1080 || video.height !== 1920)) {
+            errors.push(`unexpected video stream: ${JSON.stringify(video)}`);
+          }
+          if (video && video.avg_frame_rate !== '30/1') {
+            errors.push(`expected 30 fps, got ${video.avg_frame_rate}`);
+          }
+          if (video && frames !== 900) errors.push(`expected 900 frames, got ${frames}`);
+          if (!Number.isFinite(duration) || Math.abs(duration - 30) > 0.1) {
+            errors.push(`expected 30-second duration, got ${duration}`);
+          }
+          if (errors.length) {
+            for (const error of errors) console.error(`FAIL: ${error}`);
+            process.exit(1);
+          }
+          console.log(`PASS: H.264 1080x1920, 30 fps, ${frames} frames, ${duration.toFixed(3)}s`);
+          NODE
+
+      - name: Upload run-specific MP4 artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nokia-evolution-preview-mp4
+          path: video_studio/remotion/out/nokia-evolution.mp4
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish the MP4 at a stable direct-download URL
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NOKIA_RENDER_TAG: nokia-evolution-preview
+          NOKIA_RENDER_TITLE: Nokia Evolution — latest preview render
+          NOKIA_RENDER_NOTES: |
+            Automated 30-second Remotion preview. This is an editorial draft: no matching narration audio is bundled yet, and its word cue timings are provisional rather than measured audio alignment. Human review is required before publication.
+        run: |
+          set -euo pipefail
+          video="video_studio/remotion/out/nokia-evolution.mp4"
+          if gh release view "$NOKIA_RENDER_TAG" >/dev/null 2>&1; then
+            gh release edit "$NOKIA_RENDER_TAG" \
+              --title "$NOKIA_RENDER_TITLE" \
+              --notes "$NOKIA_RENDER_NOTES" \
+              --prerelease
+            gh release upload "$NOKIA_RENDER_TAG" "$video" --clobber
+          else
+            gh release create "$NOKIA_RENDER_TAG" "$video" \
+              --target "$GITHUB_SHA" \
+              --title "$NOKIA_RENDER_TITLE" \
+              --notes "$NOKIA_RENDER_NOTES" \
+              --prerelease
+          fi
+
+      - name: Summarize render and download links
+        if: always()
+        run: |
+          {
+            echo "### Nokia Evolution — Remotion preview"
+            echo ""
+            echo "Renders the 30-second, 1080×1920 composition and verifies its 900 frames at 30 fps."
+            echo ""
+            echo "Direct MP4 URL (latest successful preview): https://github.com/Ans-to/Youtube-Agent-automation/releases/download/nokia-evolution-preview/nokia-evolution.mp4"
+            echo ""
+            echo "Run-specific artifact: download **nokia-evolution-preview-mp4** from this run's Artifacts section."
+            echo ""
+            echo "Preview limitation: no matching VO audio is bundled, and karaoke cue frames are provisional, not measured audio synchronization."
+          } >> "$GITHUB_STEP_SUMMARY"

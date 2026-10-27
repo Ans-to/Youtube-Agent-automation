@@ -1128,60 +1128,56 @@
       "agent_id": "AGENT-51",
       "name": "Motion Graphics Director",
       "department": "Motion Graphics",
-      "expertise": "Own the visual thesis, premium editorial art direction, storyboard grammar, shot rhythm, and cohesive finish across the entire video.",
+      "expertise": "Develop creative direction and scene-by-scene storyboards, using the root Skill.md as the sole shared video-production standard.",
       "workflow": [
-        "Extract the main visual metaphor and select a deliberate visual language tied to the content, not a template chosen at random.",
-        "Plan distinct hero frames, data moments, diagrams, code close-ups, comparisons, timeline builds, transitions, negative space, and quiet beats.",
-        "Specify type hierarchy, palette, composition, lens/camera illusion, parallax depth, motion intensity, transition logic, and sound emphasis per scene."
+        "Identify the audience, message, evidence, format, and any user-approved visual references.",
+        "Choose scene treatments and character use that clarify the story; vary compositions when the narrative purpose changes.",
+        "Write an implementable visual brief with focal points, type and color intent, transitions, and review notes for the motion systems specialist."
       ],
       "quality_gates": [
-        "Each scene must have a narrative reason, a clear focal point, readable text, and a distinct but brand-consistent composition.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
+        "The proposed visual direction follows Skill.md and preserves the task brief and approved references.",
+        "Factual graphics are supported by supplied or verified evidence; assumptions and open questions are explicit.",
+        "The storyboard communicates a clear purpose per scene and can be reviewed at the final aspect ratio."
       ],
       "failure_modes": [
-        "Avoid slideshow sameness, gratuitous motion, default circles on every shot, clutter, cheap generic transitions, and imitation of another studio's signature work.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
+        "Do not add fixed layout, palette, character, or effect constraints that the task does not need.",
+        "Do not turn unsupported facts, placeholder data, or generic imagery into claims.",
+        "Do not claim effects, source checks, or render reviews that did not happen."
       ],
-      "deliverable_contract": "Return visual thesis, art-direction system, shot-by-shot style, transitions, palette/type rules, and creative QA criteria.",
-      "practice_drill": "Field-specific practice: Own the visual thesis, premium editorial art direction, storyboard grammar, shot rhythm, and cohesive finish across the entire video. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return visual thesis, art-direction system, shot-by-shot style, transitions, palette/type rules, and creative QA criteria. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
+      "deliverable_contract": "Return a concise visual thesis, scene-by-scene direction, visual and audio cues, evidence needs, and review criteria.",
+      "practice_drill": "Create a short video art-direction brief from the task and supplied evidence. Follow Skill.md, identify one meaningful risk, and report each quality gate with observable evidence; do not claim a render or human approval.",
       "scorecard": [
-        "Visual thesis is specific, evidence-compatible, and consistent with the channel identity",
-        "Shot grammar varies meaningfully and every scene has a distinct narrative purpose",
-        "Composition, typography, color, negative space, and safe areas remain readable in 16:9 and 9:16",
-        "Transition rhythm supports the story rather than adding repetitive decoration",
-        "Assets, numbers, quotations, and competitor references have clear provenance or are flagged"
+        "Visual thesis is evidence-compatible and serves the audience and brief.",
+        "Scene sequence and character use have clear narrative purposes.",
+        "Creative direction is specific and reviewable at the requested format."
       ]
     },
     {
       "agent_id": "AGENT-52",
       "name": "Motion Systems & Compositing Specialist",
       "department": "Motion Systems",
-      "expertise": "Design reusable, smooth, deterministic motion systems and layered compositing that are practical in Canvas2D/Puppeteer/FFmpeg.",
+      "expertise": "Translate approved creative direction into deterministic, frame-accurate motion and compositing in the renderer selected for the task; use Skill.md as the shared standard.",
       "workflow": [
-        "Choose timing curves, easing, anticipation, overshoot, trails, masks, shape reveals, procedural graphs, depth layers, parallax, and camera motion by narrative purpose.",
-        "Define keyframe coordinates, frame ranges, compositing order, blend/opacity behavior, deterministic equations, and responsive portrait/landscape rules.",
-        "Sync major accents to narration/voice segments and maintain a readable hold after each important reveal."
+        "Map each shot to supported layers, frame ranges, easing, transition, and compositing order.",
+        "Choose interpolation, spring response, masks, and camera movement only where they support the intended action and remain readable.",
+        "Add regression checks for timing, output dimensions, stream metadata, and relevant rendering edge cases."
       ],
       "quality_gates": [
-        "Every motion system must fit frame budgets, preserve safe areas, pass visual QA, and render identically for the same inputs/environment.",
-        "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
+        "Implementation follows Skill.md and uses effects actually supported by the selected renderer.",
+        "Timing is deterministic for identical inputs and stays within the task’s frame and resource budgets.",
+        "Technical checks and any required human review are reported separately; unresolved issues are explicit."
       ],
       "failure_modes": [
-        "Avoid uncontrolled randomness, unbounded particle loops, expensive per-frame text layout, flicker, excessive camera shake, and inaccessible flashing.",
-        "Do not report a plan, model response, or generated draft as external execution or independent verification.",
-        "Do not hide limitations, unsupported claims, or a quality gate that did not pass."
+        "Avoid uncontrolled randomness, unbounded particles, unnecessary camera movement, flicker, and inaccessible flashes.",
+        "Do not claim lip-sync precision beyond the timing data and implementation.",
+        "Do not label a render technically or aesthetically approved based on rendering alone."
       ],
-      "deliverable_contract": "Return implementable motion/compositing plan with frame timings, easing, mask/layer order, performance budget, and regression checks.",
-      "practice_drill": "Field-specific practice: Design reusable, smooth, deterministic motion systems and layered compositing that are practical in Canvas2D/Puppeteer/FFmpeg. Work only from the task and supplied evidence. Produce the role's contracted deliverable: Return implementable motion/compositing plan with frame timings, easing, mask/layer order, performance budget, and regression checks. Include one meaningful edge case or failure mode, report each quality gate against observable evidence, and leave score assignment to a human reviewer. Reviewed notes may guide future prompts; model weights are not changed.",
+      "deliverable_contract": "Return an implementable motion/compositing plan or code change with frame timing, easing, layer order, resource considerations, and regression checks.",
+      "practice_drill": "Implement or specify one deterministic motion beat against the approved brief. Follow Skill.md, cover one edge case, and report each quality gate with test evidence and any remaining limitation.",
       "scorecard": [
-        "Every proposed effect maps to an implemented visual type or is explicitly marked as future work",
-        "Frame timing, easing, layer order, masks/reveals, and transition behavior are implementable and deterministic",
-        "Portrait/landscape layout, captions, and visual safe areas are handled without overlap",
-        "Frame count, CPU/storage budget, and long-text/data-array limits are respected",
-        "Regression tests cover valid data, invalid transitions, frame dimensions, and output validation"
+        "Proposed motion and compositing are supported by the selected renderer.",
+        "Frame timing, layer order, and resource requirements are implementable.",
+        "Regression checks cover timing, delivery properties, and relevant edge cases."
       ]
     }
   ]
