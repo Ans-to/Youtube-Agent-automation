@@ -97,3 +97,38 @@ wrong — and all three were found by measuring the file rather than trusting it
 The pictures are cheap to check and the audio is not, which is why the score and
 the master are measured for holes, dynamic span, level before every cut and the
 last 300 ms before anything is muxed.
+
+## The delivered files
+
+GitHub refuses any file over 100 MB, and this film is 232 MB at 1.1 Mbps (the
+4.6 Mbps master is 982 MB). It ships as three parts, cut on stream boundaries so
+each one is a complete, playable file with its own audio:
+
+| file | runtime | size | covers |
+|---|---|---|---|
+| `nokia-empire-1-of-3.mp4` | 9:50.85 | 86 MB | scenes 1 – 5 (the empire, the mill, the mobile age, the conquest, the peak) |
+| `nokia-empire-2-of-3.mp4` | 9:50.00 | 78 MB | scenes 6 – 10 (the iPhone, Android, the software problem, the burning platform, the sale) |
+| `nokia-empire-3-of-3.mp4` | 8:54.54 | 69 MB | scenes 11 – 13 (the five reasons, the comeback, the lesson) |
+
+Each is 1920×1080 at 24 fps, 1.1 Mbps video + 160 kbps AAC, and decodes clean
+from first frame to last. Played back to back they are the whole film.
+
+## Measured on the delivered master
+
+28:35.38, 41,170 frames.
+
+| | value |
+|---|---|
+| master loudness | **−16.0 LUFS** (peak −2.6 dBFS) |
+| score alone | −14.2 LUFS, peak −1.5 dBFS |
+| first 500 ms | −18.3 dBFS |
+| longest dip below −32 dBFS | **0.35 s**, and only where a line ends and the next shot has not spoken yet |
+| quietest 2 s / loudest 2 s | −24.7 dBFS at 21:41 / −15.3 dBFS at 12:53 (**9.4 dB** span) |
+| last 300 ms | −53 dBFS (the score's own decay, not a cut) |
+| spoken voice | 1,551 s across 137 lines — **90 % of the runtime** |
+
+Ninety percent is high, and it is the script's shape rather than the mix's: the
+narration is dense and continuous, and every shot is timed to its own sentence.
+The score sits under it, ducked 0.34 under speech, and the joins carry the
+punctuation. The quietest passage in the film is the one before the sale, which
+is also the quietest passage in the script.
