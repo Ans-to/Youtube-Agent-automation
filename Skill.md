@@ -70,6 +70,7 @@ AI Video Director & Pipeline Rules
 - 
 
 
+
 # UNIVERSAL STUDIO-LEVEL VIDEO ENGINE (MASTER DIRECTIVE)
 
 ## 1. Dynamic Topic-to-Scene Pipeline
@@ -97,3 +98,11 @@ Every scene across *any* video must be built using this reusable, decoupled Reac
 - **Dynamic Camera Orchestration:** No static shots lasting over 3 seconds. The camera must smoothly push in, pan, or track narrative beats using mathematical interpolation.
 - **Micro-Detail Polish:** Every UI window must feature subtle glassmorphism (`backdrop-blur`, semi-transparent borders), glowing drop shadows, and high-contrast typography (Inter/JetBrains Mono).
 - 
+
+[MANDATORY VISUAL REDESIGN DIRECTIVE: STUDIO-GRADE POLISH]
+
+1. BANISH CLIPART: All 2D vector assets and characters must be replaced with high-end, modern vector geometry. Use rich multi-stop SVG gradients, subtle inner shadows, and clean geometric proportions (resembling high-end motion design studios like Buck or Kurzgesagt).
+2. CINEMATIC 3D/ISOMETRIC DEPTH: Stop using flat background grids. Every scene must utilize Three.js / React Three Fiber to build rich isometric environments featuring dynamic point lights, soft shadows, rim lighting, and atmospheric depth of field.
+3. GLASSMORPHIC UI & HUD PANELS: All data cards, text boxes, and UI containers must feature advanced glassmorphism: `backdrop-blur-md`, semi-transparent frosted glass backgrounds (`rgba(255,255,255,0.03)`), ultra-thin 1px glowing borders (`rgba(255,255,255,0.1)`), and multi-layered drop shadows.
+4. TYPOGRAPHIC HIERARCHY: Body text and titles must use premium font pairings (e.g., Inter / JetBrains Mono) with precise letter-spacing (`tracking-tight`, `tracking-widest`), smooth gradient text fills, and professional kinetic pacing.
+
