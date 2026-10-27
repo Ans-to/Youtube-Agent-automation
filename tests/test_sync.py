@@ -16,7 +16,10 @@ import unittest
 from pathlib import Path
 
 STUDIO = Path(__file__).resolve().parents[1] / 'video_studio'
-FILM = STUDIO / 'films' / 'nokia_opening.mjs'
+# The film that ships. `nokia_opening.mjs` is the eight-shot body; `nokia_atlas`
+# is that body with the cold open in front of it, and it is what has a voice
+# track measured against it, so it is the one this test holds to the clock.
+FILM = STUDIO / 'films' / 'nokia_atlas.mjs'
 TIMING = STUDIO / 'films' / 'vo-timing.json'
 
 LEAD = 0.30

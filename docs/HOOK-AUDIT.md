@@ -114,3 +114,124 @@ FFMPEG=<ffmpeg> node video_studio/render_to_video.mjs \
 ffmpeg -i /tmp/film.mp4 -i /tmp/master.wav -c:v libx264 -crf 21 -pix_fmt yuv420p \
   -c:a aac -b:a 192k -shortest -movflags +faststart docs/media/nokia/nokia-atlas.mp4
 ```
+
+---
+
+# The cold open (round 8h)
+
+The audit above was written against the 57.2-second cut, and its fourth fault was
+the one that mattered: *"Nothing on screen says what the next fifty seconds are
+about... the natural question is the collapse, and the film withholds it until
+48.7 s."*
+
+That was accurate, and the conclusion drawn from it — improve the opening in
+place — was wrong. **A film opening and a YouTube hook are different jobs.** The
+opening we shipped does the opening's job: it establishes a subject, a place, a
+mood, and hands off to a story. A hook has to state the stake before the viewer
+has decided whether there is one. Polishing the opening could never fix that,
+because the opening was correct.
+
+So the opening is now the *body*, and a cold open is prepended to it.
+
+## The two beats
+
+| # | shot | in | VO |
+|---|---|---|---|
+| 0 | `hook-00-claim` | 0.00–5.80 | *"In two thousand and seven, one in three phones on earth was a Nokia."* |
+| 1 | `hook-00-fall` | 5.80–10.00 | *"Six years later, it was gone."* |
+
+Then the existing eight shots run unchanged from 10.00 s, so the film is 67.2 s
+and nothing in the body was re-written to make room. The ending is stated first —
+the collapse, as a datum, with the collapse's own image — and the rest of the film
+is the answer to *how*.
+
+**Claim (0–5.8 s).** Ten marks on a single baseline, three lit. Frame one already
+holds the three gold marks at full height: they *settle* into place rather than
+grow from nothing, the seven grey ones cascade in behind them, and the legend
+"THREE OF EVERY TEN" draws under the datum. The sentence is set to the right of
+the marks it describes — the data on the left, the words on the right, nothing on
+top of anything.
+
+**Fall (5.8–10.0 s).** The same handset the body opens on, lit by a warm key from
+upper left, its LCD going out across the shot while the words land. The object is
+lit *before* the screen dies; a silhouette in a void reads as a missing render.
+
+## Why it is not four quick cuts
+
+The research table's counter-evidence was the constraint here: three or more cuts
+inside five seconds measured **12 % lower retention at 0:30** than zero or one.
+The hook therefore carries **one** cut and one change of world (gold-on-black
+datum → warm-black object), not a montage. Density comes from what happens inside
+the frames — a settle, a cascade, a rule, four lines of type, a screen dying, dust
+and a slow push — not from more edits.
+
+## What is measured
+
+Motion here is the busiest-tile metric (8×8 tiles on a 320×176 luma reduction, max
+tile, mean per second), computed on the delivered mp4 with `ffmpeg` + `numpy`.
+
+| second | 0 | 1 | 2 | 3 | 4 | 5 |
+|---|---|---|---|---|---|---|
+| busiest tile, 57.2 s cut | 5.04 | 5.78 | 2.56 | 1.90 | 1.69 | 1.48 |
+| busiest tile, 67.2 s cut | **4.92** | 2.34 | 1.85 | 1.86 | 1.57 | 1.14 |
+
+Whole film: 0.54 mean / 3.03 busiest on the delivered file, against 0.63 / 4.06
+for the 57.2 s cut — lower because two of the ten shots are now quiet datum
+frames rather than a lit room with a moving light. That trade was taken
+deliberately: the opening second now *states the stake*.
+
+Second 0 is unchanged in density — but it is now density on a *composed* frame
+carrying the film's claim, rather than a light blooming in an empty room. What
+the old second 1 had was a full-frame light shaft; what the new one has is the
+tail of the cascade and the type arriving. That is the honest comparison, and it
+is the one place the new cut is weaker: **seconds 1–2 are the flattest in the
+hook**, and a second visible event there (the grey marks resolving their count,
+the year ticking 2007 → 2013) is the next thing I would add.
+
+## Sound
+
+The score is rebuilt on the new clock: `build` runs 0–5.8 s, an **impact lands on
+the cut** into the fall at 5.8 s, `tense` carries the collapse, and the ringtone
+is still cued where the phone in the body shot rings (10.12 s). The first audible
+event is now the bed itself, not a ringtone arriving alone.
+
+| | measured |
+|---|---|
+| integrated loudness | **−16.0 LUFS** |
+| true peak | **−2.3 dBFS** |
+| first half second | **−20.2 dBFS RMS** (target was ≥ −22.0) |
+| 2-second RMS span | **11.4 dB** |
+| spoken | 41.8 s across 10 lines |
+
+## What the cold open cost
+
+- The lock gained two rows (`cut`, `cut`), so this cut now has ten joins sharing
+  seven transition kinds. The director used to throw `out of transitions` once
+  every kind was spent; it now re-deals the least-used kind and says why. The
+  one-kind-per-film rule itself is unchanged and still tested — `direction.mjs`
+  is held to it against the eight-shot `nokia_opening.mjs`, where seven joins
+  still have seven kinds; only a ten-join cut has to reuse one, and the lock
+  records which join was approved so the reuse is a decision rather than a
+  leftover.
+- A shot with no row in `vo-timing.json` must not lose its duration: `TIMED`
+  falls back to the locked duration for the two hook shots.
+- The lock's `transition` overrides whatever the director dealt, so conforming to
+  picture and dealing joins stay separate concerns.
+
+## Reproducing this cut
+
+```bash
+node video_studio/films/nokia_atlas.mjs --starts /tmp/starts.json
+python video_studio/score.py --seconds 67.2 \
+  --sections "build:0:5.8,tense:5.8:10,calm:10:15.9,moving:15.9:22.9,tense:22.9:28.7,tense:28.7:36.4,sparse:36.4:42.4,history:42.4:50,build:50:58.7,resolve:58.7:67.2" \
+  --cues "5.8:impact:1.15,10.12:ring" --out /tmp/score.wav
+python video_studio/narrate.py synth --lines video_studio/films/nokia_vo.json \
+  --out /tmp/vo --voice am_michael --profile calm
+python video_studio/narrate.py mix --vo /tmp/vo --score /tmp/score.wav \
+  --starts /tmp/starts.json --out /tmp/master.wav
+FFMPEG=<ffmpeg> node video_studio/render_to_video.mjs \
+  --film ./video_studio/films/nokia_atlas.mjs --out /tmp/film.mp4 --scale 1.5 --fps 30 --crf 17
+ffmpeg -i /tmp/film.mp4 -i /tmp/master.wav -c:v libx264 -preset slow -crf 21 \
+  -pix_fmt yuv420p -c:a aac -b:a 192k -ar 48000 -shortest \
+  -movflags +faststart docs/media/nokia/nokia-atlas.mp4
+```

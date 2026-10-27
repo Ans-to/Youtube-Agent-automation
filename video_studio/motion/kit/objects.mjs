@@ -263,9 +263,10 @@ export function drawRooftop(ctx, { x, y, w, h, baseline, colour = '#040302' }) {
     ctx.stroke();
   }
 
-  /* the water tank, at the right, cropped by the frame edge */
-  const tw = w * 0.062;
-  const th = h * 3.1;
+  /* the water tank, at the right, cropped by the frame edge. It was 1:3.7 tall
+     to wide, which reads as a chimney - a tank is a fat cylinder on a frame. */
+  const tw = w * 0.080;
+  const th = h * 2.05;
   const tx = x + w * 0.845;
   const ty = top - th;
   ctx.fillStyle = shade(ctx, tx, 0, tx + tw, 0, [[0, '#181009'], [1, '#050403']]);

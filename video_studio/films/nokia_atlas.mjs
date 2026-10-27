@@ -110,7 +110,10 @@ function rise(ctx, value, x, y, p, {
   const w = 1200;
   const left = align === 'center' ? x - w / 2 : align === 'right' ? x - w : x - 24;
   ctx.beginPath();
-  ctx.rect(left, y - size * 1.18, w, size * 1.32);
+  /* The mask has to clear the descenders. It used to stop at +0.14 of the body
+     height, which sliced the tail off "a paper mill." while it rose, and a
+     sliced glyph reads as a broken render, not as a reveal. */
+  ctx.rect(left, y - size * 1.18, w, size * 1.52);
   ctx.clip();
   ctx.globalAlpha *= clamp(p * 2.2);
   ctx.translate(0, (1 - k) * size * from);
@@ -155,6 +158,224 @@ const LEAD_FIRST = 0.55;
 const PAD = { 'hook-01-ringing': 1.4, 'hook-05-alone': 1.5, 'history-02-trades': 1.0, 'history-03-rise': 1.0 };
 
 const SCRIPT = [
+  /* HOOK ---------------------------------------------------------------------
+   *
+   * The film used to open with "It starts with a phone", which is an opening, not
+   * a hook: it names a subject and withholds the stake. The stake is the collapse,
+   * and the collapse used to arrive at 48.7 seconds - after the three seconds in
+   * which a viewer decides whether to stay.
+   *
+   * So the hook is the ending, stated first and stated as data, and the film then
+   * runs from the beginning. Two beats, one cut, nine seconds.
+   */
+  {
+    id: 'hook-00-claim',
+    optics: { bloom: 0.44, halation: 0.26, grain: 0.18, vignette: 0.34, threshold: 0.56, tint: { r: 1.0, g: 0.78, b: 0.46 } },
+    palette: { paper: '#0A0A0B' },
+    role: 'beat',
+    transitionRole: 'beat',
+    seconds: 5.8,
+    background: '#0A0A0B',
+    camera: (t, dur) => ({ zoom: 1 + (t / dur) * 0.085, at: [0.40 + (t / dur) * 0.055, 0.5], rotate: 0 }),
+    grade: { vignetteStrength: 0.44, grainAmount: 0.16, paper: false, riso: 0, tooth: 0.03 },
+    layers: [
+      {
+        id: 'ground', depth: 1,
+        draw: (ctx, { t }) => {
+          /* The field breathes slowly. A frame that is only changing where the
+             type is changes almost nowhere in the second a viewer decides, so the
+             light itself keeps moving behind everything. */
+          const g = ctx.createRadialGradient(W * 0.42, H * 0.46, 0, W * 0.5, H * 0.5, W * 0.78);
+          g.addColorStop(0, '#141310');
+          g.addColorStop(1, '#070707');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, W, H);
+          const breath = 0.5 + 0.5 * Math.sin(t * 0.8);
+          const warm = ctx.createRadialGradient(
+            W * (0.40 + 0.02 * breath), H * (0.44 + 0.01 * breath), 0,
+            W * 0.5, H * 0.5, W * 0.62,
+          );
+          warm.addColorStop(0, `rgba(226,178,104,${0.035 + 0.030 * breath})`);
+          warm.addColorStop(1, 'rgba(226,178,104,0)');
+          ctx.fillStyle = warm;
+          ctx.fillRect(0, 0, W, H);
+        },
+      },
+      {
+        id: 'air', depth: 1,
+        draw: (ctx, { t }) => {
+          drawMotes(ctx, { w: W, h: H, t, count: 72, seed: 91, strength: 1.0, focusX: 0.42, focusY: 0.5, focusR: 0.7 });
+        },
+      },
+      {
+        id: 'datum', depth: 1,
+        draw: (ctx, { p, t }) => {
+          /*
+           * One in three, shown rather than asserted: a rule of ten marks, three
+           * of them lit. A number read off a screen is a claim; a third of a bar
+           * filling is a fact you can see, and it is the only information in the
+           * first five seconds of the film.
+           */
+          /*
+           * Frame one is already a picture. The three gold marks are standing at
+           * full height on the first frame and land into place; the seven grey
+           * ones cascade in behind them. Nothing grows from nothing, because a
+           * viewer's decision starts at the first frame, not at the first word.
+           */
+          const x0 = W * 0.105;
+          const y0 = H * 0.60;
+          const gap = W * 0.0262;
+          const bw = W * 0.0122;
+          const bh = H * 0.30;
+          const land = ease.outCubic(clamp(span(p, 0.0, 0.42)));
+          for (let i = 0; i < 10; i += 1) {
+            const lit = i < 3;
+            if (lit) {
+              /* a settle, not an entrance: 1.22 -> 1.0 of the height */
+              const hh = bh * (1.22 - 0.22 * land);
+              const g = ctx.createLinearGradient(0, y0 - hh, 0, y0);
+              g.addColorStop(0, 'rgba(240,198,96,0.98)');
+              g.addColorStop(1, 'rgba(150,104,26,0.98)');
+              ctx.fillStyle = g;
+              ctx.fillRect(x0 + i * gap, y0 - hh, bw, hh);
+              ctx.fillStyle = `rgba(255,238,196,${0.22 + 0.45 * (1 - land)})`;
+              ctx.fillRect(x0 + i * gap, y0 - hh, bw, 2);
+            } else {
+              const appear = clamp((p - 0.02 - (i - 3) * 0.030) / 0.14);
+              if (appear <= 0) continue;
+              ctx.fillStyle = `rgba(240,238,230,${0.13 * appear})`;
+              ctx.fillRect(x0 + i * gap, y0 - bh, bw, bh);
+            }
+          }
+          /* A specular pass over the lit marks in the back half, so the shot is
+             still moving while the voice finishes the sentence. */
+          const sweep = span(p, 0.38, 0.92);
+          if (sweep > 0 && sweep < 1) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'lighter';
+            const sx = x0 + (gap * 10) * ease.inOutCubic(sweep) - bw * 3;
+            const band = ctx.createLinearGradient(sx - bw * 4, 0, sx + bw * 4, 0);
+            band.addColorStop(0, 'rgba(255,226,160,0)');
+            band.addColorStop(0.5, 'rgba(255,226,160,0.13)');
+            band.addColorStop(1, 'rgba(255,226,160,0)');
+            ctx.fillStyle = band;
+            /* only the lit marks catch the light - the seven stay dark, so the
+               sweep reads as a highlight on the three, not as a second datum */
+            ctx.fillRect(x0, y0 - bh, gap * 3, bh);
+            ctx.restore();
+          }
+          /* the baseline */
+          const ruleIn = ease.outCubic(clamp(span(p, 0.0, 0.22)));
+          ctx.fillStyle = `rgba(243,238,226,${0.20 * ruleIn})`;
+          ctx.fillRect(x0 - W * 0.012, y0, (gap * 10) * ruleIn, 1);
+          const pulse = 0.30 + 0.10 * Math.sin(t * 2.1);
+          /* each caption sits under the group it names, so the ten marks read as
+             three and seven rather than as a bar chart with a footnote */
+          /* One legend under the whole datum, not two labels crowded against
+             each other: ten marks, three gold, and the line that decodes them. */
+          caps(ctx, 'THREE OF EVERY TEN',
+            x0 + (gap * 9 + bw) / 2, y0 + H * 0.078, span(p, 0.48, 0.80),
+            { colour: `rgba(240,198,96,${pulse + 0.34})`, size: 10.5, align: 'center', from: 3, to: 7 });
+        },
+      },
+      {
+        id: 'words', screen: true, depth: 1,
+        draw: (ctx, { p }) => {
+          /* The line lands in the first two seconds. There is no warm-up: a
+             hook that starts with atmosphere has spent its budget on atmosphere. */
+          /* The claim sits to the right of the marks it is describing: the data
+             on the left, the sentence on the right, nothing on top of anything. */
+          /* First frame carries the year and the first word, already moving. */
+          caps(ctx, '2007', W * 0.505, H * 0.300, span(p, -0.30, 0.04), { colour: 'rgba(243,238,226,0.55)' });
+          rise(ctx, 'one in', W * 0.5, H * 0.415, span(p, -0.12, 0.14), { size: 88, colour: '#F3EEE2' });
+          rise(ctx, 'three.', W * 0.5, H * 0.525, span(p, 0.04, 0.24), { size: 88, colour: '#F0C660' });
+          rise(ctx, 'of every phone sold', W * 0.503, H * 0.635, span(p, 0.26, 0.54), { size: 32, colour: 'rgba(243,238,226,0.72)' });
+          rise(ctx, 'on earth was a Nokia.', W * 0.503, H * 0.700, span(p, 0.34, 0.62), { size: 32, colour: 'rgba(243,238,226,0.72)' });
+        },
+      },
+    ],
+  },
+
+  /* THE TURN --------------------------------------------------------------- */
+  {
+    id: 'hook-00-fall',
+    optics: { bloom: 0.62, halation: 0.50, grain: 0.24, vignette: 0.52, threshold: 0.44 },
+    palette: { paper: '#050506' },
+    role: 'chapter',
+    transitionRole: 'chapter',
+    seconds: 4.2,
+    background: '#050506',
+    camera: (t, dur) => ({ zoom: 1 + (t / dur) * 0.05, at: [0.55, 0.52], rotate: 0 }),
+    grade: { vignetteStrength: 0.66, grainAmount: 0.22, paper: false, riso: 0, tooth: 0.03 },
+    layers: [
+      {
+        id: 'void', depth: 1,
+        draw: (ctx) => {
+          /* A warm key from upper left, and the pool it throws on the floor.
+             The handset has to be lit *before* its screen dies, otherwise the
+             shot is a silhouette in a void and the object never registers. */
+          ctx.fillStyle = '#070706';
+          ctx.fillRect(0, 0, W, H);
+          const g = ctx.createRadialGradient(W * 0.42, H * 0.30, 0, W * 0.5, H * 0.46, H * 0.82);
+          g.addColorStop(0, 'rgba(96,82,62,0.62)');
+          g.addColorStop(0.45, 'rgba(52,47,40,0.34)');
+          g.addColorStop(1, 'rgba(6,6,6,0)');
+          ctx.fillStyle = g;
+          ctx.fillRect(0, 0, W, H);
+          const pool = ctx.createRadialGradient(W * 0.5, H * 0.70, 0, W * 0.5, H * 0.72, W * 0.30);
+          pool.addColorStop(0, 'rgba(214,170,96,0.10)');
+          pool.addColorStop(1, 'rgba(214,170,96,0)');
+          ctx.fillStyle = pool;
+          ctx.fillRect(0, 0, W, H);
+        },
+      },
+      {
+        id: 'handset', depth: 1,
+        draw: (ctx, { p, t }) => {
+          /* The same object the film will open on, going out. It is the last
+             frame of the story shown first, which is the whole point of a cold
+             open: you see the end, then you want the beginning. */
+          const pw = 186;
+          const ph = pw * 1.87;
+          const px = W * 0.5 - pw / 2;
+          const py = H * 0.135;
+          const dying = clamp(span(p, 0.22, 0.82));
+          const lcd = mix('#A3B79A', '#0D100E', dying);
+          ctx.save();
+          ctx.globalAlpha *= clamp(p * 4);
+          contact(ctx, W * 0.5, py + ph + 6, pw * 1.15, 13, 0.55);
+          drawHandset(ctx, {
+            x: px, y: py, w: pw, h: ph, facing: 0.22, screen: 'menu',
+            glow: 0.72 * (1 - dying), lcd,
+            /* warm plastic under a warm key, not cool grey under nothing */
+            body: ['#6B6153', '#242019', '#4A4438'],
+            bezel: '#100E0C',
+          });
+          ctx.restore();
+          /* the light the screen was throwing on the room, leaving with it */
+          if (dying > 0) {
+            ctx.save();
+            ctx.globalAlpha *= dying * 0.30;
+            ctx.fillStyle = '#050505';
+            ctx.fillRect(0, 0, W, H);
+            ctx.restore();
+          }
+        },
+      },
+      {
+        id: 'words', screen: true, depth: 1,
+        draw: (ctx, { p }) => {
+          rise(ctx, 'Six years later,', W * 0.5, H * 0.775, span(p, 0.10, 0.44), {
+            size: 40, align: 'center', colour: 'rgba(243,238,226,0.86)',
+          });
+          rise(ctx, 'it was gone.', W * 0.5, H * 0.865, span(p, 0.30, 0.66), {
+            size: 40, align: 'center', colour: '#E2B94F',
+          });
+        },
+      },
+    ],
+  },
+
   /* 1 ------------------------------------------------------------------- */
   {
     id: 'hook-01-ringing',
@@ -878,13 +1099,38 @@ function readLock() {
   }
 }
 
+/** The joins of a picture that has been approved, exactly as approved. */
+/**
+ * The lock keeps the approved join *and* the sentence that justifies it.
+ *
+ * Returning the sentence matters: the table used to print a locked token beside
+ * the director's excuse for a different token ("a wipe, because fade was already
+ * used"), which reads like a bug even when the picture is right.
+ */
+function readLockedJoins() {
+  try {
+    const rows = JSON.parse(fs.readFileSync(new URL('./nokia_atlas.lock.json', import.meta.url), 'utf8'));
+    return Object.fromEntries(rows.filter((r) => r.transition).map((r) => [r.id, r]));
+  } catch {
+    return {};
+  }
+}
+
 function retime(shots, timing) {
   if (!timing) return shots;
   const lock = readLock();
   const spoken = Object.fromEntries(timing.map((r) => [r.shot, r.vo]));
   return shots.map((shot, i) => {
     const vo = spoken[shot.id];
-    if (vo === undefined) return shot;
+    if (vo === undefined) {
+      /* The hook has no measured line yet on a cold checkout. Its length comes
+         from the lock like every other locked shot's does, rather than falling
+         through to `seconds` and leaving the clock undefined. */
+      if (lock && lock[shot.id] !== undefined) {
+        return { ...shot, dur: lock[shot.id], conformed: true };
+      }
+      return shot;
+    }
     const lead = i === 0 ? LEAD_FIRST : LEAD;
     const natural = Math.max(shot.seconds, lead + vo + (PAD[shot.id] ?? 1.2));
     if (lock && lock[shot.id] !== undefined) {
@@ -907,10 +1153,28 @@ const TIMED = retime(SCRIPT, readTiming());
  * a dissolve where the same frame is held, an iris where a period opens, a
  * push where the film travels. The rule is still one technique per film.
  */
-export const FILM = direct(TIMED.map((s) => ({ ...s, transitionRole: s.role }))).map((s) => ({
-  ...s,
-  transitionInLabel: s.transition ? s.transition.label : 'cut',
-}));
+const LOCKED_JOINS = readLockedJoins();
+
+/**
+ * The director deals joins, and the lock overrides them.
+ *
+ * Adding a shot at the front of a film re-deals every transition after it - the
+ * hook silently moved the mill from an iris to a dissolve and the wipe from 40 s
+ * to the turn. A picture that has been approved has approved joins; the lock is
+ * where they are kept.
+ */
+export const FILM = direct(TIMED.map((s) => ({ ...s, transitionRole: s.role }))).map((s) => {
+  /* `direct()` deals a token string ('cut', 'wipe-left'); the lock restores the
+     one this cut was approved with. */
+  const locked = LOCKED_JOINS[s.id];
+  const transition = locked ? locked.transition : s.transition;
+  return {
+    ...s,
+    transition,
+    transitionInLabel: transition || 'cut',
+    transitionWhy: (locked && locked.transitionWhy) || s.transitionWhy,
+  };
+});
 
 export function shotStarts(shots = FILM) {
   let at = 0;
@@ -959,7 +1223,11 @@ const main = () => {
   const dh = Math.round(H * scale);
 
   if (startsPath) {
-    const rows = shotStarts().map((row, i) => ({ ...row, vo: (readTiming() || [])[i]?.vo ?? null }));
+    /* Keyed by id, not by position. Indexing the timing file by the row number
+       of the film meant the cold open inherited the first two body lines, and a
+       clock that says a 2.1-second line runs 4.9 seconds over its own cut. */
+    const spoken = Object.fromEntries((readTiming() || []).map((r) => [r.shot, r.vo]));
+    const rows = shotStarts().map((row) => ({ ...row, vo: spoken[row.id] ?? null }));
     fs.writeFileSync(path.resolve(startsPath), JSON.stringify(rows, null, 2));
     console.log(`wrote ${startsPath} (${totalSeconds().toFixed(1)}s total)`);
   }

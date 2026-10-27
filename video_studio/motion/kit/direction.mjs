@@ -60,13 +60,19 @@ export const ROLES = {
 const FALLBACK = ['dissolve', 'cut', 'fade', 'wipe', 'push', 'iris', 'rack'];
 
 /**
- * Deal transitions by role, never repeating a kind.
+ * Deal transitions by role.
+ *
+ * A kind is not repeated while there is an unused one left. When a film has more
+ * joins than there are kinds - this one has nine joins and seven kinds, because
+ * the hook added two - the least-used kind comes back rather than the film
+ * failing to render, and never the same kind twice in a row.
  *
  * @param {Array} shots  each may carry `transitionRole` and `roleWhy`
  * @returns {Array} the shots with a `transition` token on every shot but the first
  */
 export function direct(shots) {
   const used = new Set();
+  const dealt = [];
   const reasons = [];
   const out = shots.map((shot, index) => {
     if (index === 0) return { ...shot, transition: null, transitionWhy: 'opening frame' };
@@ -79,8 +85,18 @@ export function direct(shots) {
       kind = FALLBACK.find((k) => !used.has(k));
       why = `${entry.why} (a ${kind}, because ${entry.kinds[0]} was already used)`;
     }
-    if (!kind) throw new Error(`out of transitions at ${shot.id}; there are more joins than kinds`);
+    if (!kind) {
+      /* Every kind has been spent. Deal the least-used one instead of refusing
+         the film, and never the one that was just used. */
+      const count = (k) => dealt.filter((x) => x === k).length;
+      const previous = dealt[dealt.length - 1];
+      const pool = FALLBACK.filter((k) => k !== previous).sort((a, b) => count(a) - count(b));
+      kind = pool[0];
+      why = `${entry.why} (a ${kind}: all seven kinds are spent, so the least used one returns)`;
+    }
+    if (!kind) throw new Error(`out of transitions at ${shot.id}`);
     used.add(kind);
+    dealt.push(kind);
     reasons.push({ at: shot.id, kind, why, role });
     const token = transitionToken(kind, shot, shots[index - 1]);
     return { ...shot, transition: token, transitionWhy: why };

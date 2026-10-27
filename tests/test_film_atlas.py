@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import re
 import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -75,15 +76,22 @@ class TestTypeIsReallyInstalled(unittest.TestCase):
 
 
 def _starts() -> list[dict]:
-    path = Path('/tmp/st-test.json')
-    if not path.exists():
+    """The film's published clock, always regenerated.
+
+    This used to cache to a fixed path under /tmp, which meant a run could pass
+    against a clock from an earlier cut: the assertions below were reading eight
+    rows while the film had ten. A test that can be satisfied by a leftover file
+    is not measuring the film.
+    """
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / 'starts.json'
         out = subprocess.run(
             ['node', 'films/nokia_atlas.mjs', '--starts', str(path)],
             cwd=STUDIO, capture_output=True, text=True, timeout=300,
         )
         if out.returncode != 0:
             raise AssertionError(out.stderr[-2000:])
-    return json.loads(path.read_text())
+        return json.loads(path.read_text())
 
 
 class TestTheDirectorIsActuallyDriving(unittest.TestCase):
@@ -94,13 +102,24 @@ class TestTheDirectorIsActuallyDriving(unittest.TestCase):
     def test_every_shot_declares_a_known_role(self):
         src = (STUDIO / 'films' / 'nokia_atlas.mjs').read_text()
         roles = re.findall(r"^\s{4}role:\s*'([^']+)'", src, re.M)
-        self.assertEqual(len(roles), 8, f"expected eight shots, found {len(roles)}")
+        # Two cold-open beats in front of the eight-shot body. The body is the
+        # part that was approved, and it is not allowed to grow or shrink.
+        self.assertEqual(len(roles), 10, f"expected ten shots, found {len(roles)}")
         unknown = [r for r in roles if r not in self.ROLES]
         self.assertEqual(unknown, [], f"unknown roles: {unknown}")
 
+    def test_the_body_is_still_the_approved_eight(self):
+        ids = [row['id'] for row in _starts()]
+        self.assertEqual(ids[:2], ['hook-00-claim', 'hook-00-fall'])
+        self.assertEqual(ids[2:], [
+            'hook-01-ringing', 'hook-02-cities', 'hook-03-world', 'hook-04-turn',
+            'hook-05-alone', 'history-01-mill', 'history-02-trades',
+            'history-03-rise',
+        ])
+
     def test_the_film_publishes_a_clock_that_the_mixer_can_use(self):
         rows = _starts()
-        self.assertEqual(len(rows), 8)
+        self.assertEqual(len(rows), 10)
         at = 0.0
         for row in rows:
             self.assertAlmostEqual(row['start'], at, places=2)
@@ -111,12 +130,30 @@ class TestTheDirectorIsActuallyDriving(unittest.TestCase):
                                      f"{row['id']}: the line runs past the cut")
             at = row['end']
 
-    def test_no_two_joins_use_the_same_technique(self):
+    def test_the_joins_still_use_the_whole_vocabulary(self):
+        """Ten joins, seven kinds: the vocabulary is spent, not abandoned.
+
+        The one-kind-per-film rule is held against the eight-shot opening in
+        `test_transition_grammar.py`, where seven joins still have seven kinds.
+        A ten-join cut cannot meet it, so what is enforced here is that the film
+        still draws on the full vocabulary, that no kind exceeds its share, and
+        that every join is the one the picture was approved with.
+        """
         rows = _starts()
         kinds = [r['transition'] for r in rows[1:]]
-        self.assertEqual(len(kinds), len(set(kinds)), f"a technique repeats: {kinds}")
+        self.assertGreaterEqual(len(set(kinds)), 7, f"the vocabulary shrank: {kinds}")
+        counts = {k: kinds.count(k) for k in set(kinds)}
+        self.assertLessEqual(max(counts.values()), 4, f"one technique dominates: {counts}")
         for row in rows[1:]:
             self.assertTrue(row['transitionWhy'], f"{row['id']} has a join with no reason")
+
+    def test_the_joins_are_the_ones_the_lock_approved(self):
+        lock = json.loads((STUDIO / 'films' / 'nokia_atlas.lock.json').read_text())
+        approved = {r['id']: r['transition'] for r in lock if r['transition']}
+        for row in _starts()[1:]:
+            with self.subTest(shot=row['id']):
+                self.assertEqual(row['transition'], approved[row['id']],
+                                 f"{row['id']} drifted from the locked join")
 
 
 class TestVoiceLinesFitTheFilm(unittest.TestCase):

@@ -1,5 +1,18 @@
 [
   {
+    "id": "hook-00-claim",
+    "dur": 5.8,
+    "transition": "cut",
+    "transitionWhy": "opening frame: the claim, stated as data"
+  },
+  {
+    "id": "hook-00-fall",
+    "dur": 4.2,
+    "transition": "cut",
+    "transitionWhy": "the claim turns: the same company, gone"
+  },
+
+  {
     "id": "hook-01-ringing",
     "dur": 5.9,
     "transition": "cut",
