@@ -276,3 +276,69 @@ Measured on the delivered file, before → after:
 `tests/test_film_motion_and_dynamics.py::ScoreContinuityTest` now fails the build
 if a hole opens, if the bed is quiet going into a cut, or if the film fades out
 before its last frame.
+
+
+---
+
+# The full film (round 8k)
+
+The 67-second cut was approved as an opening, so it is now the opening of
+something. **7:51, 53 shots, 1080p24**, drawn by the same seven builders, no
+footage. The pass, in order, is documented in `docs/media/nokia/nokia-film.md`;
+what belongs here is what changed about the *hook*, and what broke on the way.
+
+## The hook still runs first
+
+The cold open (0:00 – 0:10) is untouched and still prepended: *one in three
+phones on earth was a Nokia* / *six years later, it was gone*. The overture that
+follows is the same five approved shots in the same order with the same joins, so
+the first 42 seconds of picture, its score sections (`build`, `tense`, `calm`,
+`moving`, `tense`, `sparse`) and its two hook cues (the impact at 5.8 s, the ring
+at 10.1 s) are the ones that were signed off. Only the first line's lead changed,
+from 0.55 s to 0.30 s, because the re-recorded line is 5.44 s long and a 0.55 s
+lead puts its last syllable after the cut.
+
+## Two bugs that only existed in the output
+
+Both are the same failure with different nouns, and both are now asserted in
+`tests/test_film_full.py`.
+
+1. **Every new shot rendered as an empty background.** A new shot is stored as
+   `{id, text, shot}` where `shot` is the picture. The assembler spread the
+   *entry*, so `layers` was one level down and undefined, and fifty shots in a
+   row drew their world's ground and nothing else. The still contact sheet is how
+   it was found; nothing in the build log objected.
+2. **Every new join became a hard cut.** The join was on the entry, the assembler
+   read the picture, and eleven fades, wipes, irises and pushes vanished. The
+   film cut 52 times in a row and the score wrote a cut sound for all 52.
+
+## Numbers
+
+Measured on the delivered master (`docs/media/nokia/nokia-film.mp4`, 7:51.50,
+1920×1080, 24 fps, 1.4 Mbps):
+
+| | 67 s cut (shipped) | full film |
+|---|---|---|
+| shots | 10 | **53** |
+| joins | 10 (6 accents) | **52 (41 cuts + 11 accents)** |
+| average shot | 6.7 s | 8.9 s |
+| shortest shot | 4.2 s | 4.2 s (the fall line, same beat) |
+| spoken voice | 41.8 s | **351.5 s — 74 % of the film** |
+| master | −16.0 LUFS | **−16.0 LUFS / peak −2.7 dBFS** |
+| first 500 ms | −20.1 dBFS | **−16.1 dBFS** |
+| longest dip below −32 dBFS | none | **0.25 s** — a breath between lines (70.2 s, 222.3 s, 335 s), never a dropout |
+| quietest 2 s | −21.3 dBFS | −26.2 dBFS at 40.5 s — the "too late" beat |
+| 2 s RMS span | 8.3 dB | **10.7 dB** |
+| last 300 ms | −32 dBFS | −33 dBFS |
+
+The hook is still the front of the film and still the densest two beats in it:
+5.8 s then 4.2 s, against an 8.9 s body average, with the impact cue at 5.8 s and
+the ring at 10.1 s exactly where the approved cut had them.
+
+## What is still open
+
+The film is drawn, scored, voiced, mixed and rendered. What it is **not** is
+delivered by the neural pipeline on GitHub Actions: the voice in this file is the
+local Kokoro read (`bm_george`, `calm`, rate 0.95) that the studio has been using
+since round 6. Moving that step onto Actions is a separate job and it is still
+not started.

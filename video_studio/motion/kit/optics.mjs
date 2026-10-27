@@ -95,6 +95,41 @@ function grainTile(size = 256) {
  *   threshold the luminance above which a pixel counts as a highlight
  *   tint     { r, g, b } multipliers applied to the halation
  */
+/* ------------------------------------------------------------ buffers ---- */
+
+/**
+ * The bright-pass canvases, kept between frames.
+ *
+ * They used to be created per frame, and a 1080p render died 176 frames in:
+ * every `createCanvas` in this build leaves a native allocation that V8 does
+ * not account for, so twelve hours of frame buffers became a resident set the
+ * OOM reaper collects by killing the process. One set per size, reused.
+ */
+const BUFFERS = new Map();
+
+function buffers(sw, sh) {
+  const key = `${sw}x${sh}`;
+  let b = BUFFERS.get(key);
+  if (!b) {
+    const small = createCanvas(sw, sh);
+    const glow = createCanvas(sw, sh);
+    const halo = createCanvas(sw, sh);
+    const gctx = glow.getContext('2d');
+    const hctx = halo.getContext('2d');
+    b = {
+      small, sctx: small.getContext('2d'),
+      glow, gctx, halo, hctx,
+      gimg: gctx.createImageData(sw, sh),
+      himg: hctx.createImageData(sw, sh),
+      buf: new Float32Array(sw * sh * 3),
+      wide: new Float32Array(sw * sh * 3),
+      warm: new Float32Array(sw * sh * 3),
+    };
+    BUFFERS.set(key, b);
+  }
+  return b;
+}
+
 export function optics(ctx, {
   source, w, h, frame = 0,
   bloom = 0.5, halation = 0.35, grain = 0.22, vignette = 0.5,
@@ -105,13 +140,14 @@ export function optics(ctx, {
     // paying for it at full resolution is paying for detail nobody can see.
     const sw = Math.max(2, Math.round(w / 4));
     const sh = Math.max(2, Math.round(h / 4));
-    const small = createCanvas(sw, sh);
-    const sctx = small.getContext('2d');
+    const b = buffers(sw, sh);
+    const { small, sctx, glow, gctx, halo, hctx } = b;
+    sctx.clearRect(0, 0, sw, sh);
     sctx.drawImage(source, 0, 0, sw, sh);
 
-    const img = sctx.getImageData(0, 0, sw, sh);
-    const px = img.data;
-    const buf = new Float32Array(sw * sh * 3);
+    const px = sctx.getImageData(0, 0, sw, sh).data;
+    const buf = b.buf;
+    buf.fill(0);
     for (let i = 0, p = 0; i < px.length; i += 4, p += 3) {
       const lum = (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
       // Soft knee: a hard threshold makes bloom pop as objects cross it.
@@ -122,10 +158,8 @@ export function optics(ctx, {
       buf[p + 2] = px[i + 2] * s;
     }
 
-    const wide = blurBuffer(buf.slice(), sw, sh, 9);
-    const glow = createCanvas(sw, sh);
-    const gctx = glow.getContext('2d');
-    const gimg = gctx.createImageData(sw, sh);
+    const wide = blurBuffer(b.wide.set(buf) || b.wide, sw, sh, 9);
+    const gimg = b.gimg;
     for (let i = 0, p = 0; i < gimg.data.length; i += 4, p += 3) {
       gimg.data[i] = Math.min(255, wide[p]);
       gimg.data[i + 1] = Math.min(255, wide[p + 1]);
@@ -136,10 +170,8 @@ export function optics(ctx, {
 
     /* halation: the same energy, blurred wider and pushed warm */
     if (halation > 0) {
-      const warm = blurBuffer(buf.slice(), sw, sh, 16);
-      const halo = createCanvas(sw, sh);
-      const hctx = halo.getContext('2d');
-      const himg = hctx.createImageData(sw, sh);
+      const warm = blurBuffer(b.warm.set(buf) || b.warm, sw, sh, 16);
+      const himg = b.himg;
       for (let i = 0, p = 0; i < himg.data.length; i += 4, p += 3) {
         himg.data[i] = Math.min(255, warm[p] * tint.r);
         himg.data[i + 1] = Math.min(255, warm[p + 1] * tint.g);

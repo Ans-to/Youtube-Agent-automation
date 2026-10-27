@@ -1156,6 +1156,29 @@ const TIMED = retime(SCRIPT, readTiming());
 const LOCKED_JOINS = readLockedJoins();
 
 /**
+ * A locked join is stored as a label ('wipe-left'), and the renderer needs a
+ * token (`{kind, options}`). Handing it the string made `token.kind` undefined,
+ * and the renderer falls back to a cut - so every locked join in this film was
+ * a hard cut while the shot list said iris, wipe and dissolve. The label is
+ * parsed back into the token it came from.
+ */
+function lockedTransition(label, previousPaper) {
+  const name = (label || 'cut').trim();
+  if (name === 'dissolve' || name === 'rack' || name === 'iris') {
+    return { kind: name, label: name, options: {} };
+  }
+  if (name.startsWith('fade')) {
+    return { kind: 'fade', label: name, options: { colour: previousPaper || '#F1E7D4' } };
+  }
+  if (name.startsWith('wipe') || name.startsWith('push')) {
+    const kind = name.startsWith('wipe') ? 'wipe' : 'push';
+    const direction = name.split('-')[1] || 'left';
+    return { kind, label: name, options: { direction, angle: 0 } };
+  }
+  return { kind: 'cut', label: name, options: {} };
+}
+
+/**
  * The director deals joins, and the lock overrides them.
  *
  * Adding a shot at the front of a film re-deals every transition after it - the
@@ -1163,15 +1186,14 @@ const LOCKED_JOINS = readLockedJoins();
  * to the turn. A picture that has been approved has approved joins; the lock is
  * where they are kept.
  */
-export const FILM = direct(TIMED.map((s) => ({ ...s, transitionRole: s.role }))).map((s) => {
-  /* `direct()` deals a token string ('cut', 'wipe-left'); the lock restores the
-     one this cut was approved with. */
+export const FILM = direct(TIMED.map((s) => ({ ...s, transitionRole: s.role }))).map((s, i, all) => {
   const locked = LOCKED_JOINS[s.id];
-  const transition = locked ? locked.transition : s.transition;
+  const previousPaper = i > 0 ? (all[i - 1].palette || {}).paper : undefined;
+  const transition = locked ? lockedTransition(locked.transition, previousPaper) : s.transition;
   return {
     ...s,
     transition,
-    transitionInLabel: transition || 'cut',
+    transitionInLabel: (transition && transition.label) || 'cut',
     transitionWhy: (locked && locked.transitionWhy) || s.transitionWhy,
   };
 });
