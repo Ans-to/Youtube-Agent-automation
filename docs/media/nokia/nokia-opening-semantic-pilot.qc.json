@@ -1,0 +1,105 @@
+{
+  "file": "/home/user/Youtube-Agent-automation/docs/media/nokia/nokia-opening-semantic-pilot.mp4",
+  "video_sha256": "50946172ce43ea8bf345ec7c801d5315a01b90a763c87e9d51c5e3150c397127",
+  "duration_seconds": 34.9,
+  "video": {
+    "codec_name": "h264",
+    "codec_type": "video",
+    "width": 1920,
+    "height": 1080,
+    "avg_frame_rate": "30/1"
+  },
+  "audio_stream_count": 1,
+  "checks": {
+    "black_frames": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 0.2
+    },
+    "freezes": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 3.0
+    },
+    "repeat_frames": {
+      "sampled_frames": 349,
+      "judged_frames": 344,
+      "lag_seconds": 0.5,
+      "lag_frames": 5,
+      "longest_still_seconds": 7.5,
+      "still_share_of_frames": 0.8166,
+      "mean_changed_share": 0.0348,
+      "spans": [
+        {
+          "start": 20.1,
+          "end": 27.6,
+          "seconds": 7.5
+        },
+        {
+          "start": 14.4,
+          "end": 19.6,
+          "seconds": 5.2
+        },
+        {
+          "start": 1.7,
+          "end": 5.7,
+          "seconds": 4.0
+        },
+        {
+          "start": 28.1,
+          "end": 31.7,
+          "seconds": 3.6
+        },
+        {
+          "start": 11.6,
+          "end": 13.9,
+          "seconds": 2.3
+        },
+        {
+          "start": 9.3,
+          "end": 11.5,
+          "seconds": 2.2
+        },
+        {
+          "start": 32.8,
+          "end": 34.9,
+          "seconds": 2.1
+        },
+        {
+          "start": 7.3,
+          "end": 8.8,
+          "seconds": 1.5
+        }
+      ],
+      "thresholds": {
+        "sample_fps": 10.0,
+        "lag_seconds": 0.5,
+        "blocks": [
+          32,
+          18
+        ],
+        "block_delta": 10.0,
+        "still_share": 0.02,
+        "min_span_seconds": 0.5
+      },
+      "file": "/home/user/Youtube-Agent-automation/docs/media/nokia/nokia-opening-semantic-pilot.mp4",
+      "limit_seconds": 1.0,
+      "passed": false,
+      "status": "failed",
+      "statement": "REPEAT CHECK: FAILED - the picture is unchanged for 7.5 s at 0:20 (limit 1.0 s); 8 frozen span(s)",
+      "fix_hint": "Nothing on screen may hold for more than 1.0 s. Move the content on every spoken beat, or cut the span out. Grain, drift, a progress bar or a moving highlight do not count: they are removed by this check."
+    },
+    "audio_silence": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 1.5
+    }
+  },
+  "warnings": [
+    "REPEAT CHECK: FAILED - the picture is unchanged for 7.5 s at 0:20 (limit 1.0 s); 8 frozen span(s)",
+    "A held picture is a defect in a moving-graphics film: move the content on every spoken beat."
+  ],
+  "passed": false,
+  "strict": true,
+  "scope_note": "Technical heuristics only. Does not judge artistic quality, Urdu/English pronunciation or voice naturalness, factual accuracy, subtitle-to-speech alignment, or phoneme-level lip-sync."
+}

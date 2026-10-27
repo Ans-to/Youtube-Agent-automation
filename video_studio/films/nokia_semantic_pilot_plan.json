@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "status": "pilot only — semantic and style review not approved",
+  "reference": "docs/media/nokia/nokia-film.mp4 and the Nokia house builders in video_studio/films/nokia_full.mjs",
+  "visual_medium": "programmatically drawn motion graphics; no photos or still-image backplates",
+  "fps": 30,
+  "start_frame": 0,
+  "end_frame": 1047,
+  "cue_timing_note": "The pocket cue begins at 5.733 s, just before two approximate carry-word estimates: 5.76 s from PocketSphinx forced alignment and 5.84 s from Kokoro token durations. Neither is listening verification or guaranteed word alignment.",
+  "rows": [
+    {
+      "shot": "s01-01",
+      "start_frame": 0,
+      "end_frame": 172,
+      "visual": "world",
+      "spoken_span": "Imagine building a company so powerful that billions of people around the world ",
+      "char_start": 0,
+      "char_end": 80,
+      "intent": "A world map gains connection points as the narration describes people around the world. It does not imply a number of customers or substitute a factory."
+    },
+    {
+      "shot": "s01-01",
+      "start_frame": 172,
+      "end_frame": 263,
+      "visual": "pocket",
+      "spoken_span": "carry its products in their pockets.",
+      "char_start": 80,
+      "char_end": 116,
+      "intent": "A drawn handset moves into a pocket when the narration says people carry products in their pockets."
+    },
+    {
+      "shot": "s01-04",
+      "start_frame": 263,
+      "end_frame": 418,
+      "visual": "name",
+      "spoken_span": "For millions of people, that company was Nokia.",
+      "char_start": 0,
+      "char_end": 47,
+      "intent": "The name Nokia is revealed for the line identifying the company."
+    },
+    {
+      "shot": "s01-05",
+      "start_frame": 418,
+      "end_frame": 589,
+      "visual": "leadership",
+      "spoken_span": "At its peak, Nokia dominated the mobile phone industry.",
+      "char_start": 0,
+      "char_end": 55,
+      "intent": "The Nokia bar leads a labeled 2008 all-mobile-phone market-share comparison, matching its peak year; no smartphone-share denominator is substituted."
+    },
+    {
+      "shot": "s01-08",
+      "start_frame": 589,
+      "end_frame": 827,
+      "visual": "decline",
+      "spoken_span": "In just a few years, the company that once ruled the mobile world found itself struggling to survive.",
+      "char_start": 0,
+      "char_end": 101,
+      "intent": "A year-labeled chart shows Nokia’s all-mobile-phone market share falling, illustrating declining leadership rather than implying the company vanished."
+    },
+    {
+      "shot": "s01-09",
+      "start_frame": 827,
+      "end_frame": 950,
+      "visual": "smartphone",
+      "spoken_span": "A new generation of smartphones arrived.",
+      "char_start": 0,
+      "char_end": 40,
+      "intent": "A drawn touchscreen smartphone enters as a new generation is introduced."
+    },
+    {
+      "shot": "s01-10",
+      "start_frame": 950,
+      "end_frame": 1047,
+      "visual": "comparison",
+      "spoken_span": "Touchscreens replaced buttons.",
+      "char_start": 0,
+      "char_end": 30,
+      "intent": "A keypad handset and touchscreen handset are compared, directly showing the interaction change in the narration."
+    }
+  ]
+}

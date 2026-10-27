@@ -102,10 +102,16 @@ class NokiaPackageTests(unittest.TestCase):
         self.video = self.root / "video.mp4"
         self.video.write_bytes(b"representative video bytes" * 100)
         (self.root / "script.md").write_text("Hello Nokia. Goodbye Nokia.", encoding="utf-8")
-        (self.root / "storyboard.json").write_text('{"scenes": [1, 2]}\n', encoding="utf-8")
         (self.root / "voice-stem.wav").write_bytes(b"voice stem")
         (self.root / "music-stem.wav").write_bytes(b"music stem")
         self.shots, self.timing = sample_clock()
+        storyboard = {"scenes": [
+            {"scene": s["scene"], "shots": [{"id": s["id"], "scene": s["scene"],
+                "narration": t["text"], "visualCues": [{"cue": "", "visual": "name",
+                    "start": s["start"], "end": s["end"]}]}]}
+            for s, t in zip(self.shots, self.timing)
+        ]}
+        write_json(self.root / "storyboard.json", storyboard)
         write_json(self.root / "shots.json", self.shots)
         write_json(self.root / "voice-timing.json", self.timing)
         self.facts = {"coverage": "complete", "claims": [
@@ -130,6 +136,10 @@ class NokiaPackageTests(unittest.TestCase):
         for entry in review["checks"].values():
             entry.update({"status": "pass", "note": "Reviewed the actual evidence and finished film."})
         review["checks"]["visual_relevance"]["scenes"] = [1, 2]
+        for beat in review["checks"]["visual_relevance"]["beats"]:
+            beat.update({"status": "pass", "subject": "Nokia name", "action": "name appears",
+                         "relationship": "The displayed name identifies the subject of the line.",
+                         "evidence": "Watched and listened to the complete interval."})
         review["checks"]["captions"]["mode"] = mode
         write_json(path, review)
 
@@ -204,6 +214,38 @@ class NokiaPackageTests(unittest.TestCase):
         report = self.run_audit(subtitles=True)
         self.assertEqual(report["checks"]["visual_relevance"]["status"], "unverified")
         self.assertEqual(report["checks"]["captions"]["status"], "failed")
+
+    def test_old_passed_audit_without_beat_check_is_rejected_at_release(self):
+        report = self.save_passing()
+        del report["checks"]["visual_relevance"]["reviewed_beats"]
+        write_json(self.root / audit.REPORT_FILE, report)
+        with self.assertRaisesRegex(ValueError, "beat-level audit"):
+            audit.validate_release_report(self.root)
+
+    def test_scene_attestation_alone_cannot_approve_semantic_relevance(self):
+        self.complete_review()
+        path = self.root / audit.REVIEW_FILE
+        review = json.loads(path.read_text())
+        review["checks"]["visual_relevance"]["beats"].pop()
+        write_json(path, review)
+        report = self.run_audit()
+        self.assertEqual(report["checks"]["visual_relevance"]["status"], "unverified")
+        self.assertEqual(report["status"], "INCOMPLETE")
+
+    def test_mismatched_or_changed_beat_cannot_pass(self):
+        self.complete_review()
+        path = self.root / audit.REVIEW_FILE
+        original = json.loads(path.read_text())
+        for mutation, wanted in ((lambda beat: beat.update(status="fail"), "failed"),
+                                 (lambda beat: beat.update(spoken_span="Different words"), "unverified"),
+                                 (lambda beat: beat.update(relationship=""), "unverified")):
+            with self.subTest(wanted=wanted):
+                review = json.loads(json.dumps(original))
+                mutation(review["checks"]["visual_relevance"]["beats"][0])
+                write_json(path, review)
+                report = self.run_audit()
+                self.assertEqual(report["checks"]["visual_relevance"]["status"], wanted)
+                self.assertNotEqual(report["status"], "PASSED")
 
     def test_qc_must_have_actual_gap_measurements(self):
         self.complete_review()

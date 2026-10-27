@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "film": "nokia_empire",
+  "duration_seconds": 934.986,
+  "sections": [
+    {
+      "id": "opening",
+      "scenes": [
+        1,
+        1
+      ],
+      "style": "Suspenseful, cinematic",
+      "score_mood": "sparse",
+      "direction": "Low, spacious tension; leave room for the opening narration.",
+      "start": 0.0,
+      "end": 55.492
+    },
+    {
+      "id": "rise",
+      "scenes": [
+        2,
+        5
+      ],
+      "style": "Inspiring, energetic",
+      "score_mood": "build",
+      "direction": "A progressively warmer, more energetic pulse for Nokia's growth.",
+      "start": 55.492,
+      "end": 342.264
+    },
+    {
+      "id": "disruption",
+      "scenes": [
+        6,
+        8
+      ],
+      "style": "Tense, modern electronic",
+      "score_mood": "tense",
+      "direction": "A restrained synthetic pulse and unsettled harmony as the market changes.",
+      "start": 342.264,
+      "end": 586.325
+    },
+    {
+      "id": "decline",
+      "scenes": [
+        9,
+        11
+      ],
+      "style": "Emotional, restrained",
+      "score_mood": "sparse",
+      "direction": "Pull back the rhythm and allow the loss to breathe without overpowering speech.",
+      "start": 586.325,
+      "end": 843.26
+    },
+    {
+      "id": "lesson",
+      "scenes": [
+        12,
+        13
+      ],
+      "style": "Reflective, cinematic",
+      "score_mood": "resolve",
+      "direction": "A quiet resolution; sustain the closing thought and finish after the last word.",
+      "start": 843.26,
+      "end": 934.986
+    }
+  ],
+  "audio_targets": {
+    "narration_active_rms_dbfs": [
+      -18,
+      -12
+    ],
+    "narration_sample_peak_dbfs": [
+      -6,
+      -3
+    ],
+    "music_under_narration_rms_dbfs": [
+      -30,
+      -24
+    ],
+    "dramatic_sfx_dbfs": [
+      -18,
+      -10
+    ],
+    "master_integrated_lufs": -14,
+    "master_max_true_peak_dbtp": -1
+  },
+  "note": "Scene times come from the supplied shot clock; levels must be measured on the final master and stems."
+}

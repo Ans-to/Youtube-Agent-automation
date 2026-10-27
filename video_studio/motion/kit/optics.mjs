@@ -26,29 +26,38 @@ import { clamp, noise } from '../ui.mjs';
 
 /* --------------------------------------------------------------- blur ---- */
 
-/** One separable box pass over a Float32 RGB buffer. */
-function boxPass(src, dst, w, h, r, horizontal) {
+/** One separable box pass over a Float32 RGB buffer, with clamped edges.
+ *
+ * The original evaluated every pixel's entire kernel again. A sliding sum is
+ * the same filter and preserves the established look, but makes native-HD
+ * renders affordable instead of trading down to 12 fps or 540p.
+ */
+export function boxPass(src, dst, w, h, r, horizontal) {
   const inv = 1 / (r * 2 + 1);
-  for (let y = 0; y < h; y += 1) {
-    for (let x = 0; x < w; x += 1) {
-      let r0 = 0;
-      let g0 = 0;
-      let b0 = 0;
-      for (let k = -r; k <= r; k += 1) {
-        const xx = horizontal ? clamp(x + k, 0, w - 1) : x;
-        const yy = horizontal ? y : clamp(y + k, 0, h - 1);
-        const i = (yy * w + xx) * 3;
-        r0 += src[i]; g0 += src[i + 1]; b0 += src[i + 2];
-      }
-      const o = (y * w + x) * 3;
-      dst[o] = r0 * inv; dst[o + 1] = g0 * inv; dst[o + 2] = b0 * inv;
+  const lineCount = horizontal ? h : w;
+  const lineLength = horizontal ? w : h;
+  const stride = horizontal ? 3 : w * 3;
+  for (let line = 0; line < lineCount; line += 1) {
+    const base = horizontal ? line * w * 3 : line * 3;
+    let red = 0; let green = 0; let blue = 0;
+    for (let k = -r; k <= r; k += 1) {
+      const at = base + clamp(k, 0, lineLength - 1) * stride;
+      red += src[at]; green += src[at + 1]; blue += src[at + 2];
+    }
+    for (let pos = 0; pos < lineLength; pos += 1) {
+      const out = base + pos * stride;
+      dst[out] = red * inv; dst[out + 1] = green * inv; dst[out + 2] = blue * inv;
+      const leave = base + clamp(pos - r, 0, lineLength - 1) * stride;
+      const enter = base + clamp(pos + r + 1, 0, lineLength - 1) * stride;
+      red += src[enter] - src[leave];
+      green += src[enter + 1] - src[leave + 1];
+      blue += src[enter + 2] - src[leave + 2];
     }
   }
 }
 
 /** Three box passes: close enough to a gaussian that the eye cannot tell. */
-function blurBuffer(buf, w, h, radius) {
-  const tmp = new Float32Array(buf.length);
+function blurBuffer(buf, tmp, w, h, radius) {
   let a = buf;
   let b = tmp;
   for (let pass = 0; pass < 3; pass += 1) {
@@ -124,6 +133,7 @@ function buffers(sw, sh) {
       buf: new Float32Array(sw * sh * 3),
       wide: new Float32Array(sw * sh * 3),
       warm: new Float32Array(sw * sh * 3),
+      tmp: new Float32Array(sw * sh * 3),
     };
     BUFFERS.set(key, b);
   }
@@ -158,7 +168,8 @@ export function optics(ctx, {
       buf[p + 2] = px[i + 2] * s;
     }
 
-    const wide = blurBuffer(b.wide.set(buf) || b.wide, sw, sh, 9);
+    b.wide.set(buf);
+    const wide = blurBuffer(b.wide, b.tmp, sw, sh, 9);
     const gimg = b.gimg;
     for (let i = 0, p = 0; i < gimg.data.length; i += 4, p += 3) {
       gimg.data[i] = Math.min(255, wide[p]);
@@ -170,7 +181,8 @@ export function optics(ctx, {
 
     /* halation: the same energy, blurred wider and pushed warm */
     if (halation > 0) {
-      const warm = blurBuffer(b.warm.set(buf) || b.warm, sw, sh, 16);
+      b.warm.set(buf);
+      const warm = blurBuffer(b.warm, b.tmp, sw, sh, 16);
       const himg = b.himg;
       for (let i = 0, p = 0; i < himg.data.length; i += 4, p += 3) {
         himg.data[i] = Math.min(255, warm[p] * tint.r);

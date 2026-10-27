@@ -179,8 +179,18 @@ def phrases(line: str) -> list[tuple[str, str]]:
     """Cut a line where a speaker breathes, and remember why they stopped."""
     out: list[tuple[str, str]] = []
     buf = ''
-    for ch in line:
+    for i, ch in enumerate(line):
         buf += ch
+        # A decimal point or thousands separator belongs to the number, not a
+        # breathing pause. Splitting 5.44 into "5" and "44" changes the spoken
+        # amount, even though the script and on-screen graphic still say 5.44.
+        previous_digit = i > 0 and line[i - 1].isdigit()
+        decimal = ch == '.' and previous_digit and i + 1 < len(line) and line[i + 1].isdigit()
+        next_three = line[i + 1:i + 4]
+        thousands = (ch == ',' and previous_digit and len(next_three) == 3 and next_three.isdigit()
+                     and (i + 4 == len(line) or not line[i + 4].isdigit()))
+        if decimal or thousands:
+            continue
         if ch == ',':
             out.append((buf.rstrip(', '), 'comma'))
             buf = ''

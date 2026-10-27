@@ -24,6 +24,9 @@ if str(ROOT) not in sys.path:
 from app.infrastructure.ffmpeg import find_ffmpeg, find_ffprobe  # noqa: E402
 from video_studio.audit.media import parse_subtitles  # noqa: E402
 from video_studio.quality_audit import file_sha256  # noqa: E402
+from video_studio.semantic_review import (  # noqa: E402
+    SemanticMismatch, blank_beat_reviews, validate_beat_reviews,
+)
 
 PROFILE = "nokia-empire-15m-v1"
 TARGET_SECONDS = 900.0
@@ -108,6 +111,16 @@ def init_review(root: Path, *, force: bool = False) -> Path:
         raise ValueError(f"{REVIEW_FILE} already exists; use --force to replace it")
     checks = {name: {"status": "unverified", "note": ""} for name in MANUAL_IDS}
     checks["visual_relevance"]["scenes"] = []
+    checks["visual_relevance"]["beats"] = []
+    # Populate only an unverified checklist when a complete cue storyboard is
+    # present. A reviewer still has to inspect the finished video and fill it.
+    storyboard, _ = _load_json(_file(root, "storyboard.json"))
+    shots, _ = _load_json(_file(root, "shots.json"))
+    timing, _ = _load_json(_file(root, "voice-timing.json"))
+    try:
+        checks["visual_relevance"]["beats"] = blank_beat_reviews(storyboard, shots, timing)
+    except (TypeError, ValueError):
+        pass
     checks["captions"]["mode"] = "unverified"
     review = {"schema_version": 1, "reviewed_by": "", "reviewed_inputs": input_manifest(root),
               "checks": checks}
@@ -433,6 +446,7 @@ def audit_package(root: Path) -> dict:
     profile, _ = _load_json(_file(root, "release-profile.json"))
     review, _ = _load_json(_file(root, REVIEW_FILE))
     qc, _ = _load_json(_file(root, "video.qc.json"))
+    storyboard, _ = _load_json(_file(root, "storyboard.json"))
     shots, _ = _load_json(_file(root, "shots.json"))
     timing, _ = _load_json(_file(root, "voice-timing.json"))
     facts, _ = _load_json(_file(root, "facts.json"))
@@ -478,7 +492,18 @@ def audit_package(root: Path) -> dict:
         status, detail, item = _review_state(review, binding, "visual_relevance")
         if status == "attested" and item.get("scenes") != clock["scenes"]:
             status, detail = "unverified", "The reviewer must list every scene in the actual shot clock."
-        checks["visual_relevance"] = _result(status, detail, scenes=clock["scenes"])
+        beat_count = None
+        if status == "attested":
+            try:
+                beat_count = validate_beat_reviews(storyboard, shots, timing, item.get("beats"))
+            except SemanticMismatch as exc:
+                status, detail = "failed", str(exc)
+            except (TypeError, ValueError) as exc:
+                status, detail = "unverified", str(exc)
+        checks["visual_relevance"] = _result(
+            status, detail, scenes=clock["scenes"], reviewed_beats=beat_count,
+            limitation="Coverage checks cannot determine semantic meaning or verify cue-to-speech synchronization.",
+        )
 
     try:
         count = validate_facts(facts)
@@ -628,13 +653,18 @@ def validate_release_report(root: Path) -> dict:
     timing, timing_error = _load_json(_file(root, "voice-timing.json"))
     facts, facts_error = _load_json(_file(root, "facts.json"))
     qc, qc_error = _load_json(_file(root, "video.qc.json"))
-    if shot_error or timing_error or facts_error or qc_error:
+    storyboard, storyboard_error = _load_json(_file(root, "storyboard.json"))
+    if shot_error or timing_error or facts_error or qc_error or storyboard_error:
         raise ValueError("Nokia evidence files cannot be read")
     clock = validate_clock(shots, timing, duration)
     if clock["ending_tail_seconds"] < MIN_END_TAIL:
         raise ValueError("Nokia narration ends too close to the cut")
     if review["checks"]["visual_relevance"].get("scenes") != clock["scenes"]:
         raise ValueError("Nokia visual review does not cover every scene")
+    reviewed_beats = validate_beat_reviews(storyboard, shots, timing,
+                                          review["checks"]["visual_relevance"].get("beats"))
+    if checks["visual_relevance"].get("reviewed_beats") != reviewed_beats:
+        raise ValueError("Nokia semantic review predates the required beat-level audit; audit again")
     validate_facts(facts)
     if _gap_check(qc, current["video.mp4"])["status"] != "passed":
         raise ValueError("Nokia black-frame or silence evidence is not passing")

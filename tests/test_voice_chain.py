@@ -65,6 +65,19 @@ class PhrasingTest(unittest.TestCase):
         self.assertEqual([c[1] for c in cuts], ['comma', 'stop', 'none'])
         self.assertEqual(cuts[0][0], 'One company')
 
+    def test_numeric_punctuation_is_not_a_breath_or_lost_from_speech(self):
+        line = 'The deal was 5.44 billion euros, about 7.2 billion dollars. Over 1,000 people.'
+        cuts = V.phrases(line)
+        self.assertEqual([c[1] for c in cuts], ['comma', 'stop', 'none'])
+        self.assertEqual(cuts[0][0], 'The deal was 5.44 billion euros')
+        self.assertEqual(cuts[1][0].strip(), 'about 7.2 billion dollars')
+        self.assertEqual(cuts[2][0].strip(), 'Over 1,000 people')
+
+    def test_digit_followed_by_a_sentence_end_still_splits(self):
+        cuts = V.phrases('It happened in 2007. Then the market changed.')
+        self.assertEqual([c[1] for c in cuts], ['stop', 'none'])
+        self.assertEqual(cuts[0][0], 'It happened in 2007')
+
     def test_a_sentence_ends_slower_than_it_starts(self):
         """The drama profile decelerates into a full stop; the calm one does not.
 

@@ -1,0 +1,35 @@
+{
+  "duration": 934.986,
+  "master_lufs_wav": -15.2,
+  "master_true_peak_dbtp_wav": -2.1,
+  "stems": {
+    "method": "50 ms windows with voice RMS >= -45 dBFS; energy-weighted RMS",
+    "active_seconds": 751.55,
+    "narration_active_rms_dbfs": -17.02,
+    "narration_sample_peak_dbfs": -3.61,
+    "music_under_narration_rms_dbfs": -29.05,
+    "voice_above_music_db": 12.02,
+    "music_sample_peak_dbfs": -14.0
+  },
+  "clock": {
+    "shot_count": 72,
+    "scenes": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13
+    ],
+    "last_line_end": 934.036,
+    "ending_tail_seconds": 0.95
+  },
+  "note": "Scratch WAV measurements, not final encoded-video evidence or a listening review."
+}

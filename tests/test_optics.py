@@ -116,6 +116,39 @@ class TestOpticsActuallyRender(unittest.TestCase):
         self.assertGreater(self.m["centre"], 120)
 
 
+class TestOptimizedBoxFilter(unittest.TestCase):
+    def test_sliding_filter_matches_the_original_clamped_kernel(self):
+        script = r"""
+import { boxPass } from './motion/kit/optics.mjs';
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+let maxDiff = 0;
+for (const [w, h, r] of [[1,1,0], [1,4,3], [5,1,3], [7,6,1], [11,8,5]]) {
+  const source = Float32Array.from({length:w*h*3}, (_, i) => ((i * 73 + 19) % 257) / 3);
+  for (const horizontal of [true, false]) {
+    const actual = new Float32Array(source.length);
+    const expected = new Float32Array(source.length);
+    boxPass(source, actual, w, h, r, horizontal);
+    for (let y=0; y<h; y++) for (let x=0; x<w; x++) for (let c=0; c<3; c++) {
+      let sum=0;
+      for (let k=-r; k<=r; k++) {
+        const xx=horizontal ? clamp(x+k,0,w-1) : x;
+        const yy=horizontal ? y : clamp(y+k,0,h-1);
+        sum += source[(yy*w+xx)*3+c];
+      }
+      const i=(y*w+x)*3+c;
+      expected[i]=sum/(r*2+1);
+      maxDiff=Math.max(maxDiff, Math.abs(actual[i]-expected[i]));
+    }
+  }
+}
+console.log(maxDiff);
+"""
+        out = subprocess.run(["node", "--input-type=module", "-e", script],
+                             cwd=STUDIO, capture_output=True, text=True, timeout=30)
+        self.assertEqual(out.returncode, 0, out.stderr[-3000:])
+        self.assertLess(float(out.stdout.strip()), 0.0001)
+
+
 class TestTheFilmRendersAtDeviceScale(unittest.TestCase):
     """A 1080p deliverable must not be a 720p drawing with more pixels."""
 

@@ -1,6 +1,6 @@
 # Nokia: 15-minute review cut
 
-> **Rejected and superseded:** the user found this 960×540/12 fps draft visually mismatched, low-resolution, and laggy. Do not treat it as an approved deliverable. See the [new motion-graphics-only review revision](nokia-15-minute-motion-review.md), which also remains unapproved pending its own audit and human review.
+> **Rejected:** the user found this 960×540/12 fps draft visually mismatched, low-resolution, and laggy. The later [redesigned revision](nokia-15-minute-motion-review.md) was also rejected for semantic mismatch and an unwanted style change. Neither is a final deliverable.
 
 **This is an unapproved review draft, not a finished or publishable video.** The author has not approved the shortened script or proposed title, and no one has completed the required listening, visual, caption, or factual review.
 
@@ -18,7 +18,7 @@ Strict FFmpeg checks detected no black intervals or audio-silence intervals at t
 
 On the encoded draft, FFmpeg measured **−15.1 LUFS integrated** and **−1.2 dBTP true peak**. The aligned stems measured narration active RMS **−16.97 dBFS**, narration sample peak **−2.23 dBFS**, and music under speech **−29.04 dBFS**. The voice peak is above the recommended −6 to −3 dBFS range and needs adjustment/review. The music is 12.07 dB below active narration on average, but numerical separation cannot establish intelligibility; listen for masking. No effects bus was used, so effect-level checks do not apply to this draft. There are no subtitle streams or sidecar captions in the delivered MP4; a person must still inspect the image and confirm caption status.
 
-The voice is a locally generated Kokoro draft (`bm_george`). The score is a procedural draft, not a reviewed cinematic composition: opening suspenseful (0:00–0:55), rise energetic (0:55–5:42), disruption tense/electronic (5:42–9:46), decline restrained (9:46–14:04), and lesson reflective (14:04–15:35.6). Listen to the whole piece and verify music and voice/model rights before release.
+A later source audit found that this draft's phrase splitter removed the decimal points from “5.44” and “7.2” before synthesis. The affected line must be re-recorded and reviewed; the subsequent code fix does not repair this MP4. The voice is a locally generated Kokoro draft (`bm_george`). The score is a procedural draft, not a reviewed cinematic composition: opening suspenseful (0:00–0:55), rise energetic (0:55–5:42), disruption tense/electronic (5:42–9:46), decline restrained (9:46–14:04), and lesson reflective (14:04–15:35.6). Listen to the whole piece and verify music and voice/model rights before release.
 
 **Before any final approval:** author-approve the script/title; fix the held pictures and narration peak; exhaustively verify all spoken and on-screen claims (including the opening's unqualified “billions”); inspect all scenes and transitions; listen for complete, intelligible speech, music balance and a clean ending; and check captions if any are added. Then rerun strict QA and the hash-bound Nokia audit, and obtain a named human review. Machine measurements do not replace these checks.
 

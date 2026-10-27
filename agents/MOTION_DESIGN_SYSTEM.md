@@ -25,6 +25,13 @@ The storyboard field `transition_in` accepts \`none\` (deliberate hard cut), \`w
 
 ## 2. Shot design rules
 
+For an existing film or series, treat its user-selected/approved visual reference
+and motion-graphics-only constraints as the controlling style contract. Preserve
+its shot builders, typography, palette, framing, and transition grammar unless
+the user requests a redesign. The defaults below are not permission to replace
+an established look while fixing content. If the reference is genuinely unclear,
+confirm it before a full render.
+
 1. Start with the viewer's question, not decoration. Give each shot one purpose, one focal point, and one key takeaway.
 2. Change visual grammar when the idea changes: typography, diagram, code, timeline, comparison, data card, quote, or a held hero frame. Avoid showing the same generic orbit/card on every scene.
 3. Build a rhythm: controlled entrance, time to understand, an explanatory build, then a readable hold. Motion should clarify the meaning, not compete with narration.
@@ -33,6 +40,22 @@ The storyboard field `transition_in` accepts \`none\` (deliberate hard cut), \`w
 6. Use a consistent palette: base \`#0b0b0f\`, foreground \`#f4f2ec\`, accent \`#c8ff3d\`, muted \`#a7a7b3\`, grid \`#24242c\`. Only add colors with a clear semantic function.
 7. For facts, numbers, comparisons, and quotations, use only supplied or verified evidence. The renderer must never turn a placeholder/example metric into a factual claim.
 8. Use the same visual thesis, palette, type scale, and easing logic across a video, but vary shot composition in service of the story.
+
+### Semantic fidelity is a release requirement
+
+Before rendering, divide the narration into spoken ideas. For each idea record
+its exact source span, time range, visible subject, action, relationship and the
+reason that visual means the same thing. Preserve who did what, negation,
+qualifiers, time period and the denominators of comparisons and figures. A
+related topic, generic icon, factory for "people carrying phones", or animated
+text alone does not establish the intended relationship. Use drawings and motion
+that explain the specific idea; do not invent a fact to make a graphic work.
+
+After encoding, a named reviewer must watch **and listen** to every beat of the
+actual video, including transitions, checking the pictured claim against the
+spoken claim. Log mismatches with timestamps and fix/rerender them; a matching
+keyword, contiguous timeline, character coverage, or moving pixels cannot prove
+semantic correctness or word-level sync. A partial review is **unverified**.
 
 ## 3. Implementation and resource limits
 

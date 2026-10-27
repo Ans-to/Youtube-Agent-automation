@@ -10,11 +10,12 @@ cut/rewrite, re-recording, retiming and final render are required; do not simply
 speed up or truncate the voice. `docs/media/nokia/nokia-film.mp4` is a separate
 7:51.5 film, not the 28:35 empire cut and not a 15-minute final.
 
-A new [motion-graphics-only review revision](nokia-15-minute-motion-review.md)
-and [proposed 72-shot script](nokia-15-minute-script-draft.md) are available for
-author review. The earlier 960×540/12 fps [review](nokia-15-minute-review.md)
-was rejected for visual mismatch, low resolution and laggy motion; do not use it
-as the revised deliverable. The proposed cut selects 1,688 words verbatim, in
+The [motion-graphics review revision](nokia-15-minute-motion-review.md) was
+rejected for mismatched visuals and an unwanted style change. The earlier
+960×540/12 fps [review](nokia-15-minute-review.md) was also rejected for visual
+mismatch, low resolution and laggy motion. Neither is a final deliverable. The
+[proposed 72-shot script](nokia-15-minute-script-draft.md) remains available for
+review. The proposed cut selects 1,688 words verbatim, in
 order, from the original narration and proposes a replacement title; it is not
 author approval of the omissions or title. The [partial research ledger](nokia-15-minute-facts-draft.json)
 does not cover every claim. Consult the new revision's exact-file QA and audit;
@@ -172,8 +173,20 @@ python video_studio/nokia_audit.py --package "$PKG" --init-review
 A named reviewer must watch and listen to the finished film, verify each item,
 and edit `nokia-review.json`: set `reviewed_by`, each manual check's `status` to
 `pass` or `fail`, and a substantive `note` describing the actual evidence.
-`visual_relevance.scenes` must list all scene numbers in the clock. Caption
-`mode` is `none`, `sidecar`, `embedded`, `burned`, or `multiple`; even `none`
+`visual_relevance.scenes` must list all scene numbers in the clock. In addition,
+`storyboard.json` must contain `visualCues` for each shot: each cue has a named
+`visual`, actual picture `start`/`end`, and an exact, ordered narration `cue`
+(the first cue is `""`). If the storyboard is complete when review is
+initialized, `visual_relevance.beats` is populated with one **unverified** row
+per visual cue and its exact narration span. The named reviewer must watch and
+listen to each interval of the encoded video, fill its `subject`, `action`,
+`relationship` and `evidence`, and set each beat's `status` to `pass` or `fail`.
+Check negations, temporal order, figures and denominators, not just related
+keywords. An incomplete, altered or failed beat blocks approval; a scene-wide pass
+alone is insufficient. These structural checks cannot determine semantic truth or
+word-level synchronization. Review the actual speech and picture.
+
+Caption `mode` is `none`, `sidecar`, `embedded`, `burned`, or `multiple`; even `none`
 requires inspection of the delivered picture and streams. When sidecars exist,
 the auditor also compares their words and line-level timings with the planned
 narration, but **not with actual speech**. Listen to the actual audio for caption

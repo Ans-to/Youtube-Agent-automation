@@ -73,7 +73,7 @@ history rather than in a promise.
 
 ## The film this pipeline made
 
-**Nokia review:** A separate [15-minute motion-graphics revision](docs/media/nokia/nokia-15-minute-motion-review.md) is available as an **unapproved draft**, with its storyboard and audit results. It is not a release.
+**Nokia review:** The [15-minute motion-graphics revision](docs/media/nokia/nokia-15-minute-motion-review.md) was **rejected** for narration/visual mismatch and an unwanted style change. It is not a release; the original Nokia film remains the house-style reference. A new [34.9-second opening proof](docs/media/nokia/nokia-opening-semantic-pilot.md) tests that format and more literal visual beats, but still fails strict motion QA and has not had a complete semantic/listening review.
 
 A finished twelve-minute film, drawn frame by frame by `video_studio/films/vibe_coding.mjs`:
 
