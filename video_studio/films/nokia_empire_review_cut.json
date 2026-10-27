@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "status": "PROPOSED_FOR_AUTHOR_REVIEW",
+  "title": "Nokia: The Rise, Fall, and Reinvention of a Phone Giant",
+  "source": "empire_narration.json",
+  "notes": [
+    "This is an editorial proposal, not an approved replacement for the original script.",
+    "Each selected shot retains the original narration verbatim and in order; excluded shots are deliberate proposed cuts.",
+    "The title omits the original $300 billion valuation pending a defensible dated source and author agreement.",
+    "Timing must be recalculated from the actual recorded narration, not the original 28:35 clock."
+  ],
+  "shots": [
+    "s01-01", "s01-04", "s01-05", "s01-08", "s01-09", "s01-10", "s01-12", "s01-13", "s01-17",
+    "s02-02", "s02-04", "s02-05", "s02-08", "s02-10", "s02-11", "s02-13",
+    "s03-01", "s03-03", "s03-05", "s03-08",
+    "s04-01", "s04-02", "s04-06", "s04-07", "s04-11",
+    "s05-04", "s05-05", "s05-07", "s05-10", "s05-11",
+    "s06-01", "s06-02", "s06-03", "s06-05", "s06-09",
+    "s07-01", "s07-02", "s07-03", "s07-05", "s07-06",
+    "s08-01", "s08-02", "s08-04", "s08-07", "s08-08", "s08-09",
+    "s09-01", "s09-03", "s09-06", "s09-08",
+    "s10-02", "s10-03", "s10-04", "s10-06", "s10-08",
+    "s11-01", "s11-02", "s11-03", "s11-04", "s11-05", "s11-06", "s11-07", "s11-08", "s11-11",
+    "s12-01", "s12-02", "s12-04", "s12-07",
+    "s13-01", "s13-04", "s13-06", "s13-07"
+  ]
+}

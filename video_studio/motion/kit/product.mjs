@@ -55,6 +55,7 @@ export function drawHandset(ctx, {
   screen = 'menu',
   glow = 1,
   shadow = true,
+  antenna = true,
   body = ['#4A4E55', '#191B1F', '#33363C'],
   keyInk = 'rgba(226,224,214,0.82)',
   bezel = '#0D0E10',
@@ -81,23 +82,24 @@ export function drawHandset(ctx, {
     ctx.restore();
   }
 
-  /* antenna stub */
-  ctx.save();
-  ctx.fillStyle = body[1];
-  roundRect(ctx, W * 0.175, H * -0.020, W * 0.115, H * 0.115, W * 0.045);
-  ctx.fill();
-  const ag = ctx.createLinearGradient(W * 0.175, 0, W * 0.29, 0);
-  ag.addColorStop(0, 'rgba(255,255,255,0.20)');
-  ag.addColorStop(0.5, 'rgba(255,255,255,0.03)');
-  ag.addColorStop(1, 'rgba(0,0,0,0.45)');
-  ctx.fillStyle = ag;
-  roundRect(ctx, W * 0.175, H * -0.020, W * 0.115, H * 0.115, W * 0.045);
-  ctx.fill();
-  /* the tip is rounded off */
-  ctx.fillStyle = 'rgba(0,0,0,0.35)';
-  roundRect(ctx, W * 0.178, H * -0.022, W * 0.109, H * 0.018, W * 0.04);
-  ctx.fill();
-  ctx.restore();
+  /* External antenna stub; later models such as the 3210 used an internal one. */
+  if (antenna) {
+    ctx.save();
+    ctx.fillStyle = body[1];
+    roundRect(ctx, W * 0.175, H * -0.020, W * 0.115, H * 0.115, W * 0.045);
+    ctx.fill();
+    const ag = ctx.createLinearGradient(W * 0.175, 0, W * 0.29, 0);
+    ag.addColorStop(0, 'rgba(255,255,255,0.20)');
+    ag.addColorStop(0.5, 'rgba(255,255,255,0.03)');
+    ag.addColorStop(1, 'rgba(0,0,0,0.45)');
+    ctx.fillStyle = ag;
+    roundRect(ctx, W * 0.175, H * -0.020, W * 0.115, H * 0.115, W * 0.045);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    roundRect(ctx, W * 0.178, H * -0.022, W * 0.109, H * 0.018, W * 0.04);
+    ctx.fill();
+    ctx.restore();
+  }
 
   /* the slab: shaded across its width to imply a curved surface */
   ctx.save();

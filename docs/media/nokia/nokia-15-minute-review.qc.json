@@ -1,0 +1,645 @@
+{
+  "file": "/home/user/Youtube-Agent-automation/workspace/nokia-review-cut/video.mp4",
+  "video_sha256": "616f17313310a7d74b8e3ca33d73b9c43cc262f5900a554aff9adb18e4bc547f",
+  "duration_seconds": 935.616,
+  "video": {
+    "codec_name": "h264",
+    "codec_type": "video",
+    "width": 960,
+    "height": 540,
+    "avg_frame_rate": "12/1"
+  },
+  "audio_stream_count": 1,
+  "checks": {
+    "black_frames": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 0.2
+    },
+    "freezes": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 3.0
+    },
+    "repeat_frames": {
+      "sampled_frames": 9356,
+      "judged_frames": 9351,
+      "lag_seconds": 0.5,
+      "lag_frames": 5,
+      "longest_still_seconds": 24.7,
+      "still_share_of_frames": 0.9227,
+      "mean_changed_share": 0.0101,
+      "spans": [
+        {
+          "start": 543.3,
+          "end": 568.0,
+          "seconds": 24.7
+        },
+        {
+          "start": 122.6,
+          "end": 144.8,
+          "seconds": 22.2
+        },
+        {
+          "start": 204.6,
+          "end": 225.5,
+          "seconds": 20.9
+        },
+        {
+          "start": 473.8,
+          "end": 492.9,
+          "seconds": 19.1
+        },
+        {
+          "start": 587.2,
+          "end": 606.2,
+          "seconds": 19.0
+        },
+        {
+          "start": 688.8,
+          "end": 707.8,
+          "seconds": 19.0
+        },
+        {
+          "start": 500.9,
+          "end": 519.8,
+          "seconds": 18.9
+        },
+        {
+          "start": 568.5,
+          "end": 586.7,
+          "seconds": 18.2
+        },
+        {
+          "start": 618.8,
+          "end": 635.9,
+          "seconds": 17.1
+        },
+        {
+          "start": 844.8,
+          "end": 861.8,
+          "seconds": 17.0
+        },
+        {
+          "start": 260.0,
+          "end": 276.9,
+          "seconds": 16.9
+        },
+        {
+          "start": 415.1,
+          "end": 431.8,
+          "seconds": 16.7
+        },
+        {
+          "start": 242.7,
+          "end": 259.3,
+          "seconds": 16.6
+        },
+        {
+          "start": 457.2,
+          "end": 473.3,
+          "seconds": 16.1
+        },
+        {
+          "start": 636.4,
+          "end": 652.3,
+          "seconds": 15.9
+        },
+        {
+          "start": 744.2,
+          "end": 759.4,
+          "seconds": 15.2
+        },
+        {
+          "start": 790.1,
+          "end": 805.2,
+          "seconds": 15.1
+        },
+        {
+          "start": 319.4,
+          "end": 333.9,
+          "seconds": 14.5
+        },
+        {
+          "start": 438.3,
+          "end": 452.4,
+          "seconds": 14.1
+        },
+        {
+          "start": 277.4,
+          "end": 291.2,
+          "seconds": 13.8
+        },
+        {
+          "start": 380.2,
+          "end": 393.5,
+          "seconds": 13.3
+        },
+        {
+          "start": 906.4,
+          "end": 919.3,
+          "seconds": 12.9
+        },
+        {
+          "start": 149.4,
+          "end": 162.1,
+          "seconds": 12.7
+        },
+        {
+          "start": 353.7,
+          "end": 366.0,
+          "seconds": 12.3
+        },
+        {
+          "start": 676.3,
+          "end": 688.3,
+          "seconds": 12.0
+        },
+        {
+          "start": 862.3,
+          "end": 874.3,
+          "seconds": 12.0
+        },
+        {
+          "start": 809.1,
+          "end": 820.8,
+          "seconds": 11.7
+        },
+        {
+          "start": 763.3,
+          "end": 774.9,
+          "seconds": 11.6
+        },
+        {
+          "start": 99.4,
+          "end": 110.5,
+          "seconds": 11.1
+        },
+        {
+          "start": 193.3,
+          "end": 204.1,
+          "seconds": 10.8
+        },
+        {
+          "start": 665.0,
+          "end": 675.8,
+          "seconds": 10.8
+        },
+        {
+          "start": 778.8,
+          "end": 789.6,
+          "seconds": 10.8
+        },
+        {
+          "start": 88.3,
+          "end": 98.9,
+          "seconds": 10.6
+        },
+        {
+          "start": 652.8,
+          "end": 663.3,
+          "seconds": 10.5
+        },
+        {
+          "start": 178.4,
+          "end": 188.8,
+          "seconds": 10.4
+        },
+        {
+          "start": 400.2,
+          "end": 410.2,
+          "seconds": 10.0
+        },
+        {
+          "start": 56.3,
+          "end": 66.2,
+          "seconds": 9.9
+        },
+        {
+          "start": 533.3,
+          "end": 542.8,
+          "seconds": 9.5
+        },
+        {
+          "start": 821.3,
+          "end": 830.8,
+          "seconds": 9.5
+        },
+        {
+          "start": 232.7,
+          "end": 242.1,
+          "seconds": 9.4
+        },
+        {
+          "start": 297.9,
+          "end": 307.3,
+          "seconds": 9.4
+        },
+        {
+          "start": 609.1,
+          "end": 618.3,
+          "seconds": 9.2
+        },
+        {
+          "start": 78.8,
+          "end": 87.7,
+          "seconds": 8.9
+        },
+        {
+          "start": 310.0,
+          "end": 318.8,
+          "seconds": 8.8
+        },
+        {
+          "start": 165.3,
+          "end": 173.8,
+          "seconds": 8.5
+        },
+        {
+          "start": 523.2,
+          "end": 531.4,
+          "seconds": 8.2
+        },
+        {
+          "start": 371.6,
+          "end": 379.7,
+          "seconds": 8.1
+        },
+        {
+          "start": 731.3,
+          "end": 739.3,
+          "seconds": 8.0
+        },
+        {
+          "start": 877.9,
+          "end": 885.8,
+          "seconds": 7.9
+        },
+        {
+          "start": 114.3,
+          "end": 122.1,
+          "seconds": 7.8
+        },
+        {
+          "start": 836.4,
+          "end": 844.2,
+          "seconds": 7.8
+        },
+        {
+          "start": 919.8,
+          "end": 927.5,
+          "seconds": 7.7
+        },
+        {
+          "start": 899.1,
+          "end": 905.9,
+          "seconds": 6.8
+        },
+        {
+          "start": 336.2,
+          "end": 342.6,
+          "seconds": 6.4
+        },
+        {
+          "start": 346.9,
+          "end": 353.2,
+          "seconds": 6.3
+        },
+        {
+          "start": 2.9,
+          "end": 9.1,
+          "seconds": 6.2
+        },
+        {
+          "start": 720.8,
+          "end": 726.9,
+          "seconds": 6.1
+        },
+        {
+          "start": 21.9,
+          "end": 27.9,
+          "seconds": 6.0
+        },
+        {
+          "start": 712.1,
+          "end": 717.8,
+          "seconds": 5.7
+        },
+        {
+          "start": 889.3,
+          "end": 894.5,
+          "seconds": 5.2
+        },
+        {
+          "start": 50.7,
+          "end": 55.8,
+          "seconds": 5.1
+        },
+        {
+          "start": 226.0,
+          "end": 231.1,
+          "seconds": 5.1
+        },
+        {
+          "start": 394.0,
+          "end": 399.1,
+          "seconds": 5.1
+        },
+        {
+          "start": 930.6,
+          "end": 935.6,
+          "seconds": 5.0
+        },
+        {
+          "start": 495.5,
+          "end": 500.4,
+          "seconds": 4.9
+        },
+        {
+          "start": 68.0,
+          "end": 72.7,
+          "seconds": 4.7
+        },
+        {
+          "start": 38.7,
+          "end": 43.1,
+          "seconds": 4.4
+        },
+        {
+          "start": 410.7,
+          "end": 415.0,
+          "seconds": 4.3
+        },
+        {
+          "start": 15.8,
+          "end": 20.0,
+          "seconds": 4.2
+        },
+        {
+          "start": 145.3,
+          "end": 149.3,
+          "seconds": 4.0
+        },
+        {
+          "start": 366.5,
+          "end": 370.5,
+          "seconds": 4.0
+        },
+        {
+          "start": 433.8,
+          "end": 437.8,
+          "seconds": 4.0
+        },
+        {
+          "start": 739.8,
+          "end": 743.8,
+          "seconds": 4.0
+        },
+        {
+          "start": 831.3,
+          "end": 835.3,
+          "seconds": 4.0
+        },
+        {
+          "start": 452.9,
+          "end": 456.8,
+          "seconds": 3.9
+        },
+        {
+          "start": 74.6,
+          "end": 78.3,
+          "seconds": 3.7
+        },
+        {
+          "start": 727.4,
+          "end": 730.9,
+          "seconds": 3.5
+        },
+        {
+          "start": 189.3,
+          "end": 192.4,
+          "seconds": 3.1
+        },
+        {
+          "start": 895.1,
+          "end": 898.2,
+          "seconds": 3.1
+        },
+        {
+          "start": 11.3,
+          "end": 14.3,
+          "seconds": 3.0
+        },
+        {
+          "start": 775.4,
+          "end": 778.3,
+          "seconds": 2.9
+        },
+        {
+          "start": 343.1,
+          "end": 345.9,
+          "seconds": 2.8
+        },
+        {
+          "start": 708.3,
+          "end": 711.0,
+          "seconds": 2.7
+        },
+        {
+          "start": 886.3,
+          "end": 889.0,
+          "seconds": 2.7
+        },
+        {
+          "start": 520.3,
+          "end": 522.9,
+          "seconds": 2.6
+        },
+        {
+          "start": 294.0,
+          "end": 296.5,
+          "seconds": 2.5
+        },
+        {
+          "start": 29.6,
+          "end": 32.0,
+          "seconds": 2.4
+        },
+        {
+          "start": 47.3,
+          "end": 49.7,
+          "seconds": 2.4
+        },
+        {
+          "start": 805.7,
+          "end": 808.1,
+          "seconds": 2.4
+        },
+        {
+          "start": 33.1,
+          "end": 35.3,
+          "seconds": 2.2
+        },
+        {
+          "start": 759.9,
+          "end": 762.1,
+          "seconds": 2.2
+        },
+        {
+          "start": 111.0,
+          "end": 113.1,
+          "seconds": 2.1
+        },
+        {
+          "start": 874.8,
+          "end": 876.9,
+          "seconds": 2.1
+        },
+        {
+          "start": 928.1,
+          "end": 930.1,
+          "seconds": 2.0
+        },
+        {
+          "start": 175.1,
+          "end": 177.0,
+          "seconds": 1.9
+        },
+        {
+          "start": 45.3,
+          "end": 46.8,
+          "seconds": 1.5
+        },
+        {
+          "start": 718.3,
+          "end": 719.8,
+          "seconds": 1.5
+        },
+        {
+          "start": 163.7,
+          "end": 165.0,
+          "seconds": 1.3
+        },
+        {
+          "start": 532.0,
+          "end": 533.2,
+          "seconds": 1.2
+        },
+        {
+          "start": 493.4,
+          "end": 494.5,
+          "seconds": 1.1
+        },
+        {
+          "start": 606.7,
+          "end": 607.8,
+          "seconds": 1.1
+        },
+        {
+          "start": 663.8,
+          "end": 664.9,
+          "seconds": 1.1
+        },
+        {
+          "start": 36.7,
+          "end": 37.7,
+          "seconds": 1.0
+        },
+        {
+          "start": 307.8,
+          "end": 308.8,
+          "seconds": 1.0
+        },
+        {
+          "start": 35.8,
+          "end": 36.6,
+          "seconds": 0.8
+        },
+        {
+          "start": 231.8,
+          "end": 232.6,
+          "seconds": 0.8
+        },
+        {
+          "start": 162.6,
+          "end": 163.3,
+          "seconds": 0.7
+        },
+        {
+          "start": 399.3,
+          "end": 400.0,
+          "seconds": 0.7
+        },
+        {
+          "start": 762.2,
+          "end": 762.9,
+          "seconds": 0.7
+        },
+        {
+          "start": 835.6,
+          "end": 836.3,
+          "seconds": 0.7
+        },
+        {
+          "start": 877.1,
+          "end": 877.8,
+          "seconds": 0.7
+        },
+        {
+          "start": 291.7,
+          "end": 292.3,
+          "seconds": 0.6
+        },
+        {
+          "start": 808.3,
+          "end": 808.9,
+          "seconds": 0.6
+        },
+        {
+          "start": 20.5,
+          "end": 21.0,
+          "seconds": 0.5
+        },
+        {
+          "start": 296.8,
+          "end": 297.3,
+          "seconds": 0.5
+        },
+        {
+          "start": 432.3,
+          "end": 432.8,
+          "seconds": 0.5
+        }
+      ],
+      "thresholds": {
+        "sample_fps": 10.0,
+        "lag_seconds": 0.5,
+        "blocks": [
+          32,
+          18
+        ],
+        "block_delta": 10.0,
+        "still_share": 0.02,
+        "min_span_seconds": 0.5
+      },
+      "file": "/home/user/Youtube-Agent-automation/workspace/nokia-review-cut/video.mp4",
+      "limit_seconds": 1.0,
+      "passed": false,
+      "status": "failed",
+      "statement": "REPEAT CHECK: FAILED - the picture is unchanged for 24.7 s at 9:03 (limit 1.0 s); 102 frozen span(s)",
+      "fix_hint": "Nothing on screen may hold for more than 1.0 s. Move the content on every spoken beat, or cut the span out. Grain, drift, a progress bar or a moving highlight do not count: they are removed by this check."
+    },
+    "audio_silence": {
+      "count": 0,
+      "events": [],
+      "threshold_seconds": 1.5
+    }
+  },
+  "warnings": [
+    "REPEAT CHECK: FAILED - the picture is unchanged for 24.7 s at 9:03 (limit 1.0 s); 102 frozen span(s)",
+    "A held picture is a defect in a moving-graphics film: move the content on every spoken beat."
+  ],
+  "passed": false,
+  "strict": true,
+  "scope_note": "Technical heuristics only. Does not judge artistic quality, Urdu/English pronunciation or voice naturalness, factual accuracy, subtitle-to-speech alignment, or phoneme-level lip-sync."
+}

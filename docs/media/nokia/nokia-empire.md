@@ -9,6 +9,13 @@ nothing is dropped, re-ordered or rewritten to fit a picture.
 Source: `video_studio/films/empire_narration.json` (the script, verbatim) and
 `video_studio/films/nokia_empire.mjs` (the picture).
 
+**Release status:** this is the existing long cut, not the requested approximately
+15-minute final. A [72-shot review video](nokia-15-minute-review.mp4) and its
+[proposed script](nokia-15-minute-script-draft.md) have been prepared, but the
+video failed strict technical QA and no final cut has been approved. See the
+[Nokia music and release audit](nokia-release-audit.md) for the five music styles,
+production commands, required evidence, and unresolved reviews.
+
 ## Why it is 28 minutes and not 15
 
 The script's scene headings total 15:00, and its narration does not fit in it:
@@ -25,7 +32,7 @@ is a rewrite of the script, not a setting on the film.
 
 | scene | time | shots | says |
 |---|---|---|---|
-| 1 | 0:00 – 1:46 | 17 | the empire that lost the future (cold-open material, 40 % share, then 3 %) |
+| 1 | 0:00 – 1:46 | 17 | the empire that lost the future (cold open and falling all-phone share) |
 | 2 | 1:46 – 3:49 | 14 | paper mill 1865 → three trades → the 1967 merger |
 | 3 | 3:49 – 6:02 | 9 | the mobile age: car phones, Cityman 1987, the first GSM call |
 | 4 | 6:02 – 8:59 | 11 | the 1011, the 3210, the 3310, and how far it spread |
@@ -58,23 +65,11 @@ room without copying the staging code eight times.
 
 ## Rebuilding it
 
-```bash
-cd video_studio
-
-node films/nokia_empire.mjs --lines /tmp/lines.json      # 137 narration lines
-.venv/bin/python narrate.py synth --lines /tmp/lines.json --out /tmp/vo \
-  --voice bm_george --rate 0.95 --profile calm
-node films/nokia_empire.mjs --starts /tmp/starts.json    # the clock, from the voice
-
-.venv/bin/python score.py --seconds 1715.4 --sections "$SECTIONS" \
-  --starts /tmp/starts.json --cues "5.8:impact:1.15,10.12:ring" --out /tmp/score.wav
-.venv/bin/python narrate.py mix --vo /tmp/vo --score /tmp/score.wav \
-  --starts /tmp/starts.json --duck 0.34 --out /tmp/master.wav
-
-node films/nokia_empire.mjs --pipe --scale 1.5 --fps 24 --from 0 --to 250 \
-  | ffmpeg -f rawvideo -pixel_format rgba -video_size 1920x1080 -framerate 24 \
-      -i pipe:0 -an -c:v libx264 -preset faster -crf 17 -pix_fmt yuv420p seg000.mp4
-```
+Use the [music and release workflow](nokia-release-audit.md) rather than a fixed
+1,715-second score or an undefined section list. The current clock still reflects
+the existing narration; a new, author-approved edit must be synthesized and
+retimed before a shorter picture, music, and mix can be built. Rendering a slice
+is not a finished film and does not constitute approval.
 
 ## Three things that had to change to make a 28-minute film
 

@@ -43,14 +43,37 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 /** A handset standing on the floor of a room, with its own contact shadow. */
 function handset({
   x = 0.42, y = 0.26, w = 0.16, h = 0.56, facing = 0.16, glow = 0.8,
-  body = ['#5E5A52', '#211E1A', '#413D36'], screen = 'menu', floor = 0.845,
+  body = ['#5E5A52', '#211E1A', '#413D36'], screen = 'menu', floor = 0.845, antenna = true,
 } = {}) {
   return (ctx, { glow: g = 1 } = {}) => {
     contact(ctx, W * (x + w / 2), H * floor, W * (w * 0.95), H * 0.022, 0.55);
     drawHandset(ctx, {
       x: W * x, y: H * y, w: W * w, h: H * h, facing,
-      screen, glow: glow * g, body, bezel: '#0D0E0C',
+      screen, glow: glow * g, body, antenna, bezel: '#0D0E0C',
     });
+  };
+}
+
+/** Stylized 1980s/early-GSM handset silhouette with an external antenna. */
+function earlyHandset({ x = 0.42, y = 0.29, w = 0.16, h = 0.51, glow = 0.6 } = {}) {
+  return (ctx) => {
+    contact(ctx, W * (x + w / 2), H * 0.845, W * (w * 1.1), H * 0.022, 0.55);
+    ctx.save();
+    ctx.fillStyle = '#25282B';
+    ctx.fillRect(W * (x + w * 0.16), H * (y - 0.14), W * w * 0.07, H * 0.15);
+    ctx.fillStyle = '#16191C';
+    ctx.fillRect(W * x, H * y, W * w, H * h);
+    ctx.fillStyle = '#555B5C';
+    ctx.fillRect(W * (x + w * 0.08), H * (y + h * 0.05), W * w * 0.84, H * h * 0.9);
+    ctx.fillStyle = `rgba(173,204,150,${0.5 + glow * 0.3})`;
+    ctx.fillRect(W * (x + w * 0.19), H * (y + h * 0.18), W * w * 0.62, H * h * 0.16);
+    ctx.fillStyle = '#252A2A';
+    for (let row = 0; row < 4; row += 1) {
+      for (let col = 0; col < 3; col += 1) {
+        ctx.fillRect(W * (x + w * (0.19 + col * 0.22)), H * (y + h * (0.46 + row * 0.10)), W * w * 0.16, H * h * 0.07);
+      }
+    }
+    ctx.restore();
   };
 }
 
@@ -108,14 +131,15 @@ const SCENES = [
         top: 0.40,
       }),
       S('chart', 'gold', 'At its peak, Nokia dominated the mobile phone industry.', {
-        kicker: 'SHARE OF ALL PHONES SOLD · 2007',
-        caption: 'Forty percent of the world.',
+        // Gartner's full-year end-user sales, not Nokia's separate Q4 estimate.
+        kicker: 'ALL PHONES SOLD · GARTNER · 2007',
+        caption: 'Nearly forty percent.',
         bars: [
-          { label: 'Nokia', value: 40, hot: true },
-          { label: 'Samsung', value: 14 },
-          { label: 'Motorola', value: 12 },
-          { label: 'Sony Ericsson', value: 9 },
-          { label: 'Others', value: 25 },
+          { label: 'Nokia', value: 37.8, hot: true },
+          { label: 'Samsung', value: 13.4 },
+          { label: 'Motorola', value: 14.3 },
+          { label: 'Sony Ericsson', value: 8.8 },
+          { label: 'Others', value: 25.7 },
         ],
         lit: 0.0,
       }),
@@ -137,21 +161,23 @@ const SCENES = [
         transition: T('iris'),
       }),
       S('chart', 'cold', 'In just a few years, the company that once ruled the mobile world found itself struggling to survive.', {
-        kicker: 'SHARE OF PHONES SOLD, PERCENT',
+        // Keep the denominator and full-year period consistent throughout.
+        // The previous 3% was a smartphone estimate, not all phones sold.
+        kicker: 'ALL PHONES SOLD · GARTNER · PERCENT',
         caption: 'Six years.',
         bars: [
-          { label: '2007', value: 40, hot: true },
-          { label: '2009', value: 34 },
-          { label: '2011', value: 15 },
-          { label: '2012', value: 6 },
-          { label: '2013', value: 3 },
+          { label: '2007', value: 37.8, hot: true },
+          { label: '2009', value: 36.4 },
+          { label: '2011', value: 23.8 },
+          { label: '2012', value: 19.1 },
+          { label: '2013', value: 13.9 },
         ],
         lit: 0.0,
       }),
       S('compare', 'graphite', 'A new generation of smartphones arrived.', {
         kicker: 'TWO IDEAS OF A PHONE',
-        leftLabel: '2006 · 40 KEYS',
-        rightLabel: '2007 · 1 BUTTON',
+        leftLabel: '2006 · KEYPAD',
+        rightLabel: '2007 · TOUCHSCREEN',
         caption: 'The industry changed shape.',
         left: (ctx) => drawHandset(ctx, { x: W * 0.20, y: H * 0.30, w: W * 0.11, h: H * 0.44, facing: 0.14, screen: 'menu', glow: 0.5 }),
         right: (ctx, { glow }) => drawSmartphone(ctx, { x: W * 0.66, y: H * 0.28, w: W * 0.10, h: H * 0.46, glow }),
@@ -183,7 +209,7 @@ const SCENES = [
         top: 0.34,
       }),
       S('type', 'gold', 'This is the story of Nokia.', {
-        kicker: '1865 — 2014',
+        kicker: 'FROM 1865 TO TODAY',
         lines: [{ text: 'This is the story', size: 74, at: 0.08, gap: 0.14 },
           { text: 'of a company', size: 74, at: 0.20, colour: 'rgba(243,238,226,0.72)', gap: 0.16 },
           { text: 'that had it all.', size: 74, at: 0.34, colour: '#E2B94F' }],
@@ -257,13 +283,14 @@ const SCENES = [
           drawPaperReam(ctx, { x: W * 0.35, y: H * 0.40, w: W * 0.30, h: H * 0.44, colour: '#F2ECDD', edge: '#CFC7B4' });
         },
       }),
-      S('map', 'sepia', 'A few years later, he established another mill near the Nokianvirta River.', {
+      S('type', 'sepia', 'A few years later, he established another mill near the Nokianvirta River.', {
+        // A world map cannot accurately identify this river at this scale.
         kicker: 'THE NOKIANVIRTA',
-        caption: 'A river, and a name.',
-        box: [0.30, 0.24, 0.40, 0.46],
-        land: 'rgba(96,74,44,0.55)',
-        landEdge: 'rgba(226,190,130,0.42)',
-        arcs: [{ from: 'tampere', to: 'helsinki', t: 0.55, colour: 'rgba(226,190,130,0.42)', width: 1.3, head: false }],
+        lines: [
+          { text: 'A second mill.', size: 58, at: 0.06, gap: 0.12 },
+          { text: 'A river, and a name.', size: 58, at: 0.18, colour: 'rgba(242,230,204,0.72)' },
+        ],
+        top: 0.40,
       }),
       S('type', 'sepia', 'The name Nokia eventually became associated with the company.', {
         kicker: 'THE NAME',
@@ -364,8 +391,8 @@ const SCENES = [
     shots: [
       S('object', 'cobalt', 'During the 1980s, mobile communication was still expensive, complicated, and far from accessible to ordinary people. Early mobile phones were bulky. Networks were limited. And owning a mobile telephone was often a luxury reserved for businesses and wealthy customers.', {
         kicker: '1980s · THE MOBILE AGE BEGINS',
-        caption: 'A phone, bolted into a car.',
-        draw: handset({ x: 0.42, y: 0.28, w: 0.17, h: 0.52, facing: 0.30, glow: 0.45, body: ['#5A6068', '#1B1F24', '#343A42'] }),
+        caption: 'Mobile phones were bulky.',
+        draw: earlyHandset({ x: 0.415, y: 0.29, w: 0.17, h: 0.51, glow: 0.45 }),
       }),
       S('compare', 'cobalt', 'But Nokia recognized that the future of telecommunications would depend on something powerful: mobility. People didn\'t want to remain connected only when sitting beside a telephone. They wanted to communicate while traveling, working, and living their everyday lives.', {
         kicker: 'THE IDEA',
@@ -385,8 +412,8 @@ const SCENES = [
       }),
       S('object', 'cobalt', 'Nokia invested heavily in telecommunications equipment and mobile technology. In 1987, the company introduced the Mobira Cityman, a portable mobile phone designed for the emerging mobile market.', {
         kicker: '1987 · MOBIRA CITYMAN',
-        caption: 'The first one you could carry.',
-        draw: handset({ x: 0.415, y: 0.24, w: 0.17, h: 0.56, facing: 0.22, glow: 0.55, body: ['#6E6656', '#241F18', '#4C4638'] }),
+        caption: 'A phone you could carry.',
+        draw: earlyHandset({ x: 0.415, y: 0.28, w: 0.17, h: 0.52, glow: 0.55 }),
       }),
       S('compare', 'cobalt', 'It was still expensive and relatively large compared with the phones that would follow. But it represented something important. Communication was becoming portable.', {
         kicker: 'THIRTEEN YEARS',
@@ -453,28 +480,28 @@ const SCENES = [
     shots: [
       S('object', 'amber', 'The 1990s became a turning point for Nokia. In 1992, the company introduced the Nokia 1011, one of its early mass-produced GSM mobile phones.', {
         kicker: '1992 · NOKIA 1011',
-        caption: 'The first mass-produced one.',
-        draw: handset({ x: 0.42, y: 0.26, w: 0.16, h: 0.54, facing: 0.16, glow: 0.7 }),
+        caption: 'An early mass-produced GSM phone.',
+        draw: earlyHandset({ x: 0.42, y: 0.28, w: 0.16, h: 0.52, glow: 0.7 }),
       }),
       S('bands', 'amber', 'That same year, Nokia made a major strategic decision. It began focusing its business more heavily on telecommunications. Instead of spreading its attention across multiple industries, the company increasingly concentrated on the technology that would define its future.', {
         kicker: '1992 · THE DECISION',
         bands: [
-          { label: 'Telecom', sub: 'THE FUTURE', colour: 'rgba(226,185,79,0.66)' },
-          { label: 'Rubber', sub: 'SOLD', colour: 'rgba(196,105,46,0.34)' },
-          { label: 'Cable', sub: 'SOLD', colour: 'rgba(150,150,160,0.30)' },
-          { label: 'Paper', sub: 'SOLD', colour: 'rgba(226,185,79,0.26)' },
+          { label: 'Telecom', sub: 'STRATEGIC FOCUS', colour: 'rgba(226,185,79,0.66)' },
+          { label: 'Rubber', sub: 'EARLIER BUSINESS', colour: 'rgba(196,105,46,0.34)' },
+          { label: 'Cable', sub: 'EARLIER BUSINESS', colour: 'rgba(150,150,160,0.30)' },
+          { label: 'Paper', sub: 'EARLIER BUSINESS', colour: 'rgba(226,185,79,0.26)' },
         ],
-        caption: 'One trade, kept.',
+        // Divestitures occurred over several years, not all in 1992.
+        caption: 'A new strategic focus.',
       }),
       S('chart', 'amber', 'The decision helped Nokia become more focused as mobile communications expanded around the world. Its phones offered a combination that customers valued: dependable performance, practical design, and increasingly accessible technology.', {
-        kicker: 'PHONES SOLD, MILLIONS',
-        caption: 'Six years, forty times the volume.',
+        // Nokia annual reports; company sales, not estimates of the whole market.
+        kicker: 'NOKIA PHONE SALES · MILLIONS',
+        caption: '40.8m to 128.4m.',
         bars: [
-          { label: '1992', value: 2 },
-          { label: '1994', value: 21 },
-          { label: '1996', value: 41 },
-          { label: '1997', value: 63 },
-          { label: '1998', value: 91, hot: true },
+          { label: '1998', value: 40.8 },
+          { label: '1999', value: 78.5 },
+          { label: '2000', value: 128.4, hot: true },
         ],
         lit: 0.9,
       }),
@@ -498,19 +525,19 @@ const SCENES = [
       S('compare', 'amber', 'Then came phones that became cultural icons. The Nokia 3210 helped popularize mobile phones with younger consumers. Its internal antenna and customizable covers made it distinctive.', {
         kicker: '1999 · THE 3210',
         leftLabel: 'BEFORE · ANTENNA',
-        rightLabel: '3210 · NO ANTENNA',
+        rightLabel: '3210 · INTERNAL ANTENNA',
         caption: 'The bump disappeared.',
         left: (ctx) => {
           drawHandset(ctx, { x: W * 0.20, y: H * 0.32, w: W * 0.10, h: H * 0.42, facing: 0.12, screen: 'menu', glow: 0.4 });
           ctx.fillStyle = 'rgba(243,238,226,0.5)';
           ctx.fillRect(W * 0.242, H * 0.27, W * 0.006, H * 0.055);
         },
-        right: (ctx) => drawHandset(ctx, { x: W * 0.68, y: H * 0.30, w: W * 0.11, h: H * 0.44, facing: 0.12, screen: 'menu', glow: 0.9 }),
+        right: (ctx) => drawHandset(ctx, { x: W * 0.68, y: H * 0.30, w: W * 0.11, h: H * 0.44, facing: 0.12, screen: 'menu', glow: 0.9, antenna: false }),
       }),
       S('object', 'gold', 'The Nokia 3310, introduced in 2000, became famous for its sturdy construction, long battery life, and simple games. Snake became a familiar source of entertainment for millions of people.', {
         kicker: '2000 · THE 3310',
         caption: 'Snake.',
-        draw: handset({ x: 0.42, y: 0.26, w: 0.16, h: 0.55, facing: 0.14, glow: 0.95 }),
+        draw: handset({ x: 0.42, y: 0.26, w: 0.16, h: 0.55, facing: 0.14, glow: 0.95, antenna: false }),
         transition: T('rack'),
       }),
       S('type', 'amber', 'These phones didn\'t need enormous screens or thousands of applications to be useful. They needed to do a few important things exceptionally well. Make calls. Send messages. Last through the day. Survive everyday use.', {
@@ -537,14 +564,14 @@ const SCENES = [
         ],
       }),
       S('chart', 'amber', 'For many customers, buying a Nokia phone wasn\'t a difficult decision. It was the obvious choice.', {
-        kicker: 'SHARE OF PHONES SOLD',
+        kicker: 'ALL PHONES SOLD · GARTNER · PERCENT',
         caption: 'The obvious choice.',
         bars: [
-          { label: '1998', value: 22 },
-          { label: '2000', value: 30 },
-          { label: '2003', value: 35 },
-          { label: '2006', value: 36 },
-          { label: '2007', value: 40, hot: true },
+          { label: '1998', value: 22.9 },
+          { label: '2000', value: 30.6 },
+          { label: '2003', value: 34.8 },
+          { label: '2006', value: 34.8 },
+          { label: '2007', value: 37.8, hot: true },
         ],
         lit: 0.9,
       }),
@@ -607,7 +634,7 @@ const SCENES = [
         top: 0.38,
       }),
       S('map', 'gold', 'The company possessed enormous manufacturing capabilities and deep relationships with telecommunications operators. Its global distribution network helped it reach markets that many competitors struggled to serve.', {
-        kicker: 'NINE FACTORIES, ONE HUNDRED AND FIFTY COUNTRIES',
+        kicker: 'GLOBAL MANUFACTURING AND DISTRIBUTION',
         caption: 'A supply chain, not a product line.',
         arcs: [
           { from: 'helsinki', to: 'newyork', t: 0.36, colour: 'rgba(226,185,79,0.44)', width: 1.3, head: false },
@@ -631,14 +658,14 @@ const SCENES = [
         lit: 0.9,
       }),
       S('chart', 'gold', 'By 2007, Nokia held roughly 40 percent of the global mobile phone market, depending on the market definition and measurement used.', {
-        kicker: 'SHARE OF PHONES SOLD · 2007',
-        caption: 'Forty percent.',
+        kicker: 'ALL PHONES SOLD · GARTNER · 2007',
+        caption: 'Nearly forty percent.',
         bars: [
-          { label: 'Nokia', value: 40, hot: true },
-          { label: 'Samsung', value: 14 },
-          { label: 'Motorola', value: 12 },
-          { label: 'Sony Ericsson', value: 9 },
-          { label: 'LG', value: 7 },
+          { label: 'Nokia', value: 37.8, hot: true },
+          { label: 'Samsung', value: 13.4 },
+          { label: 'Motorola', value: 14.3 },
+          { label: 'Sony Ericsson', value: 8.8 },
+          { label: 'LG', value: 6.8 },
         ],
         lit: 0.0,
       }),
@@ -687,14 +714,18 @@ const SCENES = [
         lines: [
           { text: 'A stage,', size: 50, at: 0.05, colour: 'rgba(237,234,226,0.62)', gap: 0.115 },
           { text: 'a screen,', size: 50, at: 0.16, colour: 'rgba(237,234,226,0.62)', gap: 0.115 },
-          { text: 'a phone with no keys.', size: 62, at: 0.28 },
+          { text: 'a phone built around touch.', size: 58, at: 0.28 },
         ],
         top: 0.38,
       }),
-      S('object', 'graphite', 'It was not the first smartphone. Nokia had already produced advanced mobile devices, including smartphones with internet connectivity and software applications.', {
+      S('type', 'graphite', 'It was not the first smartphone. Nokia had already produced advanced mobile devices, including smartphones with internet connectivity and software applications.', {
+        // Do not portray a generic candy-bar handset as the clamshell Communicator.
         kicker: '1996 · THE COMMUNICATOR',
-        caption: 'Nokia had been here first.',
-        draw: handset({ x: 0.40, y: 0.28, w: 0.20, h: 0.50, facing: 0.12, glow: 0.5, body: ['#4E525A', '#191B1F', '#33363C'] }),
+        lines: [
+          { text: 'Nokia had made', size: 52, at: 0.06, gap: 0.12 },
+          { text: 'smartphones before.', size: 62, at: 0.18, colour: 'rgba(237,234,226,0.72)' },
+        ],
+        top: 0.40,
       }),
       S('compare', 'graphite', 'But the iPhone presented a different vision of what a phone could become. Instead of relying primarily on physical buttons, it placed a large touchscreen at the center of the experience.', {
         kicker: 'TWO VISIONS',
@@ -740,15 +771,13 @@ const SCENES = [
         ],
         caption: 'Four platforms, one company.',
       }),
-      S('chart', 'cold', 'That approach had helped it serve customers with different needs. However, it also made it harder to create one consistent, rapidly evolving software experience across its entire portfolio.', {
-        kicker: 'PLATFORM FRAGMENTATION · 2007',
-        caption: 'Sixty variants of one system.',
-        bars: [
-          { label: 'Symbian', value: 60, hot: true },
-          { label: 'iPhone', value: 1 },
-          { label: 'Android', value: 1 },
+      S('type', 'cold', 'That approach had helped it serve customers with different needs. However, it also made it harder to create one consistent, rapidly evolving software experience across its entire portfolio.', {
+        kicker: 'PLATFORM FRAGMENTATION',
+        lines: [
+          { text: 'Many devices.', size: 50, at: 0.07, gap: 0.13 },
+          { text: 'Many software paths.', size: 60, at: 0.19 },
         ],
-        lit: 0.0,
+        top: 0.42,
       }),
       S('type', 'graphite', 'The iPhone didn\'t destroy Nokia overnight. But it changed the direction of competition. The question was no longer simply who could build the best mobile phone. It was who could build the best mobile computing platform.', {
         kicker: 'THE NEW QUESTION',
@@ -776,18 +805,19 @@ const SCENES = [
       S('type', 'steel', 'While Apple was redefining the premium smartphone experience, Google was helping create another major force in the industry. Google acquired Android in 2005. In 2007, it announced the Android platform alongside other members of the Open Handset Alliance.', {
         kicker: '2005 — 2007 · ANDROID',
         lines: [
-          { text: 'Then it was', size: 46, at: 0.05, colour: 'rgba(232,237,242,0.62)', gap: 0.11 },
-          { text: 'given away.', size: 88, at: 0.16 },
+          { text: 'A new platform:', size: 46, at: 0.05, colour: 'rgba(232,237,242,0.62)', gap: 0.11 },
+          { text: 'Android.', size: 88, at: 0.16 },
         ],
         top: 0.42,
       }),
-      S('object', 'steel', 'The first commercially available Android phone arrived in 2008.', {
+      S('type', 'steel', 'The first commercially available Android phone arrived in 2008.', {
+        // The first G1 had a slide-out keyboard, not the generic glass slab.
         kicker: '2008 · THE FIRST ANDROID PHONE',
-        caption: 'A keyboard, and a promise.',
-        draw: (ctx, { p, glow }) => {
-          contact(ctx, W * 0.5, H * 0.855, W * 0.12, H * 0.02, 0.5);
-          drawSmartphone(ctx, { x: W * 0.435, y: H * 0.22, w: W * 0.13, h: H * 0.58, glow });
-        },
+        lines: [
+          { text: 'Android', size: 72, at: 0.06, gap: 0.13 },
+          { text: 'reaches a phone.', size: 58, at: 0.18, colour: 'rgba(232,237,242,0.72)' },
+        ],
+        top: 0.40,
       }),
       S('bands', 'steel', 'Android offered a different path from Apple\'s tightly controlled ecosystem. It could be adopted by multiple manufacturers, allowing companies to build smartphones using a common software foundation.', {
         kicker: 'ONE SYSTEM, MANY MAKERS',
@@ -809,14 +839,14 @@ const SCENES = [
         caption: 'Every shelf, every customer.',
       }),
       S('chart', 'steel', 'As more devices entered the market, more customers gained access to modern smartphone features. Developers could create applications for a growing audience. Consumers gained more choices. And the platform became increasingly attractive as its ecosystem expanded.', {
-        kicker: 'ANDROID SHARE OF SMARTPHONES, PERCENT',
-        caption: 'Four percent to seventy-nine.',
+        kicker: 'ANDROID SMARTPHONE SALES · GARTNER · PERCENT',
+        caption: 'Four percent to seventy-eight.',
         bars: [
-          { label: '2009', value: 4 },
-          { label: '2010', value: 23 },
-          { label: '2011', value: 49 },
-          { label: '2012', value: 68 },
-          { label: '2013', value: 79, hot: true },
+          { label: '2009', value: 3.9 },
+          { label: '2010', value: 22.7 },
+          { label: '2011', value: 46 }, // rounded: 219m of 472m
+          { label: '2012', value: 66.4 },
+          { label: '2013', value: 78.4, hot: true },
         ],
         lit: 0.9,
       }),
@@ -837,13 +867,15 @@ const SCENES = [
         top: 0.40,
       }),
       S('chart', 'steel', 'The company had the resources to compete. It had an established smartphone business, a globally recognized brand, and years of engineering experience.', {
-        kicker: 'MONEY SPENT ON RESEARCH, BILLIONS OF EUROS',
+        // Nokia's consolidated R&D expenses; 2007 is the restated figure
+        // shown alongside 2008 in Nokia's 2008 annual report.
+        kicker: 'NOKIA GROUP R&D · BILLIONS OF EUROS',
         caption: 'It was not a company without resources.',
         bars: [
-          { label: '2007', value: 3.9 },
-          { label: '2008', value: 4.6 },
-          { label: '2009', value: 5.1 },
-          { label: '2010', value: 5.9, hot: true },
+          { label: '2007', value: 5.636 },
+          { label: '2008', value: 5.968, hot: true },
+          { label: '2009', value: 5.909 },
+          { label: '2010', value: 5.863, hot: false },
         ],
         lit: 0.9,
         scaleMax: 6.5,
@@ -878,14 +910,14 @@ const SCENES = [
         top: 0.40,
       }),
       S('chart', 'cold', 'For years, Nokia had relied heavily on Symbian, an operating system used in many of its smartphones. Symbian had helped the company deliver advanced mobile capabilities long before the iPhone arrived. It was not an insignificant achievement.', {
-        kicker: 'SYMBIAN SHARE OF SMARTPHONES · 2007',
-        caption: 'Two thirds of the world, once.',
+        kicker: 'SMARTPHONE OS · GARTNER · 2007',
+        caption: 'Almost two thirds.',
         bars: [
-          { label: 'Symbian', value: 65, hot: true },
-          { label: 'RIM', value: 11 },
-          { label: 'Windows', value: 12 },
-          { label: 'iPhone', value: 3 },
-          { label: 'Other', value: 9 },
+          { label: 'Symbian', value: 63.5, hot: true },
+          { label: 'RIM', value: 9.6 },
+          { label: 'Windows', value: 12.0 },
+          { label: 'iPhone', value: 2.7 },
+          { label: 'Other', value: 12.1 },
         ],
         lit: 0.0,
       }),
@@ -899,15 +931,13 @@ const SCENES = [
         ],
         caption: 'None of it was in the box.',
       }),
-      S('chart', 'cold', 'Nokia\'s software environment became increasingly difficult to manage. Different devices and versions of its operating systems created complexity.', {
-        kicker: 'VERSIONS IN THE FIELD · 2010',
-        caption: 'Sixty variants, one company.',
-        bars: [
-          { label: 'Symbian', value: 60, hot: true },
-          { label: 'iPhone', value: 1 },
-          { label: 'Android', value: 4 },
+      S('type', 'cold', 'Nokia\'s software environment became increasingly difficult to manage. Different devices and versions of its operating systems created complexity.', {
+        kicker: 'SOFTWARE COMPLEXITY',
+        lines: [
+          { text: 'Different devices.', size: 50, at: 0.07, gap: 0.13 },
+          { text: 'Different versions.', size: 60, at: 0.19 },
         ],
-        lit: 0.0,
+        top: 0.42,
       }),
       S('bands', 'cold', 'The company also struggled to move quickly enough as consumer expectations evolved. Developers were increasingly drawn to platforms where they could reach large audiences and build applications using consistent tools.', {
         kicker: 'WHERE THE DEVELOPERS WENT',
@@ -977,15 +1007,15 @@ const SCENES = [
         top: 0.42,
       }),
       S('chart', 'ember', 'But change comes with a cost. Nokia\'s decision to move toward Windows Phone created uncertainty around its existing products and future direction.', {
-        kicker: 'SHARE OF PHONES SOLD, PERCENT',
-        caption: 'The price of the wait.',
+        kicker: 'ALL PHONES SOLD · GARTNER · PERCENT',
+        caption: 'Nokia’s share declined.',
         bars: [
-          { label: '2011', value: 15, hot: true },
-          { label: '2012', value: 6 },
-          { label: '2013', value: 3 },
+          { label: '2011', value: 23.8, hot: true },
+          { label: '2012', value: 19.1 },
+          { label: '2013', value: 13.9 },
         ],
         lit: 0.0,
-        scaleMax: 17,
+        scaleMax: 26,
       }),
       S('bands', 'ember', 'Consumers wondered whether they should continue buying Symbian devices. Developers had to decide where to invest their time. Employees faced a major organizational transition.', {
         kicker: 'THREE GROUPS WAITED',
@@ -997,13 +1027,13 @@ const SCENES = [
         caption: 'Everyone paused at once.',
       }),
       S('chart', 'cold', 'Meanwhile, Apple\'s iPhone and Android devices continued attracting customers.', {
-        kicker: 'SMARTPHONE SHARE · 2013, PERCENT',
+        kicker: 'SMARTPHONE OS · GARTNER · 2013',
         caption: 'The others did not pause.',
         bars: [
-          { label: 'Android', value: 79, hot: true },
-          { label: 'iOS', value: 15 },
-          { label: 'Windows Phone', value: 3 },
-          { label: 'Other', value: 3 },
+          { label: 'Android', value: 78.4, hot: true },
+          { label: 'iOS', value: 15.6 },
+          { label: 'Windows Phone', value: 3.2 },
+          { label: 'Other', value: 2.8 },
         ],
         lit: 0.0,
         transition: T('fade', { dip: 'paper' }),
@@ -1027,15 +1057,15 @@ const SCENES = [
         ],
         caption: 'Hardware was the easy part.',
       }),
-      S('chart', 'cold', 'Windows Phone struggled to match the scale of the iOS and Android ecosystems. That made it harder to attract users. And fewer users made it harder to attract developers. It was a difficult cycle to break.', {
-        kicker: 'APPLICATIONS AVAILABLE · 2013, THOUSANDS',
-        caption: 'A cycle with no way in.',
-        bars: [
-          { label: 'iOS', value: 900 },
-          { label: 'Android', value: 800 },
-          { label: 'Windows Phone', value: 150, hot: true },
+      S('type', 'cold', 'Windows Phone struggled to match the scale of the iOS and Android ecosystems. That made it harder to attract users. And fewer users made it harder to attract developers. It was a difficult cycle to break.', {
+        // Avoid an unsupported snapshot of app-store counts and dates.
+        kicker: 'THE ECOSYSTEM CHALLENGE',
+        lines: [
+          { text: 'Users.', size: 56, at: 0.06, gap: 0.12 },
+          { text: 'Developers.', size: 56, at: 0.18, gap: 0.12 },
+          { text: 'Applications.', size: 56, at: 0.30 },
         ],
-        lit: 0.0,
+        top: 0.36,
       }),
       S('type', 'ash', 'Nokia was trying to rebuild its position while the industry was moving forward at extraordinary speed. The company had made a bold strategic decision. But it had entered a race in which its competitors had already built substantial momentum.', {
         kicker: 'THE RACE',
@@ -1070,14 +1100,14 @@ const SCENES = [
       }),
       S('type', 'ash', 'In September 2013, Microsoft announced an agreement to acquire substantially all of Nokia\'s Devices and Services business.', {
         kicker: '3 SEPTEMBER 2013',
-        lines: [{ text: 'The phone business is sold.', size: 54, at: 0.10 }],
+        lines: [{ text: 'A sale is announced.', size: 54, at: 0.10 }],
         top: 0.46,
       }),
       S('type', 'ash', 'The transaction was valued at approximately 5.44 billion euros, equivalent to roughly 7.2 billion US dollars at the time.', {
-        kicker: 'THE PRICE',
+        kicker: 'AGREED PRICE · BUSINESS AND PATENT LICENSE',
         lines: [
-          { text: '€5.44 billion.', size: 84, at: 0.06, gap: 0.16 },
-          { text: '$7.2 billion.', size: 84, at: 0.22, colour: 'rgba(233,231,226,0.62)' },
+          { text: '€5.44 billion.', size: 64, at: 0.06, gap: 0.16 },
+          { text: '$7.2 billion.', size: 64, at: 0.22, colour: 'rgba(233,231,226,0.62)' },
         ],
         top: 0.38,
       }),
@@ -1116,7 +1146,7 @@ const SCENES = [
         },
       }),
       S('bands', 'ash', 'Microsoft hoped the acquisition would strengthen its position in smartphones. Nokia, meanwhile, would concentrate on other businesses, including telecommunications network equipment, mapping and location services, and technology licensing.', {
-        kicker: 'WHAT NOKIA KEPT',
+        kicker: 'WHAT NOKIA KEPT IN 2014',
         bands: [
           { label: 'Networks', sub: 'EQUIPMENT', colour: 'rgba(80,190,175,0.38)' },
           { label: 'Here', sub: 'MAPPING', colour: 'rgba(120,160,210,0.34)' },
@@ -1282,7 +1312,7 @@ const SCENES = [
     world: 'teal',
     shots: [
       S('type', 'teal', 'But the story of Nokia did not end with the sale of its phone business. The company continued operating, transforming itself into a business focused heavily on telecommunications network equipment and related technology.', {
-        kicker: 'ACT IX · 2016',
+        kicker: 'ACT IX · BEYOND THE PHONE',
         lines: [
           { text: 'The story did not end', size: 40, at: 0.05, colour: 'rgba(233,240,230,0.64)', gap: 0.10 },
           { text: 'with the phone.', size: 40, at: 0.15, colour: 'rgba(233,240,230,0.64)', gap: 0.16 },
@@ -1291,17 +1321,14 @@ const SCENES = [
         top: 0.36,
         transition: T('wipe', { direction: 'left' }),
       }),
-      S('chart', 'teal', 'In 2016, Nokia completed its acquisition of Alcatel-Lucent, expanding its capabilities in networking and communications infrastructure.', {
-        kicker: 'RADIO ACCESS NETWORKS · SHARE',
-        caption: 'One of three that build the world\'s networks.',
-        bars: [
-          { label: 'Huawei', value: 31 },
-          { label: 'Nokia', value: 22, hot: true },
-          { label: 'Ericsson', value: 18 },
-          { label: 'ZTE', value: 11 },
-          { label: 'Others', value: 18 },
+      S('type', 'teal', 'In 2016, Nokia completed its acquisition of Alcatel-Lucent, expanding its capabilities in networking and communications infrastructure.', {
+        // An undated market-share snapshot did not support the acquisition.
+        kicker: '2016 · NETWORKING',
+        lines: [
+          { text: 'Nokia', size: 62, at: 0.06, gap: 0.12 },
+          { text: '+ Alcatel-Lucent', size: 62, at: 0.18, colour: 'rgba(233,240,230,0.72)' },
         ],
-        lit: 0.0,
+        top: 0.40,
       }),
       S('map', 'teal', 'The company became increasingly focused on the technology that allows mobile networks and digital communications to function.', {
         kicker: 'THE NETWORKS',
@@ -1341,7 +1368,7 @@ const SCENES = [
         top: 0.42,
       }),
       S('type', 'gold', 'For Nokia, survival required accepting that its future would not necessarily look like its past.', {
-        kicker: '2016 — 2025',
+        kicker: 'A DIFFERENT FUTURE',
         lines: [
           { text: 'The future', size: 48, at: 0.06, colour: 'rgba(243,238,226,0.64)', gap: 0.12 },
           { text: 'did not look', size: 48, at: 0.18, colour: 'rgba(243,238,226,0.64)', gap: 0.12 },
@@ -1389,10 +1416,11 @@ const SCENES = [
       S('bands', 'gold', 'The world moved from phones built around hardware to smartphones built around software, services, and ecosystems. And Nokia struggled to make that transition in time.', {
         kicker: 'THE TRANSITION',
         bands: [
-          { label: 'Hardware', sub: '1865 — 2006', colour: 'rgba(160,170,190,0.34)' },
-          { label: 'Software', sub: '2007 —', colour: 'rgba(226,185,79,0.44)' },
-          { label: 'Services', sub: '2008 —', colour: 'rgba(150,190,170,0.34)' },
-          { label: 'Ecosystems', sub: '2010 —', colour: 'rgba(120,160,210,0.34)' },
+          // These overlapped; none began on a single arbitrary date.
+          { label: 'Hardware', sub: 'DEVICES', colour: 'rgba(160,170,190,0.34)' },
+          { label: 'Software', sub: 'INTERFACES', colour: 'rgba(226,185,79,0.44)' },
+          { label: 'Services', sub: 'ONLINE', colour: 'rgba(150,190,170,0.34)' },
+          { label: 'Ecosystems', sub: 'DEVELOPERS', colour: 'rgba(120,160,210,0.34)' },
         ],
         caption: 'It was one transition too many.',
       }),
@@ -1419,7 +1447,7 @@ const SCENES = [
           { text: 'is believing it', size: 54, at: 0.23, gap: 0.10 },
           { text: 'will last forever.', size: 54, at: 0.32, colour: '#E2B94F' },
         ],
-        small: 'NOKIA · 1865 — 2014',
+        small: 'NOKIA · REINVENTED',
         transition: T('push', { direction: 'left' }),
       }),
     ],

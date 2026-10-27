@@ -68,7 +68,7 @@ def repeat_frame_check(path, max_still_seconds):
                 "statement": "REPEAT CHECK: NOT RUN - %s" % exc}
 
 
-def run_filter(binary, path, video_filter=None, audio_filter=None, timeout=300):
+def run_filter(binary, path, video_filter=None, audio_filter=None, timeout=1800):
     command = [binary, "-hide_banner", "-nostats", "-i", str(path)]
     if video_filter:
         command += ["-vf", video_filter, "-an"]
@@ -88,9 +88,24 @@ def intervals(stderr, start_pattern, end_pattern=None):
             for s, e in zip(starts, ends) if e >= s]
 
 
+def parse_black_events(stderr, duration):
+    """Keep a black interval that reaches EOF even if the filter omits its end."""
+    starts = [float(x) for x in re.findall(r"black_start:\s*([0-9.]+)", stderr)]
+    ends = [float(x) for x in re.findall(r"black_end:\s*([0-9.]+)", stderr)]
+    events = [{"start": s, "end": e, "duration": round(e-s, 3)}
+              for s, e in zip(starts, ends) if e >= s]
+    if starts and (not ends or starts[-1] > ends[-1]):
+        tail_start = starts[-1]
+        if duration >= tail_start:
+            events.append({"start": tail_start, "end": duration,
+                           "duration": round(duration-tail_start, 3),
+                           "continues_to_eof": True})
+    return events
+
+
 def parse_silence_events(stderr, duration):
-    starts = [float(x) for x in re.findall(r"silence_start:([0-9.]+)", stderr)]
-    ends = [float(x) for x in re.findall(r"silence_end:([0-9.]+)", stderr)]
+    starts = [float(x) for x in re.findall(r"silence_start:\s*([0-9.]+)", stderr)]
+    ends = [float(x) for x in re.findall(r"silence_end:\s*([0-9.]+)", stderr)]
     events = [{"start": s, "end": e, "duration": round(e-s, 3)}
               for s, e in zip(starts, ends) if e >= s]
     # FFmpeg omits silence_end when silence persists to EOF.
@@ -134,7 +149,7 @@ def audit(path, strict=False, max_black_seconds=0.20, max_freeze_seconds=3.0,
     code, log = run_filter(ffmpeg, path, video_filter="blackdetect=d=0.10:pix_th=0.025")
     if code:
         raise ValueError("FFmpeg black-frame detector failed: " + log[-1000:])
-    black = intervals(log, r"black_start:([0-9.]+)", r"black_end:([0-9.]+)")
+    black = parse_black_events(log, duration)
     report["checks"]["black_frames"] = {"count": len(black), "events": black,
                                          "threshold_seconds": max_black_seconds}
     if any(e["duration"] >= max_black_seconds for e in black):

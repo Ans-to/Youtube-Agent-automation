@@ -1,0 +1,578 @@
+[
+  {
+    "id": "s01-01",
+    "scene": 1,
+    "start": 0,
+    "end": 8.773,
+    "voStart": 0.3,
+    "transition": "cut"
+  },
+  {
+    "id": "s01-04",
+    "scene": 1,
+    "start": 8.773,
+    "end": 13.948,
+    "voStart": 9.023,
+    "transition": "cut"
+  },
+  {
+    "id": "s01-05",
+    "scene": 1,
+    "start": 13.948,
+    "end": 19.624,
+    "voStart": 14.198,
+    "transition": "cut"
+  },
+  {
+    "id": "s01-08",
+    "scene": 1,
+    "start": 19.624,
+    "end": 27.561,
+    "voStart": 19.874,
+    "transition": "cut"
+  },
+  {
+    "id": "s01-09",
+    "scene": 1,
+    "start": 27.561,
+    "end": 31.652,
+    "voStart": 27.811,
+    "transition": "cut"
+  },
+  {
+    "id": "s01-10",
+    "scene": 1,
+    "start": 31.652,
+    "end": 34.884,
+    "voStart": 31.902,
+    "transition": "cut"
+  },
+  {
+    "id": "s01-12",
+    "scene": 1,
+    "start": 34.884,
+    "end": 42.892,
+    "voStart": 35.134,
+    "transition": "cut"
+  },
+  {
+    "id": "s01-13",
+    "scene": 1,
+    "start": 42.892,
+    "end": 46.443,
+    "voStart": 43.142,
+    "transition": "fade-paper"
+  },
+  {
+    "id": "s01-17",
+    "scene": 1,
+    "start": 46.443,
+    "end": 55.492,
+    "voStart": 46.693,
+    "transition": "cut"
+  },
+  {
+    "id": "s02-02",
+    "scene": 2,
+    "start": 55.492,
+    "end": 65.819,
+    "voStart": 55.742,
+    "transition": "cut"
+  },
+  {
+    "id": "s02-04",
+    "scene": 2,
+    "start": 65.819,
+    "end": 72.288,
+    "voStart": 66.069,
+    "transition": "cut"
+  },
+  {
+    "id": "s02-05",
+    "scene": 2,
+    "start": 72.288,
+    "end": 77.898,
+    "voStart": 72.538,
+    "transition": "cut"
+  },
+  {
+    "id": "s02-08",
+    "scene": 2,
+    "start": 77.898,
+    "end": 87.412,
+    "voStart": 78.148,
+    "transition": "cut"
+  },
+  {
+    "id": "s02-10",
+    "scene": 2,
+    "start": 87.412,
+    "end": 98.551,
+    "voStart": 87.662,
+    "transition": "fade-paper"
+  },
+  {
+    "id": "s02-11",
+    "scene": 2,
+    "start": 98.551,
+    "end": 110.186,
+    "voStart": 98.801,
+    "transition": "cut"
+  },
+  {
+    "id": "s02-13",
+    "scene": 2,
+    "start": 110.186,
+    "end": 121.774,
+    "voStart": 110.436,
+    "transition": "cut"
+  },
+  {
+    "id": "s03-01",
+    "scene": 3,
+    "start": 121.774,
+    "end": 144.45,
+    "voStart": 122.024,
+    "transition": "cut"
+  },
+  {
+    "id": "s03-03",
+    "scene": 3,
+    "start": 144.45,
+    "end": 161.747,
+    "voStart": 144.7,
+    "transition": "cut"
+  },
+  {
+    "id": "s03-05",
+    "scene": 3,
+    "start": 161.747,
+    "end": 173.413,
+    "voStart": 161.997,
+    "transition": "cut"
+  },
+  {
+    "id": "s03-08",
+    "scene": 3,
+    "start": 173.413,
+    "end": 188.391,
+    "voStart": 173.663,
+    "transition": "cut"
+  },
+  {
+    "id": "s04-01",
+    "scene": 4,
+    "start": 188.391,
+    "end": 203.784,
+    "voStart": 188.641,
+    "transition": "cut"
+  },
+  {
+    "id": "s04-02",
+    "scene": 4,
+    "start": 203.784,
+    "end": 225.152,
+    "voStart": 204.034,
+    "transition": "cut"
+  },
+  {
+    "id": "s04-06",
+    "scene": 4,
+    "start": 225.152,
+    "end": 241.825,
+    "voStart": 225.402,
+    "transition": "cut"
+  },
+  {
+    "id": "s04-07",
+    "scene": 4,
+    "start": 241.825,
+    "end": 259.061,
+    "voStart": 242.075,
+    "transition": "rack"
+  },
+  {
+    "id": "s04-11",
+    "scene": 4,
+    "start": 259.061,
+    "end": 276.608,
+    "voStart": 259.311,
+    "transition": "fade-paper"
+  },
+  {
+    "id": "s05-04",
+    "scene": 5,
+    "start": 276.608,
+    "end": 290.809,
+    "voStart": 276.858,
+    "transition": "cut"
+  },
+  {
+    "id": "s05-05",
+    "scene": 5,
+    "start": 290.809,
+    "end": 306.892,
+    "voStart": 291.059,
+    "transition": "cut"
+  },
+  {
+    "id": "s05-07",
+    "scene": 5,
+    "start": 306.892,
+    "end": 318.509,
+    "voStart": 307.142,
+    "transition": "cut"
+  },
+  {
+    "id": "s05-10",
+    "scene": 5,
+    "start": 318.509,
+    "end": 333.692,
+    "voStart": 318.759,
+    "transition": "fade-paper"
+  },
+  {
+    "id": "s05-11",
+    "scene": 5,
+    "start": 333.692,
+    "end": 342.264,
+    "voStart": 333.942,
+    "transition": "iris"
+  },
+  {
+    "id": "s06-01",
+    "scene": 6,
+    "start": 342.264,
+    "end": 352.862,
+    "voStart": 342.514,
+    "transition": "cut"
+  },
+  {
+    "id": "s06-02",
+    "scene": 6,
+    "start": 352.862,
+    "end": 365.642,
+    "voStart": 353.112,
+    "transition": "cut"
+  },
+  {
+    "id": "s06-03",
+    "scene": 6,
+    "start": 365.642,
+    "end": 379.289,
+    "voStart": 365.892,
+    "transition": "cut"
+  },
+  {
+    "id": "s06-05",
+    "scene": 6,
+    "start": 379.289,
+    "end": 393.137,
+    "voStart": 379.539,
+    "transition": "cut"
+  },
+  {
+    "id": "s06-09",
+    "scene": 6,
+    "start": 393.137,
+    "end": 409.793,
+    "voStart": 393.387,
+    "transition": "cut"
+  },
+  {
+    "id": "s07-01",
+    "scene": 7,
+    "start": 409.793,
+    "end": 431.532,
+    "voStart": 410.043,
+    "transition": "cut"
+  },
+  {
+    "id": "s07-02",
+    "scene": 7,
+    "start": 431.532,
+    "end": 437.425,
+    "voStart": 431.782,
+    "transition": "cut"
+  },
+  {
+    "id": "s07-03",
+    "scene": 7,
+    "start": 437.425,
+    "end": 452.062,
+    "voStart": 437.675,
+    "transition": "cut"
+  },
+  {
+    "id": "s07-05",
+    "scene": 7,
+    "start": 452.062,
+    "end": 472.991,
+    "voStart": 452.312,
+    "transition": "cut"
+  },
+  {
+    "id": "s07-06",
+    "scene": 7,
+    "start": 472.991,
+    "end": 492.535,
+    "voStart": 473.241,
+    "transition": "cut"
+  },
+  {
+    "id": "s08-01",
+    "scene": 8,
+    "start": 492.535,
+    "end": 500.112,
+    "voStart": 492.785,
+    "transition": "cut"
+  },
+  {
+    "id": "s08-02",
+    "scene": 8,
+    "start": 500.112,
+    "end": 519.506,
+    "voStart": 500.362,
+    "transition": "cut"
+  },
+  {
+    "id": "s08-04",
+    "scene": 8,
+    "start": 519.506,
+    "end": 531.226,
+    "voStart": 519.756,
+    "transition": "cut"
+  },
+  {
+    "id": "s08-07",
+    "scene": 8,
+    "start": 531.226,
+    "end": 542.384,
+    "voStart": 531.476,
+    "transition": "fade-paper"
+  },
+  {
+    "id": "s08-08",
+    "scene": 8,
+    "start": 542.384,
+    "end": 567.662,
+    "voStart": 542.634,
+    "transition": "cut"
+  },
+  {
+    "id": "s08-09",
+    "scene": 8,
+    "start": 567.662,
+    "end": 586.325,
+    "voStart": 567.912,
+    "transition": "cut"
+  },
+  {
+    "id": "s09-01",
+    "scene": 9,
+    "start": 586.325,
+    "end": 605.848,
+    "voStart": 586.575,
+    "transition": "cut"
+  },
+  {
+    "id": "s09-03",
+    "scene": 9,
+    "start": 605.848,
+    "end": 617.944,
+    "voStart": 606.098,
+    "transition": "cut"
+  },
+  {
+    "id": "s09-06",
+    "scene": 9,
+    "start": 617.944,
+    "end": 635.557,
+    "voStart": 618.194,
+    "transition": "cut"
+  },
+  {
+    "id": "s09-08",
+    "scene": 9,
+    "start": 635.557,
+    "end": 651.948,
+    "voStart": 635.807,
+    "transition": "cut"
+  },
+  {
+    "id": "s10-02",
+    "scene": 10,
+    "start": 651.948,
+    "end": 662.943,
+    "voStart": 652.198,
+    "transition": "cut"
+  },
+  {
+    "id": "s10-03",
+    "scene": 10,
+    "start": 662.943,
+    "end": 675.506,
+    "voStart": 663.193,
+    "transition": "cut"
+  },
+  {
+    "id": "s10-04",
+    "scene": 10,
+    "start": 675.506,
+    "end": 687.94,
+    "voStart": 675.756,
+    "transition": "cut"
+  },
+  {
+    "id": "s10-06",
+    "scene": 10,
+    "start": 687.94,
+    "end": 707.455,
+    "voStart": 688.19,
+    "transition": "cut"
+  },
+  {
+    "id": "s10-08",
+    "scene": 10,
+    "start": 707.455,
+    "end": 717.478,
+    "voStart": 707.705,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-01",
+    "scene": 11,
+    "start": 717.478,
+    "end": 726.567,
+    "voStart": 717.728,
+    "transition": "wipe-left"
+  },
+  {
+    "id": "s11-02",
+    "scene": 11,
+    "start": 726.567,
+    "end": 738.889,
+    "voStart": 726.817,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-03",
+    "scene": 11,
+    "start": 738.889,
+    "end": 759.038,
+    "voStart": 739.139,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-04",
+    "scene": 11,
+    "start": 759.038,
+    "end": 774.563,
+    "voStart": 759.288,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-05",
+    "scene": 11,
+    "start": 774.563,
+    "end": 789.22,
+    "voStart": 774.813,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-06",
+    "scene": 11,
+    "start": 789.22,
+    "end": 804.846,
+    "voStart": 789.47,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-07",
+    "scene": 11,
+    "start": 804.846,
+    "end": 820.506,
+    "voStart": 805.096,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-08",
+    "scene": 11,
+    "start": 820.506,
+    "end": 830.577,
+    "voStart": 820.756,
+    "transition": "cut"
+  },
+  {
+    "id": "s11-11",
+    "scene": 11,
+    "start": 830.577,
+    "end": 843.89,
+    "voStart": 830.827,
+    "transition": "fade-paper"
+  },
+  {
+    "id": "s12-01",
+    "scene": 12,
+    "start": 843.89,
+    "end": 861.399,
+    "voStart": 844.14,
+    "transition": "wipe-left"
+  },
+  {
+    "id": "s12-02",
+    "scene": 12,
+    "start": 861.399,
+    "end": 873.993,
+    "voStart": 861.649,
+    "transition": "cut"
+  },
+  {
+    "id": "s12-04",
+    "scene": 12,
+    "start": 873.993,
+    "end": 885.573,
+    "voStart": 874.243,
+    "transition": "cut"
+  },
+  {
+    "id": "s12-07",
+    "scene": 12,
+    "start": 885.573,
+    "end": 894.163,
+    "voStart": 885.823,
+    "transition": "fade-paper"
+  },
+  {
+    "id": "s13-01",
+    "scene": 13,
+    "start": 894.163,
+    "end": 905.586,
+    "voStart": 894.413,
+    "transition": "wipe-left"
+  },
+  {
+    "id": "s13-04",
+    "scene": 13,
+    "start": 905.586,
+    "end": 918.882,
+    "voStart": 905.836,
+    "transition": "cut"
+  },
+  {
+    "id": "s13-06",
+    "scene": 13,
+    "start": 918.882,
+    "end": 927.247,
+    "voStart": 919.132,
+    "transition": "cut"
+  },
+  {
+    "id": "s13-07",
+    "scene": 13,
+    "start": 927.247,
+    "end": 935.616,
+    "voStart": 927.497,
+    "transition": "push-left"
+  }
+]

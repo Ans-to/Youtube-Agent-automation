@@ -1,0 +1,719 @@
+{
+  "title": "Nokia: The Rise, Fall, and Reinvention of a Phone Giant",
+  "status": "unapproved review cut",
+  "scenes": [
+    {
+      "scene": 1,
+      "shots": [
+        {
+          "id": "s01-01",
+          "scene": 1,
+          "start": 0,
+          "end": 8.773,
+          "voStart": 0.3,
+          "transition": "cut",
+          "narration": "Imagine building a company so powerful that billions of people around the world carry its products in their pockets."
+        },
+        {
+          "id": "s01-04",
+          "scene": 1,
+          "start": 8.773,
+          "end": 13.948,
+          "voStart": 9.023,
+          "transition": "cut",
+          "narration": "For millions of people, that company was Nokia."
+        },
+        {
+          "id": "s01-05",
+          "scene": 1,
+          "start": 13.948,
+          "end": 19.624,
+          "voStart": 14.198,
+          "transition": "cut",
+          "narration": "At its peak, Nokia dominated the mobile phone industry."
+        },
+        {
+          "id": "s01-08",
+          "scene": 1,
+          "start": 19.624,
+          "end": 27.561,
+          "voStart": 19.874,
+          "transition": "cut",
+          "narration": "In just a few years, the company that once ruled the mobile world found itself struggling to survive."
+        },
+        {
+          "id": "s01-09",
+          "scene": 1,
+          "start": 27.561,
+          "end": 31.652,
+          "voStart": 27.811,
+          "transition": "cut",
+          "narration": "A new generation of smartphones arrived."
+        },
+        {
+          "id": "s01-10",
+          "scene": 1,
+          "start": 31.652,
+          "end": 34.884,
+          "voStart": 31.902,
+          "transition": "cut",
+          "narration": "Touchscreens replaced buttons."
+        },
+        {
+          "id": "s01-12",
+          "scene": 1,
+          "start": 34.884,
+          "end": 42.892,
+          "voStart": 35.134,
+          "transition": "cut",
+          "narration": "And the company that had helped connect the world suddenly seemed unable to understand where the world was going."
+        },
+        {
+          "id": "s01-13",
+          "scene": 1,
+          "start": 42.892,
+          "end": 46.443,
+          "voStart": 43.142,
+          "transition": "fade-paper",
+          "narration": "This is the story of Nokia."
+        },
+        {
+          "id": "s01-17",
+          "scene": 1,
+          "start": 46.443,
+          "end": 55.492,
+          "voStart": 46.693,
+          "transition": "cut",
+          "narration": "Nokia didn't simply lose because it couldn't build a phone. It lost because the rules of the entire industry changed."
+        }
+      ]
+    },
+    {
+      "scene": 2,
+      "shots": [
+        {
+          "id": "s02-02",
+          "scene": 2,
+          "start": 55.492,
+          "end": 65.819,
+          "voStart": 55.742,
+          "transition": "cut",
+          "narration": "In 1865, Finnish engineer Fredrik Idestam established a wood-pulp mill near the town of Tampere."
+        },
+        {
+          "id": "s02-04",
+          "scene": 2,
+          "start": 65.819,
+          "end": 72.288,
+          "voStart": 66.069,
+          "transition": "cut",
+          "narration": "A few years later, he established another mill near the Nokianvirta River."
+        },
+        {
+          "id": "s02-05",
+          "scene": 2,
+          "start": 72.288,
+          "end": 77.898,
+          "voStart": 72.538,
+          "transition": "cut",
+          "narration": "The name Nokia eventually became associated with the company."
+        },
+        {
+          "id": "s02-08",
+          "scene": 2,
+          "start": 77.898,
+          "end": 87.412,
+          "voStart": 78.148,
+          "transition": "cut",
+          "narration": "The company expanded beyond paper production, while other Finnish businesses developed rubber products and electrical equipment."
+        },
+        {
+          "id": "s02-10",
+          "scene": 2,
+          "start": 87.412,
+          "end": 98.551,
+          "voStart": 87.662,
+          "transition": "fade-paper",
+          "narration": "In 1967, Nokia Corporation was formed through the merger of Nokia Ab, Finnish Rubber Works, and Finnish Cable Works."
+        },
+        {
+          "id": "s02-11",
+          "scene": 2,
+          "start": 98.551,
+          "end": 110.186,
+          "voStart": 98.801,
+          "transition": "cut",
+          "narration": "The result was a diversified company with interests spanning several industries. It manufactured everything from cables and rubber products to electronics."
+        },
+        {
+          "id": "s02-13",
+          "scene": 2,
+          "start": 110.186,
+          "end": 121.774,
+          "voStart": 110.436,
+          "transition": "cut",
+          "narration": "As telecommunications technology developed, Nokia began investing in an industry that would eventually transform the way humanity communicated."
+        }
+      ]
+    },
+    {
+      "scene": 3,
+      "shots": [
+        {
+          "id": "s03-01",
+          "scene": 3,
+          "start": 121.774,
+          "end": 144.45,
+          "voStart": 122.024,
+          "transition": "cut",
+          "narration": "During the 1980s, mobile communication was still expensive, complicated, and far from accessible to ordinary people. Early mobile phones were bulky. Networks were limited. And owning a mobile telephone was often a luxury reserved for businesses and wealthy customers."
+        },
+        {
+          "id": "s03-03",
+          "scene": 3,
+          "start": 144.45,
+          "end": 161.747,
+          "voStart": 144.7,
+          "transition": "cut",
+          "narration": "Nokia invested heavily in telecommunications equipment and mobile technology. In 1987, the company introduced the Mobira Cityman, a portable mobile phone designed for the emerging mobile market."
+        },
+        {
+          "id": "s03-05",
+          "scene": 3,
+          "start": 161.747,
+          "end": 173.413,
+          "voStart": 161.997,
+          "transition": "cut",
+          "narration": "Then, in 1991, a GSM call was made using a Nokia phone over a commercial GSM network in Finland."
+        },
+        {
+          "id": "s03-08",
+          "scene": 3,
+          "start": 173.413,
+          "end": 188.391,
+          "voStart": 173.663,
+          "transition": "cut",
+          "narration": "But the greatest opportunity came when mobile phones began moving beyond wealthy early adopters. The next challenge was to make them smaller, more affordable, more reliable, and easier to use."
+        }
+      ]
+    },
+    {
+      "scene": 4,
+      "shots": [
+        {
+          "id": "s04-01",
+          "scene": 4,
+          "start": 188.391,
+          "end": 203.784,
+          "voStart": 188.641,
+          "transition": "cut",
+          "narration": "The 1990s became a turning point for Nokia. In 1992, the company introduced the Nokia 1011, one of its early mass-produced GSM mobile phones."
+        },
+        {
+          "id": "s04-02",
+          "scene": 4,
+          "start": 203.784,
+          "end": 225.152,
+          "voStart": 204.034,
+          "transition": "cut",
+          "narration": "That same year, Nokia made a major strategic decision. It began focusing its business more heavily on telecommunications. Instead of spreading its attention across multiple industries, the company increasingly concentrated on the technology that would define its future."
+        },
+        {
+          "id": "s04-06",
+          "scene": 4,
+          "start": 225.152,
+          "end": 241.825,
+          "voStart": 225.402,
+          "transition": "cut",
+          "narration": "Then came phones that became cultural icons. The Nokia 3210 helped popularize mobile phones with younger consumers. Its internal antenna and customizable covers made it distinctive."
+        },
+        {
+          "id": "s04-07",
+          "scene": 4,
+          "start": 241.825,
+          "end": 259.061,
+          "voStart": 242.075,
+          "transition": "rack",
+          "narration": "The Nokia 3310, introduced in 2000, became famous for its sturdy construction, long battery life, and simple games. Snake became a familiar source of entertainment for millions of people."
+        },
+        {
+          "id": "s04-11",
+          "scene": 4,
+          "start": 259.061,
+          "end": 276.608,
+          "voStart": 259.311,
+          "transition": "fade-paper",
+          "narration": "But Nokia's growing dominance created a new danger. The company had become exceptionally good at building the phones people wanted. The question was whether it could recognize the moment when people began wanting something entirely different."
+        }
+      ]
+    },
+    {
+      "scene": 5,
+      "shots": [
+        {
+          "id": "s05-04",
+          "scene": 5,
+          "start": 276.608,
+          "end": 290.809,
+          "voStart": 276.858,
+          "transition": "cut",
+          "narration": "Nokia wasn't simply selling basic communication tools anymore. It was exploring how mobile devices could support photography, music, internet access, and productivity."
+        },
+        {
+          "id": "s05-05",
+          "scene": 5,
+          "start": 290.809,
+          "end": 306.892,
+          "voStart": 291.059,
+          "transition": "cut",
+          "narration": "The company possessed enormous manufacturing capabilities and deep relationships with telecommunications operators. Its global distribution network helped it reach markets that many competitors struggled to serve."
+        },
+        {
+          "id": "s05-07",
+          "scene": 5,
+          "start": 306.892,
+          "end": 318.509,
+          "voStart": 307.142,
+          "transition": "cut",
+          "narration": "By 2007, Nokia held roughly 40 percent of the global mobile phone market, depending on the market definition and measurement used."
+        },
+        {
+          "id": "s05-10",
+          "scene": 5,
+          "start": 318.509,
+          "end": 333.692,
+          "voStart": 318.759,
+          "transition": "fade-paper",
+          "narration": "But a dangerous assumption was beginning to take hold. Nokia had become so successful at winning the existing mobile phone market that it risked underestimating how radically that market could change."
+        },
+        {
+          "id": "s05-11",
+          "scene": 5,
+          "start": 333.692,
+          "end": 342.264,
+          "voStart": 333.942,
+          "transition": "iris",
+          "narration": "And in January 2007, the industry received a warning that would soon become impossible to ignore."
+        }
+      ]
+    },
+    {
+      "scene": 6,
+      "shots": [
+        {
+          "id": "s06-01",
+          "scene": 6,
+          "start": 342.264,
+          "end": 352.862,
+          "voStart": 342.514,
+          "transition": "cut",
+          "narration": "On January 9, 2007, Steve Jobs walked onto a stage in San Francisco and introduced the original iPhone."
+        },
+        {
+          "id": "s06-02",
+          "scene": 6,
+          "start": 352.862,
+          "end": 365.642,
+          "voStart": 353.112,
+          "transition": "cut",
+          "narration": "It was not the first smartphone. Nokia had already produced advanced mobile devices, including smartphones with internet connectivity and software applications."
+        },
+        {
+          "id": "s06-03",
+          "scene": 6,
+          "start": 365.642,
+          "end": 379.289,
+          "voStart": 365.892,
+          "transition": "cut",
+          "narration": "But the iPhone presented a different vision of what a phone could become. Instead of relying primarily on physical buttons, it placed a large touchscreen at the center of the experience."
+        },
+        {
+          "id": "s06-05",
+          "scene": 6,
+          "start": 379.289,
+          "end": 393.137,
+          "voStart": 379.539,
+          "transition": "cut",
+          "narration": "The significance of the iPhone went far beyond its appearance. Apple was changing the relationship between hardware and software. The user experience became central to the product."
+        },
+        {
+          "id": "s06-09",
+          "scene": 6,
+          "start": 393.137,
+          "end": 409.793,
+          "voStart": 393.387,
+          "transition": "cut",
+          "narration": "The iPhone didn't destroy Nokia overnight. But it changed the direction of competition. The question was no longer simply who could build the best mobile phone. It was who could build the best mobile computing platform."
+        }
+      ]
+    },
+    {
+      "scene": 7,
+      "shots": [
+        {
+          "id": "s07-01",
+          "scene": 7,
+          "start": 409.793,
+          "end": 431.532,
+          "voStart": 410.043,
+          "transition": "cut",
+          "narration": "While Apple was redefining the premium smartphone experience, Google was helping create another major force in the industry. Google acquired Android in 2005. In 2007, it announced the Android platform alongside other members of the Open Handset Alliance."
+        },
+        {
+          "id": "s07-02",
+          "scene": 7,
+          "start": 431.532,
+          "end": 437.425,
+          "voStart": 431.782,
+          "transition": "cut",
+          "narration": "The first commercially available Android phone arrived in 2008."
+        },
+        {
+          "id": "s07-03",
+          "scene": 7,
+          "start": 437.425,
+          "end": 452.062,
+          "voStart": 437.675,
+          "transition": "cut",
+          "narration": "Android offered a different path from Apple's tightly controlled ecosystem. It could be adopted by multiple manufacturers, allowing companies to build smartphones using a common software foundation."
+        },
+        {
+          "id": "s07-05",
+          "scene": 7,
+          "start": 452.062,
+          "end": 472.991,
+          "voStart": 452.312,
+          "transition": "cut",
+          "narration": "As more devices entered the market, more customers gained access to modern smartphone features. Developers could create applications for a growing audience. Consumers gained more choices. And the platform became increasingly attractive as its ecosystem expanded."
+        },
+        {
+          "id": "s07-06",
+          "scene": 7,
+          "start": 472.991,
+          "end": 492.535,
+          "voStart": 473.241,
+          "transition": "cut",
+          "narration": "Nokia faced a difficult competitive landscape. Apple controlled the iPhone experience. Android was building a broad network of manufacturers and developers. Both platforms were benefiting from a shift toward software, services, and applications."
+        }
+      ]
+    },
+    {
+      "scene": 8,
+      "shots": [
+        {
+          "id": "s08-01",
+          "scene": 8,
+          "start": 492.535,
+          "end": 500.112,
+          "voStart": 492.785,
+          "transition": "cut",
+          "narration": "One of Nokia's biggest challenges was not a lack of hardware expertise. It was software."
+        },
+        {
+          "id": "s08-02",
+          "scene": 8,
+          "start": 500.112,
+          "end": 519.506,
+          "voStart": 500.362,
+          "transition": "cut",
+          "narration": "For years, Nokia had relied heavily on Symbian, an operating system used in many of its smartphones. Symbian had helped the company deliver advanced mobile capabilities long before the iPhone arrived. It was not an insignificant achievement."
+        },
+        {
+          "id": "s08-04",
+          "scene": 8,
+          "start": 519.506,
+          "end": 531.226,
+          "voStart": 519.756,
+          "transition": "cut",
+          "narration": "Nokia's software environment became increasingly difficult to manage. Different devices and versions of its operating systems created complexity."
+        },
+        {
+          "id": "s08-07",
+          "scene": 8,
+          "start": 531.226,
+          "end": 542.384,
+          "voStart": 531.476,
+          "transition": "fade-paper",
+          "narration": "In 2010, Nokia appointed Stephen Elop as its new chief executive. The company needed a clear plan to regain momentum."
+        },
+        {
+          "id": "s08-08",
+          "scene": 8,
+          "start": 542.384,
+          "end": 567.662,
+          "voStart": 542.634,
+          "transition": "cut",
+          "narration": "In February 2011, Elop announced that Nokia would adopt Microsoft's Windows Phone platform as its primary smartphone strategy. The decision was intended to help Nokia differentiate itself and compete against Apple and Android. It also meant moving away from Symbian as the foundation of its future smartphone business."
+        },
+        {
+          "id": "s08-09",
+          "scene": 8,
+          "start": 567.662,
+          "end": 586.325,
+          "voStart": 567.912,
+          "transition": "cut",
+          "narration": "But the transition carried enormous risks. Nokia needed to persuade consumers to buy into a new ecosystem. It needed developers to support that ecosystem. And it needed to do both while competitors were rapidly expanding their own platforms."
+        }
+      ]
+    },
+    {
+      "scene": 9,
+      "shots": [
+        {
+          "id": "s09-01",
+          "scene": 9,
+          "start": 586.325,
+          "end": 605.848,
+          "voStart": 586.575,
+          "transition": "cut",
+          "narration": "In February 2011, Stephen Elop circulated a memo that became famous throughout the technology industry. It compared Nokia's situation to a person standing on a burning platform, forced to jump into cold water to escape a greater danger."
+        },
+        {
+          "id": "s09-03",
+          "scene": 9,
+          "start": 605.848,
+          "end": 617.944,
+          "voStart": 606.098,
+          "transition": "cut",
+          "narration": "But change comes with a cost. Nokia's decision to move toward Windows Phone created uncertainty around its existing products and future direction."
+        },
+        {
+          "id": "s09-06",
+          "scene": 9,
+          "start": 617.944,
+          "end": 635.557,
+          "voStart": 618.194,
+          "transition": "cut",
+          "narration": "Nokia and Microsoft introduced the Lumia smartphone line, hoping to combine Nokia's hardware strengths with Microsoft's software platform. Some Lumia devices received praise for their design, cameras, and distinctive appearance."
+        },
+        {
+          "id": "s09-08",
+          "scene": 9,
+          "start": 635.557,
+          "end": 651.948,
+          "voStart": 635.807,
+          "transition": "cut",
+          "narration": "Windows Phone struggled to match the scale of the iOS and Android ecosystems. That made it harder to attract users. And fewer users made it harder to attract developers. It was a difficult cycle to break."
+        }
+      ]
+    },
+    {
+      "scene": 10,
+      "shots": [
+        {
+          "id": "s10-02",
+          "scene": 10,
+          "start": 651.948,
+          "end": 662.943,
+          "voStart": 652.198,
+          "transition": "cut",
+          "narration": "In September 2013, Microsoft announced an agreement to acquire substantially all of Nokia's Devices and Services business."
+        },
+        {
+          "id": "s10-03",
+          "scene": 10,
+          "start": 662.943,
+          "end": 675.506,
+          "voStart": 663.193,
+          "transition": "cut",
+          "narration": "The transaction was valued at approximately 5.44 billion euros, equivalent to roughly 7.2 billion US dollars at the time."
+        },
+        {
+          "id": "s10-04",
+          "scene": 10,
+          "start": 675.506,
+          "end": 687.94,
+          "voStart": 675.756,
+          "transition": "cut",
+          "narration": "It included Nokia's mobile phone business and related assets, alongside licensing arrangements. The deal was completed in April 2014."
+        },
+        {
+          "id": "s10-06",
+          "scene": 10,
+          "start": 687.94,
+          "end": 707.455,
+          "voStart": 688.19,
+          "transition": "cut",
+          "narration": "Microsoft hoped the acquisition would strengthen its position in smartphones. Nokia, meanwhile, would concentrate on other businesses, including telecommunications network equipment, mapping and location services, and technology licensing."
+        },
+        {
+          "id": "s10-08",
+          "scene": 10,
+          "start": 707.455,
+          "end": 717.478,
+          "voStart": 707.705,
+          "transition": "cut",
+          "narration": "But the Nokia that millions of people remembered as the king of mobile phones was no longer operating that business in the same way."
+        }
+      ]
+    },
+    {
+      "scene": 11,
+      "shots": [
+        {
+          "id": "s11-01",
+          "scene": 11,
+          "start": 717.478,
+          "end": 726.567,
+          "voStart": 717.728,
+          "transition": "wipe-left",
+          "narration": "So what really caused Nokia's decline? The answer is not as simple as saying the company failed to make a touchscreen phone."
+        },
+        {
+          "id": "s11-02",
+          "scene": 11,
+          "start": 726.567,
+          "end": 738.889,
+          "voStart": 726.817,
+          "transition": "cut",
+          "narration": "Nokia produced touchscreen devices. It had smartphone technology. It employed talented engineers. And it possessed a globally recognized brand."
+        },
+        {
+          "id": "s11-03",
+          "scene": 11,
+          "start": 738.889,
+          "end": 759.038,
+          "voStart": 739.139,
+          "transition": "cut",
+          "narration": "Its deeper problem was that the center of competition had shifted. First, software became more important. The smartphone experience increasingly depended on how naturally hardware, operating systems, applications, and online services worked together."
+        },
+        {
+          "id": "s11-04",
+          "scene": 11,
+          "start": 759.038,
+          "end": 774.563,
+          "voStart": 759.288,
+          "transition": "cut",
+          "narration": "Second, ecosystems became powerful competitive advantages. Apple and Android benefited from expanding communities of developers, application creators, manufacturers, and users."
+        },
+        {
+          "id": "s11-05",
+          "scene": 11,
+          "start": 774.563,
+          "end": 789.22,
+          "voStart": 774.813,
+          "transition": "cut",
+          "narration": "Third, Nokia struggled to transform its software strategy quickly enough. Its legacy platforms and organizational complexity made it difficult to respond at the pace the new market demanded."
+        },
+        {
+          "id": "s11-06",
+          "scene": 11,
+          "start": 789.22,
+          "end": 804.846,
+          "voStart": 789.47,
+          "transition": "cut",
+          "narration": "Fourth, the Windows Phone strategy introduced a major transition risk. It offered Nokia a fresh direction, but the platform never achieved the market scale needed to challenge its leading competitors."
+        },
+        {
+          "id": "s11-07",
+          "scene": 11,
+          "start": 804.846,
+          "end": 820.506,
+          "voStart": 805.096,
+          "transition": "cut",
+          "narration": "Finally, consumer expectations changed. People increasingly wanted their phones to function as cameras, entertainment centers, navigation tools, internet browsers, and personal computers."
+        },
+        {
+          "id": "s11-08",
+          "scene": 11,
+          "start": 820.506,
+          "end": 830.577,
+          "voStart": 820.756,
+          "transition": "cut",
+          "narration": "A phone could no longer compete on durability and battery life alone. It needed to deliver an entire digital experience."
+        },
+        {
+          "id": "s11-11",
+          "scene": 11,
+          "start": 830.577,
+          "end": 843.89,
+          "voStart": 830.827,
+          "transition": "fade-paper",
+          "narration": "The lesson is uncomfortable but important. Sometimes, a company doesn't fall because it stops being good at what it does. It falls because what it does well is no longer enough."
+        }
+      ]
+    },
+    {
+      "scene": 12,
+      "shots": [
+        {
+          "id": "s12-01",
+          "scene": 12,
+          "start": 843.89,
+          "end": 861.399,
+          "voStart": 844.14,
+          "transition": "wipe-left",
+          "narration": "But the story of Nokia did not end with the sale of its phone business. The company continued operating, transforming itself into a business focused heavily on telecommunications network equipment and related technology."
+        },
+        {
+          "id": "s12-02",
+          "scene": 12,
+          "start": 861.399,
+          "end": 873.993,
+          "voStart": 861.649,
+          "transition": "cut",
+          "narration": "In 2016, Nokia completed its acquisition of Alcatel-Lucent, expanding its capabilities in networking and communications infrastructure."
+        },
+        {
+          "id": "s12-04",
+          "scene": 12,
+          "start": 873.993,
+          "end": 885.573,
+          "voStart": 874.243,
+          "transition": "cut",
+          "narration": "Instead of dominating the phones in people's hands, Nokia was concentrating on equipment and systems that help connect those phones to the wider world."
+        },
+        {
+          "id": "s12-07",
+          "scene": 12,
+          "start": 885.573,
+          "end": 894.163,
+          "voStart": 885.823,
+          "transition": "fade-paper",
+          "narration": "For Nokia, survival required accepting that its future would not necessarily look like its past."
+        }
+      ]
+    },
+    {
+      "scene": 13,
+      "shots": [
+        {
+          "id": "s13-01",
+          "scene": 13,
+          "start": 894.163,
+          "end": 905.586,
+          "voStart": 894.413,
+          "transition": "wipe-left",
+          "narration": "Nokia's story is more than the rise and fall of a mobile phone empire. It is a warning about the danger of becoming too comfortable with success."
+        },
+        {
+          "id": "s13-04",
+          "scene": 13,
+          "start": 905.586,
+          "end": 918.882,
+          "voStart": 905.836,
+          "transition": "cut",
+          "narration": "The world moved from phones built around hardware to smartphones built around software, services, and ecosystems. And Nokia struggled to make that transition in time."
+        },
+        {
+          "id": "s13-06",
+          "scene": 13,
+          "start": 918.882,
+          "end": 927.247,
+          "voStart": 919.132,
+          "transition": "cut",
+          "narration": "Because in business, being the best at yesterday's technology does not guarantee that you will lead tomorrow."
+        },
+        {
+          "id": "s13-07",
+          "scene": 13,
+          "start": 927.247,
+          "end": 935.616,
+          "voStart": 927.497,
+          "transition": "push-left",
+          "narration": "And sometimes, the hardest thing for an empire to do is recognize that the world has already moved on."
+        }
+      ]
+    }
+  ]
+}

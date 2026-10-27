@@ -1,0 +1,124 @@
+{
+  "coverage": "partial",
+  "status": "RESEARCH_DRAFT_NOT_A_FACT_CHECK_APPROVAL",
+  "scope": "Selected claims in the proposed 72-shot Nokia review cut. The narrative, graphics, implied dates, causal interpretations, and final title have not been exhaustively checked.",
+  "claims": [
+    {
+      "claim": "Nokia traces its origins to an 1865 wood-pulp mill and another mill by the Nokianvirta River.",
+      "location": "s02-02, s02-04, s02-05",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.nokia.com/system/files/2021-03/Nokia_Annual_Report_2020_English.pdf", "support": "Nokia's history describes Fredrik Idestam's 1865 wood-pulp mill in southern Finland and a second mill on the Nokianvirta River."}, {"url": "https://www.nokia.com/careers/our-locations/finland/", "support": "Nokia identifies its 1865 founding on the Tammerkoski rapids in Tampere."}]
+    },
+    {
+      "claim": "Nokia Corporation resulted from a merger of Nokia AB, Finnish Rubber Works, and Finnish Cable Works in 1967.",
+      "location": "s02-10, s02-11",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.nokia.com/system/files/files/form20-f-04-pdf.pdf", "support": "Nokia's 2004 Form 20-F, item 4.A, names all three companies and dates the merger to 1967."}]
+    },
+    {
+      "claim": "Nokia's Mobira Cityman was a handportable phone in 1987.",
+      "location": "s03-03",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.nokia.com/about-us/newsroom/media-resources/media-library/nokia-history/", "support": "Nokia's history media library captions Mobira Cityman as an NMT900 handportable in 1987."}]
+    },
+    {
+      "claim": "The first official GSM call in Helsinki was made in 1991 using Nokia equipment.",
+      "location": "s03-05; 1 July 1991 picture card",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.nokia.com/thought-leadership/articles/the-human-story-of-GSM/", "support": "Nokia dates the official call to 1 July 1991 in Helsinki and describes the car-phone call."}, {"url": "https://www.nokia.com/system/files/files/form20-f-04-pdf.pdf", "support": "Nokia's history states that a Nokia phone and its Radiolinja network were used in 1991."}]
+    },
+    {
+      "claim": "The Nokia 1011 appeared in 1992 and was an early mass-produced GSM phone.",
+      "location": "s04-01",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.nokia.com/blog/thirty-years-on-from-the-call-that-transformed-how-we-communicate/", "support": "Nokia dates its first GSM cell phone, the 1011, to late 1992."}, {"url": "https://collection.sciencemuseumgroup.org.uk/objects/co8361832/nokia-1011-mobile-telephone-1992-1994", "support": "The Science Museum Group dates its 1011 object 1992–1994 and describes it as a mass-produced GSM phone."}, {"url": "https://www.mobilephonemuseum.com/phone-detail/1011", "support": "The Mobile Phone Museum dates its announcement to 10 November 1992."}]
+    },
+    {
+      "claim": "Nokia refocused on telecommunications in the early 1990s and divested non-telecommunications businesses over several years.",
+      "location": "s04-02",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.nokia.com/system/files/files/form20-f-04-pdf.pdf", "support": "The 2004 Form 20-F describes the early-1990s strategic focus and dates the divestitures to 1989–1996, not all to 1992."}, {"url": "https://www.theguardian.com/technology/2013/sep/03/nokia-rise-fall-mobile-phone-giant", "support": "This timeline associates the 1992 strategic decision with Jorma Ollila. Check the precise dating against primary board records before release."}]
+    },
+    {
+      "claim": "The Nokia 3210 was announced in 1999 and had an integrated antenna and customizable covers.",
+      "location": "s04-06",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.mobilephonemuseum.com/phone-detail/nokia-3210", "support": "The museum dates its announcement to 18 March 1999 and describes the integrated antenna and Xpress-on covers; it also disputes widely circulated lifetime sales numbers, which this cut does not use."}]
+    },
+    {
+      "claim": "The Nokia 3310 was introduced in 2000 and became associated with Snake and durability.",
+      "location": "s04-07",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.theguardian.com/technology/gallery/2017/feb/27/nokia-mobile-phones-history-pictures-3310", "support": "The Guardian labels the 3310 as a 2000 phone, says it had Snake 2, and describes its reputation for indestructibility elsewhere in the gallery."}]
+    },
+    {
+      "claim": "Gartner estimated Nokia at 37.8% of worldwide end-user sales of all mobile phones in full-year 2007, close to 40%.",
+      "location": "s01-05, s05-07; all-phone charts",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.computerworld.com/article/1563633/2007-was-a-blockbuster-year-for-mobile-phones.html", "support": "The reproduced Gartner full-year all-mobile table gives Nokia 37.8%, Motorola 14.3%, Samsung 13.4%, Sony Ericsson 8.8%, and LG 6.8%."}, {"url": "https://www.nokia.com/system/files/files/q4-2007-earnings-release-pdf.pdf", "support": "Nokia separately estimated 40% of device sales in Q4 2007; do not mix that quarter with Gartner's full-year end-user estimate."}]
+    },
+    {
+      "claim": "Gartner's estimates put Nokia's share of all mobile-phone sales at 37.8% in 2007, 36.4% in 2009, 23.8% in 2011, 19.1% in 2012 and 13.9% in 2013.",
+      "location": "s01-08 and s09-03 charts; annual end-user all-mobile sales, not smartphone share",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.computerworld.com/article/1563633/2007-was-a-blockbuster-year-for-mobile-phones.html", "support": "Gartner's 2007 all-mobile table gives Nokia 37.8%."}, {"url": "https://www.palminfocenter.com/news/6579/gartner-reports-worldwide-mobile-phone-sales-for-2009/", "support": "The Gartner table gives Nokia 36.4% in 2009."}, {"url": "https://www.design-reuse.com/news/202523334-gartner-says-worldwide-mobile-phone-sales-declined-1-7-percent-in-2012-/", "support": "Gartner's full-year table gives 23.8% in 2011 and 19.1% in 2012."}, {"url": "https://www.gartner.com/en/newsroom/press-releases/2014-02-13-gartner-says-annual-smartphone-sales-surpassed-sales-of-feature-phones-for-the-first-time-in-2013", "support": "Table 4 gives Nokia 13.9% of all mobile phones sold in full-year 2013."}]
+    },
+    {
+      "claim": "Symbian accounted for 63.5% of full-year 2007 smartphone OS sales in Gartner's data, approximately two thirds.",
+      "location": "s08-02; operating-system chart",
+      "verdict": "supported",
+      "sources": [{"url": "http://volkersthoughts.blogspot.com/2009/03/smartphone-market-shares-growth.html", "support": "This secondary reproduction of Gartner's full-year 2007 smartphone OS table reports Symbian 63.5%, RIM 9.6%, Windows Mobile 12.0%, Mac OS X 2.7% and other systems totaling 12.1%; retrieve a primary table if possible."}]
+    },
+    {
+      "claim": "Gartner's full-year Android share of smartphone OS sales increased from 3.9% in 2009 to 78.4% in 2013, with intervening bars of 22.7%, approximately 46%, and 66.4%.",
+      "location": "s07-05; smartphone OS chart",
+      "verdict": "supported",
+      "sources": [{"url": "https://web.archive.org/web/20150910002713/http:/www.gartner.com/newsroom/id/1543014", "support": "Gartner's archived February 2011 table gives 3.9% for 2009 and 22.7% for 2010; archive access should be checked."}, {"url": "https://www.computerworld.com/article/1535777/android-smartphone-sales-leap-to-second-place-in-2010-gartner-says.html", "support": "Computerworld independently reports the same two Gartner shares."}, {"url": "https://www.theguardian.com/technology/2012/feb/15/android-smartphones-apple-2011", "support": "The Guardian gives about 219m of 472m smartphone shipments in 2011, rounded in the chart to roughly 46%; the article separately reports 50.9% for Q4, not the year."}, {"url": "https://www.gartner.com/en/newsroom/press-releases/2014-02-13-gartner-says-annual-smartphone-sales-surpassed-sales-of-feature-phones-for-the-first-time-in-2013", "support": "Gartner table 3 gives Android 66.4% in 2012 and 78.4% in 2013."}]
+    },
+    {
+      "claim": "Steve Jobs introduced the original iPhone in San Francisco on 9 January 2007.",
+      "location": "s06-01, s06-03",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.apple.com/newsroom/2007/01/09Apple-Reinvents-the-Phone-with-iPhone/", "support": "Apple's contemporaneous Macworld San Francisco announcement is dated January 9, 2007 and describes its multitouch display."}]
+    },
+    {
+      "claim": "Google acquired Android in 2005, announced Android and the Open Handset Alliance in 2007, and the first production Android phone was announced in 2008.",
+      "location": "s07-01, s07-02, s07-03",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.reuters.com/article/business/google-exec-android-was-best-deal-ever-idUS560440888/", "support": "Reuters says Google acquired Android in 2005; the price was undisclosed."}, {"url": "https://arstechnica.com/gadgets/2007/11/its-official-google-announces-open-source-mobile-phone-os-android/", "support": "The 2007 contemporaneous report describes the Android and Open Handset Alliance announcement."}, {"url": "https://www.mobilephonemuseum.com/phone-detail/t-mobile-g1", "support": "The museum describes the T-Mobile G1 / HTC Dream as the first production Android phone, announced 23 September 2008."}]
+    },
+    {
+      "claim": "Stephen Elop became Nokia CEO in 2010; Nokia and Microsoft announced a proposed Windows Phone partnership in February 2011.",
+      "location": "s08-07, s08-08",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.nokia.com/system/files/files/request-nokia-results2010q3e-pdf.pdf", "support": "Nokia's Q3 2010 interim report records Elop's appointment as president and CEO effective September 21, 2010."}, {"url": "https://news.microsoft.com/source/2011/02/10/nokia-and-microsoft-announce-plans-for-a-broad-strategic-partnership-to-build-a-new-global-mobile-ecosystem/", "support": "The companies' announcement is dated 11 February 2011 and says Windows Phone would be Nokia's principal smartphone strategy; the term sheet was initially non-binding."}]
+    },
+    {
+      "claim": "An internal Elop memo in February 2011 used a burning-platform metaphor.",
+      "location": "s09-01",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.bbc.com/news/technology-12403466", "support": "BBC reported the memo in February 2011 and said it verified that the memo was genuine."}, {"url": "https://www.engadget.com/2011-02-08-nokia-ceo-stephen-elop-rallies-troops-in-brutally-honest-burnin.html", "support": "Engadget published the memo and described its confirmation by sources."}]
+    },
+    {
+      "claim": "Microsoft and Nokia announced a €5.44bn transaction in September 2013; the announced amount included €3.79bn for the business and €1.65bn for a patent license. The sale closed in April 2014.",
+      "location": "s10-02, s10-03, s10-04",
+      "verdict": "supported",
+      "sources": [{"url": "https://news.microsoft.com/source/2013/09/03/microsoft-to-acquire-nokias-devices-services-business-license-nokias-patents-and-mapping-services/", "support": "The 3 September announcement gives the two euro components and says Nokia would retain its patent portfolio."}, {"url": "https://www.reuters.com/article/business/microsoft-swallows-nokias-phone-business-for-72-billion-idUSBRE98202W/", "support": "Reuters described the announced €5.44bn as approximately $7.2bn at the time."}, {"url": "https://www.nokia.com/newsroom/nokia-completes-sale-of-substantially-all-of-its-devices--services-business-to-microsoft/", "support": "Nokia announced completion on 25 April 2014; the 2013 announcement and closing are different events."}]
+    },
+    {
+      "claim": "Nokia finalized its acquisition of Alcatel-Lucent in 2016.",
+      "location": "s12-02",
+      "verdict": "supported",
+      "sources": [{"url": "https://www.globenewswire.com/news-release/2016/11/02/885798/0/en/Nokia-finalizes-its-acquisition-of-Alcatel-Lucent-ready-to-seize-global-connectivity-opportunities.html", "support": "Nokia's release says it finalized the acquisition on 2 November 2016, following combined operations from January."}]
+    }
+  ],
+  "open_issues": [
+    "Coverage is partial: all remaining words and every on-screen statement, chart denominator, period, and causal interpretation still require independent review.",
+    "The opening says billions of people carry Nokia products; source and time-bound this claim or propose a narrower replacement. The 2011 partnership announcement cites 1.3 billion daily users, not a timeless plural figure.",
+    "Touchscreens replaced buttons is rhetorical shorthand; check or soften it before release because smartphones still have physical controls.",
+    "The original $300 billion title is not approved: Reuters describes a peak market value close to $300bn but does not establish the precise date or calculation here; the replacement title is proposed, not approved.",
+    "Check the 1992 timing of Nokia's strategic decision against primary corporate records and replace any weak or unavailable sources.",
+    "Visual handset drawings are stylized, not product photographs. Check every shot for accurate and relevant representation.",
+    "A human must check source access, context, narration, captions, music and the ending in the actual final render."
+  ]
+}

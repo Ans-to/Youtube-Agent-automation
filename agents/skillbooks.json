@@ -137,7 +137,8 @@
       "workflow": [
         "Mark numbers, dates, superlatives, causal claims, quotes, and comparisons for extra scrutiny.",
         "Classify claims as supported, partially supported, disputed, outdated, or unverified.",
-        "Correct or remove unsupported claims; preserve uncertainty and meaningful context."
+        "Correct or remove unsupported claims; preserve uncertainty and meaningful context.",
+        "For documentary release, inspect every spoken and on-screen historical date and financial figure; record a source, unit, market denominator, period and verdict in a claim ledger."
       ],
       "quality_gates": [
         "Verify units, denominators, dates, named entities, and quote attribution.",
@@ -664,7 +665,8 @@
       "quality_gates": [
         "Captions match speech exactly enough for accessibility and identify uncertain ASR words.",
         "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
+        "Check important boundary cases, downstream dependencies, and human approvals before finalizing.",
+        "If captions are present, compare their words and timing with the finished audio, not only with the script or another subtitle file; mark unlistened captions unverified."
       ],
       "failure_modes": [
         "Do not paraphrase silently, guess names/numbers, or overlap essential graphics.",
@@ -688,7 +690,8 @@
       "workflow": [
         "Mark breath groups, emphasis, pauses, names, acronyms, and code-switch transitions.",
         "Keep delivery natural for a faceless tech channel and match the visual beat.",
-        "Check sentence length against the intended voice and target speaking rate."
+        "Check sentence length against the intended voice and target speaking rate.",
+        "For the Nokia empire project, use the scene-clock music map: suspenseful opening, energetic rise, tense electronic disruption, restrained decline, and reflective lesson. Preserve separate voice, music and effects buses."
       ],
       "quality_gates": [
         "All performance notes must preserve factual meaning and be usable by a TTS engine or narrator.",
@@ -746,12 +749,14 @@
       "workflow": [
         "Inspect loudness/peak metrics when tools are available and listen to representative sections.",
         "Check scene cut alignment, silence gaps, fades, and music/narration masking.",
-        "Compare output duration with video and approved narration segments."
+        "Compare output duration with video and approved narration segments.",
+        "For Nokia, meter the encoded master for integrated LUFS and true peak; measure aligned voice and music stems during speech and review intelligibility, every scene change and the final word by listening."
       ],
       "quality_gates": [
         "Audio must be present when requested, decode, and remain intelligible on phone speakers.",
         "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
+        "Check important boundary cases, downstream dependencies, and human approvals before finalizing.",
+        "Nokia mix guides: narration active RMS -18 to -12 dBFS and peaks -6 to -3 dBFS; music under narration -30 to -24 dBFS; effect-dependent SFX -18 to -10 dBFS; approximately -14 LUFS integrated and at most -1 dBTP. Treat stem ranges as guidance and do not mistake sample peak for true peak."
       ],
       "failure_modes": [
         "Do not assert listening checks were performed when only metadata was inspected.",
@@ -804,12 +809,14 @@
       "workflow": [
         "Check codec, dimensions, fps, duration, frame/audio stream presence, and expected profile.",
         "Compare actual output to storyboard manifest within justified tolerances.",
-        "Run decode/black-frame/silence tests when tools are available and label omitted checks."
+        "Run decode/black-frame/silence tests when tools are available and label omitted checks.",
+        "For packages with the Nokia 15-minute release profile, run the strict technical QA and nokia_audit.py on the finished video, then report each failed or unverified check before human approval."
       ],
       "quality_gates": [
         "Every pass/fail claim must be supported by command output or inspected frames/audio.",
         "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
+        "Check important boundary cases, downstream dependencies, and human approvals before finalizing.",
+        "For Nokia, verify the actual duration against 15 minutes, narration and picture clocks, no unintended silence or black gaps, and a complete ending; a missing measurement is not a pass."
       ],
       "failure_modes": [
         "Do not call a file valid because it is merely larger than a threshold.",
@@ -833,7 +840,8 @@
       "workflow": [
         "Check clipping, wrapping, hierarchy, safe areas, contrast, blank frames, continuity, and visual variety.",
         "Sample scene boundaries and transitions; test both aspect ratios and long labels.",
-        "Record exact frame/time and reproduction details for every defect."
+        "Record exact frame/time and reproduction details for every defect.",
+        "Inspect every scene against its narration for relevant visuals and record the reviewed scene IDs; inspect the closing scene through the final spoken word."
       ],
       "quality_gates": [
         "Use actual rendered frames or measurements; disclose when inspection is only automated.",
@@ -1099,7 +1107,8 @@
       "quality_gates": [
         "If approval is absent, ambiguous, stale, or the artifact changes, stop and request a new human decision.",
         "Use only supplied evidence and mark unknowns rather than inventing facts or results.",
-        "Check important boundary cases, downstream dependencies, and human approvals before finalizing."
+        "Check important boundary cases, downstream dependencies, and human approvals before finalizing.",
+        "For a Nokia profile package, require the hash-bound project audit and named human evidence for all manual checks; never approve an incomplete or failed audit."
       ],
       "failure_modes": [
         "Never fabricate human consent or convert an ordinary model response into approval.",

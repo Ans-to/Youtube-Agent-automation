@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -32,13 +33,63 @@ def validate_qc_report(report, video):
         audio_count = int(report.get("audio_stream_count", 0))
     except (TypeError, ValueError):
         raise ValueError("Quality report has invalid duration/audio metadata.")
-    if duration <= 0:
-        raise ValueError("Quality report duration must be greater than zero.")
+    if not math.isfinite(duration) or duration <= 0:
+        raise ValueError("Quality report duration must be finite and greater than zero.")
     if audio_count < 1:
         raise ValueError("The final video must contain an audio stream.")
     if report.get("video_sha256") != sha256(video):
         raise ValueError("Quality report does not match the exact video file.")
     return True
+
+
+def requires_nokia_profile(root, title=""):
+    """Recognize this film when its profile was omitted, without gating unrelated videos.
+
+    The explicit profile is the primary contract. Also fail closed when this
+    project's audit/review already exists, its directory name identifies the
+    film, or its first script heading / upload title identifies the Nokia empire.
+    """
+    root = Path(root)
+    if (root / "nokia-review.json").exists() or (root / "nokia.audit.json").exists():
+        return True
+    def matches(text):
+        value = str(text).casefold().replace("_", "-")
+        return "nokia" in value and ("empire" in value or ("rise" in value and "fall" in value))
+    if matches(root.name) or matches(title):
+        return True
+    try:
+        with (root / "script.md").open(encoding="utf-8") as stream:
+            for line in stream:
+                if line.lstrip().startswith("# "):
+                    return matches(line)
+    except (OSError, UnicodeError):
+        pass
+    return False
+
+
+def validate_project_audit(root, *, required=False):
+    """Require a project-specific audit when a package declares a release profile.
+
+    Generic packages retain their existing strict-QA gate. Nokia packages opt in
+    by placing release-profile.json beside the video; once approved, both that
+    profile and the matching audit remain mandatory during upload.
+    """
+    root = Path(root).resolve()
+    profile_path = root / "release-profile.json"
+    if not profile_path.exists():
+        if required:
+            raise ValueError("The approved project release profile is missing.")
+        return None
+    try:
+        try:
+            from .nokia_audit import PROFILE, REPORT_FILE, validate_release_report
+        except ImportError:  # executed as a script from video_studio/
+            from nokia_audit import PROFILE, REPORT_FILE, validate_release_report
+        report = validate_release_report(root)
+    except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+        raise ValueError("Project-specific audit is not valid: " + str(exc)) from exc
+    return {"profile": PROFILE, "profile_sha256": sha256(profile_path),
+            "report_sha256": sha256(root / REPORT_FILE), "audit_status": report["status"]}
 
 
 def main():
@@ -55,11 +106,14 @@ def main():
     try:
         qc_report = json.loads(qc_path.read_text(encoding="utf-8"))
         validate_qc_report(qc_report, video)
+        project_audit = validate_project_audit(root, required=requires_nokia_profile(root))
     except (OSError, json.JSONDecodeError, ValueError) as exc:
-        raise SystemExit("Strict technical QA failed; approval is blocked: " + str(exc))
+        raise SystemExit("Release QA failed; approval is blocked: " + str(exc))
 
     print("Package:", root)
     print("Strict technical QA: PASS")
+    if project_audit:
+        print("Project-specific audit: PASS —", project_audit["profile"])
     video_hash = sha256(video)
     script_path = root / "script.md"
     storyboard_path = root / "storyboard.json"
@@ -80,11 +134,27 @@ def main():
         raise SystemExit("Visibility must be private/unlisted/public and made-for-kids must be yes/no.")
     metadata = {"title": title, "description": description, "tags": tags,
                 "privacy": privacy, "made_for_kids": kids}
+    if requires_nokia_profile(root, title=title):
+        try:
+            current = validate_project_audit(root, required=True)
+            if project_audit is not None and current != project_audit:
+                raise ValueError("Project audit changed during approval; start over.")
+            project_audit = current
+        except ValueError as exc:
+            raise SystemExit("Nokia project audit is required before approval: " + str(exc))
     expected = "APPROVE PACKAGE " + root.name + " " + video_hash[:12]
     print("Metadata to be approved:")
     print(json.dumps(metadata, ensure_ascii=False, indent=2))
     if input("Type exactly '" + expected + "' to approve: ").strip() != expected:
         raise SystemExit("Approval cancelled.")
+    if project_audit:
+        # The human may spend time reviewing and typing. An audit valid before
+        # the prompts must still match the exact package at confirmation time.
+        try:
+            if validate_project_audit(root, required=True) != project_audit:
+                raise ValueError("Project audit changed during approval.")
+        except ValueError as exc:
+            raise SystemExit("Nokia evidence changed; approval is blocked: " + str(exc))
     record = {
         "approved": True,
         "approved_at": datetime.now(timezone.utc).isoformat(),
@@ -100,6 +170,8 @@ def main():
         "storyboard_reviewed": True,
         "publishing_performed": False,
     }
+    if project_audit:
+        record["project_audit"] = project_audit
     (root / "release-approval.json").write_text(json.dumps(record, indent=2) + "\n", encoding="utf-8")
     status_path = root / "package-status.json"
     if status_path.is_file():

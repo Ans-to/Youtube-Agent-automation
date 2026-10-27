@@ -574,6 +574,16 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
     # being killed by the OOM reaper before it wrote a single byte, with no
     # message, which reads exactly like a crash in the maths.
     mix = np.zeros(total, np.float32)
+    # Plucks are deterministic for a given pitch/brightness. Recompute each
+    # unique note only once per score instead of running thousands of identical
+    # FFTs when a four-note motif continues through a long documentary.
+    note_cache = {}
+
+    def cached_pluck(freq: float, bright: float = 0.4) -> np.ndarray:
+        key = (freq, bright)
+        if key not in note_cache:
+            note_cache[key] = pluck(freq, bright=bright)
+        return note_cache[key]
 
     for name, start, end in sections:
         # A typo used to fall through to 'calm' and quietly change the mood of a
@@ -604,10 +614,10 @@ def build(seconds: float, sections: list[tuple[str, float, float]], gain: float 
             i = 0
             while at < length - 0.9:
                 note = notes[i % len(notes)]
-                place(mix, pluck(NOTE[note]) * 0.13 * const_gain, start + at)
+                place(mix, cached_pluck(NOTE[note]) * 0.13 * const_gain, start + at)
                 # Every other note an octave up, quietly, for movement.
                 if i % 4 == 2:
-                    place(mix, pluck(NOTE[note] * 2, bright=0.5) * 0.05 * const_gain, start + at + 0.30)
+                    place(mix, cached_pluck(NOTE[note] * 2, bright=0.5) * 0.05 * const_gain, start + at + 0.30)
                 at += step
                 i += 1
 
