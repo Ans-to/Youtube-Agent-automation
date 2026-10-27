@@ -45,7 +45,7 @@ test('glitches land on every word and two-beat accent, then clear', () => {
   }
 });
 
-test('camera moves every frame and the robot alternates typing hands', () => {
+test('camera moves every frame and vector-character motion is beat-derived', () => {
   for (let frame = 1; frame < DURATION_FRAMES; frame++) {
     const before = cameraPose(frame - 1, FPS);
     const after = cameraPose(frame, FPS);
@@ -54,6 +54,7 @@ test('camera moves every frame and the robot alternates typing hands', () => {
   }
   assert.notEqual(avatarMotion(0, FPS).typing, avatarMotion(2, FPS).typing);
   assert.ok(avatarMotion(2, FPS).typing * avatarMotion(6, FPS).typing < 0);
+  assert.notEqual(avatarMotion(0, FPS).bob, avatarMotion(2, FPS).bob);
   assert.deepEqual(avatarMotion(101, FPS), avatarMotion(101, FPS));
 });
 

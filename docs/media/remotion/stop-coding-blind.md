@@ -1,6 +1,6 @@
 # Stop coding blind — motion-graphics preview
 
-**Earlier draft preview, not human-approved.** This is the pre-Skill.md 2D version rendered from commit `560e3e9`; see the [new 3D voxel remake](stop-coding-blind-voxel.md) for the current component. It is a 10-second portrait composition with a drawn isometric workspace, a glowing terminal and the exact supplied words. The soundtrack is an original synthesized 120 BPM instrumental, not a user-supplied track. There is no spoken narration or subtitle track.
+**Archived earlier draft preview, not human-approved.** This pre-Skill.md 2D version was rendered from commit `560e3e9`; it is not the current composition. See the [current SVG detective version](stop-coding-blind-vector.md) and its GitHub Actions render artifact. The soundtrack is an original synthesized 120 BPM instrumental. There is no spoken narration or subtitle track.
 
 - [Preview video](stop-coding-blind.mp4)
 - [Original Remotion component at commit 560e3e9](https://github.com/Ans-to/Youtube-Agent-automation/blob/560e3e99efec8f12f62e0a02eed95f748a1d7111/video_studio/remotion/src/StopCodingBlind.tsx)

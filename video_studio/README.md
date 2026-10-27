@@ -15,7 +15,7 @@ It preserves the supplied words, performs no topic research or rewrite, plans co
 
 ## Remotion portrait example
 
-The [Stop coding blind](remotion/README.md) composition is a separate 10-second Remotion / React Three Fiber example: a 3D voxel workspace, typing robot, moving camera and beat-synchronized spring typography in 9:16. It follows the root [Skill.md](../Skill.md) and includes a reproducible 120 BPM instrumental.
+The [Stop coding blind](remotion/README.md) composition is a separate 10-second Remotion / React Three Fiber example: an isometric voxel workspace with a camera-facing 2D SVG detective, moving camera and beat-synchronized spring typography in 9:16. It follows the root [Skill.md](../Skill.md) and includes a reproducible 120 BPM instrumental.
 
 ## Requirements
 

@@ -2,7 +2,7 @@ import React, { useLayoutEffect } from 'react';
 import { useThree } from '@react-three/fiber';
 import { OrthographicCamera } from 'three';
 import { cameraPose } from './camera';
-import { PixelAvatar } from './PixelAvatar';
+import { VectorAvatar } from './VectorAvatar';
 import { Voxel } from './Voxel';
 import { terminalLineState } from './terminalMotion';
 import { BPM } from './timing';
@@ -112,7 +112,7 @@ export const VoxelWorkspace: React.FC<{ frame: number; fps: number }> = ({ frame
       <Voxel at={[-1.19 + (Math.sin(beat * Math.PI) * .5 + .5) * .75, 1.63, -.66]}
         size={[.055, .08, .025]} color="#ff5262" unlit />
 
-      {/* Keyboard is oriented toward the robot, with individually modeled keys. */}
+      {/* Keyboard and individually modeled keys stay in the isometric workspace. */}
       <Voxel at={[.87, 1.30, .53]} size={[.58, .06, 1.23]} color="#373e48" />
       {keys}
 
@@ -126,7 +126,7 @@ export const VoxelWorkspace: React.FC<{ frame: number; fps: number }> = ({ frame
       <Voxel at={[-1.50, 1.72, -1.16]} size={[.18, .14, .17]} color="#80bc93" />
       <Voxel at={[-1.24, 1.76, -1.16]} size={[.18, .14, .17]} color="#6bae86" />
 
-      <PixelAvatar frame={frame} fps={fps} />
+      <VectorAvatar frame={frame} fps={fps} />
     </>
   );
 };
