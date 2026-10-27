@@ -154,6 +154,19 @@ jobs:
           print(f"PASS: black intervals={black_runs}; freeze checks={freeze_runs}; silence checks={silences}; mean={mean_match[-1]} dB, peak={peak_match[-1]} dB")
           PY
 
+      - name: Upload render and audio review evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nokia-evolution-review-evidence
+          path: |
+            video_studio/remotion/out/nokia-voice-report.json
+            video_studio/remotion/out/nokia-probe.json
+            video_studio/remotion/out/black-detect.log
+            video_studio/remotion/out/freeze-detect.log
+            video_studio/remotion/out/audio-qc.log
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Upload run-specific MP4 artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -199,6 +212,8 @@ jobs:
             echo "Run-specific artifact: download **nokia-evolution-preview-mp4** from this run's Artifacts section."
             echo ""
             echo "Audio: repository-configured Kokoro am_michael narration plus a procedural score bed. Scene line boundaries are measured from the rendered WAV; word boundaries remain estimates (not forced alignment)."
+            echo ""
+            echo "The **nokia-evolution-review-evidence** artifact contains the measured line timing, stream probe, black/freeze logs, and audio continuity/peak report."
             echo ""
             echo "A human must review the exact video and mix before publication; the workflow performs technical checks only."
           } >> "$GITHUB_STEP_SUMMARY"
