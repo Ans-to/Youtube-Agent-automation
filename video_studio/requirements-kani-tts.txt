@@ -18,7 +18,7 @@
 # Windows setup, the CI smoke tests and the shipped renderer never import.
 # Re-check with:  pip-audit -r video_studio/requirements-kani-tts.txt
 nemo_toolkit[tts]==3.0.0
-transformers>=5.20.1,<6.0
+transformers>=5.20.2,<6.0
 accelerate>=1.15.0,<2.0
 huggingface_hub>=2.2.0,<3.0
 safetensors>=0.6.2,<1.0
