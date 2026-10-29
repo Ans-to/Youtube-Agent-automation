@@ -1,0 +1,69 @@
+<template>
+  <style>
+    @font-face { font-family: "Inter"; font-weight: 400; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+    #root { position: absolute; inset: 0; font-family: "Inter", sans-serif; color: #f4f2ec; }
+    #s1-stage { position: absolute; inset: 0; }
+    .s1-line { position: absolute; left: 192px; right: 192px; text-align: center; }
+    .s1-word { display: inline-block; }
+    #s1-kicker { top: 92px; }
+    #s1-kicker-in { font-size: 27px; font-weight: 800; letter-spacing: 0.42em; color: #ffd166; }
+    #s1-l1 { top: 600px; }
+    #s1-l1-in { font-family: "Space Grotesk", sans-serif; font-size: 92px; font-weight: 700; letter-spacing: 0.01em; line-height: 1.02; }
+    #s1-l2 { top: 712px; }
+    #s1-l2-in { font-family: "Space Grotesk", sans-serif; font-size: 146px; font-weight: 700; letter-spacing: 0.005em; line-height: 1.0; }
+    .s1-green { color: #2ee66b; }
+    #s1-sub { top: 896px; }
+    #s1-sub-in { font-size: 34px; font-weight: 400; color: #c9c9d4; }
+    #s1-sub-in .s1-word { opacity: 0.25; }
+    #s1-question { top: 952px; }
+    #s1-question-in { font-size: 30px; font-weight: 600; letter-spacing: 0.18em; color: #f4f2ec; }
+    #s1-question-in .s1-green { font-weight: 800; }
+  </style>
+  <div data-hf-id="hf-hv3x" id="root" data-composition-id="s1-hook" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-swk8" id="s1-stage">
+      <div data-hf-id="hf-v46a" id="s1-kicker" class="clip s1-line" data-start="0.15" data-duration="5.7" data-track-index="1">
+        <div data-hf-id="hf-xoae" id="s1-kicker-in">WHY IS THE DOLLAR THE WORLD'S MONEY?</div>
+      </div>
+      <div data-hf-id="hf-o1g4" id="s1-l1" class="clip s1-line" data-start="0.35" data-duration="5.5" data-track-index="1">
+        <div data-hf-id="hf-dtv1" id="s1-l1-in"><span data-hf-id="hf-73u7" class="s1-word" id="s1-w1">ONE</span> <span data-hf-id="hf-xuzs" class="s1-word" id="s1-w2">PIECE</span> <span data-hf-id="hf-8hx6" class="s1-word" id="s1-w3">OF</span> <span data-hf-id="hf-gw0a" class="s1-word" id="s1-w4">PAPER</span></div>
+      </div>
+      <div data-hf-id="hf-tegd" id="s1-l2" class="clip s1-line" data-start="1.55" data-duration="4.3" data-track-index="1">
+        <div data-hf-id="hf-5jjk" id="s1-l2-in"><span data-hf-id="hf-unrg" class="s1-word" id="s1-w5">RULES</span> <span data-hf-id="hf-dtpt" class="s1-word" id="s1-w6">THE</span> <span data-hf-id="hf-p1iz" class="s1-word s1-green" id="s1-w7">WORLD.</span></div>
+      </div>
+      <div data-hf-id="hf-q9e7" id="s1-sub" class="clip s1-line" data-start="3.15" data-duration="2.7" data-track-index="1">
+        <div data-hf-id="hf-debs" id="s1-sub-in"><span data-hf-id="hf-x1rh" class="s1-word">No</span> <span data-hf-id="hf-lz0b" class="s1-word">army</span> <span data-hf-id="hf-c0s3" class="s1-word">forced</span> <span data-hf-id="hf-q539" class="s1-word">the</span> <span data-hf-id="hf-2ysc" class="s1-word">planet</span> <span data-hf-id="hf-7z5v" class="s1-word">to</span> <span data-hf-id="hf-9nh5" class="s1-word">use</span> <span data-hf-id="hf-cw7b" class="s1-word">it.</span> <span data-hf-id="hf-nl9k" class="s1-word">So</span> <span data-hf-id="hf-3dhc" class="s1-word">how</span> <span data-hf-id="hf-ynzn" class="s1-word">did</span> <span data-hf-id="hf-gds6" class="s1-word">this</span> <span data-hf-id="hf-acpn" class="s1-word">happen?</span></div>
+      </div>
+      <div data-hf-id="hf-n705" id="s1-question" class="clip s1-line" data-start="4.7" data-duration="1.15" data-track-index="1">
+        <div data-hf-id="hf-ajbi" id="s1-question-in">THE ANSWER TAKES <span data-hf-id="hf-6hb0" class="s1-green">60 SECONDS</span> ↓</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      // Kicker tracks in from wide letter-spacing (set in tween, not CSS).
+      tl.fromTo("#s1-kicker-in", { opacity: 0, scale: 1.07, filter: "blur(6px)", transformOrigin: "50% 50%" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.55, ease: "expo.out" }, 0.15);
+      // Word slam: scale + blur, 0.09 s stagger, long-tail landing.
+      ["#s1-w1", "#s1-w2", "#s1-w3", "#s1-w4"].forEach((sel, i) => {
+        tl.fromTo(sel, { opacity: 0, scale: 2.1, filter: "blur(14px)" },
+          { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.42, ease: "expo.out" }, 0.35 + i * 0.09);
+      });
+      ["#s1-w5", "#s1-w6", "#s1-w7"].forEach((sel, i) => {
+        tl.fromTo(sel, { opacity: 0, scale: 2.5, filter: "blur(16px)" },
+          { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.48, ease: "expo.out" }, 1.55 + i * 0.10);
+      });
+      // Sub-line: words warm from grey to ink, no position change.
+      tl.to("#s1-sub-in .s1-word", { opacity: 1, duration: 0.16, ease: "power1.out", stagger: 0.055 }, 3.15);
+      tl.fromTo("#s1-question-in", { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 4.7);
+      // Seam: blur swap out over the continuous 3D ground.
+      tl.to("#s1-stage", { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, 5.72);
+      window.__timelines["s1-hook"] = tl;
+    })();
+  </script>
+</template>

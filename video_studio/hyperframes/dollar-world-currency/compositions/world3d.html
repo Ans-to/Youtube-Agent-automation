@@ -1,0 +1,303 @@
+<template>
+  <style>
+    #root { position: absolute; inset: 0; }
+    #world3d-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  </style>
+  <div data-hf-id="hf-238e" id="root" data-composition-id="world3d" data-width="1920" data-height="1080">
+    <canvas data-hf-id="hf-d99n" id="world3d-canvas" width="1920" height="1080" data-layout-ignore="true"></canvas>
+  </div>
+  <script src="lib/three.min.js"></script>
+  <script>
+    // Continuous 3D world: dot globe + gold coin + trade arcs.
+    // Deterministic by construction — renderAt(t) is a pure function of t
+    // (seeded PRNG, keyframed camera, no wall clock). Driven by hf-seek and,
+    // as a belt-and-braces for every preview mode, a GSAP proxy tween.
+    (function () {
+      var canvas = document.getElementById("world3d-canvas");
+      var W = 1920, H = 1080;
+
+      function mulberry32(a) {
+        return function () {
+          a |= 0; a = (a + 0x6d2b79f5) | 0;
+          var x = Math.imul(a ^ (a >>> 15), 1 | a);
+          x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
+          return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+        };
+      }
+      var rand = mulberry32(1944);
+      function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
+      function smooth(u) { u = clamp01(u); return u * u * (3 - 2 * u); }
+      function lerp(a, b, u) { return a + (b - a) * u; }
+
+      // [t, camY, camZ, lookY, coinX, coinY, coinZ, coinScale, coinRotY, globeX, globeOp, arcs, arcRed, arcGold, ringsOp]
+      var KEYS = [
+        [0.0, 0.28, 5.0, 0.18, 0.00, 0.52, 2.55, 0.32, -2.60, 0.0, 0.22, 0.0, 0.0, 0.0, 0.15],
+        [1.2, 0.28, 4.9, 0.18, 0.00, 0.52, 2.55, 0.35, 0.00, 0.0, 0.30, 0.0, 0.0, 0.0, 0.25],
+        [5.8, 0.28, 5.0, 0.18, 0.00, 0.50, 2.55, 0.35, 0.15, 0.0, 0.38, 0.0, 0.0, 0.0, 0.30],
+        [7.2, 0.45, 7.4, 0.00, 3.55, 1.85, 0.10, 0.30, 1.60, 1.7, 0.55, 0.0, 0.0, 0.0, 0.35],
+        [13.8, 0.45, 7.6, 0.00, 3.60, 1.90, 0.00, 0.28, 3.20, 1.8, 0.60, 0.0, 0.0, 0.0, 0.40],
+        [15.5, 0.35, 5.6, 0.00, 2.30, -0.95, 0.30, 0.40, 4.60, 0.0, 0.95, 0.35, 0.0, 0.0, 0.55],
+        [19.0, 0.30, 5.3, 0.00, 2.35, -1.00, 0.30, 0.40, 5.60, 0.0, 1.00, 1.00, 0.0, 0.0, 0.60],
+        [22.8, 0.32, 5.6, 0.00, 2.35, -1.00, 0.30, 0.38, 6.60, 0.0, 0.95, 1.00, 0.0, 0.0, 0.55],
+        [24.5, 0.40, 6.9, 0.00, -3.30, -1.60, 0.20, 0.30, 7.90, -1.9, 0.80, 0.85, 0.0, 0.0, 0.45],
+        [31.8, 0.40, 7.1, 0.00, -3.40, -1.65, 0.10, 0.28, 9.40, -2.0, 0.80, 0.85, 0.0, 0.0, 0.45],
+        [33.5, 0.45, 7.9, 0.00, 3.40, 1.70, 0.10, 0.30, 10.80, 2.3, 0.70, 0.40, 0.0, 0.0, 0.85],
+        [40.8, 0.45, 8.0, 0.00, 3.50, 1.75, 0.00, 0.28, 12.20, 2.4, 0.70, 0.40, 0.0, 0.0, 0.85],
+        [42.5, 0.35, 6.3, 0.00, 3.00, -1.35, 0.20, 0.30, 13.60, 0.0, 0.90, 1.00, 0.55, 0.0, 0.50],
+        [46.0, 0.35, 6.2, 0.00, 3.05, -1.38, 0.20, 0.30, 14.80, 0.0, 0.92, 1.00, 1.00, 0.0, 0.50],
+        [49.8, 0.35, 6.4, 0.00, 3.00, -1.35, 0.30, 0.32, 16.20, 0.0, 0.92, 1.00, 1.00, 0.0, 0.55],
+        [52.0, 0.28, 4.9, 0.18, 0.00, 0.60, 2.55, 0.35, 18.85, 0.0, 0.85, 1.00, 0.00, 1.0, 0.90],
+        [60.0, 0.28, 4.7, 0.18, 0.00, 0.60, 2.58, 0.37, 19.05, 0.0, 0.90, 1.00, 0.00, 1.0, 1.00],
+      ];
+      function sample(t) {
+        var i = 0;
+        while (i < KEYS.length - 2 && t >= KEYS[i + 1][0]) i += 1;
+        var a = KEYS[i], b = KEYS[i + 1];
+        var u = smooth((t - a[0]) / Math.max(0.0001, b[0] - a[0]));
+        var o = {};
+        var names = ["t", "camY", "camZ", "lookY", "coinX", "coinY", "coinZ", "coinS", "coinRot", "globeX", "globeOp", "arcs", "arcRed", "arcGold", "ringsOp"];
+        for (var k = 1; k < names.length; k += 1) o[names[k]] = lerp(a[k], b[k], u);
+        return o;
+      }
+
+      // Seeded globe points (Fibonacci sphere), shared by WebGL + 2D fallback.
+      var GLOBE_R = 2.2, NPTS = 2200, pts = [];
+      var golden = Math.PI * (3 - Math.sqrt(5));
+      for (var i = 0; i < NPTS; i += 1) {
+        var y = 1 - (i / (NPTS - 1)) * 2;
+        var r = Math.sqrt(Math.max(0, 1 - y * y));
+        var th = golden * i + (rand() - 0.5) * 0.01;
+        pts.push([Math.cos(th) * r * GLOBE_R, y * GLOBE_R, Math.sin(th) * r * GLOBE_R]);
+      }
+      // Seeded "city" pairs for trade arcs.
+      function spherePoint(latDeg, lonDeg) {
+        var la = (latDeg * Math.PI) / 180, lo = (lonDeg * Math.PI) / 180;
+        return [GLOBE_R * Math.cos(la) * Math.cos(lo), GLOBE_R * Math.sin(la), GLOBE_R * Math.cos(la) * Math.sin(lo)];
+      }
+      var CITIES = [[41, -74], [34, -118], [51, 0], [50, 9], [25, 55], [1, 104], [35, 139], [31, 121], [-33, 151], [-23, -46], [19, 73], [55, 37], [30, 31], [6, 3], [64, -21], [-34, 18]];
+      var cityPts = CITIES.map(function (c) { return spherePoint(c[0], c[1]); });
+      var ARC_PAIRS = [[0, 2], [0, 6], [0, 13], [1, 7], [2, 4], [2, 10], [3, 11], [4, 5], [4, 12], [5, 8], [6, 7], [7, 10], [9, 0], [15, 3], [14, 2]];
+
+      var useGL = false, renderer = null, scene = null, camera = null;
+      var globeGroup = null, coin = null, coinRing = null, arcLines = [], arcCurves = [], pulses = [];
+      var globeDotsMat = null, globeWireMat = null, ringMats = [], coinTex = null, coinCanvas = null;
+
+      function drawCoinFace() {
+        var c = coinCanvas.getContext("2d");
+        var S = 512, cx = 256, cy = 256;
+        var g = c.createRadialGradient(cx - 90, cy - 110, 40, cx, cy, 300);
+        g.addColorStop(0, "#ffe9a8"); g.addColorStop(0.45, "#ffd166"); g.addColorStop(0.8, "#d99a26"); g.addColorStop(1, "#a86e14");
+        c.fillStyle = g; c.fillRect(0, 0, S, S);
+        c.strokeStyle = "rgba(90,55,5,0.55)"; c.lineWidth = 10;
+        c.beginPath(); c.arc(cx, cy, 218, 0, Math.PI * 2); c.stroke();
+        c.strokeStyle = "rgba(255,240,190,0.8)"; c.lineWidth = 3;
+        c.beginPath(); c.arc(cx, cy, 200, 0, Math.PI * 2); c.stroke();
+        c.fillStyle = "#7a4d0c";
+        c.font = "700 300px 'Space Grotesk', Arial, sans-serif";
+        c.textAlign = "center"; c.textBaseline = "middle";
+        c.fillText("$", cx, cy + 14);
+        c.font = "600 30px 'Inter', Arial, sans-serif";
+        c.fillText("· ONE DOLLAR ·", cx, cy + 158);
+        if (coinTex) coinTex.needsUpdate = true;
+      }
+
+      function initGL() {
+        if (typeof THREE === "undefined") return false;
+        try {
+          renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true, preserveDrawingBuffer: true });
+        } catch (e) { return false; }
+        if (!renderer || !renderer.getContext()) return false;
+        renderer.setPixelRatio(1);
+        renderer.setSize(W, H, false);
+        renderer.setClearColor(0x000000, 0);
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(42, W / H, 0.1, 100);
+
+        scene.add(new THREE.AmbientLight(0x99aacc, 0.72));
+        var key = new THREE.DirectionalLight(0xffe3b3, 1.15); key.position.set(4, 5, 6); scene.add(key);
+        var rim = new THREE.DirectionalLight(0x4cc9f0, 0.85); rim.position.set(-6, -2, -4); scene.add(rim);
+        var fill = new THREE.PointLight(0xffc46b, 0.30, 30); fill.position.set(0, -3, 6); scene.add(fill);
+
+        globeGroup = new THREE.Group(); scene.add(globeGroup);
+        var pos = new Float32Array(NPTS * 3);
+        for (var i = 0; i < NPTS; i += 1) { pos[i * 3] = pts[i][0]; pos[i * 3 + 1] = pts[i][1]; pos[i * 3 + 2] = pts[i][2]; }
+        var dg = new THREE.BufferGeometry();
+        dg.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+        globeDotsMat = new THREE.PointsMaterial({ color: 0x9fd8ff, size: 0.045, transparent: true, opacity: 0.3, sizeAttenuation: true });
+        globeGroup.add(new THREE.Points(dg, globeDotsMat));
+        globeWireMat = new THREE.MeshBasicMaterial({ color: 0x2a4a6b, wireframe: true, transparent: true, opacity: 0.10 });
+        globeGroup.add(new THREE.Mesh(new THREE.IcosahedronGeometry(GLOBE_R * 0.995, 3), globeWireMat));
+        var core = new THREE.Mesh(new THREE.SphereGeometry(GLOBE_R * 0.985, 40, 28),
+          new THREE.MeshBasicMaterial({ color: 0x0b1220, transparent: true, opacity: 0.88 }));
+        globeGroup.add(core);
+
+        // City nodes
+        var nodeGeo = new THREE.SphereGeometry(0.034, 10, 8);
+        var nodeMat = new THREE.MeshBasicMaterial({ color: 0xffd166 });
+        cityPts.forEach(function (p) {
+          var m = new THREE.Mesh(nodeGeo, nodeMat); m.position.set(p[0], p[1], p[2]); globeGroup.add(m);
+        });
+
+        // Orbital rings
+        [[2.85, 0.42, 0.2], [3.15, 1.05, -0.5], [3.45, 0.15, 0.9]].forEach(function (cfg) {
+          var mat = new THREE.MeshBasicMaterial({ color: 0x4cc9f0, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+          var ring = new THREE.Mesh(new THREE.RingGeometry(cfg[0], cfg[0] + 0.015, 96), mat);
+          ring.rotation.x = Math.PI / 2 + cfg[1]; ring.rotation.y = cfg[2];
+          ringMats.push(mat); globeGroup.add(ring);
+        });
+
+        // Trade arcs + pulses
+        ARC_PAIRS.forEach(function (pair) {
+          var a = new THREE.Vector3(cityPts[pair[0]][0], cityPts[pair[0]][1], cityPts[pair[0]][2]);
+          var b = new THREE.Vector3(cityPts[pair[1]][0], cityPts[pair[1]][1], cityPts[pair[1]][2]);
+          var mid = a.clone().add(b).multiplyScalar(0.5);
+          var dist = a.distanceTo(b);
+          mid.normalize().multiplyScalar(GLOBE_R + dist * 0.34);
+          var curve = new THREE.QuadraticBezierCurve3(a, mid, b);
+          arcCurves.push(curve);
+          var geo = new THREE.BufferGeometry().setFromPoints(curve.getPoints(64));
+          var mat = new THREE.LineBasicMaterial({ color: 0x2ee66b, transparent: true, opacity: 0.85 });
+          var line = new THREE.Line(geo, mat);
+          geo.setDrawRange(0, 0);
+          arcLines.push(line); globeGroup.add(line);
+          var pulse = new THREE.Mesh(new THREE.SphereGeometry(0.03, 10, 8),
+            new THREE.MeshBasicMaterial({ color: 0xd8ffe6, transparent: true, opacity: 0.95 }));
+          pulses.push(pulse); globeGroup.add(pulse);
+        });
+
+        // Stars
+        var NS = 850, spos = new Float32Array(NS * 3);
+        for (var s = 0; s < NS; s += 1) {
+          var rr = 14 + rand() * 16, tt = rand() * Math.PI * 2, pp = Math.acos(2 * rand() - 1);
+          spos[s * 3] = rr * Math.sin(pp) * Math.cos(tt);
+          spos[s * 3 + 1] = rr * Math.cos(pp) * 0.6;
+          spos[s * 3 + 2] = -Math.abs(rr * Math.sin(pp) * Math.sin(tt)) - 4;
+        }
+        var sg = new THREE.BufferGeometry();
+        sg.setAttribute("position", new THREE.BufferAttribute(spos, 3));
+        scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0x8fb3ff, size: 0.07, transparent: true, opacity: 0.75 })));
+
+        // Hero coin
+        coinCanvas = document.createElement("canvas"); coinCanvas.width = 512; coinCanvas.height = 512;
+        coinTex = new THREE.CanvasTexture(coinCanvas);
+        drawCoinFace();
+        var faceMat = new THREE.MeshPhongMaterial({ map: coinTex, emissive: 0x8f6d1f, emissiveMap: coinTex, shininess: 22, specular: 0x443311 });
+        var edgeMat = new THREE.MeshPhongMaterial({ color: 0xd9a441, emissive: 0x2a1c05, shininess: 30, specular: 0x554422 });
+        var coinGroup = new THREE.Group();
+        var rimMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.13, 64, 1, true), edgeMat);
+        rimMesh.rotation.x = Math.PI / 2;
+        coinGroup.add(rimMesh);
+        var faceGeo = new THREE.CircleGeometry(0.85, 64);
+        var faceFront = new THREE.Mesh(faceGeo, faceMat); faceFront.position.z = 0.066;
+        var faceBack = new THREE.Mesh(faceGeo, faceMat); faceBack.position.z = -0.066; faceBack.rotation.y = Math.PI;
+        coinGroup.add(faceFront); coinGroup.add(faceBack);
+        coinRing = new THREE.Mesh(new THREE.TorusGeometry(1.04, 0.011, 10, 90),
+          new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.5 }));
+        coinGroup.add(coinRing);
+        coin = coinGroup;
+        scene.add(coin);
+        return true;
+      }
+
+      var COL = null;
+      function arcColor(s, target) {
+        // green -> red (power) -> gold (finale), all as functions of t via s
+        var r = lerp(lerp(0x2e, 0xff, s.arcRed), 0xff, s.arcGold) / 255;
+        var g = lerp(lerp(0xe6, 0x4d, s.arcRed), 0xd1, s.arcGold) / 255;
+        var b = lerp(lerp(0x6b, 0x6d, s.arcRed), 0x66, s.arcGold) / 255;
+        target.setRGB(r, g, b);
+        return target;
+      }
+
+      function renderGL(t) {
+        var s = sample(t);
+        camera.position.set(0, s.camY, s.camZ);
+        camera.lookAt(s.globeX * 0.35, s.lookY, 0);
+        globeGroup.position.x = s.globeX;
+        globeGroup.rotation.y = -0.55 + t * 0.06;
+        globeGroup.rotation.x = 0.16;
+        globeDotsMat.opacity = 0.16 + 0.74 * s.globeOp;
+        globeWireMat.opacity = 0.05 + 0.10 * s.globeOp;
+        ringMats.forEach(function (m, idx) { m.opacity = (0.10 + 0.30 * s.ringsOp) * (1 - idx * 0.18); });
+        if (!COL) COL = new THREE.Color();
+        arcColor(s, COL);
+        arcLines.forEach(function (line, idx) {
+          var p = clamp01(s.arcs * 1.45 - idx * 0.035);
+          line.geometry.setDrawRange(0, Math.floor(65 * p));
+          line.material.color.copy(COL);
+          line.material.opacity = 0.25 + 0.65 * p;
+          var f = (t * 0.11 + idx * 0.173) % 1;
+          var pt = arcCurves[idx].getPoint(clamp01(f));
+          pulses[idx].position.copy(pt);
+          pulses[idx].material.opacity = p > 0.92 ? 0.95 : 0.0;
+          var ps = 0.8 + 0.35 * Math.sin(t * 2.1 + idx * 1.7);
+          pulses[idx].scale.setScalar(Math.max(0.4, ps));
+        });
+        coin.position.set(s.coinX, s.coinY, s.coinZ);
+        coin.scale.setScalar(s.coinS);
+        coin.rotation.y = s.coinRot;
+        coin.rotation.x = 0.10 * Math.sin(t * 0.5);
+        coinRing.rotation.z = t * 0.35;
+        coinRing.rotation.x = 1.15 + 0.18 * Math.sin(t * 0.33);
+        renderer.render(scene, camera);
+      }
+
+      // 2D fallback: same choreography, projected dots. Used only if WebGL fails.
+      var ctx2d = null;
+      function render2D(t) {
+        if (!ctx2d) ctx2d = canvas.getContext("2d");
+        var s = sample(t), c = ctx2d;
+        c.clearRect(0, 0, W, H);
+        var scale = (300 / s.camZ) * 2.4;
+        var cx = W / 2 + s.globeX * scale * 0.62, cy = H / 2 - s.lookY * scale * 0.5;
+        var rot = -0.55 + t * 0.06, cosR = Math.cos(rot), sinR = Math.sin(rot);
+        c.fillStyle = "rgba(159,216,255,0.85)";
+        for (var i = 0; i < NPTS; i += 2) {
+          var p = pts[i];
+          var x = p[0] * cosR + p[2] * sinR, z = -p[0] * sinR + p[2] * cosR;
+          if (z < -0.4) continue;
+          var a = (0.10 + 0.55 * s.globeOp) * (0.35 + 0.65 * clamp01((z / GLOBE_R + 1) / 2));
+          c.globalAlpha = a;
+          c.fillRect(cx + x * scale, cy - p[1] * scale, 3.4, 3.4);
+        }
+        c.globalAlpha = 1;
+        // Coin
+        var coinScale = (300 / (s.camZ - s.coinZ)) * 2.4;
+        var ccx = W / 2 + s.coinX * coinScale * 0.62, ccy = H / 2 - s.coinY * coinScale * 0.62;
+        var cr = 0.85 * s.coinS * coinScale * Math.max(0.12, Math.abs(Math.cos(s.coinRot)));
+        var gr = c.createRadialGradient(ccx - cr * 0.3, ccy - cr * 0.4, 6, ccx, ccy, Math.max(cr, 8));
+        gr.addColorStop(0, "#ffe9a8"); gr.addColorStop(0.6, "#ffd166"); gr.addColorStop(1, "#b07d1e");
+        c.fillStyle = gr;
+        c.beginPath(); c.ellipse(ccx, ccy, Math.max(cr, 4), 0.85 * s.coinS * coinScale, 0, 0, Math.PI * 2); c.fill();
+        c.fillStyle = "#7a4d0c";
+        c.font = "700 " + Math.round(0.85 * s.coinS * coinScale * 1.05) + "px 'Space Grotesk', Arial, sans-serif";
+        c.textAlign = "center"; c.textBaseline = "middle";
+        c.fillText("$", ccx, ccy);
+      }
+
+      var lastT = -1;
+      function renderAt(t) {
+        var tt = Math.max(0, Math.min(60, Number(t) || 0));
+        if (Math.abs(tt - lastT) < 1e-9) return;
+        lastT = tt;
+        if (useGL) { try { renderGL(tt); return; } catch (e) { useGL = false; } }
+        render2D(tt);
+      }
+
+      useGL = initGL();
+      window.addEventListener("hf-seek", function (e) { renderAt(e.detail.time); });
+      renderAt(0);
+      if (document.fonts && document.fonts.ready) {
+        document.fonts.ready.then(function () { drawCoinFace(); var keep = lastT; lastT = -1; renderAt(keep < 0 ? 0 : keep); });
+      }
+      window.__hf = window.__hf || {};
+      window.__hf.buildReady = window.__hf.buildReady || {};
+      window.__hf.buildReady["world3d"] = Promise.resolve();
+
+      var proxy = { t: 0 };
+      var tl = gsap.timeline({ paused: true });
+      tl.to(proxy, { t: 60, duration: 60, ease: "none", onUpdate: function () { renderAt(proxy.t); } }, 0);
+      window.__timelines["world3d"] = tl;
+    })();
+  </script>
+</template>

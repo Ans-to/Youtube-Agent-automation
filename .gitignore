@@ -45,3 +45,14 @@ __pycache__/
 /video_studio/voice_segments/
 /video_studio/voice-storyboard.generated.json
 /video_studio/*.silent.mp4
+
+# Sandbox-only tooling shims (static ffmpeg/ffprobe, chromium, npm scratch)
+/.tools-bin/
+/.tools-npm/
+
+# HyperFrames project artifacts (renders and stills are rebuilt by CI)
+/video_studio/hyperframes/*/renders/
+/video_studio/hyperframes/*/snapshots/
+/video_studio/hyperframes/*/.hyperframes/
+/video_studio/hyperframes/*/node_modules/
+/video_studio/hyperframes/*/assets/audio/score.wav
