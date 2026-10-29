@@ -1,0 +1,98 @@
+<template>
+  <style>
+    @font-face { font-family: "Inter"; font-weight: 400; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+    #root { position: absolute; inset: 0; font-family: "Inter", sans-serif; color: #f4f2ec; }
+    #s3-stage { position: absolute; inset: 0; }
+    #s3-kicker { position: absolute; left: 150px; top: 150px; }
+    #s3-kicker-in { font-size: 26px; font-weight: 800; letter-spacing: 0.34em; color: #4cc9f0; }
+    #s3-stat { position: absolute; left: 130px; top: 205px; width: 460px; height: 460px; }
+    #s3-ring { position: absolute; left: 0; top: 0; }
+    #s3-ring-bg { fill: none; stroke: rgba(244,242,236,0.14); stroke-width: 14; }
+    #s3-ring-val { fill: none; stroke: #2ee66b; stroke-width: 14; stroke-linecap: round; }
+    #s3-num-wrap { position: absolute; left: 0; top: 128px; width: 460px; text-align: center; }
+    #s3-num { font-family: "Space Grotesk", sans-serif; font-size: 168px; font-weight: 700; line-height: 1; color: #f4f2ec; }
+    #s3-num .s3-pct { color: #2ee66b; font-size: 92px; }
+    #s3-cap { position: absolute; left: 0; top: 486px; width: 460px; text-align: center; }
+    #s3-cap-in { font-size: 28px; font-weight: 600; line-height: 1.3; color: #e8e6df; }
+    #s3-source { position: absolute; left: 0; top: 566px; width: 460px; text-align: center; }
+    #s3-source-in { font-size: 20px; letter-spacing: 0.08em; color: rgba(167,167,179,0.85); }
+    #s3-slot { position: absolute; right: 150px; top: 300px; width: 640px; }
+    #s3-slot-in { background: rgba(16,22,38,0.82); border: 1px solid rgba(76,201,240,0.45); border-radius: 20px; padding: 34px 42px; }
+    #s3-slot-label { font-size: 20px; font-weight: 800; letter-spacing: 0.24em; white-space: nowrap; color: #a7a7b3; }
+    #s3-slot-window { height: 96px; overflow: hidden; margin-top: 8px; }
+    #s3-slot-col { }
+    .s3-slot-word { font-family: "Space Grotesk", sans-serif; font-size: 82px; font-weight: 700; line-height: 96px; height: 96px; color: #f4f2ec; white-space: nowrap; }
+    .s3-slot-word .s3-green { color: #2ee66b; }
+    #s3-punch { position: absolute; left: 192px; right: 192px; top: 862px; text-align: center; }
+    #s3-punch-in { font-family: "Space Grotesk", sans-serif; font-size: 68px; font-weight: 700; line-height: 1.08; }
+    #s3-punch-in .s3-word { display: inline-block; }
+    #s3-punch-in .s3-arrow { color: #ffd166; }
+    #s3-punch-in .s3-must { color: #2ee66b; }
+  </style>
+  <div data-hf-id="hf-1jiq" id="root" data-composition-id="s3-network" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-4jte" id="s3-stage">
+      <div data-hf-id="hf-gaya" id="s3-kicker" class="clip" data-start="0.1" data-duration="8.75" data-track-index="1">
+        <div data-hf-id="hf-x8pb" id="s3-kicker-in">THEN HABIT TOOK OVER</div>
+      </div>
+      <div data-hf-id="hf-6hef" id="s3-stat" class="clip" data-start="0.35" data-duration="8.5" data-track-index="1">
+        <svg data-hf-id="hf-y809" id="s3-ring" width="460" height="460" viewBox="0 0 460 460">
+          <circle data-hf-id="hf-l1qw" id="s3-ring-bg" cx="230" cy="230" r="205"></circle>
+          <circle data-hf-id="hf-qmfn" id="s3-ring-val" cx="230" cy="230" r="205" stroke-dasharray="1288" stroke-dashoffset="1288" transform="rotate(-90 230 230)"></circle>
+        </svg>
+        <div data-hf-id="hf-gdct" id="s3-num-wrap"><div data-hf-id="hf-b2gw" id="s3-num"><span data-hf-id="hf-rldb" id="s3-num-val">0</span><span data-hf-id="hf-sbog" class="s3-pct">%</span></div></div>
+        <div data-hf-id="hf-af40" id="s3-cap"><div data-hf-id="hf-s9tu" id="s3-cap-in">OF ALL CURRENCY TRADES<br data-hf-id="hf-x5px" />TOUCH THE DOLLAR</div></div>
+        <div data-hf-id="hf-vt0v" id="s3-source"><div data-hf-id="hf-b4es" id="s3-source-in">SOURCE · BIS TRIENNIAL SURVEY 2025</div></div>
+      </div>
+      <div data-hf-id="hf-o8j5" id="s3-slot" class="clip" data-start="3.4" data-duration="5.45" data-track-index="1">
+        <div data-hf-id="hf-mxhs" id="s3-slot-in">
+          <div data-hf-id="hf-11t1" id="s3-slot-label">THE WORLD NEEDS DOLLARS FOR</div>
+          <div data-hf-id="hf-tfkh" id="s3-slot-window">
+            <div data-hf-id="hf-1qmh" id="s3-slot-col">
+              <div data-hf-id="hf-cn72" class="s3-slot-word">TRADE</div>
+              <div data-hf-id="hf-weot" class="s3-slot-word">DEBT</div>
+              <div data-hf-id="hf-nlwg" class="s3-slot-word">OIL</div>
+              <div data-hf-id="hf-p774" class="s3-slot-word"><span data-hf-id="hf-8o10" class="s3-green">EVERYTHING</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div data-hf-id="hf-rjz5" id="s3-punch" class="clip" data-start="6.2" data-duration="2.65" data-track-index="1">
+        <div data-hf-id="hf-pipw" id="s3-punch-in"><span data-hf-id="hf-gzox" class="s3-word">EVERYONE</span> <span data-hf-id="hf-0hq8" class="s3-word">USES</span> <span data-hf-id="hf-mh31" class="s3-word">IT</span> <span data-hf-id="hf-g5os" class="s3-word s3-arrow">→</span> <span data-hf-id="hf-5xcy" class="s3-word">SO</span> <span data-hf-id="hf-g2at" class="s3-word">EVERYONE</span> <span data-hf-id="hf-7l49" class="s3-word s3-must">MUST.</span></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s3-stage", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0);
+      tl.fromTo("#s3-kicker-in", { opacity: 0, scale: 1.06, filter: "blur(6px)", transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.1);
+      // Ring + count-up share one proxy so the number can never disagree with the arc.
+      const C = 1288;
+      const stat = { v: 0 };
+      const numEl = document.getElementById("s3-num-val");
+      const ringEl = document.getElementById("s3-ring-val");
+      tl.fromTo("#s3-num", { opacity: 0, scale: 0.82 }, { opacity: 1, scale: 1, duration: 0.4, ease: "expo.out" }, 0.35);
+      tl.to(stat, { v: 89, duration: 1.9, ease: "power3.inOut", onUpdate: function () {
+        numEl.textContent = String(Math.round(stat.v));
+        ringEl.setAttribute("stroke-dashoffset", String(C * (1 - stat.v / 100)));
+      } }, 0.45);
+      tl.fromTo(["#s3-cap-in", "#s3-source-in"], { opacity: 0, filter: "blur(6px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.25, ease: "power4.out", stagger: 0.12 }, 2.5);
+      // Slot-machine word roll: TRADE -> DEBT -> OIL -> EVERYTHING.
+      tl.fromTo("#s3-slot-in", { opacity: 0, scale: 0.9, filter: "blur(8px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.4, ease: "expo.out" }, 3.4);
+      tl.fromTo("#s3-slot-col", { y: 0 }, { y: -96, duration: 0.24, ease: "power3.inOut" }, 4.35);
+      tl.to("#s3-slot-col", { y: -192, duration: 0.24, ease: "power3.inOut" }, 5.05);
+      tl.to("#s3-slot-col", { y: -288, duration: 0.3, ease: "power3.inOut" }, 5.75);
+      // Punchline lands word by word and holds.
+      tl.fromTo("#s3-punch-in .s3-word", { opacity: 0, scale: 1.9, filter: "blur(12px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.36, ease: "expo.out", stagger: 0.085 }, 6.2);
+      tl.to("#s3-stage", { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, 8.7);
+      window.__timelines["s3-network"] = tl;
+    })();
+  </script>
+</template>

@@ -1,0 +1,93 @@
+<template>
+  <style>
+    @font-face { font-family: "Inter"; font-weight: 400; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+    #root { position: absolute; inset: 0; font-family: "Inter", sans-serif; color: #f4f2ec; }
+    #s4-stage { position: absolute; inset: 0; }
+    #s4-stamp { position: absolute; left: 150px; top: 150px; }
+    #s4-stamp-in { display: inline-block; border: 5px solid #ffd166; border-radius: 14px; padding: 10px 30px 14px;
+      font-family: "Space Grotesk", sans-serif; font-size: 96px; font-weight: 700; color: #ffd166; letter-spacing: 0.06em; }
+    #s4-kicker { position: absolute; left: 150px; top: 330px; }
+    #s4-kicker-in { font-size: 26px; font-weight: 800; letter-spacing: 0.34em; color: #ffd166; }
+    #s4-head { position: absolute; left: 150px; top: 378px; width: 1250px; }
+    #s4-head-in { font-family: "Space Grotesk", sans-serif; font-size: 98px; font-weight: 700; line-height: 1.04; }
+    #s4-head-in .s4-word { display: inline-block; }
+    #s4-head-in .s4-usd { color: #2ee66b; }
+    #s4-drop { position: absolute; right: 210px; top: 170px; width: 190px; height: 190px; }
+    #s4-drop-in { width: 190px; height: 190px; border-radius: 3% 50% 50% 50%; background: radial-gradient(circle at 34% 30%, #ffe9a8, #d99a26 45%, #3a2a08 100%); }
+    #s4-drop-label { position: absolute; right: 150px; top: 382px; width: 310px; text-align: center; }
+    #s4-drop-label-in { font-size: 23px; font-weight: 800; letter-spacing: 0.26em; color: rgba(244,242,236,0.85); }
+    #s4-loop { position: absolute; left: 150px; top: 612px; width: 1620px; height: 300px; }
+    .s4-node { position: absolute; top: 30px; width: 430px; }
+    .s4-node-in { background: rgba(16,22,38,0.85); border: 1px solid rgba(244,242,236,0.22); border-radius: 20px; padding: 30px 34px; text-align: center; }
+    .s4-node-big { font-family: "Space Grotesk", sans-serif; font-size: 52px; font-weight: 700; white-space: nowrap; }
+    .s4-node-small { font-size: 24px; color: #a7a7b3; margin-top: 6px; }
+    #s4-nd1 { left: 0; } #s4-nd2 { left: 595px; } #s4-nd3 { left: 1190px; }
+    #s4-nd2 .s4-node-in { border-color: rgba(46,230,107,0.6); }
+    #s4-nd3 .s4-node-in { border-color: rgba(255,209,102,0.6); }
+    .s4-arrow { position: absolute; top: 96px; width: 140px; height: 6px; background: #4cc9f0; border-radius: 3px; transform-origin: 0% 50%; }
+    .s4-arrow::after { content: ""; position: absolute; right: -2px; top: -9px; border-left: 22px solid #4cc9f0; border-top: 12px solid transparent; border-bottom: 12px solid transparent; }
+    #s4-ar1 { left: 442px; } #s4-ar2 { left: 1037px; }
+    #s4-return { position: absolute; left: 220px; top: 238px; width: 1180px; height: 54px; border: 3px dashed rgba(255,209,102,0.55); border-top: none; border-radius: 0 0 26px 26px; }
+    #s4-return-label { position: absolute; left: 0; top: 292px; width: 1620px; text-align: center; }
+    #s4-return-label-in { font-size: 25px; font-weight: 800; letter-spacing: 0.30em; color: #ffd166; }
+    .s4-green { color: #2ee66b; }
+  </style>
+  <div data-hf-id="hf-3z63" id="root" data-composition-id="s4-petro" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-sepl" id="s4-stage">
+      <div data-hf-id="hf-9d9t" id="s4-stamp" class="clip" data-start="0.15" data-duration="8.7" data-track-index="1">
+        <div data-hf-id="hf-q8yv" id="s4-stamp-in">1974</div>
+      </div>
+      <div data-hf-id="hf-efyb" id="s4-kicker" class="clip" data-start="0.7" data-duration="8.15" data-track-index="1">
+        <div data-hf-id="hf-qvxo" id="s4-kicker-in">OIL SEALS THE SYSTEM</div>
+      </div>
+      <div data-hf-id="hf-h83n" id="s4-head" class="clip" data-start="0.95" data-duration="7.9" data-track-index="1">
+        <div data-hf-id="hf-d1cd" id="s4-head-in"><span data-hf-id="hf-90tj" class="s4-word">BUY</span> <span data-hf-id="hf-qqt6" class="s4-word">ENERGY?</span><br data-hf-id="hf-x5px" /><span data-hf-id="hf-k5il" class="s4-word">PAY</span> <span data-hf-id="hf-2an6" class="s4-word">IN</span> <span data-hf-id="hf-q9xm" class="s4-word s4-usd">DOLLARS.</span></div>
+      </div>
+      <div data-hf-id="hf-vx5b" id="s4-drop" class="clip" data-start="1.4" data-duration="7.45" data-track-index="1">
+        <div data-hf-id="hf-t086" id="s4-drop-in"></div>
+      </div>
+      <div data-hf-id="hf-vhb6" id="s4-drop-label" class="clip" data-start="1.75" data-duration="7.1" data-track-index="1">
+        <div data-hf-id="hf-khrs" id="s4-drop-label-in">CRUDE OIL · USD / BARREL</div>
+      </div>
+      <div data-hf-id="hf-29py" id="s4-loop" class="clip" data-start="3.2" data-duration="5.65" data-track-index="1">
+        <div data-hf-id="hf-f2k9" class="s4-node" id="s4-nd1"><div data-hf-id="hf-0s97" class="s4-node-in" id="s4-nd1-in"><div data-hf-id="hf-nhtn" class="s4-node-big">NEED OIL</div><div data-hf-id="hf-hy6o" class="s4-node-small">every economy, every day</div></div></div>
+        <div data-hf-id="hf-ls8v" class="s4-arrow" id="s4-ar1"></div>
+        <div data-hf-id="hf-l8a2" class="s4-node" id="s4-nd2"><div data-hf-id="hf-juyi" class="s4-node-in" id="s4-nd2-in"><div data-hf-id="hf-uh5n" class="s4-node-big">NEED <span data-hf-id="hf-iv1e" class="s4-green">$</span> FIRST</div><div data-hf-id="hf-w30f" class="s4-node-small">earn, borrow or buy dollars</div></div></div>
+        <div data-hf-id="hf-d4d0" class="s4-arrow" id="s4-ar2"></div>
+        <div data-hf-id="hf-p6e3" class="s4-node" id="s4-nd3"><div data-hf-id="hf-drd9" class="s4-node-in" id="s4-nd3-in"><div data-hf-id="hf-e4ci" class="s4-node-big">HOLD <span data-hf-id="hf-zfra" class="s4-green">$</span></div><div data-hf-id="hf-433o" class="s4-node-small">reserves pile up in dollars</div></div></div>
+        <div data-hf-id="hf-tyd3" id="s4-return"></div>
+        <div data-hf-id="hf-cyi2" id="s4-return-label"><div data-hf-id="hf-2m8a" id="s4-return-label-in">↺ &nbsp;THE LOOP THAT NEVER SWITCHED OFF</div></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s4-stage", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0);
+      // Rubber-stamp slam: oversized, rotated, one hard landing.
+      tl.fromTo("#s4-stamp-in", { opacity: 0, scale: 2.6, rotation: 4, filter: "blur(10px)" },
+        { opacity: 1, scale: 1, rotation: -7, filter: "blur(0px)", duration: 0.34, ease: "power4.in" }, 0.15);
+      tl.to("#s4-stamp-in", { scale: 1.05, duration: 0.09, ease: "power2.out", yoyo: true, repeat: 1 }, 0.5);
+      tl.fromTo("#s4-kicker-in", { opacity: 0, scale: 1.06, filter: "blur(6px)", transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.45, ease: "expo.out" }, 0.7);
+      tl.fromTo("#s4-head-in .s4-word", { opacity: 0, filter: "blur(9px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.15, ease: "power4.out", stagger: 0.08 }, 0.95);
+      // Droplet drops in and settles (position may bounce a touch; opacity never does).
+      tl.fromTo("#s4-drop-in", { opacity: 0, y: -150, rotation: 38, scale: 0.6 },
+        { opacity: 1, y: 0, rotation: 45, scale: 1, duration: 0.55, ease: "back.out(1.4)" }, 1.4);
+      tl.fromTo("#s4-drop-label-in", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power1.out" }, 1.85);
+      // The petrodollar loop builds in spoken order.
+      tl.fromTo("#s4-nd1-in", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.36, ease: "back.out(1.6)" }, 3.2);
+      tl.fromTo("#s4-ar1", { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: "power3.out" }, 3.65);
+      tl.fromTo("#s4-nd2-in", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.36, ease: "back.out(1.6)" }, 4.05);
+      tl.fromTo("#s4-ar2", { scaleX: 0 }, { scaleX: 1, duration: 0.3, ease: "power3.out" }, 4.5);
+      tl.fromTo("#s4-nd3-in", { opacity: 0, scale: 0.7 }, { opacity: 1, scale: 1, duration: 0.36, ease: "back.out(1.6)" }, 4.9);
+      tl.fromTo(["#s4-return", "#s4-return-label-in"], { opacity: 0 }, { opacity: 1, duration: 0.4, ease: "power2.out", stagger: 0.15 }, 5.6);
+      tl.to("#s4-stage", { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, 8.7);
+      window.__timelines["s4-petro"] = tl;
+    })();
+  </script>
+</template>

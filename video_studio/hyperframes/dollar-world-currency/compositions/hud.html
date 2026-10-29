@@ -1,0 +1,58 @@
+<template>
+  <style>
+    @font-face { font-family: "Inter"; font-weight: 400; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+    #root { position: absolute; inset: 0; font-family: "Inter", sans-serif; color: #f4f2ec; }
+    #hud-vignette { position: absolute; inset: 0; pointer-events: none;
+      background: radial-gradient(120% 90% at 50% 50%, rgba(0,0,0,0) 62%, rgba(2,4,10,0.42) 100%); }
+    .hud-corner { position: absolute; width: 44px; height: 44px; border: 2px solid rgba(244,242,236,0.35); }
+    #hud-c-tl { left: 34px; top: 34px; border-right: none; border-bottom: none; }
+    #hud-c-tr { right: 34px; top: 34px; border-left: none; border-bottom: none; }
+    #hud-c-bl { left: 34px; bottom: 34px; border-right: none; border-top: none; }
+    #hud-c-br { right: 34px; bottom: 34px; border-left: none; border-top: none; }
+    #hud-bug { position: absolute; left: 58px; top: 52px; font-size: 24px; font-weight: 800; letter-spacing: 0.30em; color: rgba(244,242,236,0.92); }
+    #hud-bug .hud-dollar { color: #2ee66b; }
+    #hud-format { position: absolute; right: 58px; bottom: 54px; font-size: 21px; font-weight: 600; letter-spacing: 0.26em; color: rgba(167,167,179,0.9); }
+    .hud-chapter { position: absolute; right: 58px; top: 50px; text-align: right; }
+    .hud-chapter-in { font-size: 23px; font-weight: 600; letter-spacing: 0.26em; color: rgba(244,242,236,0.85); white-space: nowrap; }
+    .hud-chapter-in b { color: #ffd166; font-weight: 800; }
+    #hud-progress { position: absolute; left: 58px; right: 58px; bottom: 40px; height: 4px; background: rgba(244,242,236,0.14); border-radius: 2px; overflow: hidden; }
+    #hud-progress-in { width: 100%; height: 100%; background: linear-gradient(90deg, #2ee66b, #ffd166); transform-origin: 0% 50%; }
+  </style>
+  <div data-hf-id="hf-zmd4" id="root" data-composition-id="hud" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-md06" id="hud-vignette" data-layout-ignore="true"></div>
+    <div data-hf-id="hf-0738" id="hud-c-tl" class="hud-corner" data-layout-ignore="true"></div>
+    <div data-hf-id="hf-sav6" id="hud-c-tr" class="hud-corner" data-layout-ignore="true"></div>
+    <div data-hf-id="hf-ycti" id="hud-c-bl" class="hud-corner" data-layout-ignore="true"></div>
+    <div data-hf-id="hf-xon4" id="hud-c-br" class="hud-corner" data-layout-ignore="true"></div>
+    <div data-hf-id="hf-gth7" id="hud-bug"><span data-hf-id="hf-cp61" class="hud-dollar">$</span> 60-SECOND MONEY STORIES</div>
+    <div data-hf-id="hf-b5q0" id="hud-format">WHY THE DOLLAR RULES · 60S</div>
+
+    <div data-hf-id="hf-4zqr" id="hud-ch1" class="clip hud-chapter" data-start="0" data-duration="6" data-track-index="2"><div data-hf-id="hf-v210" id="hud-ch1-in" class="hud-chapter-in"><b data-hf-id="hf-lon8">01 / 07</b> · THE HOOK</div></div>
+    <div data-hf-id="hf-u5os" id="hud-ch2" class="clip hud-chapter" data-start="6" data-duration="8" data-track-index="2"><div data-hf-id="hf-48wc" id="hud-ch2-in" class="hud-chapter-in"><b data-hf-id="hf-trjf">02 / 07</b> · 1944 — THE DEAL</div></div>
+    <div data-hf-id="hf-518z" id="hud-ch3" class="clip hud-chapter" data-start="14" data-duration="9" data-track-index="2"><div data-hf-id="hf-p6q5" id="hud-ch3-in" class="hud-chapter-in"><b data-hf-id="hf-ta0y">03 / 07</b> · THE NETWORK</div></div>
+    <div data-hf-id="hf-c5ii" id="hud-ch4" class="clip hud-chapter" data-start="23" data-duration="9" data-track-index="2"><div data-hf-id="hf-a31q" id="hud-ch4-in" class="hud-chapter-in"><b data-hf-id="hf-0pwp">04 / 07</b> · OIL SEALS IT</div></div>
+    <div data-hf-id="hf-42k1" id="hud-ch5" class="clip hud-chapter" data-start="32" data-duration="9" data-track-index="2"><div data-hf-id="hf-zdn5" id="hud-ch5-in" class="hud-chapter-in"><b data-hf-id="hf-v774">05 / 07</b> · THE VAULT</div></div>
+    <div data-hf-id="hf-pehs" id="hud-ch6" class="clip hud-chapter" data-start="41" data-duration="9" data-track-index="2"><div data-hf-id="hf-8p42" id="hud-ch6-in" class="hud-chapter-in"><b data-hf-id="hf-njwn">06 / 07</b> · THE SWITCH</div></div>
+    <div data-hf-id="hf-yr1n" id="hud-ch7" class="clip hud-chapter" data-start="50" data-duration="10" data-track-index="2"><div data-hf-id="hf-au3f" id="hud-ch7-in" class="hud-chapter-in"><b data-hf-id="hf-pfri">07 / 07</b> · THE ANSWER</div></div>
+
+    <div data-hf-id="hf-1rj5" id="hud-progress" class="clip" data-start="0" data-duration="60" data-track-index="2"><div data-hf-id="hf-bttc" id="hud-progress-in"></div></div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#hud-progress-in", { scaleX: 0 }, { scaleX: 1, duration: 59.92, ease: "none" }, 0);
+      const chapters = [
+        ["#hud-ch1-in", 0.4], ["#hud-ch2-in", 6.25], ["#hud-ch3-in", 14.25], ["#hud-ch4-in", 23.25],
+        ["#hud-ch5-in", 32.25], ["#hud-ch6-in", 41.25], ["#hud-ch7-in", 50.25],
+      ];
+      chapters.forEach(([sel, at]) => {
+        tl.fromTo(sel, { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.22, ease: "power4.out" }, at);
+      });
+      window.__timelines["hud"] = tl;
+    })();
+  </script>
+</template>

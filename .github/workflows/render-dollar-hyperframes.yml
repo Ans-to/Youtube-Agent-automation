@@ -1,0 +1,93 @@
+name: Render Dollar HyperFrames film
+
+# Delivery render for the HyperFrames film in
+# video_studio/hyperframes/dollar-world-currency. Per /Skill.md, production
+# MP4s are built on GitHub Actions, never on a local machine; the MP4, contact
+# sheet and captions come back as one downloadable artifact.
+#
+# The project is fully self-contained: GSAP and Three.js are vendored in
+# lib/, fonts and the synthesized score live in assets/, and no step needs an
+# API key or a rendering service. The runner only adds Node 22 + FFmpeg and
+# lets HyperFrames fetch its pinned chrome-headless-shell.
+
+on:
+  workflow_dispatch:
+    inputs:
+      quality:
+        description: Render quality (draft, looks, delivery)
+        required: true
+        default: "delivery"
+        type: string
+  push:
+    branches:
+      - main
+      - arena/3e078dba-youtube-agent-automation
+    paths:
+      - "video_studio/hyperframes/dollar-world-currency/**"
+      - ".github/workflows/render-dollar-hyperframes.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-dollar-hyperframes-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      PROJECT: video_studio/hyperframes/dollar-world-currency
+      HYPERFRAMES_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install FFmpeg
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg
+
+      - name: HyperFrames doctor
+        working-directory: ${{ env.PROJECT }}
+        run: npx --yes hyperframes@0.8.216 doctor
+
+      - name: Gate — lint, runtime, layout
+        working-directory: ${{ env.PROJECT }}
+        run: npx --yes hyperframes@0.8.216 check
+
+      - name: Review snapshots (beats, seams, phone width)
+        working-directory: ${{ env.PROJECT }}
+        run: npx --yes hyperframes@0.8.216 snapshot --review -o snapshots/review
+
+      - name: Render delivery MP4 (1920x1080, 30 fps, 60 s)
+        working-directory: ${{ env.PROJECT }}
+        run: >
+          npx --yes hyperframes@0.8.216 render --fps 30
+          --quality "${{ inputs.quality || 'delivery' }}"
+          -o renders/dollar-world-currency-60s.mp4
+
+      - name: Verify the artifact really is the promised film
+        working-directory: ${{ env.PROJECT }}
+        run: |
+          ffprobe -v error -show_entries format=duration,size \
+            -show_entries stream=codec_name,width,height,r_frame_rate \
+            -of default=noprint_wrappers=1 renders/dollar-world-currency-60s.mp4
+          ffmpeg -y -v error -ss 2.8 -i renders/dollar-world-currency-60s.mp4 \
+            -frames:v 1 renders/frame-2.8s.png
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dollar-world-currency-60s
+          path: |
+            video_studio/hyperframes/dollar-world-currency/renders/dollar-world-currency-60s.mp4
+            video_studio/hyperframes/dollar-world-currency/renders/frame-2.8s.png
+            video_studio/hyperframes/dollar-world-currency/snapshots/review/review-beats.jpg
+            video_studio/hyperframes/dollar-world-currency/snapshots/review/review-phone.jpg
+            video_studio/hyperframes/dollar-world-currency/captions.srt
+            video_studio/hyperframes/dollar-world-currency/captions.vtt
+            video_studio/hyperframes/dollar-world-currency/thumbnail.jpg
+            video_studio/hyperframes/dollar-world-currency/upload-pack.md
+          if-no-files-found: error

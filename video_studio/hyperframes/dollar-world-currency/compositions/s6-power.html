@@ -1,0 +1,135 @@
+<template>
+  <style>
+    @font-face { font-family: "Inter"; font-weight: 400; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+    #root { position: absolute; inset: 0; font-family: "Inter", sans-serif; color: #f4f2ec; }
+    #s6-stage { position: absolute; inset: 0; }
+    #s6-kicker { position: absolute; left: 150px; top: 140px; }
+    #s6-kicker-in { font-size: 26px; font-weight: 800; letter-spacing: 0.34em; color: #ff4d6d; }
+    #s6-head { position: absolute; left: 150px; top: 188px; width: 1100px; }
+    #s6-head-in { font-family: "Space Grotesk", sans-serif; font-size: 88px; font-weight: 700; line-height: 1.05; }
+    #s6-head-in .s6-word { display: inline-block; }
+    #s6-head-in .s6-switch { color: #ff4d6d; }
+    #s6-sub { position: absolute; left: 150px; top: 410px; width: 1020px; }
+    #s6-sub-in { font-size: 31px; line-height: 1.4; color: #c9c9d4; }
+    #s6-sub-in b { color: #f4f2ec; }
+    #s6-net { position: absolute; right: 110px; top: 175px; width: 480px; height: 420px; }
+    #s6-net-svg { position: absolute; left: 0; top: 0; }
+    .s6-link { stroke: #2ee66b; stroke-width: 3; opacity: 0.85; }
+    .s6-node { fill: #ffd166; }
+    #s6-net-cap { position: absolute; left: 0; top: 382px; width: 480px; text-align: center; }
+    #s6-net-cap-in { font-size: 22px; font-weight: 800; letter-spacing: 0.24em; color: rgba(244,242,236,0.85); }
+    #s6-decline { position: absolute; left: 150px; top: 560px; width: 860px; height: 330px; }
+    #s6-decline-title { font-size: 24px; font-weight: 800; letter-spacing: 0.24em; color: #a7a7b3; }
+    #s6-line-svg { position: absolute; left: 0; top: 44px; }
+    #s6-line-path { fill: none; stroke: #ff4d6d; stroke-width: 5; stroke-linecap: round; }
+    .s6-pt { position: absolute; font-family: "Space Grotesk", sans-serif; font-weight: 700; }
+    #s6-pt1 { left: 2px; top: 30px; font-size: 44px; color: #f4f2ec; }
+    #s6-pt2 { left: 348px; top: 92px; font-size: 36px; color: #c9c9d4; }
+    #s6-pt3 { left: 654px; top: 164px; font-size: 44px; color: #ff4d6d; }
+    .s6-year { font-family: "Inter", sans-serif; font-size: 22px; font-weight: 600; color: #a7a7b3; letter-spacing: 0.1em; }
+    #s6-chips { position: absolute; right: 150px; top: 660px; width: 520px; }
+    #s6-chips-label { font-size: 24px; font-weight: 800; letter-spacing: 0.28em; color: #a7a7b3; margin-bottom: 18px; }
+    .s6-chip { display: inline-block; margin: 0 12px 14px 0; }
+    .s6-chip-in { border: 2px solid rgba(244,242,236,0.4); border-radius: 999px; padding: 12px 26px; font-family: "Space Grotesk", sans-serif; font-size: 32px; font-weight: 700; background: rgba(16,22,38,0.8); }
+    #s6-punch { position: absolute; left: 192px; right: 192px; top: 928px; text-align: center; }
+    #s6-punch-in { font-family: "Space Grotesk", sans-serif; font-size: 62px; font-weight: 700; }
+    #s6-punch-in .s6-word { display: inline-block; }
+    #s6-punch-in .s6-no { color: #2ee66b; }
+  </style>
+  <div data-hf-id="hf-g90m" id="root" data-composition-id="s6-power" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-lmez" id="s6-stage">
+      <div data-hf-id="hf-bhr1" id="s6-kicker" class="clip" data-start="0.1" data-duration="8.75" data-track-index="1">
+        <div data-hf-id="hf-ycyn" id="s6-kicker-in">EVERY SUPERPOWER HAS A PRICE</div>
+      </div>
+      <div data-hf-id="hf-h3e8" id="s6-head" class="clip" data-start="0.35" data-duration="8.5" data-track-index="1">
+        <div data-hf-id="hf-p0df" id="s6-head-in"><span data-hf-id="hf-a51i" class="s6-word">A</span> <span data-hf-id="hf-av4q" class="s6-word">CURRENCY.</span><br data-hf-id="hf-x5px" /><span data-hf-id="hf-99g4" class="s6-word">AND</span> <span data-hf-id="hf-bcwa" class="s6-word">A</span> <span data-hf-id="hf-uqov" class="s6-word s6-switch">SWITCH.</span></div>
+      </div>
+      <div data-hf-id="hf-leso" id="s6-sub" class="clip" data-start="1.6" data-duration="7.25" data-track-index="1">
+        <div data-hf-id="hf-lzb1" id="s6-sub-in">Dollar payments clear through US-linked rails — so access can be <b data-hf-id="hf-fhd1">frozen or cut off</b> in sanctions.</div>
+      </div>
+      <div data-hf-id="hf-7np4" id="s6-net" class="clip" data-start="1.9" data-duration="6.95" data-track-index="1">
+        <svg data-hf-id="hf-lb33" id="s6-net-svg" width="480" height="368" viewBox="0 0 560 430">
+          <line data-hf-id="hf-st38" class="s6-link" id="s6-l1" x1="280" y1="205" x2="90" y2="80"></line>
+          <line data-hf-id="hf-fc10" class="s6-link" id="s6-l2" x1="280" y1="205" x2="470" y2="70"></line>
+          <line data-hf-id="hf-ax9d" class="s6-link" id="s6-l3" x1="280" y1="205" x2="500" y2="300"></line>
+          <line data-hf-id="hf-mhud" class="s6-link" id="s6-l4" x1="280" y1="205" x2="280" y2="380"></line>
+          <line data-hf-id="hf-ljn4" class="s6-link" id="s6-l5" x1="280" y1="205" x2="70" y2="330"></line>
+          <line data-hf-id="hf-sb6n" class="s6-link" id="s6-l6" x1="280" y1="205" x2="150" y2="205"></line>
+          <circle data-hf-id="hf-bhpk" class="s6-node" id="s6-n0" cx="280" cy="205" r="17"></circle>
+          <circle data-hf-id="hf-d6lp" class="s6-node" id="s6-n1" cx="90" cy="80" r="11"></circle>
+          <circle data-hf-id="hf-6oj5" class="s6-node" id="s6-n2" cx="470" cy="70" r="11"></circle>
+          <circle data-hf-id="hf-u6de" class="s6-node" id="s6-n3" cx="500" cy="300" r="11"></circle>
+          <circle data-hf-id="hf-45xy" class="s6-node" id="s6-n4" cx="280" cy="380" r="11"></circle>
+          <circle data-hf-id="hf-12tr" class="s6-node" id="s6-n5" cx="70" cy="330" r="11"></circle>
+          <circle data-hf-id="hf-q7xk" class="s6-node" id="s6-n6" cx="150" cy="205" r="11"></circle>
+        </svg>
+        <div data-hf-id="hf-9q5n" id="s6-net-cap"><div data-hf-id="hf-degh" id="s6-net-cap-in">GLOBAL $ PAYMENT RAILS</div></div>
+      </div>
+      <div data-hf-id="hf-4m76" id="s6-decline" class="clip" data-start="4.4" data-duration="4.45" data-track-index="1">
+        <div data-hf-id="hf-691e" id="s6-decline-title">USD RESERVE SHARE — THE SLOW SLIDE</div>
+        <svg data-hf-id="hf-839j" id="s6-line-svg" width="860" height="240" viewBox="0 0 860 240">
+          <path data-hf-id="hf-5ws8" id="s6-line-path" d="M 30 40 L 430 105 L 800 175"></path>
+          <circle data-hf-id="hf-pq2p" id="s6-d1" cx="30" cy="40" r="8" fill="#f4f2ec"></circle>
+          <circle data-hf-id="hf-vt4j" id="s6-d2" cx="430" cy="105" r="7" fill="#c9c9d4"></circle>
+          <circle data-hf-id="hf-29u0" id="s6-d3" cx="800" cy="175" r="9" fill="#ff4d6d"></circle>
+        </svg>
+        <div data-hf-id="hf-173l" class="s6-pt" id="s6-pt1">72% <span data-hf-id="hf-nobp" class="s6-year">2001</span></div>
+        <div data-hf-id="hf-jh84" class="s6-pt" id="s6-pt2">≈65% <span data-hf-id="hf-nndg" class="s6-year">2015</span></div>
+        <div data-hf-id="hf-l4hk" class="s6-pt" id="s6-pt3">57% <span data-hf-id="hf-zg29" class="s6-year">TODAY</span></div>
+      </div>
+      <div data-hf-id="hf-77f8" id="s6-chips" class="clip" data-start="5.9" data-duration="2.95" data-track-index="1">
+        <div data-hf-id="hf-bvki" id="s6-chips-label">THE CHALLENGERS</div>
+        <span data-hf-id="hf-trcp" class="s6-chip"><span data-hf-id="hf-m3qa" class="s6-chip-in" id="s6-c1">€ EURO</span></span>
+        <span data-hf-id="hf-tle5" class="s6-chip"><span data-hf-id="hf-wppw" class="s6-chip-in" id="s6-c2">CNY</span></span>
+        <span data-hf-id="hf-usb8" class="s6-chip"><span data-hf-id="hf-7wos" class="s6-chip-in" id="s6-c3">BRICS PAY</span></span>
+        <span data-hf-id="hf-ue07" class="s6-chip"><span data-hf-id="hf-gex8" class="s6-chip-in" id="s6-c4">GOLD</span></span>
+        <span data-hf-id="hf-zmwe" class="s6-chip"><span data-hf-id="hf-sji6" class="s6-chip-in" id="s6-c5">BTC</span></span>
+      </div>
+      <div data-hf-id="hf-oodo" id="s6-punch" class="clip" data-start="7.3" data-duration="1.55" data-track-index="1">
+        <div data-hf-id="hf-k6ir" id="s6-punch-in"><span data-hf-id="hf-4x5e" class="s6-word">RIVALS</span> <span data-hf-id="hf-je71" class="s6-word">RISING.</span> <span data-hf-id="hf-2rlx" class="s6-word s6-no">NO</span> <span data-hf-id="hf-avjm" class="s6-word s6-no">SUCCESSOR.</span></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s6-stage", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0);
+      tl.fromTo("#s6-kicker-in", { opacity: 0, scale: 1.06, filter: "blur(6px)", transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.1);
+      tl.fromTo("#s6-head-in .s6-word", { opacity: 0, scale: 1.8, filter: "blur(12px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.38, ease: "expo.out", stagger: 0.09 }, 0.35);
+      tl.fromTo("#s6-sub-in", { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.25, ease: "power4.out" }, 1.6);
+      // Payment network lights up green, then links are cut red one by one.
+      tl.fromTo([".s6-link", ".s6-node"], { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out", stagger: 0.045 }, 1.9);
+      tl.fromTo("#s6-net-cap-in", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power1.out" }, 2.5);
+      ["#s6-l2", "#s6-l5", "#s6-l3"].forEach((sel, i) => {
+        tl.to(sel, { stroke: "#ff4d6d", opacity: 0.35, duration: 0.22, ease: "power2.inOut" }, 3.1 + i * 0.45);
+      });
+      ["#s6-n2", "#s6-n5", "#s6-n3"].forEach((sel, i) => {
+        tl.to(sel, { fill: "#5a5f73", duration: 0.22, ease: "power2.inOut" }, 3.1 + i * 0.45);
+      });
+      // Decline line draws itself; labels land as the stroke passes.
+      const path = document.getElementById("s6-line-path");
+      const len = path.getTotalLength();
+      path.setAttribute("stroke-dasharray", String(len));
+      tl.fromTo("#s6-decline-title", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power1.out" }, 4.4);
+      tl.fromTo(path, { strokeDashoffset: len }, { strokeDashoffset: 0, duration: 1.5, ease: "power2.inOut" }, 4.55);
+      tl.fromTo(["#s6-pt1", "#s6-d1"], { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power1.out" }, 4.6);
+      tl.fromTo(["#s6-pt2", "#s6-d2"], { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power1.out" }, 5.25);
+      tl.fromTo("#s6-d3", { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power1.out" }, 5.9);
+      tl.fromTo("#s6-pt3", { opacity: 0, scale: 1.5 }, { opacity: 1, scale: 1, duration: 0.3, ease: "expo.out" }, 5.95);
+      // Challengers rise — small.
+      tl.fromTo("#s6-chips-label", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power1.out" }, 5.9);
+      ["#s6-c1", "#s6-c2", "#s6-c3", "#s6-c4", "#s6-c5"].forEach((sel, i) => {
+        tl.fromTo(sel, { opacity: 0, y: 34 }, { opacity: 1, y: 0, duration: 0.32, ease: "back.out(1.6)" }, 6.05 + i * 0.11);
+      });
+      tl.fromTo("#s6-punch-in .s6-word", { opacity: 0, filter: "blur(9px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power4.out", stagger: 0.09 }, 7.3);
+      tl.to("#s6-stage", { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, 8.7);
+      window.__timelines["s6-power"] = tl;
+    })();
+  </script>
+</template>

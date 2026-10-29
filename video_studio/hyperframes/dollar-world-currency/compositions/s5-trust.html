@@ -1,0 +1,96 @@
+<template>
+  <style>
+    @font-face { font-family: "Inter"; font-weight: 400; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+    #root { position: absolute; inset: 0; font-family: "Inter", sans-serif; color: #f4f2ec; }
+    #s5-stage { position: absolute; inset: 0; }
+    #s5-kicker { position: absolute; left: 150px; top: 140px; }
+    #s5-kicker-in { font-size: 26px; font-weight: 800; letter-spacing: 0.34em; color: #ffd166; }
+    #s5-head { position: absolute; left: 150px; top: 186px; width: 1050px; }
+    #s5-head-in { font-family: "Space Grotesk", sans-serif; font-size: 72px; font-weight: 700; line-height: 1.05; }
+    #s5-head-in .s5-word { display: inline-block; }
+    #s5-head-in .s5-num { color: #2ee66b; }
+    #s5-chart { position: absolute; left: 150px; top: 470px; width: 980px; height: 470px; }
+    #s5-axis { position: absolute; left: 0; bottom: 64px; width: 980px; height: 2px; background: rgba(244,242,236,0.35); }
+    .s5-bar { position: absolute; bottom: 66px; width: 104px; }
+    .s5-bar-in { position: absolute; bottom: 0; left: 0; width: 104px; border-radius: 8px 8px 0 0; transform-origin: 50% 100%; }
+    .s5-bar-v { position: absolute; left: 0; width: 104px; text-align: center; font-family: "Space Grotesk", sans-serif; font-size: 36px; font-weight: 700; }
+    .s5-bar-l { position: absolute; left: 0; bottom: -52px; width: 104px; text-align: center; font-size: 24px; font-weight: 800; letter-spacing: 0.08em; color: #c9c9d4; }
+    #s5-b-usd { left: 0; } #s5-b-usd .s5-bar-in { height: 342px; background: linear-gradient(180deg, #2ee66b, #149a47); } #s5-b-usd .s5-bar-v { bottom: 352px; color: #2ee66b; }
+    #s5-b-eur { left: 160px; } #s5-b-eur .s5-bar-in { height: 120px; background: linear-gradient(180deg, #4cc9f0, #2277a8); } #s5-b-eur .s5-bar-v { bottom: 130px; }
+    #s5-b-oth { left: 320px; } #s5-b-oth .s5-bar-in { height: 60px; background: #5a5f73; } #s5-b-oth .s5-bar-v { bottom: 70px; }
+    #s5-b-jpy { left: 480px; } #s5-b-jpy .s5-bar-in { height: 36px; background: #5a5f73; } #s5-b-jpy .s5-bar-v { bottom: 46px; }
+    #s5-b-gbp { left: 640px; } #s5-b-gbp .s5-bar-in { height: 30px; background: #5a5f73; } #s5-b-gbp .s5-bar-v { bottom: 40px; }
+    #s5-b-cny { left: 800px; } #s5-b-cny .s5-bar-in { height: 14px; background: #8a4a55; } #s5-b-cny .s5-bar-v { bottom: 24px; }
+    #s5-chart-cap { position: absolute; left: 0; bottom: -58px; width: 980px; }
+    #s5-chart-cap-in { font-size: 21px; letter-spacing: 0.06em; color: rgba(167,167,179,0.9); }
+    #s5-stack { position: absolute; right: 150px; top: 330px; width: 560px; }
+    .s5-stack-row { border-top: 2px solid rgba(244,242,236,0.22); padding: 16px 4px 20px; }
+    .s5-stack-word { font-family: "Space Grotesk", sans-serif; font-size: 84px; font-weight: 700; line-height: 1; }
+    .s5-stack-note { font-size: 25px; color: #a7a7b3; margin-top: 6px; }
+    #s5-r1 .s5-stack-word { color: #f4f2ec; } #s5-r2 .s5-stack-word { color: #4cc9f0; } #s5-r3 .s5-stack-word { color: #ffd166; }
+    #s5-card { position: absolute; right: 150px; top: 800px; width: 560px; }
+    #s5-card-in { background: rgba(16,22,38,0.85); border: 1px solid rgba(255,209,102,0.45); border-radius: 18px; padding: 26px 32px; font-size: 27px; line-height: 1.35; color: #e8e6df; }
+    #s5-card-in b { color: #ffd166; }
+  </style>
+  <div data-hf-id="hf-09e4" id="root" data-composition-id="s5-trust" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-os90" id="s5-stage">
+      <div data-hf-id="hf-c0r0" id="s5-kicker" class="clip" data-start="0.1" data-duration="8.75" data-track-index="1">
+        <div data-hf-id="hf-jpeb" id="s5-kicker-in">WHEN PANIC HITS, MONEY RUNS ONE WAY</div>
+      </div>
+      <div data-hf-id="hf-5lzb" id="s5-head" class="clip" data-start="0.4" data-duration="8.45" data-track-index="1">
+        <div data-hf-id="hf-jr34" id="s5-head-in"><span data-hf-id="hf-avb8" class="s5-word s5-num"><span data-hf-id="hf-u77t" id="s5-num-val">0</span>%</span> <span data-hf-id="hf-javn" class="s5-word">OF</span> <span data-hf-id="hf-7ltd" class="s5-word">THE</span> <span data-hf-id="hf-edyg" class="s5-word">WORLD'S</span> <span data-hf-id="hf-pozr" class="s5-word">RESERVES</span> <span data-hf-id="hf-z8j2" class="s5-word">SIT</span> <span data-hf-id="hf-i67x" class="s5-word">IN</span> <span data-hf-id="hf-xn5l" class="s5-word">DOLLARS</span></div>
+      </div>
+      <div data-hf-id="hf-frot" id="s5-chart" class="clip" data-start="1.6" data-duration="7.25" data-track-index="1">
+        <div data-hf-id="hf-5xqt" id="s5-axis"></div>
+        <div data-hf-id="hf-524c" class="s5-bar" id="s5-b-usd"><div data-hf-id="hf-uuvs" class="s5-bar-v" id="s5-v-usd">57%</div><div data-hf-id="hf-06sd" class="s5-bar-in" id="s5-bar-usd"></div><div data-hf-id="hf-umhh" class="s5-bar-l">USD $</div></div>
+        <div data-hf-id="hf-y7mo" class="s5-bar" id="s5-b-eur"><div data-hf-id="hf-ckty" class="s5-bar-v" id="s5-v-eur">20%</div><div data-hf-id="hf-3tnx" class="s5-bar-in" id="s5-bar-eur"></div><div data-hf-id="hf-uw4t" class="s5-bar-l">EUR €</div></div>
+        <div data-hf-id="hf-xh2v" class="s5-bar" id="s5-b-oth"><div data-hf-id="hf-p46q" class="s5-bar-v" id="s5-v-oth">≈10%</div><div data-hf-id="hf-nl86" class="s5-bar-in" id="s5-bar-oth"></div><div data-hf-id="hf-rv1c" class="s5-bar-l">OTHERS</div></div>
+        <div data-hf-id="hf-ye93" class="s5-bar" id="s5-b-jpy"><div data-hf-id="hf-7yuv" class="s5-bar-v" id="s5-v-jpy">6%</div><div data-hf-id="hf-37ni" class="s5-bar-in" id="s5-bar-jpy"></div><div data-hf-id="hf-zkmz" class="s5-bar-l">JPY ¥</div></div>
+        <div data-hf-id="hf-nbxd" class="s5-bar" id="s5-b-gbp"><div data-hf-id="hf-lrm2" class="s5-bar-v" id="s5-v-gbp">5%</div><div data-hf-id="hf-ehsc" class="s5-bar-in" id="s5-bar-gbp"></div><div data-hf-id="hf-3y5b" class="s5-bar-l">GBP £</div></div>
+        <div data-hf-id="hf-2nfk" class="s5-bar" id="s5-b-cny"><div data-hf-id="hf-fhw0" class="s5-bar-v" id="s5-v-cny">2%</div><div data-hf-id="hf-0wnp" class="s5-bar-in" id="s5-bar-cny"></div><div data-hf-id="hf-j6bx" class="s5-bar-l">CNY</div></div>
+        <div data-hf-id="hf-uxgl" id="s5-chart-cap"><div data-hf-id="hf-fdn5" id="s5-chart-cap-in">SHARE OF GLOBAL FX RESERVES · SOURCE: IMF COFER (≈2025) · TRUE SCALE</div></div>
+      </div>
+      <div data-hf-id="hf-xuih" id="s5-stack" class="clip" data-start="3.6" data-duration="5.25" data-track-index="1">
+        <div data-hf-id="hf-2gj4" class="s5-stack-row" id="s5-r1"><div data-hf-id="hf-cbp9" class="s5-stack-in" id="s5-r1-in"><div data-hf-id="hf-hvq8" class="s5-stack-word">DEEP.</div><div data-hf-id="hf-wl8y" class="s5-stack-note">trillions in US Treasury bonds</div></div></div>
+        <div data-hf-id="hf-dc0r" class="s5-stack-row" id="s5-r2"><div data-hf-id="hf-ypz4" class="s5-stack-in" id="s5-r2-in"><div data-hf-id="hf-m6ei" class="s5-stack-word">LIQUID.</div><div data-hf-id="hf-ldg2" class="s5-stack-note">sellable in seconds, in size, at 3 a.m.</div></div></div>
+        <div data-hf-id="hf-9dwq" class="s5-stack-row" id="s5-r3"><div data-hf-id="hf-zcl7" class="s5-stack-in" id="s5-r3-in"><div data-hf-id="hf-kejz" class="s5-stack-word">TRUSTED.</div><div data-hf-id="hf-a906" class="s5-stack-note">backed by the largest economy + rule of law</div></div></div>
+      </div>
+      <div data-hf-id="hf-92kz" id="s5-card" class="clip" data-start="6.6" data-duration="2.25" data-track-index="1">
+        <div data-hf-id="hf-rgvy" id="s5-card-in">The world's savings account has an address: <b data-hf-id="hf-oues">US Treasuries.</b></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s5-stage", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0);
+      tl.fromTo("#s5-kicker-in", { opacity: 0, scale: 1.06, filter: "blur(6px)", transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.1);
+      tl.fromTo("#s5-head-in .s5-word", { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.15, ease: "power4.out", stagger: 0.07 }, 0.4);
+      const num = { v: 0 };
+      const numEl = document.getElementById("s5-num-val");
+      tl.to(num, { v: 57, duration: 1.15, ease: "power3.inOut", onUpdate: function () { numEl.textContent = String(Math.round(num.v)); } }, 0.5);
+      // Bars grow from the axis on back.out springs, values follow.
+      const bars = ["#s5-bar-usd", "#s5-bar-eur", "#s5-bar-oth", "#s5-bar-jpy", "#s5-bar-gbp", "#s5-bar-cny"];
+      const vals = ["#s5-v-usd", "#s5-v-eur", "#s5-v-oth", "#s5-v-jpy", "#s5-v-gbp", "#s5-v-cny"];
+      bars.forEach((sel, i) => {
+        tl.fromTo(sel, { scaleY: 0 }, { scaleY: 1, duration: 0.65, ease: "back.out(1.35)" }, 1.6 + i * 0.09);
+        tl.fromTo(vals[i], { opacity: 0 }, { opacity: 1, duration: 0.2, ease: "power1.out" }, 1.95 + i * 0.09);
+      });
+      tl.fromTo("#s5-chart-cap-in", { opacity: 0 }, { opacity: 1, duration: 0.3, ease: "power1.out" }, 2.7);
+      // DEEP / LIQUID / TRUSTED stack builds one reason at a time.
+      ["#s5-r1-in", "#s5-r2-in", "#s5-r3-in"].forEach((sel, i) => {
+        tl.fromTo(sel, { opacity: 0, x: 64, filter: "blur(8px)" },
+          { opacity: 1, x: 0, filter: "blur(0px)", duration: 0.42, ease: "expo.out" }, 3.6 + i * 0.75);
+      });
+      tl.fromTo("#s5-card-in", { opacity: 0, scale: 0.92, filter: "blur(8px)" },
+        { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.4, ease: "expo.out" }, 6.6);
+      tl.to("#s5-stage", { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, 8.7);
+      window.__timelines["s5-trust"] = tl;
+    })();
+  </script>
+</template>

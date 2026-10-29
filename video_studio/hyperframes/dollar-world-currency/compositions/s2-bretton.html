@@ -1,0 +1,92 @@
+<template>
+  <style>
+    @font-face { font-family: "Inter"; font-weight: 400; src: url("assets/fonts/inter-latin-400-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 600; src: url("assets/fonts/inter-latin-600-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Inter"; font-weight: 800; src: url("assets/fonts/inter-latin-800-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 500; src: url("assets/fonts/space-grotesk-latin-500-normal.woff2") format("woff2"); }
+    @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("assets/fonts/space-grotesk-latin-700-normal.woff2") format("woff2"); }
+    #root { position: absolute; inset: 0; font-family: "Inter", sans-serif; color: #f4f2ec; }
+    #s2-stage { position: absolute; inset: 0; }
+    #s2-kicker { position: absolute; left: 150px; top: 128px; }
+    #s2-kicker-in { font-size: 26px; font-weight: 800; letter-spacing: 0.34em; color: #ffd166; }
+    #s2-year { position: absolute; left: 146px; top: 168px; }
+    #s2-year-in { font-family: "Space Grotesk", sans-serif; font-size: 198px; font-weight: 700; line-height: 1; color: #f4f2ec; }
+    #s2-year-in .s2-gold { color: #ffd166; }
+    #s2-head { position: absolute; left: 150px; top: 392px; width: 980px; }
+    #s2-head-in { font-family: "Space Grotesk", sans-serif; font-size: 74px; font-weight: 700; line-height: 1.04; }
+    #s2-head-in .s2-word { display: inline-block; }
+    .s2-green { color: #2ee66b; }
+    #s2-tl { position: absolute; left: 150px; top: 620px; width: 1120px; height: 130px; }
+    #s2-tl-line { position: absolute; left: 0; top: 26px; width: 1120px; height: 3px; background: rgba(244,242,236,0.55); transform-origin: 0% 50%; }
+    .s2-node { position: absolute; top: 0; width: 300px; }
+    .s2-node-in { }
+    .s2-dot { width: 19px; height: 19px; border-radius: 50%; background: #ffd166; margin-top: 18px; box-shadow: 0 0 18px rgba(255,209,102,0.8); }
+    .s2-node-y { font-family: "Space Grotesk", sans-serif; font-size: 34px; font-weight: 700; margin-top: 12px; }
+    .s2-node-t { font-size: 23px; font-weight: 400; color: #a7a7b3; margin-top: 2px; line-height: 1.25; }
+    #s2-n1 { left: 0; } #s2-n2 { left: 430px; } #s2-n3 { left: 840px; }
+    #s2-card { position: absolute; left: 150px; top: 790px; width: 1120px; }
+    #s2-card-in { background: rgba(16,22,38,0.82); border: 1px solid rgba(255,209,102,0.45); border-radius: 20px; padding: 30px 40px; transform-origin: 0% 50%; }
+    #s2-peg { font-family: "Space Grotesk", sans-serif; font-size: 56px; font-weight: 700; white-space: nowrap; }
+    #s2-peg .s2-arrow { color: #4cc9f0; }
+    #s2-peg .s2-usd { color: #2ee66b; }
+    #s2-peg .s2-goldtx { color: #ffd166; }
+    #s2-peg-sub { font-size: 27px; color: #c9c9d4; margin-top: 10px; }
+    #s2-source { position: absolute; left: 150px; top: 1006px; }
+    #s2-source-in { font-size: 20px; letter-spacing: 0.08em; color: rgba(167,167,179,0.85); }
+  </style>
+  <div data-hf-id="hf-410p" id="root" data-composition-id="s2-bretton" data-width="1920" data-height="1080">
+    <div data-hf-id="hf-pmtr" id="s2-stage">
+      <div data-hf-id="hf-2woy" id="s2-kicker" class="clip" data-start="0.1" data-duration="7.75" data-track-index="1">
+        <div data-hf-id="hf-cwem" id="s2-kicker-in">Bretton Woods · NEW HAMPSHIRE</div>
+      </div>
+      <div data-hf-id="hf-jrh2" id="s2-year" class="clip" data-start="0.15" data-duration="7.7" data-track-index="1">
+        <div data-hf-id="hf-5c00" id="s2-year-in"><span data-hf-id="hf-usa8" id="s2-year-num">1900</span></div>
+      </div>
+      <div data-hf-id="hf-e73l" id="s2-head" class="clip" data-start="1.75" data-duration="6.1" data-track-index="1">
+        <div data-hf-id="hf-iben" id="s2-head-in"><span data-hf-id="hf-dkdr" class="s2-word">44</span> <span data-hf-id="hf-ab99" class="s2-word">NATIONS.</span> <span data-hf-id="hf-cokw" class="s2-word s2-green">ONE</span> <span data-hf-id="hf-edh8" class="s2-word s2-green">DEAL.</span></div>
+      </div>
+      <div data-hf-id="hf-hn32" id="s2-tl" class="clip" data-start="2.9" data-duration="4.95" data-track-index="1">
+        <div data-hf-id="hf-errq" id="s2-tl-line"></div>
+        <div data-hf-id="hf-gwmt" class="s2-node" id="s2-n1"><div data-hf-id="hf-onm7" class="s2-node-in" id="s2-n1-in"><div data-hf-id="hf-emy9" class="s2-dot"></div><div data-hf-id="hf-qmi4" class="s2-node-y">1944</div><div data-hf-id="hf-ih30" class="s2-node-t">Currencies peg to the dollar</div></div></div>
+        <div data-hf-id="hf-kuqu" class="s2-node" id="s2-n2"><div data-hf-id="hf-y8am" class="s2-node-in" id="s2-n2-in"><div data-hf-id="hf-cko5" class="s2-dot"></div><div data-hf-id="hf-g1t4" class="s2-node-y">1971</div><div data-hf-id="hf-3rzo" class="s2-node-t">Gold window closes — habit stays</div></div></div>
+        <div data-hf-id="hf-r0gn" class="s2-node" id="s2-n3"><div data-hf-id="hf-b11d" class="s2-node-in" id="s2-n3-in"><div data-hf-id="hf-drl8" class="s2-dot"></div><div data-hf-id="hf-82fb" class="s2-node-y">TODAY</div><div data-hf-id="hf-l4ld" class="s2-node-t">The peg is gone. The network isn't.</div></div></div>
+      </div>
+      <div data-hf-id="hf-nlxp" id="s2-card" class="clip" data-start="4.6" data-duration="3.25" data-track-index="1">
+        <div data-hf-id="hf-i8rf" id="s2-card-in">
+          <div data-hf-id="hf-yxz5" id="s2-peg">£&nbsp;&nbsp;¥&nbsp;&nbsp;FF&nbsp;&nbsp;<span data-hf-id="hf-3yig" class="s2-arrow">→</span>&nbsp;&nbsp;<span data-hf-id="hf-z5ce" class="s2-usd">$1</span>&nbsp;&nbsp;<span data-hf-id="hf-gsi8" class="s2-arrow">→</span>&nbsp;&nbsp;<span data-hf-id="hf-99xw" class="s2-goldtx">GOLD · $35 / OZ</span></div>
+          <div data-hf-id="hf-17xu" id="s2-peg-sub">Every currency pegged to the dollar. The dollar pegged to gold.</div>
+        </div>
+      </div>
+      <div data-hf-id="hf-nmhi" id="s2-source" class="clip" data-start="5.1" data-duration="2.75" data-track-index="1">
+        <div data-hf-id="hf-lta7" id="s2-source-in">SOURCE · BRETTON WOODS AGREEMENTS, JULY 1944</div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function () {
+      const tl = gsap.timeline({ paused: true });
+      tl.fromTo("#s2-stage", { opacity: 0, filter: "blur(10px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.2, ease: "power4.out" }, 0);
+      tl.fromTo("#s2-kicker-in", { opacity: 0, scale: 1.06, filter: "blur(6px)", transformOrigin: "0% 50%" }, { opacity: 1, scale: 1, filter: "blur(0px)", duration: 0.5, ease: "expo.out" }, 0.1);
+      // Year odometer 1900 -> 1944, accelerating then landing.
+      const odo = { y: 1900 };
+      const numEl = document.getElementById("s2-year-num");
+      tl.fromTo("#s2-year-in", { opacity: 0, filter: "blur(12px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.3, ease: "power4.out" }, 0.15);
+      tl.to(odo, { y: 1944, duration: 1.25, ease: "power3.inOut", onUpdate: function () { numEl.textContent = String(Math.round(odo.y)); } }, 0.3);
+      tl.fromTo("#s2-year-in", { scale: 1 }, { scale: 1.04, duration: 0.12, ease: "power2.out", yoyo: true, repeat: 1 }, 1.58);
+      // Headline: per-word blur-in, no translate.
+      tl.fromTo("#s2-head-in .s2-word", { opacity: 0, filter: "blur(8px)" },
+        { opacity: 1, filter: "blur(0px)", duration: 0.16, ease: "power4.out", stagger: 0.09 }, 1.75);
+      // Timeline rule draws, nodes pop in spoken order.
+      tl.fromTo("#s2-tl-line", { scaleX: 0 }, { scaleX: 1, duration: 0.85, ease: "power2.inOut" }, 2.9);
+      ["#s2-n1-in", "#s2-n2-in", "#s2-n3-in"].forEach((sel, i) => {
+        tl.fromTo(sel, { opacity: 0, scale: 0.6 }, { opacity: 1, scale: 1, duration: 0.38, ease: "back.out(1.7)" }, 3.0 + i * 0.42);
+      });
+      // Peg card morphs wide with a horizontal blur.
+      tl.fromTo("#s2-card-in", { opacity: 0, scaleX: 0.25, filter: "blur(10px)" },
+        { opacity: 1, scaleX: 1, filter: "blur(0px)", duration: 0.5, ease: "power3.out" }, 4.6);
+      tl.fromTo("#s2-source-in", { opacity: 0 }, { opacity: 1, duration: 0.25, ease: "power1.out" }, 5.1);
+      tl.to("#s2-stage", { opacity: 0, filter: "blur(10px)", duration: 0.22, ease: "power3.in" }, 7.7);
+      window.__timelines["s2-bretton"] = tl;
+    })();
+  </script>
+</template>
