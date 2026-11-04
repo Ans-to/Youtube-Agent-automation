@@ -7,7 +7,7 @@
     "render": "node render.js storyboard.example.json"
   },
   "dependencies": {
-    "@napi-rs/canvas": "1.0.13",
+    "@napi-rs/canvas": "1.1.0",
     "puppeteer": "25.14.0"
   }
 }
